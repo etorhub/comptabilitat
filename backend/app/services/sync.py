@@ -35,8 +35,10 @@ from app.models.enums import (
     TransactionStatus,
 )
 from app.services.alerts import create_alert
+from app.services.classification import classify_transaction
 from app.services.merchants import get_or_create_merchant
 from app.services.normalization import normalize_description
+from app.services.rules import active_rules
 
 logger = logging.getLogger(__name__)
 
@@ -283,6 +285,8 @@ def _upsert_transactions(
     by_key = {item.dedup_key: item for item in existing}
     pending = [item for item in existing if item.status == TransactionStatus.PENDING]
     seen_keys: set[str] = set()
+    # Es carreguen un sol cop: la mateixa llista serveix per a tots els moviments.
+    rules = active_rules(db)
 
     for parsed in parsed_items:
         key = parsed.dedup_key()
@@ -327,6 +331,7 @@ def _upsert_transactions(
         db.add(transaction)
         db.flush()
         _apply_descriptors(db, transaction, parsed)
+        classify_transaction(db, transaction, rules)
         by_key[key] = transaction
         result.inserted += 1
 
