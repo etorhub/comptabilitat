@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+
+# Entorn i secrets
+.env
+*.pem
+*.key
+
+# Copies de seguretat locals
+deploy/backups/*.sql.gz
