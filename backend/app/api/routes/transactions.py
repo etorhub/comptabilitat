@@ -173,7 +173,14 @@ def update_transaction(
         if remember and transaction.merchant_id:
             merchant = db.get(Merchant, transaction.merchant_id)
             if merchant is not None:
-                remember_merchant_choice(db, merchant, category_id)
+                remember_merchant_choice(
+                    db,
+                    merchant,
+                    category_id,
+                    ledger_ids=None
+                    if user.is_admin
+                    else resolve_ledger_scope(db, user, None, LedgerRole.EDITOR),
+                )
         if create_rule:
             build_learned_rule(db, transaction, category_id, created_by_id=user.id)
 
@@ -231,7 +238,9 @@ def bulk_categorize(payload: BulkCategorize, db: DbSession, user: CurrentUser):
         for merchant_id in merchants:
             merchant = db.get(Merchant, merchant_id)
             if merchant is not None:
-                remember_merchant_choice(db, merchant, payload.category_id)
+                remember_merchant_choice(
+                    db, merchant, payload.category_id, ledger_ids=None if user.is_admin else allowed
+                )
 
     db.commit()
     return Message(message=f"{len(transactions)} moviments actualitzats")

@@ -5,13 +5,31 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 
-from app.deps import CurrentUser, DbSession
-from app.models import Category, Merchant
+from app.deps import CurrentUser, DbSession, accessible_ledger_ids, resolve_ledger_scope
+from app.models import Category, Merchant, Transaction
+from app.models.enums import LedgerRole
 from app.schemas.common import Page
 from app.schemas.transaction import MerchantOut, MerchantUpdate
 from app.services.classification import remember_merchant_choice
 
 router = APIRouter(prefix="/merchants", tags=["comercos"])
+
+
+def _vist_als_llibres_permesos(db: DbSession, user):
+    """Condicio que limita els comercos als vistos als llibres de l'usuari.
+
+    Els noms dels comercos inclouen persones (transferencies, Bizum), aixi que
+    un usuari que nomes te un llibre no ha de veure els de la resta.
+    """
+    scope = resolve_ledger_scope(db, user, None)
+    return (
+        select(Transaction.id)
+        .where(
+            Transaction.merchant_id == Merchant.id,
+            Transaction.ledger_id.in_(scope),
+        )
+        .exists()
+    )
 
 
 @router.get("", response_model=Page[MerchantOut])
@@ -24,7 +42,7 @@ def list_merchants(
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ):
-    condition = []
+    condition = [] if user.is_admin else [_vist_als_llibres_permesos(db, user)]
     if search:
         pattern = f"%{search.strip()}%"
         condition.append(
@@ -58,6 +76,19 @@ def update_merchant(merchant_id: int, payload: MerchantUpdate, db: DbSession, us
     if merchant is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Comerc no trobat")
 
+    editables = accessible_ledger_ids(db, user, LedgerRole.EDITOR)
+    if not user.is_admin:
+        vist = db.scalar(
+            select(Transaction.id)
+            .where(
+                Transaction.merchant_id == merchant.id,
+                Transaction.ledger_id.in_(editables),
+            )
+            .limit(1)
+        )
+        if vist is None:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Sense permis sobre aquest comerc")
+
     data = payload.model_dump(exclude_unset=True)
     if display_name := data.get("display_name"):
         merchant.display_name = display_name[:200]
@@ -67,7 +98,13 @@ def update_merchant(merchant_id: int, payload: MerchantUpdate, db: DbSession, us
         if category_id is not None and db.get(Category, category_id) is None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Categoria inexistent")
         remember_merchant_choice(
-            db, merchant, category_id, apply_to_existing=payload.apply_to_existing
+            db,
+            merchant,
+            category_id,
+            apply_to_existing=payload.apply_to_existing,
+            # La memoria de comercos es compartida, pero recategoritzar moviments
+            # nomes pot afectar els llibres on l'usuari pot editar.
+            ledger_ids=None if user.is_admin else editables,
         )
 
     db.commit()

@@ -128,9 +128,17 @@ def apply_rule_to_existing(db: Session, rule: Rule) -> int:
 
 
 def remember_merchant_choice(
-    db: Session, merchant: Merchant, category_id: int | None, apply_to_existing: bool = True
+    db: Session,
+    merchant: Merchant,
+    category_id: int | None,
+    apply_to_existing: bool = True,
+    ledger_ids: list[int] | None = None,
 ) -> int:
-    """Desa la decisio de l'usuari sobre un comerc i la propaga si cal."""
+    """Desa la decisio de l'usuari sobre un comerc i la propaga si cal.
+
+    Amb `ledger_ids` la propagacio es limita a aquests llibres, perque un usuari
+    no recategoritzi moviments de llibres que no pot ni veure.
+    """
     merchant.default_category_id = category_id
     merchant.category_source = CategorySource.USER
     merchant.is_confirmed = True
@@ -139,12 +147,16 @@ def remember_merchant_choice(
         db.flush()
         return 0
 
+    condicions = [
+        Transaction.merchant_id == merchant.id,
+        Transaction.category_source != CategorySource.USER,
+    ]
+    if ledger_ids is not None:
+        condicions.append(Transaction.ledger_id.in_(ledger_ids))
+
     result = db.execute(
         update(Transaction)
-        .where(
-            Transaction.merchant_id == merchant.id,
-            Transaction.category_source != CategorySource.USER,
-        )
+        .where(*condicions)
         .values(
             category_id=category_id,
             category_source=CategorySource.MERCHANT,
@@ -162,7 +174,12 @@ def build_learned_rule(
     category_id: int | None,
     created_by_id: int | None = None,
 ) -> Rule | None:
-    """Crea una regla a partir d'una correccio de l'usuari."""
+    """Crea una regla a partir d'una correccio de l'usuari.
+
+    La regla queda lligada al llibre del moviment: qui la crea nomes te permis
+    sobre aquell llibre, i una regla global podria recategoritzar moviments que
+    ni tan sols pot veure.
+    """
     pattern = transaction.normalized_description or transaction.counterparty
     if not pattern or category_id is None:
         return None
@@ -171,6 +188,7 @@ def build_learned_rule(
         select(Rule).where(
             Rule.source == RuleSource.LEARNED,
             Rule.set_category_id == category_id,
+            Rule.ledger_id == transaction.ledger_id,
             Rule.name == pattern[:160],
         )
     )
@@ -179,6 +197,7 @@ def build_learned_rule(
 
     rule = Rule(
         name=pattern[:160],
+        ledger_id=transaction.ledger_id,
         priority=50,
         conditions=[{"field": "normalized_description", "operator": "equals", "value": pattern}],
         set_category_id=category_id,
