@@ -25,13 +25,27 @@ def cmd_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _valida_correu(email: str) -> str | None:
+    """L'API exigeix una adreça valida: si no ho es, l'usuari no podria entrar mai."""
+    from pydantic import TypeAdapter, ValidationError
+    from pydantic.networks import EmailStr
+
+    try:
+        return TypeAdapter(EmailStr).validate_python(email.strip()).lower()
+    except ValidationError:
+        return None
+
+
 def cmd_create_user(args: argparse.Namespace) -> int:
     password = args.password or getpass.getpass("Contrasenya: ")
     if len(password) < 10:
         print("La contrasenya ha de tenir com a minim 10 caracters", file=sys.stderr)
         return 1
+    email = _valida_correu(args.email)
+    if email is None:
+        print(f"«{args.email}» no es una adreça de correu valida", file=sys.stderr)
+        return 1
     with session_scope() as db:
-        email = args.email.lower()
         if db.scalar(select(User).where(User.email == email)):
             print(f"L'usuari {email} ja existeix", file=sys.stderr)
             return 1
@@ -71,6 +85,33 @@ def cmd_grant(args: argparse.Namespace) -> int:
         else:
             permission.role = role
         print(f"{args.email} → {ledger.name}: {role.value}")
+    return 0
+
+
+def cmd_demo(args: argparse.Namespace) -> int:
+    """Omple la base de dades amb moviments d'exemple per provar l'aplicacio."""
+    from app.config import settings
+    from app.services.demo import seed_demo_data
+
+    if _valida_correu(args.email) is None:
+        print(f"«{args.email}» no es una adreça de correu valida", file=sys.stderr)
+        return 1
+
+    if settings.environment == "production" and not args.force:
+        print(
+            "Aixo crea un usuari amb una contrasenya coneguda i no s'ha d'executar "
+            "en produccio. Si realment ho vols, afegeix --force.",
+            file=sys.stderr,
+        )
+        return 1
+
+    with session_scope() as db:
+        resultat = seed_demo_data(db, email=args.email, password=args.password)
+
+    for clau, valor in resultat.items():
+        print(f"{clau.replace('_', ' ')}: {valor}")
+    if resultat.get("estat") == "fet":
+        print(f"\nJa pots entrar amb {args.email} / {args.password}")
     return 0
 
 
@@ -122,6 +163,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_grant.add_argument("--ledger", required=True, help="Codi del llibre")
     p_grant.add_argument("--role", default="viewer", choices=[r.value for r in LedgerRole])
     p_grant.set_defaults(func=cmd_grant)
+
+    p_demo = sub.add_parser("demo", help="Omple la base de dades amb dades d'exemple")
+    p_demo.add_argument("--email", default="demo@exemple.cat")
+    p_demo.add_argument("--password", default="comptabilitat")
+    p_demo.add_argument("--force", action="store_true", help="Permet-ho tambe en produccio")
+    p_demo.set_defaults(func=cmd_demo)
 
     p_sync = sub.add_parser("sync", help="Sincronitza els moviments amb el banc")
     p_sync.add_argument("--connection-id", type=int)

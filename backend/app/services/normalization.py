@@ -108,6 +108,12 @@ MONTHS = {
 # Sigles societaries que es deixen en majuscules encara que siguin llargues.
 COMPANY_SUFFIXES = {"SA", "SL", "SLU", "SAU", "SARL", "SCP", "SCCL", "SAS", "BV", "GMBH", "LTD"}
 
+# Enllaços que dins d'un nom van en minuscula.
+CONNECTORS = {"DE", "DEL", "DELS", "LA", "LES", "EL", "ELS", "I", "Y", "D'", "DA", "DO", "EN"}
+
+# Paraules curtes que son paraules de debo, no sigles: «Bar», no «BAR».
+SHORT_WORDS = {"BAR", "CAL", "CAN", "MAS", "MAR", "SOL", "VIA", "PAN", "SUD", "RIU", "CASA"}
+
 # Paraules finals que solen ser la poblacio o dades del terminal.
 TRAILING_NOISE = {
     "ES",
@@ -179,8 +185,13 @@ def normalize_description(description: str, counterparty: str = "") -> tuple[str
 def display_name(normalized: str) -> str:
     """Converteix la clau en majuscules en un nom llegible."""
     words = []
-    for word in normalized.split():
-        if word in COMPANY_SUFFIXES or (len(word) <= 3 and word.isupper() and not word.isdigit()):
+    for position, word in enumerate(normalized.split()):
+        if position > 0 and word in CONNECTORS:
+            # «Comunitat de Propietaris», no «Comunitat DE Propietaris».
+            words.append(word.lower())
+        elif word in COMPANY_SUFFIXES or (
+            len(word) <= 3 and word.isupper() and not word.isdigit() and word not in SHORT_WORDS
+        ):
             # Sigles i codis curts com SA, SL, 4B es deixen tal qual.
             words.append(word)
         else:

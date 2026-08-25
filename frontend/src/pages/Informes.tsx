@@ -183,12 +183,22 @@ export function Informes() {
                 alçada={280}
                 opcions={{
                   tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+                  // Marge fix a l'esquerra: els noms dels comerços són llargs i
+                  // el càlcul automàtic no els acaba de reservar prou espai.
+                  grid: { left: 150, right: 16, top: 16, bottom: 24 },
                   xAxis: { type: "value", ...eix.valor },
                   yAxis: {
                     type: "category",
                     inverse: true,
                     data: comercos.data?.slice(0, 10).map((item) => item.merchant_name),
                     ...eix.categoria,
+                    axisLabel: {
+                      ...eix.categoria.axisLabel,
+                      // Els noms llargs es retallen amb punts suspensius en comptes
+                      // de quedar tallats per la vora de la gràfica.
+                      width: 140,
+                      overflow: "truncate",
+                    },
                   },
                   series: [
                     {

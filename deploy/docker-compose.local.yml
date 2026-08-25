@@ -1,0 +1,83 @@
+# Stack per provar-ho a la teva maquina.
+#
+#   docker compose -f deploy/docker-compose.local.yml up -d --build
+#   docker compose -f deploy/docker-compose.local.yml exec api python -m app.cli demo
+#   obre http://localhost:8080
+#
+# A diferencia del de produccio: publica ports a localhost, no necessita ni el
+# tunel de Cloudflare ni les claus d'Enable Banking, i les galetes no son
+# «secure» perque aqui no hi ha HTTPS.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: comptabilitat
+      POSTGRES_PASSWORD: comptabilitat
+      POSTGRES_DB: comptabilitat
+    ports:
+      # Per poder-hi entrar amb psql o amb un client grafic des de la maquina.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db_local:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U comptabilitat"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: ../backend
+    restart: unless-stopped
+    command: ["api"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://comptabilitat:comptabilitat@db:5432/comptabilitat
+      ENVIRONMENT: local
+      DEBUG: "true"
+      SECRET_KEY: clau-nomes-per-a-proves-locals
+      PUBLIC_BASE_URL: http://localhost:8080
+      COOKIE_SECURE: "false"
+      TIMEZONE: Europe/Madrid
+      # Sense planificador: aqui les feines es llancen a ma quan convingui.
+      SCHEDULER_ENABLED: "false"
+      OLLAMA_ENABLED: "${OLLAMA_ENABLED:-false}"
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen3:4b}"
+      # Omple-les nomes si vols provar el sandbox d'Enable Banking.
+      EB_APPLICATION_ID: "${EB_APPLICATION_ID:-}"
+      EB_PRIVATE_KEY: "${EB_PRIVATE_KEY:-}"
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  web:
+    build:
+      context: ../frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      - api
+
+  # Opcional: `docker compose -f deploy/docker-compose.local.yml --profile ai up -d`
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    profiles: [ai]
+    volumes:
+      - ollama_local:/root/.ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+
+volumes:
+  db_local:
+  ollama_local:

@@ -15,8 +15,8 @@ persona de la família.
 |---|---|
 | `backend/` | API FastAPI, models SQLAlchemy, migracions Alembic i feines programades |
 | `frontend/` | Interfície React + TypeScript |
-| `deploy/` | Stack de Docker Compose per a Portainer, túnel de Cloudflare i còpies |
-| `docs/` | Enable Banking, desplegament i operació |
+| `deploy/` | Stacks de Docker Compose (producció i local), túnel de Cloudflare i còpies |
+| `docs/` | Provar-ho en local, Enable Banking, desplegament i operació |
 
 ## Com funciona
 
@@ -43,28 +43,23 @@ extrems descartats, en banda esperada, optimista i pessimista.
 **Traspassos.** Moure diners entre comptes propis no és ni ingrés ni despesa: els imports
 oposats en comptes diferents dins de tres dies s'aparellen i queden fora dels informes.
 
-## Posada en marxa
+## Provar-ho ara mateix
+
+Amb Docker, sense credencials del banc ni túnel:
+
+```bash
+make up      # arrenca-ho tot
+make demo    # 18 mesos de moviments d'exemple
+```
+
+Obre **http://localhost:8080** i entra amb `demo@exemple.cat` / `comptabilitat`.
+Els detalls, i com fer-ho sense Docker, a [`docs/provar-en-local.md`](docs/provar-en-local.md).
+
+## Posada en marxa de debò
 
 - **Al NAS**: [`docs/desplegament.md`](docs/desplegament.md)
 - **Enable Banking**: [`docs/enable-banking.md`](docs/enable-banking.md)
 - **Dia a dia**: [`docs/operacio.md`](docs/operacio.md)
-
-### En local
-
-```bash
-python3 -m venv .venv && .venv/bin/pip install -e "backend[dev]"
-docker run -d --name comptabilitat-db -e POSTGRES_USER=comptabilitat \
-  -e POSTGRES_PASSWORD=comptabilitat -e POSTGRES_DB=comptabilitat \
-  -p 5432:5432 postgres:16-alpine
-
-export DATABASE_URL="postgresql+psycopg://comptabilitat:comptabilitat@localhost:5432/comptabilitat"
-export COOKIE_SECURE=false
-cd backend && alembic upgrade head && python -m app.cli init
-python -m app.cli create-user --email tu@example.com --admin
-uvicorn app.main:app --reload
-```
-
-I en un altre terminal, `cd frontend && npm install && npm run dev`.
 
 ## Proves
 
