@@ -11,6 +11,7 @@ from app.api.routes import (
     auth,
     categories,
     connections,
+    exports,
     ledgers,
     merchants,
     recurring,
@@ -32,3 +33,4 @@ api_router.include_router(rules.router)
 api_router.include_router(recurring.router)
 api_router.include_router(alerts.router)
 api_router.include_router(analytics.router)
+api_router.include_router(exports.router)

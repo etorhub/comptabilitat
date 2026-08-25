@@ -124,13 +124,18 @@ def category_breakdown(
     parent = Category.__table__.alias("parent")
     sign_filter = Transaction.amount < 0 if expenses else Transaction.amount > 0
     total_expression = func.sum(func.abs(Transaction.amount))
+    # Els moviments d'una subcategoria s'agrupen sota el seu pare; els que no en
+    # tenen (o no estan classificats) es queden com estan.
+    group_id = func.coalesce(parent.c.id, Category.id)
+    group_name = func.coalesce(parent.c.name, Category.name)
+    group_color = func.coalesce(parent.c.color, Category.color)
 
     query = (
         base_filter(
             select(
-                func.coalesce(parent.c.id, Category.id).label("group_id"),
-                func.coalesce(parent.c.name, Category.name).label("group_name"),
-                func.coalesce(parent.c.color, Category.color).label("color"),
+                group_id.label("group_id"),
+                group_name.label("group_name"),
+                group_color.label("color"),
                 total_expression.label("amount"),
                 func.count(Transaction.id).label("transactions"),
             ),
@@ -141,7 +146,7 @@ def category_breakdown(
         .join(Category, Category.id == Transaction.category_id, isouter=True)
         .join(parent, parent.c.id == Category.parent_id, isouter=True)
         .where(sign_filter)
-        .group_by("group_id", "group_name", "color")
+        .group_by(group_id, group_name, group_color)
         .order_by(total_expression.desc())
         .limit(limit)
     )
