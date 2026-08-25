@@ -6,7 +6,8 @@ import enum
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, Enum as SAEnum, MetaData, Numeric, func
+from sqlalchemy import DateTime, MetaData, Numeric, func
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # Convencio de noms perque Alembic pugui generar migracions estables.

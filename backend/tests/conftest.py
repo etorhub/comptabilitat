@@ -10,7 +10,9 @@ import sqlalchemy as sa
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 
-DEFAULT_TEST_URL = "postgresql+psycopg://comptabilitat:comptabilitat@localhost:55432/comptabilitat_test"
+DEFAULT_TEST_URL = (
+    "postgresql+psycopg://comptabilitat:comptabilitat@localhost:55432/comptabilitat_test"
+)
 TEST_DATABASE_URL = os.environ.setdefault("DATABASE_URL", DEFAULT_TEST_URL)
 os.environ.setdefault("SECRET_KEY", "clau-de-proves")
 os.environ.setdefault("COOKIE_SECURE", "false")
@@ -53,7 +55,14 @@ def db(engine: sa.Engine) -> Iterator[Session]:
     """Sessio dins d'una transaccio que es desfa en acabar cada prova."""
     connection = engine.connect()
     transaction = connection.begin()
-    session = sessionmaker(bind=connection, autoflush=False, expire_on_commit=False)()
+    # Amb `create_savepoint`, un rollback dins d'una ruta nomes desfa el seu
+    # punt de control i no la transaccio que aïlla la prova.
+    session = sessionmaker(
+        bind=connection,
+        autoflush=False,
+        expire_on_commit=False,
+        join_transaction_mode="create_savepoint",
+    )()
     try:
         yield session
     finally:

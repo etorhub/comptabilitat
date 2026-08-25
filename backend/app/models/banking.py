@@ -38,10 +38,10 @@ class BankConnection(Base, TimestampMixin):
     last_error: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
 
-    accounts: Mapped[list["Account"]] = relationship(
+    accounts: Mapped[list[Account]] = relationship(
         back_populates="connection", cascade="all, delete-orphan", lazy="selectin"
     )
-    sync_runs: Mapped[list["SyncRun"]] = relationship(
+    sync_runs: Mapped[list[SyncRun]] = relationship(
         back_populates="connection", cascade="all, delete-orphan"
     )
 
@@ -79,11 +79,11 @@ class Account(Base, TimestampMixin):
     raw: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
 
     connection: Mapped[BankConnection] = relationship(back_populates="accounts")
-    ledger: Mapped["Ledger | None"] = relationship(back_populates="accounts", lazy="selectin")
-    balances: Mapped[list["Balance"]] = relationship(
+    ledger: Mapped[Ledger | None] = relationship(back_populates="accounts", lazy="selectin")
+    balances: Mapped[list[Balance]] = relationship(
         back_populates="account", cascade="all, delete-orphan"
     )
-    transactions: Mapped[list["Transaction"]] = relationship(
+    transactions: Mapped[list[Transaction]] = relationship(
         back_populates="account", cascade="all, delete-orphan"
     )
 
@@ -132,7 +132,9 @@ class SyncRun(Base):
     )
     trigger: Mapped[SyncTrigger] = enum_column(SyncTrigger, nullable=False)
     status: Mapped[SyncStatus] = enum_column(SyncStatus, nullable=False)
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     accounts_synced: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     transactions_inserted: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

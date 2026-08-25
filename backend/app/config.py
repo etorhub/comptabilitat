@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     eb_api_origin: str = "https://api.enablebanking.com"
     eb_application_id: str = ""
     eb_private_key_path: Path = Path("/run/secrets/eb_private_key")
+    # Alternativa al fitxer: la clau en PEM directament (util en desenvolupament).
+    eb_private_key: str = ""
     eb_default_aspsp_name: str = "Santander"
     eb_default_aspsp_country: str = "ES"
     # Dies de validesa que demanem del consentiment (el maxim habitual sota PSD2 es 90).

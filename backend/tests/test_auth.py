@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from tests.conftest import grant, login, make_user
 from app.models.enums import LedgerRole
+from tests.conftest import grant, login, make_user
 
 
 def test_login_correcte_retorna_els_llibres_permesos(client, db, ledgers):

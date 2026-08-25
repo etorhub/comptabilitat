@@ -26,9 +26,7 @@ class RecurringSeries(Base, TimestampMixin):
     # Clau estable de la serie: comerc normalitzat (o descripcio) + signe de l'import.
     signature: Mapped[str] = mapped_column(String(220), nullable=False)
     label: Mapped[str] = mapped_column(String(200), nullable=False)
-    merchant_id: Mapped[int | None] = mapped_column(
-        ForeignKey("merchants.id", ondelete="SET NULL")
-    )
+    merchant_id: Mapped[int | None] = mapped_column(ForeignKey("merchants.id", ondelete="SET NULL"))
     category_id: Mapped[int | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL")
     )
@@ -50,7 +48,7 @@ class RecurringSeries(Base, TimestampMixin):
 
     merchant: Mapped[Merchant | None] = relationship(lazy="selectin")
     category: Mapped[Category | None] = relationship(lazy="selectin")
-    occurrences: Mapped[list["RecurringOccurrence"]] = relationship(
+    occurrences: Mapped[list[RecurringOccurrence]] = relationship(
         back_populates="series", cascade="all, delete-orphan"
     )
 

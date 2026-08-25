@@ -26,10 +26,10 @@ class User(Base, TimestampMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    permissions: Mapped[list["LedgerPermission"]] = relationship(
+    permissions: Mapped[list[LedgerPermission]] = relationship(
         back_populates="user", cascade="all, delete-orphan", lazy="selectin"
     )
-    sessions: Mapped[list["UserSession"]] = relationship(
+    sessions: Mapped[list[UserSession]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 
@@ -50,7 +50,7 @@ class LedgerPermission(Base, TimestampMixin):
     role: Mapped[LedgerRole] = enum_column(LedgerRole, nullable=False, default=LedgerRole.VIEWER)
 
     user: Mapped[User] = relationship(back_populates="permissions")
-    ledger: Mapped["Ledger"] = relationship(back_populates="permissions", lazy="selectin")
+    ledger: Mapped[Ledger] = relationship(back_populates="permissions", lazy="selectin")
 
 
 class UserSession(Base):

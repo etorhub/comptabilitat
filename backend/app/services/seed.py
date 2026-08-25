@@ -12,30 +12,76 @@ from app.models.enums import CategoryKind
 
 # (nom del pare, color, [fills])
 EXPENSE_TREE: list[tuple[str, str, list[str]]] = [
-    ("Habitatge", "#0ea5e9", [
-        "Lloguer o hipoteca", "Comunitat", "IBI i taxes", "Reparacions i obres", "Mobiliari",
-    ]),
-    ("Subministraments", "#22d3ee", [
-        "Electricitat", "Aigua", "Gas", "Internet i telefon", "Residus",
-    ]),
+    (
+        "Habitatge",
+        "#0ea5e9",
+        [
+            "Lloguer o hipoteca",
+            "Comunitat",
+            "IBI i taxes",
+            "Reparacions i obres",
+            "Mobiliari",
+        ],
+    ),
+    (
+        "Subministraments",
+        "#22d3ee",
+        [
+            "Electricitat",
+            "Aigua",
+            "Gas",
+            "Internet i telefon",
+            "Residus",
+        ],
+    ),
     ("Alimentacio", "#16a34a", ["Supermercat", "Mercat i fruiteria", "Forn i pastisseria"]),
     ("Restauracio", "#f97316", ["Restaurants", "Bars i cafeteries", "Menjar a domicili"]),
-    ("Transport", "#6366f1", [
-        "Combustible", "Peatges i parquing", "Transport public", "Taxi i VTC",
-        "Manteniment del vehicle", "Assegurança del vehicle", "Impost de circulacio",
-    ]),
+    (
+        "Transport",
+        "#6366f1",
+        [
+            "Combustible",
+            "Peatges i parquing",
+            "Transport public",
+            "Taxi i VTC",
+            "Manteniment del vehicle",
+            "Assegurança del vehicle",
+            "Impost de circulacio",
+        ],
+    ),
     ("Salut", "#ef4444", ["Farmacia", "Metge i dentista", "Assegurança medica"]),
-    ("Compres", "#a855f7", [
-        "Roba i calçat", "Electronica", "Llar i bricolatge", "Regals",
-    ]),
-    ("Oci i cultura", "#ec4899", [
-        "Subscripcions", "Cinema i espectacles", "Esport i gimnas", "Llibres i premsa",
-        "Viatges i vacances",
-    ]),
+    (
+        "Compres",
+        "#a855f7",
+        [
+            "Roba i calçat",
+            "Electronica",
+            "Llar i bricolatge",
+            "Regals",
+        ],
+    ),
+    (
+        "Oci i cultura",
+        "#ec4899",
+        [
+            "Subscripcions",
+            "Cinema i espectacles",
+            "Esport i gimnas",
+            "Llibres i premsa",
+            "Viatges i vacances",
+        ],
+    ),
     ("Educacio", "#14b8a6", ["Matricules", "Material escolar", "Formacio"]),
-    ("Serveis financers", "#64748b", [
-        "Comissions bancaries", "Interessos i prestecs", "Assegurances", "Inversio",
-    ]),
+    (
+        "Serveis financers",
+        "#64748b",
+        [
+            "Comissions bancaries",
+            "Interessos i prestecs",
+            "Assegurances",
+            "Inversio",
+        ],
+    ),
     ("Impostos", "#78716c", ["IRPF", "IVA", "Altres impostos"]),
     ("Persones i familia", "#f59e0b", ["Cura de persones", "Mascotes", "Donacions"]),
     ("Altres despeses", "#94a3b8", ["Efectiu retirat", "Sense classificar"]),
@@ -49,9 +95,15 @@ INCOME_TREE: list[tuple[str, str, list[str]]] = [
 ]
 
 TRANSFER_TREE: list[tuple[str, str, list[str]]] = [
-    ("Traspassos", "#8b5cf6", [
-        "Traspas entre comptes propis", "Liquidacio de targeta", "Amortitzacio de prestec",
-    ]),
+    (
+        "Traspassos",
+        "#8b5cf6",
+        [
+            "Traspas entre comptes propis",
+            "Liquidacio de targeta",
+            "Amortitzacio de prestec",
+        ],
+    ),
 ]
 
 DEFAULT_LEDGERS = [
@@ -69,9 +121,9 @@ SLUG_CASH_WITHDRAWAL = "altres-despeses-efectiu-retirat"
 def slugify(value: str) -> str:
     normalized = unicodedata.normalize("NFKD", value)
     ascii_text = normalized.encode("ascii", "ignore").decode("ascii").lower()
-    return "-".join(part for part in "".join(
-        char if char.isalnum() else " " for char in ascii_text
-    ).split())
+    return "-".join(
+        part for part in "".join(char if char.isalnum() else " " for char in ascii_text).split()
+    )
 
 
 def seed_ledgers(db: Session) -> list[Ledger]:

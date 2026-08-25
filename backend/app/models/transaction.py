@@ -50,7 +50,7 @@ class Category(Base, TimestampMixin):
     is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    parent: Mapped["Category | None"] = relationship(remote_side="Category.id", lazy="selectin")
+    parent: Mapped[Category | None] = relationship(remote_side="Category.id", lazy="selectin")
 
     @property
     def full_name(self) -> str:
@@ -131,9 +131,7 @@ class Transaction(Base, TimestampMixin):
     )
     category_confidence: Mapped[float | None] = mapped_column(Float)
     needs_review: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    applied_rule_id: Mapped[int | None] = mapped_column(
-        ForeignKey("rules.id", ondelete="SET NULL")
-    )
+    applied_rule_id: Mapped[int | None] = mapped_column(ForeignKey("rules.id", ondelete="SET NULL"))
 
     # --- Traspassos entre comptes propis ---
     transfer_group_id: Mapped[str | None] = mapped_column(String(64), index=True)
@@ -145,8 +143,8 @@ class Transaction(Base, TimestampMixin):
 
     raw: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
 
-    account: Mapped["Account"] = relationship(back_populates="transactions")
-    ledger: Mapped["Ledger | None"] = relationship()
+    account: Mapped[Account] = relationship(back_populates="transactions")
+    ledger: Mapped[Ledger | None] = relationship()
     category: Mapped[Category | None] = relationship(lazy="selectin")
     merchant: Mapped[Merchant | None] = relationship(lazy="selectin")
 

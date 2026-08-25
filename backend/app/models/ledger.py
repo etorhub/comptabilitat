@@ -29,7 +29,7 @@ class Ledger(Base, TimestampMixin):
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    accounts: Mapped[list["Account"]] = relationship(back_populates="ledger")
-    permissions: Mapped[list["LedgerPermission"]] = relationship(
+    accounts: Mapped[list[Account]] = relationship(back_populates="ledger")
+    permissions: Mapped[list[LedgerPermission]] = relationship(
         back_populates="ledger", cascade="all, delete-orphan"
     )

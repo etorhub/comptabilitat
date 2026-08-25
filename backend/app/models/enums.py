@@ -5,7 +5,7 @@ from __future__ import annotations
 import enum
 
 
-class LedgerRole(str, enum.Enum):
+class LedgerRole(enum.StrEnum):
     """Perms d'un usuari sobre un llibre, de menys a mes."""
 
     VIEWER = "viewer"
@@ -17,7 +17,7 @@ class LedgerRole(str, enum.Enum):
         return {"viewer": 1, "editor": 2, "admin": 3}[self.value]
 
 
-class ConnectionStatus(str, enum.Enum):
+class ConnectionStatus(enum.StrEnum):
     PENDING = "pending"  # autoritzacio iniciada, encara sense sessio
     ACTIVE = "active"
     EXPIRED = "expired"
@@ -25,18 +25,18 @@ class ConnectionStatus(str, enum.Enum):
     ERROR = "error"
 
 
-class TransactionStatus(str, enum.Enum):
+class TransactionStatus(enum.StrEnum):
     BOOKED = "booked"
     PENDING = "pending"
 
 
-class CategoryKind(str, enum.Enum):
+class CategoryKind(enum.StrEnum):
     INCOME = "income"
     EXPENSE = "expense"
     TRANSFER = "transfer"
 
 
-class CategorySource(str, enum.Enum):
+class CategorySource(enum.StrEnum):
     NONE = "none"
     MERCHANT = "merchant"
     RULE = "rule"
@@ -44,17 +44,17 @@ class CategorySource(str, enum.Enum):
     USER = "user"
 
 
-class TransactionSource(str, enum.Enum):
+class TransactionSource(enum.StrEnum):
     ENABLEBANKING = "enablebanking"
     MANUAL = "manual"
 
 
-class RuleSource(str, enum.Enum):
+class RuleSource(enum.StrEnum):
     USER = "user"
     LEARNED = "learned"
 
 
-class RuleField(str, enum.Enum):
+class RuleField(enum.StrEnum):
     DESCRIPTION = "description"
     NORMALIZED = "normalized_description"
     COUNTERPARTY = "counterparty"
@@ -63,7 +63,7 @@ class RuleField(str, enum.Enum):
     ACCOUNT = "account_id"
 
 
-class RuleOperator(str, enum.Enum):
+class RuleOperator(enum.StrEnum):
     CONTAINS = "contains"
     EQUALS = "equals"
     STARTS_WITH = "starts_with"
@@ -72,7 +72,7 @@ class RuleOperator(str, enum.Enum):
     LESS_THAN = "lt"
 
 
-class Cadence(str, enum.Enum):
+class Cadence(enum.StrEnum):
     WEEKLY = "weekly"
     BIWEEKLY = "biweekly"
     MONTHLY = "monthly"
@@ -94,12 +94,12 @@ class Cadence(str, enum.Enum):
         }[self.value]
 
 
-class SeriesStatus(str, enum.Enum):
+class SeriesStatus(enum.StrEnum):
     ACTIVE = "active"
     ENDED = "ended"
 
 
-class AlertType(str, enum.Enum):
+class AlertType(enum.StrEnum):
     PROJECTED_OVERDRAFT = "projected_overdraft"
     CONSENT_EXPIRING = "consent_expiring"
     CONSENT_EXPIRED = "consent_expired"
@@ -108,26 +108,26 @@ class AlertType(str, enum.Enum):
     SYNC_FAILED = "sync_failed"
 
 
-class AlertSeverity(str, enum.Enum):
+class AlertSeverity(enum.StrEnum):
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"
 
 
-class AlertStatus(str, enum.Enum):
+class AlertStatus(enum.StrEnum):
     NEW = "new"
     READ = "read"
     DISMISSED = "dismissed"
 
 
-class SyncStatus(str, enum.Enum):
+class SyncStatus(enum.StrEnum):
     RUNNING = "running"
     SUCCESS = "success"
     PARTIAL = "partial"
     FAILED = "failed"
 
 
-class SyncTrigger(str, enum.Enum):
+class SyncTrigger(enum.StrEnum):
     SCHEDULED = "scheduled"
     MANUAL = "manual"
     INITIAL = "initial"
