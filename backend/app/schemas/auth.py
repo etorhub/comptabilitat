@@ -37,7 +37,7 @@ class UserOut(ORMModel):
 
 
 class CurrentUserOut(UserOut):
-    ledgers: list[LedgerAccess] = []
+    """L'usuari autenticat. Els espais on te acces es demanen a /api/workspaces."""
 
 
 class UserCreate(BaseModel):

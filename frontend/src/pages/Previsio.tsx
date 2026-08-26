@@ -1,48 +1,29 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePrevisio } from "../api/hooks";
 import { Grafic, eixos, useColors } from "../components/Grafic";
 import { Estat, Import, Targeta, Xifra } from "../components/ui";
 import { data, euros, nombre } from "../lib/format";
-import { useAmbitLlibres } from "../lib/llibres";
+import { useEspaiActiu } from "../lib/espai";
 
 export function Previsio() {
-  const { llibres } = useAmbitLlibres();
-  const [llibreId, setLlibreId] = useState<number | undefined>();
+  const { codi, espai } = useEspaiActiu();
   const [dies, setDies] = useState(90);
   const colors = useColors();
   const eix = eixos(colors);
 
-  useEffect(() => {
-    if (!llibreId && llibres.length) setLlibreId(llibres[0].id);
-  }, [llibres, llibreId]);
-
-  const previsio = usePrevisio(llibreId, dies);
+  const previsio = usePrevisio(codi, dies);
   const resultat = previsio.data;
 
   return (
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Previsió</h1>
+          <h1 className="text-2xl font-semibold">Previsió de {espai.name}</h1>
           <p className="text-suau text-sm">
             Saldo actual, més els rebuts recurrents previstos, menys la despesa variable habitual.
           </p>
         </div>
         <div className="flex gap-3">
-          <label className="text-sm">
-            <span className="text-suau block text-xs">Llibre</span>
-            <select
-              value={llibreId ?? ""}
-              onChange={(event) => setLlibreId(Number(event.target.value))}
-              className="mt-1"
-            >
-              {llibres.map((llibre) => (
-                <option key={llibre.id} value={llibre.id}>
-                  {llibre.name}
-                </option>
-              ))}
-            </select>
-          </label>
           <label className="text-sm">
             <span className="text-suau block text-xs">Horitzó</span>
             <select

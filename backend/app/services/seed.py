@@ -127,7 +127,7 @@ def slugify(value: str) -> str:
 
 
 def seed_ledgers(db: Session) -> list[Ledger]:
-    """Crea els tres llibres inicials si no existeixen."""
+    """Crea els tres espais inicials, amb el seu pla de categories."""
     created: list[Ledger] = []
     for position, (code, name, color, description) in enumerate(DEFAULT_LEDGERS):
         if db.scalar(select(Ledger).where(Ledger.code == code)):
@@ -136,14 +136,16 @@ def seed_ledgers(db: Session) -> list[Ledger]:
             code=code, name=name, color=color, description=description, position=position
         )
         db.add(ledger)
+        db.flush()
+        seed_categories(db, ledger.id)
         created.append(ledger)
     db.flush()
     return created
 
 
-def seed_categories(db: Session) -> int:
-    """Crea el pla de categories. Idempotent: es guia pel slug."""
-    existing = {row for row in db.scalars(select(Category.slug))}
+def seed_categories(db: Session, ledger_id: int) -> int:
+    """Crea el pla de categories d'un espai. Idempotent: es guia pel slug."""
+    existing = set(db.scalars(select(Category.slug).where(Category.ledger_id == ledger_id)))
     created = 0
     trees = [
         (CategoryKind.EXPENSE, EXPENSE_TREE),
@@ -154,9 +156,10 @@ def seed_categories(db: Session) -> int:
     for kind, tree in trees:
         for parent_name, color, children in tree:
             parent_slug = slugify(parent_name)
-            parent = db.scalar(select(Category).where(Category.slug == parent_slug))
+            parent = get_category_by_slug(db, ledger_id, parent_slug)
             if parent is None:
                 parent = Category(
+                    ledger_id=ledger_id,
                     slug=parent_slug,
                     name=parent_name,
                     kind=kind,
@@ -172,10 +175,9 @@ def seed_categories(db: Session) -> int:
                 child_slug = f"{parent_slug}-{slugify(child_name)}"
                 if child_slug in existing:
                     continue
-                if db.scalar(select(Category).where(Category.slug == child_slug)):
-                    continue
                 db.add(
                     Category(
+                        ledger_id=ledger_id,
                         slug=child_slug,
                         name=child_name,
                         kind=kind,
@@ -185,10 +187,11 @@ def seed_categories(db: Session) -> int:
                         position=child_position,
                     )
                 )
+                existing.add(child_slug)
                 created += 1
     db.flush()
     return created
 
 
-def get_category_by_slug(db: Session, slug: str) -> Category | None:
-    return db.scalar(select(Category).where(Category.slug == slug))
+def get_category_by_slug(db: Session, ledger_id: int, slug: str) -> Category | None:
+    return db.scalar(select(Category).where(Category.ledger_id == ledger_id, Category.slug == slug))

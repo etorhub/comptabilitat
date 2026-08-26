@@ -29,15 +29,18 @@ from tests.conftest import grant, login, make_user
 
 
 @pytest.fixture
-def compte(db, ledgers) -> Account:
+def espai(ledgers):
+    return ledgers["personal"]
+
+
+@pytest.fixture
+def compte(db, espai) -> Account:
     connection = BankConnection(
         aspsp_name="Santander", aspsp_country="ES", status=ConnectionStatus.ACTIVE
     )
     db.add(connection)
     db.flush()
-    account = Account(
-        connection_id=connection.id, ledger_id=ledgers["personal"].id, eb_account_uid="uid-1"
-    )
+    account = Account(connection_id=connection.id, ledger_id=espai.id, eb_account_uid="uid-1")
     db.add(account)
     db.flush()
     return account
@@ -74,12 +77,12 @@ def saldo(db, compte, amount, day=None):
     db.flush()
 
 
-def test_es_detecta_una_subscripcio_mensual(db, compte, ledgers):
+def test_es_detecta_una_subscripcio_mensual(db, compte, espai):
     avui = date.today()
     for index in range(6):
         moviment(db, compte, "-12.99", avui - timedelta(days=30 * (5 - index)))
 
-    stats = detect_recurring(db)
+    stats = detect_recurring(db, espai.id)
 
     assert stats.created == 1
     series = db.scalar(select(RecurringSeries))
@@ -92,35 +95,35 @@ def test_es_detecta_una_subscripcio_mensual(db, compte, ledgers):
     assert series.confidence >= 0.9
 
 
-def test_els_moviments_irregulars_no_son_una_serie(db, compte, ledgers):
+def test_els_moviments_irregulars_no_son_una_serie(db, compte, espai):
     avui = date.today()
     for offset in (0, 3, 40, 41, 95):
         moviment(db, compte, "-20.00", avui - timedelta(days=offset), normalized="BAR DE SOTA")
 
-    detect_recurring(db)
+    detect_recurring(db, espai.id)
 
     assert db.scalar(select(RecurringSeries)) is None
 
 
-def test_calen_com_a_minim_tres_aparicions(db, compte, ledgers):
+def test_calen_com_a_minim_tres_aparicions(db, compte, espai):
     avui = date.today()
     moviment(db, compte, "-12.99", avui - timedelta(days=30))
     moviment(db, compte, "-12.99", avui)
 
-    detect_recurring(db)
+    detect_recurring(db, espai.id)
 
     assert db.scalar(select(RecurringSeries)) is None
 
 
-def test_una_pujada_dimport_genera_avis(db, compte, ledgers):
+def test_una_pujada_dimport_genera_avis(db, compte, espai):
     avui = date.today()
     for index in range(5):
         moviment(db, compte, "-12.99", avui - timedelta(days=30 * (5 - index)))
-    detect_recurring(db)
+    detect_recurring(db, espai.id)
 
     # Arriba el rebut seguent, mes car del compte.
     moviment(db, compte, "-17.99", avui + timedelta(days=30))
-    stats = detect_recurring(db)
+    stats = detect_recurring(db, espai.id)
 
     assert stats.alerts == 1
     alert = db.scalar(select(Alert).where(Alert.type == AlertType.RECURRING_AMOUNT_CHANGE))
@@ -128,43 +131,43 @@ def test_una_pujada_dimport_genera_avis(db, compte, ledgers):
     assert "puja" in alert.title
 
 
-def test_un_rebut_que_no_arriba_genera_avis(db, compte, ledgers):
+def test_un_rebut_que_no_arriba_genera_avis(db, compte, espai):
     avui = date.today()
     for index in range(4):
         moviment(db, compte, "-12.99", avui - timedelta(days=30 * (4 - index) + 10))
-    detect_recurring(db)
+    detect_recurring(db, espai.id)
     series = db.scalar(select(RecurringSeries))
     series.next_expected_date = avui - timedelta(days=10)
     db.flush()
 
-    created = check_missing_occurrences(db)
+    created = check_missing_occurrences(db, espai.id)
 
     assert created == 1
     alert = db.scalar(select(Alert).where(Alert.type == AlertType.RECURRING_MISSING))
     assert alert is not None
 
 
-def test_la_despesa_variable_ignora_els_rebuts_recurrents(db, compte, ledgers):
+def test_la_despesa_variable_ignora_els_rebuts_recurrents(db, compte, espai):
     avui = date.today()
     for index in range(4):
         moviment(db, compte, "-30.00", avui - timedelta(days=30 * index))
-    detect_recurring(db)
+    detect_recurring(db, espai.id)
     # Despesa solta que si que compta.
     moviment(db, compte, "-90.00", avui - timedelta(days=5), description="COMPRA", normalized="BAR")
 
-    diaria = daily_discretionary_spend(db, ledgers["personal"].id)
+    diaria = daily_discretionary_spend(db, espai.id)
 
     assert diaria == Decimal("1.00"), "90 EUR repartits en 90 dies"
 
 
-def test_la_previsio_incorpora_els_rebuts_previstos(db, compte, ledgers):
+def test_la_previsio_incorpora_els_rebuts_previstos(db, compte, espai):
     avui = date.today()
     saldo(db, compte, "1000.00")
     for index in range(6):
         moviment(db, compte, "-100.00", avui - timedelta(days=30 * (5 - index)))
-    detect_recurring(db)
+    detect_recurring(db, espai.id)
 
-    forecast = build_forecast(db, ledgers["personal"], horizon_days=90)
+    forecast = build_forecast(db, espai, horizon_days=90)
 
     assert forecast.starting_balance == Decimal("1000.00")
     assert len(forecast.points) == 91
@@ -174,82 +177,82 @@ def test_la_previsio_incorpora_els_rebuts_previstos(db, compte, ledgers):
     assert forecast.points[-1].pessimistic <= forecast.points[-1].expected
 
 
-def test_es_detecta_un_descobert_futur(db, compte, ledgers):
+def test_es_detecta_un_descobert_futur(db, compte, espai):
     avui = date.today()
     saldo(db, compte, "150.00")
     for index in range(6):
         moviment(db, compte, "-100.00", avui - timedelta(days=30 * (5 - index)))
-    detect_recurring(db)
+    detect_recurring(db, espai.id)
 
-    created = check_overdrafts(db)
+    created = check_overdrafts(db, espai.id)
 
     assert created >= 1
     alert = db.scalar(select(Alert).where(Alert.type == AlertType.PROJECTED_OVERDRAFT))
     assert alert is not None
     assert "descobert" in alert.title
-    assert alert.payload["ledger_id"] == ledgers["personal"].id
+    assert alert.payload["ledger_id"] == espai.id
 
 
-def test_sense_perill_no_hi_ha_avis(db, compte, ledgers):
+def test_sense_perill_no_hi_ha_avis(db, compte, espai):
     avui = date.today()
     saldo(db, compte, "50000.00")
     for index in range(6):
         moviment(db, compte, "-100.00", avui - timedelta(days=30 * (5 - index)))
-    detect_recurring(db)
+    detect_recurring(db, espai.id)
 
-    assert check_overdrafts(db) == 0
+    assert check_overdrafts(db, espai.id) == 0
 
 
-def test_una_serie_exclosa_no_entra_a_la_previsio(db, compte, ledgers):
+def test_una_serie_exclosa_no_entra_a_la_previsio(db, compte, espai):
     avui = date.today()
     saldo(db, compte, "1000.00")
     for index in range(6):
         moviment(db, compte, "-100.00", avui - timedelta(days=30 * (5 - index)))
-    detect_recurring(db)
+    detect_recurring(db, espai.id)
     series = db.scalar(select(RecurringSeries))
     series.include_in_forecast = False
     db.flush()
 
-    forecast = build_forecast(db, ledgers["personal"], horizon_days=90)
+    forecast = build_forecast(db, espai, horizon_days=90)
 
     assert forecast.events == []
 
 
-def test_lapi_de_previsio_respecta_els_permisos(client, db, compte, ledgers):
+def test_lapi_de_previsio_respecta_els_permisos(client, db, compte, espai, ledgers):
     user = make_user(db, "anna@example.com")
-    grant(db, user, ledgers["personal"])
+    grant(db, user, espai)
     login(client, "anna@example.com")
     saldo(db, compte, "1000.00")
 
-    assert client.get(f"/api/analytics/forecast/{ledgers['personal'].id}").status_code == 200
-    assert client.get(f"/api/analytics/forecast/{ledgers['calella'].id}").status_code == 403
+    assert client.get("/api/workspaces/personal/analytics/forecast").status_code == 200
+    assert client.get("/api/workspaces/calella/analytics/forecast").status_code == 404
 
 
-def test_el_resum_de_subscripcions_suma_el_cost_mensual(client, db, compte, ledgers):
+def test_el_resum_de_subscripcions_suma_el_cost_mensual(client, db, compte, espai, ledgers):
     avui = date.today()
     for index in range(6):
         moviment(db, compte, "-12.00", avui - timedelta(days=30 * (5 - index)))
-    detect_recurring(db)
+    detect_recurring(db, espai.id)
     user = make_user(db, "anna@example.com")
-    grant(db, user, ledgers["personal"])
+    grant(db, user, espai)
     login(client, "anna@example.com")
 
-    body = client.get("/api/recurring/summary").json()
+    body = client.get("/api/workspaces/personal/recurring/summary").json()
 
     assert Decimal(body["mensual"]) == Decimal("12.00")
     assert Decimal(body["anual"]) == Decimal("144.00")
 
 
-def test_una_serie_molt_endarrerida_es_dona_per_acabada(db, compte, ledgers):
+def test_una_serie_molt_endarrerida_es_dona_per_acabada(db, compte, espai):
     avui = date.today()
     for index in range(4):
         moviment(db, compte, "-12.99", avui - timedelta(days=30 * (6 - index)))
-    detect_recurring(db)
+    detect_recurring(db, espai.id)
     series = db.scalar(select(RecurringSeries))
     series.next_expected_date = avui - timedelta(days=90)
     db.flush()
 
-    check_missing_occurrences(db)
+    check_missing_occurrences(db, espai.id)
 
     db.refresh(series)
     assert series.status is SeriesStatus.ENDED

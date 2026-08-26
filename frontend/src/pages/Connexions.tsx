@@ -1,15 +1,15 @@
 import { useSearchParams } from "react-router-dom";
 import {
-  useAssignaLlibre,
+  useAssignaEspai,
   useAutoritza,
-  useComptes,
+  useComptesSenseEspai,
   useConnexions,
+  useEspais,
   useSincronitza,
 } from "../api/hooks";
 import type { Connexio } from "../api/types";
 import { Boto, Estat, Etiqueta, Import, Targeta } from "../components/ui";
 import { data } from "../lib/format";
-import { useAmbitLlibres } from "../lib/llibres";
 
 const ESTATS: Record<Connexio["status"], { text: string; to: "positiu" | "avis" | "negatiu" | "neutre" }> = {
   active: { text: "activa", to: "positiu" },
@@ -21,11 +21,11 @@ const ESTATS: Record<Connexio["status"], { text: string; to: "positiu" | "avis" 
 
 export function Connexions() {
   const connexions = useConnexions();
-  const comptes = useComptes();
-  const { llibres } = useAmbitLlibres();
+  const senseEspaiConsulta = useComptesSenseEspai();
+  const { data: espais = [] } = useEspais();
   const autoritza = useAutoritza();
   const sincronitza = useSincronitza();
-  const assigna = useAssignaLlibre();
+  const assigna = useAssignaEspai();
   const [parametres] = useSearchParams();
 
   const estatRetorn = parametres.get("estat");
@@ -43,7 +43,7 @@ export function Connexions() {
     );
   }
 
-  const senseLlibre = comptes.data?.filter((compte) => compte.ledger_id === null) ?? [];
+  const senseEspai = senseEspaiConsulta.data ?? [];
 
   return (
     <div className="flex flex-col gap-4">
@@ -67,7 +67,7 @@ export function Connexions() {
             border: "1px solid var(--positiu)",
           }}
         >
-          Connexió autoritzada. Assigna cada compte al seu llibre i després sincronitza.
+          Connexió autoritzada. Assigna cada compte al seu espai i després sincronitza.
         </div>
       )}
       {estatRetorn === "error" && (
@@ -89,14 +89,15 @@ export function Connexions() {
         </p>
       )}
 
-      {senseLlibre.length > 0 && (
-        <Targeta titol="Comptes sense llibre assignat">
+      {senseEspai.length > 0 && (
+        <Targeta titol="Comptes sense espai assignat">
           <p className="text-suau mb-3 text-sm">
-            Fins que no tinguin llibre, els seus moviments no apareixen als informes.
+            Fins que no tinguin espai, els seus moviments no apareixen enlloc. Assignar un
+            compte a un espai hi arrossega tot el seu historial.
           </p>
           <table className="dades">
             <tbody>
-              {senseLlibre.map((compte) => (
+              {senseEspai.map((compte) => (
                 <tr key={compte.id}>
                   <td className="text-sm">
                     {compte.name || compte.product} · {compte.iban_masked}
@@ -108,10 +109,10 @@ export function Connexions() {
                         assigna.mutate({ id: compte.id, ledger_id: Number(event.target.value) })
                       }
                     >
-                      <option value="">Tria un llibre…</option>
-                      {llibres.map((llibre) => (
-                        <option key={llibre.id} value={llibre.id}>
-                          {llibre.name}
+                      <option value="">Tria un espai…</option>
+                      {espais.map((espai) => (
+                        <option key={espai.id} value={espai.id}>
+                          {espai.name}
                         </option>
                       ))}
                     </select>
@@ -180,7 +181,7 @@ export function Connexions() {
                   <tr>
                     <th>Compte</th>
                     <th>IBAN</th>
-                    <th>Llibre</th>
+                    <th>Espai</th>
                     <th>Històric</th>
                     <th className="text-right">Saldo</th>
                   </tr>
@@ -201,10 +202,10 @@ export function Connexions() {
                           }
                           className="text-sm"
                         >
-                          <option value="">Sense llibre</option>
-                          {llibres.map((llibre) => (
-                            <option key={llibre.id} value={llibre.id}>
-                              {llibre.name}
+                          <option value="">Sense espai</option>
+                          {espais.map((espai) => (
+                            <option key={espai.id} value={espai.id}>
+                              {espai.name}
                             </option>
                           ))}
                         </select>

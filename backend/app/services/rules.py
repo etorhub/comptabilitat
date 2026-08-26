@@ -82,18 +82,18 @@ def condition_matches(condition: dict[str, Any], transaction: Transaction) -> bo
 def rule_matches(rule: Rule, transaction: Transaction) -> bool:
     if not rule.is_active or not rule.conditions:
         return False
-    if rule.ledger_id is not None and rule.ledger_id != transaction.ledger_id:
+    if rule.ledger_id != transaction.ledger_id:
         return False
     return all(condition_matches(condition, transaction) for condition in rule.conditions)
 
 
-def active_rules(db: Session) -> list[Rule]:
-    """Regles actives ordenades per prioritat; les d'un llibre concret abans."""
+def active_rules(db: Session, ledger_id: int) -> list[Rule]:
+    """Regles actives d'un espai, ordenades per prioritat."""
     return list(
         db.scalars(
             select(Rule)
-            .where(Rule.is_active.is_(True))
-            .order_by(Rule.priority, Rule.ledger_id.is_(None), Rule.id)
+            .where(Rule.is_active.is_(True), Rule.ledger_id == ledger_id)
+            .order_by(Rule.priority, Rule.id)
         )
     )
 

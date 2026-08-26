@@ -1,15 +1,15 @@
-"""Moviments recurrents i subscripcions."""
+"""Moviments recurrents i subscripcions d'un espai."""
 
 from __future__ import annotations
 
 from decimal import Decimal
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
-from app.deps import CurrentUser, DbSession, get_ledger_or_403, resolve_ledger_scope
-from app.models import RecurringSeries, Transaction
-from app.models.enums import LedgerRole, SeriesStatus
+from app.deps import DbSession, EditableWorkspace, Workspace
+from app.models import RecurringOccurrence, RecurringSeries, Transaction
+from app.models.enums import SeriesStatus
 from app.schemas.analytics import RecurringSeriesOut, RecurringSeriesUpdate
 from app.schemas.transaction import TransactionOut
 
@@ -22,19 +22,21 @@ def _to_out(series: RecurringSeries) -> RecurringSeriesOut:
     return data
 
 
+def _get_in_workspace(db: DbSession, workspace, series_id: int) -> RecurringSeries:
+    series = db.get(RecurringSeries, series_id)
+    if series is None or series.ledger_id != workspace.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Serie no trobada")
+    return series
+
+
 @router.get("", response_model=list[RecurringSeriesOut])
 def list_series(
     db: DbSession,
-    user: CurrentUser,
-    ledger_ids: list[int] | None = Query(default=None),
+    workspace: Workspace,
     only_subscriptions: bool = False,
     include_ended: bool = False,
 ):
-    scope = resolve_ledger_scope(db, user, ledger_ids)
-    if not scope:
-        return []
-
-    query = select(RecurringSeries).where(RecurringSeries.ledger_id.in_(scope))
+    query = select(RecurringSeries).where(RecurringSeries.ledger_id == workspace.id)
     if only_subscriptions:
         query = query.where(RecurringSeries.is_subscription.is_(True))
     if not include_ended:
@@ -45,18 +47,12 @@ def list_series(
 
 
 @router.get("/summary", response_model=dict[str, Decimal])
-def subscriptions_summary(
-    db: DbSession, user: CurrentUser, ledger_ids: list[int] | None = Query(default=None)
-):
-    """Cost mensual i anual de tot el que es paga de manera recurrent."""
-    scope = resolve_ledger_scope(db, user, ledger_ids)
-    if not scope:
-        return {"mensual": Decimal("0.00"), "anual": Decimal("0.00")}
-
+def subscriptions_summary(db: DbSession, workspace: Workspace):
+    """Cost mensual i anual de tot el que es paga de manera recurrent a l'espai."""
     monthly = Decimal("0.00")
     for series in db.scalars(
         select(RecurringSeries).where(
-            RecurringSeries.ledger_id.in_(scope),
+            RecurringSeries.ledger_id == workspace.id,
             RecurringSeries.status == SeriesStatus.ACTIVE,
             RecurringSeries.expected_amount < 0,
         )
@@ -68,15 +64,10 @@ def subscriptions_summary(
 
 
 @router.get("/{series_id}/occurrences", response_model=list[TransactionOut])
-def series_occurrences(series_id: int, db: DbSession, user: CurrentUser, limit: int = 36):
-    series = db.get(RecurringSeries, series_id)
-    if series is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Serie no trobada")
-    get_ledger_or_403(db, user, series.ledger_id)
-
+def series_occurrences(series_id: int, db: DbSession, workspace: Workspace, limit: int = 36):
     from app.api.routes.transactions import to_out
-    from app.models import RecurringOccurrence
 
+    _get_in_workspace(db, workspace, series_id)
     rows = db.scalars(
         select(Transaction)
         .join(RecurringOccurrence, RecurringOccurrence.transaction_id == Transaction.id)
@@ -88,12 +79,13 @@ def series_occurrences(series_id: int, db: DbSession, user: CurrentUser, limit: 
 
 
 @router.patch("/{series_id}", response_model=RecurringSeriesOut)
-def update_series(series_id: int, payload: RecurringSeriesUpdate, db: DbSession, user: CurrentUser):
-    series = db.get(RecurringSeries, series_id)
-    if series is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Serie no trobada")
-    get_ledger_or_403(db, user, series.ledger_id, LedgerRole.EDITOR)
-
+def update_series(
+    series_id: int,
+    payload: RecurringSeriesUpdate,
+    db: DbSession,
+    workspace: EditableWorkspace,
+):
+    series = _get_in_workspace(db, workspace, series_id)
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(series, field, value)
     db.commit()

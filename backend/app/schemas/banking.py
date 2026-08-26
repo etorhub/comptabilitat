@@ -34,9 +34,14 @@ class AccountOut(ORMModel):
 
 
 class AccountUpdate(BaseModel):
-    ledger_id: int | None = None
     name: str | None = None
     is_active: bool | None = None
+
+
+class AccountAssign(BaseModel):
+    """Assignacio d'un compte a un espai. Nul el treu de tots."""
+
+    ledger_id: int | None = None
 
 
 class ConnectionOut(ORMModel):

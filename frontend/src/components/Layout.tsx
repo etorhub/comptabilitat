@@ -1,30 +1,26 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAvisos, usePanell, useSortida, useUsuari } from "../api/hooks";
-import { useAmbitLlibres } from "../lib/llibres";
+import { useEspaiActiu } from "../lib/espai";
 import { Etiqueta } from "./ui";
 
 const SECCIONS = [
-  { a: "/", text: "Panell", exacte: true },
-  { a: "/moviments", text: "Moviments" },
-  { a: "/revisio", text: "Per revisar", comptador: "revisio" as const },
-  { a: "/recurrents", text: "Recurrents" },
-  { a: "/informes", text: "Informes" },
-  { a: "/previsio", text: "Previsió" },
-  { a: "/avisos", text: "Avisos", comptador: "avisos" as const },
-];
-
-const SECCIONS_ADMIN = [
-  { a: "/connexions", text: "Connexions" },
-  { a: "/configuracio", text: "Configuració" },
+  { a: "", text: "Panell", exacte: true },
+  { a: "moviments", text: "Moviments" },
+  { a: "revisio", text: "Per revisar", comptador: "revisio" as const },
+  { a: "recurrents", text: "Recurrents" },
+  { a: "informes", text: "Informes" },
+  { a: "previsio", text: "Previsió" },
+  { a: "avisos", text: "Avisos", comptador: "avisos" as const },
+  { a: "configuracio", text: "Configuració" },
 ];
 
 export function Layout() {
   const { data: usuari } = useUsuari();
-  const { data: panell } = usePanell(undefined);
-  const { data: avisos = [] } = useAvisos();
+  const { codi, espai, espais } = useEspaiActiu();
+  const { data: panell } = usePanell(codi);
+  const { data: avisos = [] } = useAvisos(codi);
   const sortida = useSortida();
   const navega = useNavigate();
-  const { llibres, seleccionats, alterna } = useAmbitLlibres();
 
   const comptadors = {
     revisio: panell?.pending_review ?? 0,
@@ -48,16 +44,29 @@ export function Layout() {
         style={{ borderColor: "var(--vora)", background: "var(--superficie)" }}
       >
         <div>
-          <div className="mb-6 px-2">
-            <div className="text-lg font-semibold">Comptabilitat</div>
-            <div className="text-suau text-xs">{usuari?.email}</div>
-          </div>
+          {/* Selector d'espai: sempre n'hi ha un d'actiu i només un. */}
+          <label className="mb-6 block">
+            <span className="text-suau text-xs uppercase tracking-wide">Espai</span>
+            <select
+              value={codi}
+              onChange={(event) => navega(`/e/${event.target.value}`)}
+              className="mt-1 w-full font-semibold"
+              style={{ borderLeft: `4px solid ${espai.color}` }}
+            >
+              {espais.map((item) => (
+                <option key={item.code} value={item.code}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+            <span className="text-suau mt-1 block text-xs">{usuari?.email}</span>
+          </label>
 
           <nav className="flex flex-col gap-0.5">
             {SECCIONS.map((seccio) => (
               <NavLink
                 key={seccio.a}
-                to={seccio.a}
+                to={`/e/${codi}${seccio.a ? `/${seccio.a}` : ""}`}
                 end={seccio.exacte}
                 className={enllac}
                 style={estilActiu}
@@ -76,41 +85,12 @@ export function Layout() {
                 Administració
               </div>
               <nav className="flex flex-col gap-0.5">
-                {SECCIONS_ADMIN.map((seccio) => (
-                  <NavLink key={seccio.a} to={seccio.a} className={enllac} style={estilActiu}>
-                    {seccio.text}
-                  </NavLink>
-                ))}
+                <NavLink to="/connexions" className={enllac} style={estilActiu}>
+                  Connexions bancàries
+                </NavLink>
               </nav>
             </>
           )}
-
-          <div className="text-suau mt-6 mb-1 px-3 text-xs uppercase tracking-wide">Llibres</div>
-          <div className="flex flex-col gap-1 px-1">
-            {llibres.map((llibre) => {
-              const actiu = seleccionats.includes(llibre.id);
-              return (
-                <label
-                  key={llibre.id}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm"
-                  style={{ opacity: actiu ? 1 : 0.45 }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={actiu}
-                    onChange={() => alterna(llibre.id)}
-                    className="h-3.5 w-3.5"
-                  />
-                  <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ background: llibre.color }}
-                    aria-hidden
-                  />
-                  {llibre.name}
-                </label>
-              );
-            })}
-          </div>
         </div>
 
         <button

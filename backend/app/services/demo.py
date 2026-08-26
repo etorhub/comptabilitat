@@ -34,7 +34,7 @@ from app.services.forecast import check_overdrafts
 from app.services.merchants import get_or_create_merchant
 from app.services.normalization import normalize_description
 from app.services.recurring import detect_recurring
-from app.services.seed import seed_categories, seed_ledgers
+from app.services.seed import seed_ledgers
 from app.services.transfers import detect_transfers
 
 # Despeses variables: concepte tal com arribaria del banc i forquilla d'imports.
@@ -132,10 +132,24 @@ def _afegeix(
     )
     db.add(moviment)
     db.flush()
-    comerc = get_or_create_merchant(db, normalitzat, mostra, seen_on=dia)
+    comerc = get_or_create_merchant(db, compte.ledger_id, normalitzat, mostra, seen_on=dia)
     if comerc is not None:
         moviment.merchant_id = comerc.id
     return comerc
+
+
+# Qui entra a cada espai, imitant el cas real: tu a tot arreu, la parella a
+# Pardals i la sogra nomes a Calella.
+DEMO_USERS = [
+    (
+        "demo@exemple.cat",
+        "Tu",
+        True,
+        {"personal": LedgerRole.ADMIN, "calella": LedgerRole.ADMIN, "pardals": LedgerRole.ADMIN},
+    ),
+    ("parella@exemple.cat", "La parella", False, {"pardals": LedgerRole.EDITOR}),
+    ("sogra@exemple.cat", "La sogra", False, {"calella": LedgerRole.VIEWER}),
+]
 
 
 def seed_demo_data(
@@ -144,7 +158,7 @@ def seed_demo_data(
     password: str = "comptabilitat",
     categoritza: bool = True,
 ) -> dict[str, int | str]:
-    """Crea usuari, comptes i moviments d'exemple. No fa res si ja hi ha dades."""
+    """Crea usuaris, comptes i moviments d'exemple. No fa res si ja hi ha dades."""
     if db.scalar(select(Account)) is not None:
         return {"estat": "ja hi havia dades; no s'ha tocat res"}
 
@@ -152,21 +166,29 @@ def seed_demo_data(
     avui = today_local()
 
     seed_ledgers(db)
-    seed_categories(db)
     llibres = {llibre.code: llibre for llibre in db.scalars(select(Ledger))}
 
-    usuari = db.scalar(select(User).where(User.email == email))
-    if usuari is None:
-        usuari = User(
-            email=email,
-            full_name="Usuari de prova",
-            password_hash=hash_password(password),
-            is_admin=True,
-        )
-        db.add(usuari)
-        db.flush()
-        for llibre in llibres.values():
-            db.add(LedgerPermission(user_id=usuari.id, ledger_id=llibre.id, role=LedgerRole.ADMIN))
+    usuari = None
+    for correu, nom, es_admin, accessos in DEMO_USERS:
+        correu = email if correu == "demo@exemple.cat" else correu
+        persona = db.scalar(select(User).where(User.email == correu))
+        if persona is None:
+            persona = User(
+                email=correu,
+                full_name=nom,
+                password_hash=hash_password(password),
+                is_admin=es_admin,
+            )
+            db.add(persona)
+            db.flush()
+            for codi, rol in accessos.items():
+                if codi in llibres:
+                    db.add(
+                        LedgerPermission(user_id=persona.id, ledger_id=llibres[codi].id, role=rol)
+                    )
+        if es_admin:
+            usuari = persona
+    assert usuari is not None
 
     connexio = BankConnection(
         name="Santander (exemple)",
@@ -237,35 +259,49 @@ def seed_demo_data(
                 per_categoria[comerc.normalized_name] = recurrent.categoria
             dia += timedelta(days=recurrent.dies)
 
-    # Un traspas entre comptes propis, que no ha de comptar com a despesa.
+    # Diners que passen d'un espai a l'altre. Amb espais estancs no s'aparellen:
+    # son una sortida de debo a Personal i una entrada de debo a Calella.
     if len(comptes) > 1:
         altre = comptes.get("calella") or list(comptes.values())[1]
         dia = avui - timedelta(days=12)
-        _afegeix(db, principal, dia, Decimal("-400.00"), "TRASPASO A CUENTA 12345678901234567890")
-        _afegeix(db, altre, dia, Decimal("400.00"), "TRASPASO DE CUENTA 12345678901234567890")
+        sortida = _afegeix(
+            db, principal, dia, Decimal("-400.00"), "TRASPASO A CUENTA 12345678901234567890"
+        )
+        entrada = _afegeix(
+            db, altre, dia, Decimal("400.00"), "TRASPASO DE CUENTA 12345678901234567890"
+        )
+        for comerc in (sortida, entrada):
+            if comerc is not None:
+                per_categoria[comerc.normalized_name] = "traspassos-traspas-entre-comptes-propis"
 
     db.flush()
 
-    traspassos = detect_transfers(db)
+    traspassos = 0
+    descoberts = 0
+    for llibre in llibres.values():
+        traspassos += detect_transfers(db, llibre.id)
 
-    if categoritza:
-        # Es confirmen els comercos com ho faria una persona des de la safata de
-        # revisio, perque els informes tinguin categories de bon principi.
-        categories = {c.slug: c for c in db.scalars(select(Category))}
-        for nom, slug in per_categoria.items():
-            comerc = db.scalar(select(Merchant).where(Merchant.normalized_name == nom))
-            categoria = categories.get(slug)
-            if comerc is not None and categoria is not None:
-                remember_merchant_choice(db, comerc, categoria.id)
+        if categoritza:
+            # Es confirmen els comercos com ho faria una persona des de la safata
+            # de revisio, perque els informes tinguin categories de bon principi.
+            categories = {
+                c.slug: c
+                for c in db.scalars(select(Category).where(Category.ledger_id == llibre.id))
+            }
+            for comerc in db.scalars(select(Merchant).where(Merchant.ledger_id == llibre.id)):
+                categoria = categories.get(per_categoria.get(comerc.normalized_name, ""))
+                if categoria is not None:
+                    remember_merchant_choice(db, comerc, categoria.id)
 
-    classify_pending(db)
-    detect_recurring(db)
-    descoberts = check_overdrafts(db)
+        classify_pending(db, llibre.id)
+        detect_recurring(db, llibre.id)
+        descoberts += check_overdrafts(db, llibre.id)
 
     total = int(db.scalar(select(func.count(Transaction.id))) or 0)
     return {
         "estat": "fet",
         "usuari": email,
+        "altres_usuaris": ", ".join(c for c, *_ in DEMO_USERS[1:]),
         "contrasenya": password,
         "moviments": total,
         "comptes": len(comptes),

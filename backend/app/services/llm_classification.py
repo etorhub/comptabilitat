@@ -36,12 +36,12 @@ class LlmStats:
         )
 
 
-def categories_catalog(db: Session) -> list[tuple[str, str]]:
-    """Categories fulla amb el nom complet, que es el que veu el model."""
+def categories_catalog(db: Session, ledger_id: int) -> list[tuple[str, str]]:
+    """Categories fulla d'un espai amb el nom complet, que es el que veu el model."""
     categories = list(
         db.scalars(
             select(Category)
-            .where(Category.kind != CategoryKind.TRANSFER)
+            .where(Category.ledger_id == ledger_id, Category.kind != CategoryKind.TRANSFER)
             .order_by(Category.kind, Category.position)
         )
     )
@@ -58,12 +58,13 @@ def categories_catalog(db: Session) -> list[tuple[str, str]]:
     return catalog
 
 
-def merchants_to_classify(db: Session, limit: int) -> list[Merchant]:
-    """Comercos sense categoria i que l'usuari no ha confirmat mai."""
+def merchants_to_classify(db: Session, ledger_id: int, limit: int) -> list[Merchant]:
+    """Comercos d'un espai sense categoria i que l'usuari no ha confirmat mai."""
     return list(
         db.scalars(
             select(Merchant)
             .where(
+                Merchant.ledger_id == ledger_id,
                 Merchant.default_category_id.is_(None),
                 Merchant.is_confirmed.is_(False),
             )
@@ -117,7 +118,7 @@ def _record_suggestion(
 
 
 def classify_merchants(
-    db: Session, client: OllamaClient | None = None, limit: int = 50
+    db: Session, ledger_id: int, client: OllamaClient | None = None, limit: int = 50
 ) -> LlmStats:
     """Fa que el model proposi categoria per als comercos desconeguts.
 
@@ -129,7 +130,7 @@ def classify_merchants(
         stats.skipped = "desactivat a la configuracio"
         return stats
 
-    pending = merchants_to_classify(db, limit)
+    pending = merchants_to_classify(db, ledger_id, limit)
     if not pending:
         stats.skipped = "no hi ha cap comerc nou per mirar"
         return stats
@@ -141,8 +142,11 @@ def classify_merchants(
             stats.skipped = "el model local no esta disponible"
             return stats
 
-        catalog = categories_catalog(db)
-        by_slug = {category.slug: category for category in db.scalars(select(Category))}
+        catalog = categories_catalog(db, ledger_id)
+        by_slug = {
+            category.slug: category
+            for category in db.scalars(select(Category).where(Category.ledger_id == ledger_id))
+        }
 
         for merchant in pending:
             stats.examined += 1

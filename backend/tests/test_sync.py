@@ -234,22 +234,36 @@ def test_la_sincronitzacio_deixa_traca(db, connexio):
     assert run.finished_at is not None
 
 
-def test_canviar_el_llibre_dun_compte_arrossega_els_moviments(db, client, connexio, ledgers):
+def test_moure_un_compte_despai_arrossega_i_reclassifica_lhistoric(db, client, connexio, ledgers):
+    """Les categories i els comerços són de cada espai: en moure un compte, les
+    classificacions anteriors deixen de valer i els moviments es tornen a mirar."""
     avui = date.today()
     sync_connection(
         db,
         connexio,
         client=FakeEnableBanking(transactions=[moviment("r1", Decimal("-5.00"), avui)]),
     )
+    transaccio = db.scalar(select(Transaction))
+    categoria_antiga = db.scalar(
+        select(Category).where(Category.ledger_id == ledgers["personal"].id).limit(1)
+    )
+    transaccio.category_id = categoria_antiga.id
+    transaccio.category_source = CategorySource.MERCHANT
+    db.flush()
+
     make_user(db, "admin@example.com", is_admin=True)
     login(client, "admin@example.com")
-    account = db.scalar(select(Account))
+    compte = db.scalar(select(Account))
 
-    response = client.patch(
-        f"/api/accounts/{account.id}", json={"ledger_id": ledgers["calella"].id}
+    resposta = client.patch(
+        f"/api/connections/accounts/{compte.id}", json={"ledger_id": ledgers["calella"].id}
     )
 
-    assert response.status_code == 200
-    transaction = db.scalar(select(Transaction))
-    db.refresh(transaction)
-    assert transaction.ledger_id == ledgers["calella"].id
+    assert resposta.status_code == 200
+    db.refresh(transaccio)
+    assert transaccio.ledger_id == ledgers["calella"].id
+    assert transaccio.category_id != categoria_antiga.id, "la categoria de l'altre espai no val"
+    # El comerç s'ha tornat a crear dins del nou espai.
+    assert transaccio.merchant_id is not None
+    comerc = db.get(Merchant, transaccio.merchant_id)
+    assert comerc.ledger_id == ledgers["calella"].id

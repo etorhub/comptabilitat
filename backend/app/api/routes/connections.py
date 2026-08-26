@@ -7,14 +7,17 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import select, update
 
+from app.api.routes.accounts import to_out as account_to_out
 from app.config import settings
-from app.deps import AdminUser, CurrentUser, DbSession
+from app.deps import AdminUser, DbSession
 from app.integrations.enablebanking.client import EnableBankingClient, EnableBankingError
-from app.models import BankConnection, SyncRun
-from app.models.enums import ConnectionStatus, SyncTrigger
+from app.models import Account, BankConnection, Ledger, SyncRun, Transaction
+from app.models.enums import CategorySource, ConnectionStatus, SyncTrigger
 from app.schemas.banking import (
+    AccountAssign,
+    AccountOut,
     AspspOut,
     AuthorizeRequest,
     AuthorizeResponse,
@@ -193,13 +196,71 @@ def revoke_connection(
     return Message(message="Connexio revocada. Els moviments importats es conserven.")
 
 
-@router.get("/connections/status/summary", response_model=list[ConnectionOut])
-def connection_status(db: DbSession, user: CurrentUser):
-    """Estat resumit de les connexions, visible per a qualsevol usuari."""
-    connections = db.scalars(select(BankConnection)).all()
-    result = []
-    for connection in connections:
-        item = _to_out(connection)
-        item.accounts = []  # els comptes es consulten a /accounts, ja filtrats
-        result.append(item)
-    return result
+@router.patch("/connections/accounts/{account_id}", response_model=AccountOut)
+def assign_account(account_id: int, payload: AccountAssign, db: DbSession, admin: AdminUser):
+    """Assigna un compte a un espai (o el treu).
+
+    Moure un compte d'espai arrossega tot el seu historic, i les categories, els
+    comercos i les regles son de cada espai: per tant, les classificacions
+    anteriors deixen de ser valides i els moviments tornen a la cua de revisio
+    perque el nou espai els torni a classificar amb els seus criteris.
+    """
+    account = db.get(Account, account_id)
+    if account is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Compte no trobat")
+
+    nou_espai: Ledger | None = None
+    if payload.ledger_id is not None:
+        nou_espai = db.get(Ledger, payload.ledger_id)
+        if nou_espai is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Espai no trobat")
+
+    if payload.ledger_id != account.ledger_id:
+        account.ledger_id = payload.ledger_id
+        db.execute(
+            update(Transaction)
+            .where(Transaction.account_id == account.id)
+            .values(
+                ledger_id=payload.ledger_id,
+                merchant_id=None,
+                category_id=None,
+                category_source=CategorySource.NONE,
+                category_confidence=None,
+                applied_rule_id=None,
+                transfer_group_id=None,
+                needs_review=payload.ledger_id is not None,
+            )
+        )
+        db.flush()
+        if nou_espai is not None:
+            _reclassifica(db, account, nou_espai)
+
+    db.commit()
+    return account_to_out(db, account)
+
+
+def _reclassifica(db: DbSession, account: Account, ledger: Ledger) -> None:
+    """Torna a derivar comerc i categoria dels moviments amb els criteris del nou espai."""
+    from app.services.classification import classify_transaction
+    from app.services.merchants import get_or_create_merchant
+    from app.services.rules import active_rules
+
+    rules = active_rules(db, ledger.id)
+    for transaction in db.scalars(select(Transaction).where(Transaction.account_id == account.id)):
+        merchant = get_or_create_merchant(
+            db,
+            ledger.id,
+            transaction.normalized_description,
+            seen_on=transaction.booking_date,
+        )
+        if merchant is not None:
+            transaction.merchant_id = merchant.id
+        classify_transaction(db, transaction, rules)
+    db.flush()
+
+
+@router.get("/connections/accounts/unassigned", response_model=list[AccountOut])
+def unassigned_accounts(db: DbSession, admin: AdminUser):
+    """Comptes que encara no s'han assignat a cap espai."""
+    accounts = db.scalars(select(Account).where(Account.ledger_id.is_(None))).all()
+    return [account_to_out(db, account) for account in accounts]

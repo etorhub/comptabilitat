@@ -1,12 +1,5 @@
 export type Rol = "viewer" | "editor" | "admin";
 
-export interface AccesLlibre {
-  ledger_id: number;
-  ledger_code: string;
-  ledger_name: string;
-  role: Rol;
-}
-
 export interface Usuari {
   id: number;
   email: string;
@@ -14,10 +7,10 @@ export interface Usuari {
   is_admin: boolean;
   is_active: boolean;
   last_login_at: string | null;
-  ledgers: AccesLlibre[];
 }
 
-export interface Llibre {
+/** Un espai és una comptabilitat estanca amb els seus propis usuaris. */
+export interface Espai {
   id: number;
   code: string;
   name: string;
@@ -27,6 +20,19 @@ export interface Llibre {
   overdraft_threshold: string;
   position: number;
   is_active: boolean;
+  /** Rol de qui ho consulta dins d'aquest espai. */
+  role: Rol | null;
+}
+
+export interface EspaiDetall extends Espai {
+  alert_recipients: string[];
+}
+
+export interface Membre {
+  user_id: number;
+  email: string;
+  full_name: string;
+  role: Rol;
 }
 
 export interface Compte {
@@ -120,8 +126,10 @@ export interface Pagina<T> {
   offset: number;
 }
 
-export interface ResumLlibre {
+export interface Panell {
+  generated_at: string;
   ledger_id: number;
+  ledger_code: string;
   ledger_name: string;
   ledger_color: string;
   currency: string;
@@ -132,14 +140,8 @@ export interface ResumLlibre {
   net_this_month: string;
   accounts: number;
   uncategorized: number;
-}
-
-export interface Panell {
-  generated_at: string;
-  total_balance: string;
-  ledgers: ResumLlibre[];
-  active_alerts: number;
   pending_review: number;
+  active_alerts: number;
 }
 
 export interface PuntMensual {

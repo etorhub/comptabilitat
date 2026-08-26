@@ -1,7 +1,12 @@
-"""Deteccio de traspassos entre comptes propis.
+"""Deteccio de traspassos entre comptes d'un mateix espai.
 
-Moure diners d'un llibre a un altre no es ni ingres ni despesa: si no
-s'aparellen, la vista consolidada compta el mateix diner dues vegades.
+Nomes s'aparellen moviments de dos comptes **del mateix espai**: si un espai en
+te mes d'un, moure diners d'un a l'altre no es ni ingres ni despesa i no ha de
+sortir als informes.
+
+El que passa entre espais diferents no s'aparella: cada espai es una
+comptabilitat propia, i uns diners que arriben de fora son una entrada de debo
+per a qui mira aquell espai.
 """
 
 from __future__ import annotations
@@ -24,13 +29,14 @@ logger = logging.getLogger(__name__)
 MATCH_WINDOW_DAYS = 3
 
 
-def detect_transfers(db: Session, lookback_days: int = 120) -> int:
-    """Aparella sortides i entrades equivalents entre comptes propis."""
+def detect_transfers(db: Session, ledger_id: int, lookback_days: int = 120) -> int:
+    """Aparella sortides i entrades equivalents entre comptes del mateix espai."""
     since = today_local() - timedelta(days=lookback_days)
     candidates = list(
         db.scalars(
             select(Transaction)
             .where(
+                Transaction.ledger_id == ledger_id,
                 Transaction.booking_date >= since,
                 Transaction.transfer_group_id.is_(None),
                 Transaction.status == TransactionStatus.BOOKED,
@@ -44,7 +50,7 @@ def detect_transfers(db: Session, lookback_days: int = 120) -> int:
     if not outgoing or not incoming:
         return 0
 
-    category = transfer_category(db)
+    category = transfer_category(db, ledger_id)
     used: set[int] = set()
     pairs = 0
 
@@ -68,7 +74,7 @@ def detect_transfers(db: Session, lookback_days: int = 120) -> int:
 
     db.flush()
     if pairs:
-        logger.info("S'han aparellat %s traspassos entre comptes propis", pairs)
+        logger.info("S'han aparellat %s traspassos dins de l'espai %s", pairs, ledger_id)
     return pairs
 
 

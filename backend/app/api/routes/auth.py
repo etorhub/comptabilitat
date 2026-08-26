@@ -17,36 +17,11 @@ from app.core.security import (
 )
 from app.core.time import utcnow
 from app.deps import CurrentUser, DbSession
-from app.models import LedgerPermission, User, UserSession
-from app.schemas.auth import CurrentUserOut, LedgerAccess, LoginRequest, PasswordChange
+from app.models import User, UserSession
+from app.schemas.auth import CurrentUserOut, LoginRequest, PasswordChange
 from app.schemas.common import Message
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-
-def _build_current_user(db: DbSession, user: User) -> CurrentUserOut:
-    permissions = db.scalars(
-        select(LedgerPermission).where(LedgerPermission.user_id == user.id)
-    ).all()
-    ledgers = [
-        LedgerAccess(
-            ledger_id=permission.ledger_id,
-            ledger_code=permission.ledger.code,
-            ledger_name=permission.ledger.name,
-            role=permission.role,
-        )
-        for permission in permissions
-        if permission.ledger is not None
-    ]
-    return CurrentUserOut(
-        id=user.id,
-        email=user.email,
-        full_name=user.full_name,
-        is_admin=user.is_admin,
-        is_active=user.is_active,
-        last_login_at=user.last_login_at,
-        ledgers=ledgers,
-    )
 
 
 @router.post("/login", response_model=CurrentUserOut)
@@ -86,7 +61,7 @@ def login(payload: LoginRequest, request: Request, response: Response, db: DbSes
         samesite="lax",
         path="/",
     )
-    return _build_current_user(db, user)
+    return CurrentUserOut.model_validate(user)
 
 
 @router.post("/logout", response_model=Message)
@@ -101,7 +76,7 @@ def logout(request: Request, response: Response, db: DbSession):
 
 @router.get("/me", response_model=CurrentUserOut)
 def me(user: CurrentUser, db: DbSession):
-    return _build_current_user(db, user)
+    return CurrentUserOut.model_validate(user)
 
 
 @router.post("/password", response_model=Message)

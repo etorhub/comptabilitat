@@ -256,10 +256,17 @@ def _fetch_transactions(
     raise last_error or DateRangeError("No s'ha pogut trobar cap finestra de dates acceptada")
 
 
-def _apply_descriptors(db: Session, transaction: Transaction, parsed: ParsedTransaction) -> None:
+def _apply_descriptors(
+    db: Session, account: Account, transaction: Transaction, parsed: ParsedTransaction
+) -> None:
     normalized, display = normalize_description(parsed.description, parsed.counterparty)
     transaction.normalized_description = normalized
-    merchant = get_or_create_merchant(db, normalized, display, seen_on=parsed.booking_date)
+    if account.ledger_id is None:
+        # Compte encara sense espai: no hi ha memoria de comercos on desar-lo.
+        return
+    merchant = get_or_create_merchant(
+        db, account.ledger_id, normalized, display, seen_on=parsed.booking_date
+    )
     if merchant is not None:
         transaction.merchant_id = merchant.id
 
@@ -286,7 +293,7 @@ def _upsert_transactions(
     pending = [item for item in existing if item.status == TransactionStatus.PENDING]
     seen_keys: set[str] = set()
     # Es carreguen un sol cop: la mateixa llista serveix per a tots els moviments.
-    rules = active_rules(db)
+    rules = active_rules(db, account.ledger_id) if account.ledger_id is not None else []
 
     for parsed in parsed_items:
         key = parsed.dedup_key()
@@ -330,7 +337,7 @@ def _upsert_transactions(
         )
         db.add(transaction)
         db.flush()
-        _apply_descriptors(db, transaction, parsed)
+        _apply_descriptors(db, account, transaction, parsed)
         classify_transaction(db, transaction, rules)
         by_key[key] = transaction
         result.inserted += 1

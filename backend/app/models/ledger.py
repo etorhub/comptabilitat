@@ -1,4 +1,9 @@
-"""Llibres comptables (Personal, Calella, Pardals...)."""
+"""Espais de treball (Personal, Calella, Pardals...).
+
+Cada espai es una comptabilitat estanca: te els seus comptes, el seu pla de
+categories, els seus comercos i les seves regles, i nomes hi entra qui hi te
+acces. No hi ha cap vista que els barregi.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +11,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, Integer, String
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, money_column
@@ -28,6 +34,10 @@ class Ledger(Base, TimestampMixin):
     overdraft_threshold: Mapped[Decimal] = money_column(nullable=False, default=Decimal("0.00"))
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # A qui van els avisos d'aquest espai. Buit: als de la configuracio general.
+    alert_recipients: Mapped[list[str]] = mapped_column(
+        ARRAY(String(255)), nullable=False, default=list
+    )
 
     accounts: Mapped[list[Account]] = relationship(back_populates="ledger")
     permissions: Mapped[list[LedgerPermission]] = relationship(

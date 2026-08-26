@@ -24,6 +24,9 @@ docker compose exec worker python -m app.cli notify      # envia els avisos pend
 
 ## Com es classifiquen els moviments
 
+Tot passa **dins d'un espai**: les regles, els comerços i les categories d'un espai no
+toquen mai els dels altres. Les feines programades recorren els espais un per un.
+
 L'ordre és sempre el mateix, del més barat i explícit al més car:
 
 1. **El que has decidit tu.** Mai es toca.
@@ -33,25 +36,31 @@ L'ordre és sempre el mateix, del més barat i explícit al més car:
 5. La resta va a **Per revisar**.
 
 Quan corregeixes la categoria d'un moviment, per defecte la decisió es recorda per a **tot
-el comerç** i es propaga als moviments passats que no haguessis tocat tu. Si a més marques
-«crea una regla», queda una regla apresa visible a **Configuració → Regles**.
+el comerç d'aquell espai** i es propaga als moviments passats que no haguessis tocat tu. Si
+a més marques «crea una regla», queda una regla apresa visible a **Configuració → Regles**.
 
 El model local mai confirma res pel seu compte: quan proposa una categoria, el moviment
 queda marcat per revisar amb la seva confiança i la seva justificació.
 
-## Traspassos entre comptes propis
+## Traspassos
 
-Quan surten diners d'un compte i n'entren els mateixos a un altre dins de tres dies,
-s'aparellen automàticament i deixen de comptar com a ingrés i com a despesa. Sense això,
-moure diners de Personal a Calella inflaria les dues columnes de la vista consolidada.
+Quan surten diners d'un compte i n'entren els mateixos a un altre **del mateix espai**
+dins de tres dies, s'aparellen automàticament i deixen de comptar com a ingrés i com a
+despesa.
+
+Entre espais diferents no s'aparella res: cada espai és una comptabilitat pròpia i uns
+diners que hi arriben són una entrada de debò. Vegeu [`espais.md`](espais.md).
 
 Es veuen a **Moviments** marcant «Inclou traspassos».
 
 ## Avisos
 
+Els avisos van als destinataris de cada espai (**Configuració → Espai**); els que no són
+de cap espai, com una sincronització fallida, van als destinataris generals.
+
 | Avís | Quan salta |
 |---|---|
-| Possible descobert | La projecció d'un llibre baixa del seu llindar dins l'horitzó |
+| Possible descobert | La projecció d'un espai baixa del seu llindar dins l'horitzó |
 | Consentiment a punt de caducar | 7, 3 i 1 dia abans |
 | Consentiment caducat | El banc rebutja la sessió |
 | Canvi d'import d'un rebut | L'últim rebut s'aparta més d'un 10% del que és habitual |
@@ -61,7 +70,8 @@ Es veuen a **Moviments** marcant «Inclou traspassos».
 Cap avís es repeteix: la clau de deduplicació inclou el període. Si en descartes un, no
 torna.
 
-El llindar de descobert de cada llibre és `overdraft_threshold` i per defecte és zero. Si
+El llindar de descobert de cada espai es configura a **Configuració → Espai** i per
+defecte és zero. Si
 un compte té una línia de crèdit, posa-hi el número negatiu que correspongui.
 
 ## Còpies de seguretat
@@ -112,8 +122,9 @@ docker compose exec db psql -U comptabilitat -d comptabilitat \
 
 - Les contrasenyes es desen amb argon2 i les sessions són galetes `httpOnly` + `Secure` +
   `SameSite=Lax`; a la base de dades només hi ha el resum del testimoni.
-- Cada consulta es filtra pels llibres permesos de l'usuari, mai per un identificador que
-  vingui del client.
+- Cada ruta de dades penja d'un espai i la dependència que el resol comprova l'accés abans
+  que el codi vegi res. Qui no hi té accés rep un 404, no un 403.
+- Ser administrador de l'aplicació no dona accés a cap espai: s'ha de concedir un per un.
 - La clau privada d'Enable Banking es munta com a secret de només lectura i no és mai al
   repositori.
 - Canviar la contrasenya tanca la resta de sessions obertes.

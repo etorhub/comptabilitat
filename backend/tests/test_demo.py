@@ -8,6 +8,28 @@ from app.models import Account, RecurringSeries, Transaction, User
 from app.services.demo import seed_demo_data
 
 
+def test_la_demo_crea_els_tres_usuaris_amb_accessos_diferents(db, client):
+    """Tu a tot arreu, la parella a Pardals i la sogra només a Calella."""
+    seed_demo_data(db)
+    db.flush()
+
+    from app.models import LedgerPermission
+
+    accessos = {
+        usuari.email: sorted(
+            permis.ledger.code
+            for permis in db.scalars(
+                select(LedgerPermission).where(LedgerPermission.user_id == usuari.id)
+            )
+        )
+        for usuari in db.scalars(select(User))
+    }
+
+    assert accessos["demo@exemple.cat"] == ["calella", "pardals", "personal"]
+    assert accessos["parella@exemple.cat"] == ["pardals"]
+    assert accessos["sogra@exemple.cat"] == ["calella"]
+
+
 def test_la_demo_deixa_dades_a_punt(db, client):
     resultat = seed_demo_data(db)
     db.flush()
@@ -34,9 +56,10 @@ def test_lusuari_de_la_demo_pot_entrar(db, client):
     )
 
     assert resposta.status_code == 200, resposta.text
-    cos = resposta.json()
-    assert cos["is_admin"] is True
-    assert len(cos["ledgers"]) == 3
+    assert resposta.json()["is_admin"] is True
+    # Els espais es demanen a part i han de ser els tres.
+    espais = client.get("/api/workspaces").json()
+    assert sorted(item["code"] for item in espais) == ["calella", "pardals", "personal"]
 
 
 def test_els_moviments_queden_classificats(db, client):
@@ -60,4 +83,4 @@ def test_la_demo_no_trepitja_dades_existents(db, client):
 
     assert "ja hi havia dades" in str(segona["estat"])
     assert db.scalar(select(func.count(Transaction.id))) == abans
-    assert db.scalar(select(func.count(User.id))) == 1
+    assert db.scalar(select(func.count(User.id))) == 3

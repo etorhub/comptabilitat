@@ -190,10 +190,12 @@ def build_forecast(db: Session, ledger: Ledger, horizon_days: int | None = None)
     return forecast
 
 
-def check_overdrafts(db: Session, horizon_days: int | None = None) -> int:
-    """Genera un avis per cada llibre que es preveu que entri en descobert."""
+def check_overdrafts(db: Session, ledger_id: int, horizon_days: int | None = None) -> int:
+    """Genera un avis si es preveu que aquest espai entri en descobert."""
     created = 0
-    for ledger in db.scalars(select(Ledger).where(Ledger.is_active.is_(True))):
+    for ledger in db.scalars(
+        select(Ledger).where(Ledger.id == ledger_id, Ledger.is_active.is_(True))
+    ):
         forecast = build_forecast(db, ledger, horizon_days)
         if forecast.first_breach_day is None:
             continue

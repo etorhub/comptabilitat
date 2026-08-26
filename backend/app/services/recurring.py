@@ -87,35 +87,33 @@ def _regularity(intervals: list[int], expected: float, tolerance: int) -> float:
     return good / len(intervals)
 
 
-def detect_recurring(db: Session, ledger_id: int | None = None) -> RecurringStats:
-    """Recalcula les series recurrents a partir de l'historic."""
+def detect_recurring(db: Session, ledger_id: int) -> RecurringStats:
+    """Recalcula les series recurrents d'un espai a partir del seu historic."""
     stats = RecurringStats()
     since = today_local() - timedelta(days=HISTORY_MONTHS * 31)
 
-    ledgers = (
-        [db.get(Ledger, ledger_id)]
-        if ledger_id
-        else list(db.scalars(select(Ledger).where(Ledger.is_active.is_(True))))
-    )
-    for ledger in [item for item in ledgers if item is not None]:
-        groups: dict[str, list[Transaction]] = {}
-        for transaction in db.scalars(
-            select(Transaction)
-            .where(
-                Transaction.ledger_id == ledger.id,
-                Transaction.booking_date >= since,
-                Transaction.status == TransactionStatus.BOOKED,
-                Transaction.transfer_group_id.is_(None),
-                Transaction.is_excluded.is_(False),
-            )
-            .order_by(Transaction.booking_date)
-        ):
-            signature = _signature(transaction)
-            if signature:
-                groups.setdefault(signature, []).append(transaction)
+    ledger = db.get(Ledger, ledger_id)
+    if ledger is None:
+        return stats
 
-        for signature, items in groups.items():
-            _evaluate_group(db, ledger, signature, items, stats)
+    groups: dict[str, list[Transaction]] = {}
+    for transaction in db.scalars(
+        select(Transaction)
+        .where(
+            Transaction.ledger_id == ledger.id,
+            Transaction.booking_date >= since,
+            Transaction.status == TransactionStatus.BOOKED,
+            Transaction.transfer_group_id.is_(None),
+            Transaction.is_excluded.is_(False),
+        )
+        .order_by(Transaction.booking_date)
+    ):
+        signature = _signature(transaction)
+        if signature:
+            groups.setdefault(signature, []).append(transaction)
+
+    for signature, items in groups.items():
+        _evaluate_group(db, ledger, signature, items, stats)
 
     db.flush()
     return stats
@@ -253,12 +251,13 @@ def _alert_amount_change(
     )
 
 
-def check_missing_occurrences(db: Session) -> int:
-    """Avisa dels rebuts que no han arribat quan tocava."""
+def check_missing_occurrences(db: Session, ledger_id: int) -> int:
+    """Avisa dels rebuts d'un espai que no han arribat quan tocava."""
     today = today_local()
     count = 0
     for series in db.scalars(
         select(RecurringSeries).where(
+            RecurringSeries.ledger_id == ledger_id,
             RecurringSeries.status == SeriesStatus.ACTIVE,
             RecurringSeries.next_expected_date.is_not(None),
         )

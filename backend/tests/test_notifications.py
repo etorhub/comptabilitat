@@ -80,7 +80,7 @@ def test_sense_configuracio_no_senvia_res(db, monkeypatch):
 
     resultat = notify_pending(db)
 
-    assert "no esta configurat" in resultat
+    assert "no hi ha destinataris" in resultat
     assert db.scalar(select(Alert)).notified_at is None
 
 

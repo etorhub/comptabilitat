@@ -57,8 +57,8 @@ com a secret de només lectura. Aquest directori està ignorat pel git.
 1. Entra a l'aplicació com a administrador i ves a **Connexions**.
 2. **Connecta un banc** → et porta al Santander, hi fas l'autenticació forta (SCA) i
    tries quins comptes comparteixes.
-3. En tornar, els comptes apareixen **sense llibre assignat**. Assigna cada compte al seu
-   llibre (Personal, Calella, Pardals): fins llavors els seus moviments no compten enlloc.
+3. En tornar, els comptes apareixen **sense espai assignat**. Assigna cada compte al seu
+   espai (Personal, Calella, Pardals): fins llavors els seus moviments no es veuen enlloc.
 4. Prem **Sincronitza**. La primera vegada baixa tot l'històric que doni el banc.
 
 Si el Santander rebutja la finestra de 24 mesos, l'aplicació la va escurçant sola
@@ -70,7 +70,7 @@ Si el Santander rebutja la finestra de 24 mesos, l'aplicació la va escurçant s
 l'autenticació al banc. L'aplicació avisa **7, 3 i 1 dia abans** amb un avís i un correu.
 
 Per renovar-lo: **Connexions** → **Renova el consentiment** a la connexió que toqui. Es
-conserven els comptes, el llibre que tinguessin assignat i tot l'històric importat.
+conserven els comptes, l'espai que tinguessin assignat i tot l'històric importat.
 
 Si el consentiment caduca abans d'hora, la sincronització ho detecta (`EXPIRED_SESSION`),
 marca la connexió com a caducada i genera un avís urgent, en lloc de fallar en silenci.

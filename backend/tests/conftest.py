@@ -23,7 +23,7 @@ from app.db import get_db  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Base, Ledger, LedgerPermission, User  # noqa: E402
 from app.models.enums import LedgerRole  # noqa: E402
-from app.services.seed import seed_categories  # noqa: E402
+from app.services.seed import get_category_by_slug, seed_categories  # noqa: E402
 
 
 def _ensure_database() -> None:
@@ -80,20 +80,28 @@ def client(db: Session) -> Iterator[TestClient]:
 
 
 @pytest.fixture
-def categories(db: Session) -> None:
-    seed_categories(db)
-    db.flush()
-
-
-@pytest.fixture
 def ledgers(db: Session) -> dict[str, Ledger]:
+    """Tres espais estancs, cadascun amb el seu propi pla de categories."""
     created = {}
     for position, code in enumerate(["personal", "calella", "pardals"]):
         ledger = Ledger(code=code, name=code.capitalize(), position=position)
         db.add(ledger)
+        db.flush()
+        seed_categories(db, ledger.id)
         created[code] = ledger
     db.flush()
     return created
+
+
+@pytest.fixture
+def categories(ledgers: dict[str, Ledger]) -> dict[str, Ledger]:
+    """Les categories venen amb els espais; es manté per llegibilitat de les proves."""
+    return ledgers
+
+
+def categoria(db: Session, ledger: Ledger, slug: str = "alimentacio-supermercat"):
+    """Categoria d'un espai concret: no n'hi ha de compartides."""
+    return get_category_by_slug(db, ledger.id, slug)
 
 
 def make_user(
@@ -109,8 +117,14 @@ def make_user(
 
 
 def grant(db: Session, user: User, ledger: Ledger, role: LedgerRole = LedgerRole.EDITOR) -> None:
+    """Dona acces a un espai. Sense aixo, ni un administrador no hi entra."""
     db.add(LedgerPermission(user_id=user.id, ledger_id=ledger.id, role=role))
     db.flush()
+
+
+def grant_all(db: Session, user: User, ledgers: dict[str, Ledger], role=LedgerRole.ADMIN) -> None:
+    for ledger in ledgers.values():
+        grant(db, user, ledger, role)
 
 
 def login(client: TestClient, email: str, password: str = "contrasenya-llarga") -> None:

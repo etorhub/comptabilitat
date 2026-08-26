@@ -4,40 +4,41 @@ import { useMensual, useRepartimentCategories, useRepartimentComercos } from "..
 import { Grafic, PALETA, eixos, useColors } from "../components/Grafic";
 import { Boto, Estat, Import, Targeta, Xifra } from "../components/ui";
 import { diesEnrere, euros, mesLlegible, nombre } from "../lib/format";
-import { useAmbitLlibres } from "../lib/llibres";
+import { useEspaiActiu } from "../lib/espai";
 
 export function Informes() {
-  const { filtre } = useAmbitLlibres();
+  const { codi, espai } = useEspaiActiu();
   const [desDe, setDesDe] = useState(diesEnrere(365));
   const [finsA, setFinsA] = useState("");
   const [mesos, setMesos] = useState(12);
 
-  const mensual = useMensual(filtre, mesos);
-  const despeses = useRepartimentCategories(filtre, desDe, finsA || undefined, true);
-  const ingressos = useRepartimentCategories(filtre, desDe, finsA || undefined, false);
-  const comercos = useRepartimentComercos(filtre, desDe, finsA || undefined);
+  const mensual = useMensual(codi, mesos);
+  const despeses = useRepartimentCategories(codi, desDe, finsA || undefined, true);
+  const ingressos = useRepartimentCategories(codi, desDe, finsA || undefined, false);
+  const comercos = useRepartimentComercos(codi, desDe, finsA || undefined);
   const colors = useColors();
   const eix = eixos(colors);
 
   const totalIngressos = mensual.data?.reduce((suma, punt) => suma + nombre(punt.income), 0) ?? 0;
   const totalDespeses = mensual.data?.reduce((suma, punt) => suma + nombre(punt.expenses), 0) ?? 0;
 
-  const parametres = { ledger_ids: filtre, date_from: desDe, date_to: finsA || undefined };
+  const parametres = { date_from: desDe, date_to: finsA || undefined };
 
   return (
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Informes</h1>
+          <h1 className="text-2xl font-semibold">Informes de {espai.name}</h1>
           <p className="text-suau text-sm">
-            Els traspassos entre comptes propis no compten com a ingrés ni com a despesa.
+            Els traspassos entre comptes d'aquest mateix espai no compten com a ingrés ni com a
+            despesa. El que ve d'un altre espai, sí.
           </p>
         </div>
         <div className="flex gap-2">
-          <Boto onClick={() => descarrega("/export/report.xlsx", { ledger_ids: filtre, months: mesos })}>
+          <Boto onClick={() => descarrega(`/workspaces/${codi}/export/report.xlsx`, { months: mesos })}>
             Excel
           </Boto>
-          <Boto onClick={() => descarrega("/export/report.pdf", parametres)}>PDF</Boto>
+          <Boto onClick={() => descarrega(`/workspaces/${codi}/export/report.pdf`, parametres)}>PDF</Boto>
         </div>
       </header>
 

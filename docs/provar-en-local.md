@@ -30,6 +30,18 @@ demo@exemple.cat
 comptabilitat
 ```
 
+La demo crea tres usuaris amb accessos diferents, per veure com funcionen els espais
+estancs. Tots tres tenen la contrasenya `comptabilitat`:
+
+| Usuari | On entra |
+|---|---|
+| `demo@exemple.cat` | Personal, Calella i Pardals |
+| `parella@exemple.cat` | Només Pardals |
+| `sogra@exemple.cat` | Només Calella |
+
+Val la pena entrar amb la sogra i comprovar que no veu ni el selector d'altres espais ni
+res del teu Personal.
+
 Si prefereixes no fer servir `make`:
 
 ```bash
@@ -40,9 +52,11 @@ docker compose -f deploy/docker-compose.local.yml exec api python -m app.cli dem
 ## Què hi trobaràs
 
 Les dades d'exemple imiten el que arriba del Santander (`COMPRA TARJ. 5402XXXXXXXX1234 EN
-MERCADONA, BARCELONA` i companyia), repartides pels tres llibres:
+MERCADONA, BARCELONA` i companyia), repartides pels tres espais:
 
-- **Panell**: saldos, ingressos i despeses del mes, evolució i repartiment per categoria.
+- **El selector d'espai** a dalt de tot de la barra lateral: tot el que hi ha a sota és
+  d'un sol espai, mai barrejat.
+- **Panell**: saldo, ingressos i despeses del mes, evolució i repartiment per categoria.
 - **Moviments**: 350 apunts amb filtres, edició de categoria i exportació a CSV i Excel.
 - **Recurrents**: set rebuts detectats sols (Endesa, Netflix, Spotify, comunitat, Agbar,
   assegurança i la nòmina), amb el cost mensual i la propera data prevista.
@@ -51,7 +65,12 @@ MERCADONA, BARCELONA` i companyia), repartides pels tres llibres:
 - **Configuració**: els comerços amb la seva categoria i les regles.
 
 Val la pena provar el cicle que faràs de debò: ves a **Moviments**, canvia la categoria
-d'un moviment i mira com la resta de moviments del mateix comerç canvien també.
+d'un moviment i mira com la resta de moviments del mateix comerç canvien també — i com el
+mateix comerç en un altre espai **no** es mou.
+
+També hi ha un moviment de 400 € que va de Personal a Calella: el veuràs com una sortida a
+Personal i com una entrada a Calella, sense aparellar-se. És el que toca amb comptabilitats
+separades.
 
 ## Altres ordres
 

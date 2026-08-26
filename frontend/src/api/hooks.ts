@@ -7,7 +7,9 @@ import type {
   Compte,
   Connexio,
   ElementRevisio,
-  Llibre,
+  Espai,
+  EspaiDetall,
+  Membre,
   Moviment,
   Pagina,
   Panell,
@@ -24,7 +26,6 @@ import type {
 
 /** Filtres de la llista de moviments; es passen tal qual a l'API. */
 export interface FiltresMoviments {
-  ledger_ids?: number[];
   account_id?: number;
   date_from?: string;
   date_to?: string;
@@ -40,21 +41,17 @@ export interface FiltresMoviments {
   offset?: number;
 }
 
+/** Totes les dades pengen d'un espai: la clau de cau sempre en porta el codi. */
+const dins = (codi: string, ...parts: unknown[]) => ["espai", codi, ...parts] as const;
+
 export const claus = {
   usuari: ["usuari"] as const,
-  llibres: ["llibres"] as const,
-  comptes: ["comptes"] as const,
+  espais: ["espais"] as const,
   connexions: ["connexions"] as const,
-  categories: ["categories"] as const,
-  panell: (llibres?: number[]) => ["panell", llibres] as const,
-  moviments: (filtres: FiltresMoviments) => ["moviments", filtres] as const,
-  revisio: (llibres?: number[]) => ["revisio", llibres] as const,
-  recurrents: (llibres?: number[]) => ["recurrents", llibres] as const,
-  avisos: ["avisos"] as const,
-  regles: ["regles"] as const,
-  comercos: (cerca: string, nomesPendents: boolean) =>
-    ["comercos", cerca, nomesPendents] as const,
+  usuaris: ["usuaris"] as const,
 };
+
+// --- Sessió i espais -------------------------------------------------------
 
 export function useUsuari() {
   return useQuery({
@@ -85,46 +82,89 @@ export function useSortida() {
   });
 }
 
-export function useLlibres() {
-  return useQuery({ queryKey: claus.llibres, queryFn: () => get<Llibre[]>("/ledgers") });
+export function useEspais() {
+  return useQuery({ queryKey: claus.espais, queryFn: () => get<Espai[]>("/workspaces") });
 }
 
-export function useCategories() {
+export function useEspai(codi: string) {
   return useQuery({
-    queryKey: claus.categories,
-    queryFn: () => get<Categoria[]>("/categories"),
+    queryKey: dins(codi, "detall"),
+    queryFn: () => get<EspaiDetall>(`/workspaces/${codi}`),
+    enabled: Boolean(codi),
+  });
+}
+
+export function useActualitzaEspai(codi: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (dades: { alert_recipients?: string[]; overdraft_threshold?: string }) =>
+      patch<EspaiDetall>(`/workspaces/${codi}`, dades),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: dins(codi, "detall") });
+      client.invalidateQueries({ queryKey: claus.espais });
+    },
+  });
+}
+
+export function useMembres(codi: string, actiu = true) {
+  return useQuery({
+    queryKey: dins(codi, "membres"),
+    queryFn: () => get<Membre[]>(`/workspaces/${codi}/members`),
+    enabled: Boolean(codi) && actiu,
+    retry: false,
+  });
+}
+
+// --- Dades de l'espai ------------------------------------------------------
+
+export function useCategories(codi: string) {
+  return useQuery({
+    queryKey: dins(codi, "categories"),
+    queryFn: () => get<Categoria[]>(`/workspaces/${codi}/categories`),
+    enabled: Boolean(codi),
     staleTime: 10 * 60 * 1000,
   });
 }
 
-export function useComptes() {
-  return useQuery({ queryKey: claus.comptes, queryFn: () => get<Compte[]>("/accounts") });
-}
-
-export function usePanell(llibres?: number[]) {
+export function useComptes(codi: string) {
   return useQuery({
-    queryKey: claus.panell(llibres),
-    queryFn: () => get<Panell>("/analytics/dashboard", { ledger_ids: llibres }),
+    queryKey: dins(codi, "comptes"),
+    queryFn: () => get<Compte[]>(`/workspaces/${codi}/accounts`),
+    enabled: Boolean(codi),
   });
 }
 
-export function useMoviments(filtres: FiltresMoviments) {
+export function usePanell(codi: string) {
   return useQuery({
-    queryKey: claus.moviments(filtres),
-    queryFn: () => get<Pagina<Moviment>>("/transactions", { ...filtres }),
+    queryKey: dins(codi, "panell"),
+    queryFn: () => get<Panell>(`/workspaces/${codi}/analytics/dashboard`),
+    enabled: Boolean(codi),
+  });
+}
+
+export function useMoviments(codi: string, filtres: FiltresMoviments) {
+  return useQuery({
+    queryKey: dins(codi, "moviments", filtres),
+    queryFn: () => get<Pagina<Moviment>>(`/workspaces/${codi}/transactions`, { ...filtres }),
+    enabled: Boolean(codi),
     placeholderData: (anterior) => anterior,
   });
 }
 
-export function useRevisio(llibres?: number[]) {
+export function useRevisio(codi: string) {
   return useQuery({
-    queryKey: claus.revisio(llibres),
+    queryKey: dins(codi, "revisio"),
     queryFn: () =>
-      get<Pagina<ElementRevisio>>("/transactions/review", { ledger_ids: llibres, limit: 100 }),
+      get<Pagina<ElementRevisio>>(`/workspaces/${codi}/transactions/review`, { limit: 100 }),
+    enabled: Boolean(codi),
   });
 }
 
-export function useCategoritza() {
+function invalidaEspai(client: ReturnType<typeof useQueryClient>, codi: string) {
+  client.invalidateQueries({ queryKey: ["espai", codi] });
+}
+
+export function useCategoritza(codi: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({
@@ -135,120 +175,168 @@ export function useCategoritza() {
       category_id: number | null;
       remember_merchant?: boolean;
       create_rule?: boolean;
-    }) => patch<Moviment>(`/transactions/${id}`, dades),
-    onSuccess: () => {
-      client.invalidateQueries({ queryKey: ["moviments"] });
-      client.invalidateQueries({ queryKey: ["revisio"] });
-      client.invalidateQueries({ queryKey: ["panell"] });
-    },
+    }) => patch<Moviment>(`/workspaces/${codi}/transactions/${id}`, dades),
+    onSuccess: () => invalidaEspai(client, codi),
   });
 }
 
-export function useCategoritzaEnLot() {
+export function useCategoritzaEnLot(codi: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (dades: { transaction_ids: number[]; category_id: number | null }) =>
-      post<{ message: string }>("/transactions/bulk-categorize", dades),
-    onSuccess: () => {
-      client.invalidateQueries({ queryKey: ["moviments"] });
-      client.invalidateQueries({ queryKey: ["revisio"] });
-    },
+      post<{ message: string }>(`/workspaces/${codi}/transactions/bulk-categorize`, dades),
+    onSuccess: () => invalidaEspai(client, codi),
   });
 }
 
-export function useMensual(llibres?: number[], mesos = 12) {
+export function useMensual(codi: string, mesos = 12) {
   return useQuery({
-    queryKey: ["mensual", llibres, mesos],
-    queryFn: () => get<PuntMensual[]>("/analytics/monthly", { ledger_ids: llibres, months: mesos }),
+    queryKey: dins(codi, "mensual", mesos),
+    queryFn: () =>
+      get<PuntMensual[]>(`/workspaces/${codi}/analytics/monthly`, { months: mesos }),
+    enabled: Boolean(codi),
   });
 }
 
 export function useRepartimentCategories(
-  llibres?: number[],
+  codi: string,
   desDe?: string,
   finsA?: string,
   despeses = true,
 ) {
   return useQuery({
-    queryKey: ["categories-repartiment", llibres, desDe, finsA, despeses],
+    queryKey: dins(codi, "repartiment-categories", desDe, finsA, despeses),
     queryFn: () =>
-      get<RepartimentCategoria[]>("/analytics/categories", {
-        ledger_ids: llibres,
+      get<RepartimentCategoria[]>(`/workspaces/${codi}/analytics/categories`, {
         date_from: desDe,
         date_to: finsA,
         expenses: despeses,
       }),
+    enabled: Boolean(codi),
   });
 }
 
-export function useRepartimentComercos(llibres?: number[], desDe?: string, finsA?: string) {
+export function useRepartimentComercos(codi: string, desDe?: string, finsA?: string) {
   return useQuery({
-    queryKey: ["comercos-repartiment", llibres, desDe, finsA],
+    queryKey: dins(codi, "repartiment-comercos", desDe, finsA),
     queryFn: () =>
-      get<RepartimentComerc[]>("/analytics/merchants", {
-        ledger_ids: llibres,
+      get<RepartimentComerc[]>(`/workspaces/${codi}/analytics/merchants`, {
         date_from: desDe,
         date_to: finsA,
       }),
+    enabled: Boolean(codi),
   });
 }
 
-export function useSaldos(llibres?: number[], dies = 180) {
+export function useSaldos(codi: string, dies = 180) {
   return useQuery({
-    queryKey: ["saldos", llibres, dies],
-    queryFn: () => get<PuntSaldo[]>("/analytics/balance-series", { ledger_ids: llibres, days: dies }),
-  });
-}
-
-export function usePrevisio(llibreId: number | undefined, dies = 90) {
-  return useQuery({
-    queryKey: ["previsio", llibreId, dies],
-    queryFn: () => get<Previsio>(`/analytics/forecast/${llibreId}`, { horizon_days: dies }),
-    enabled: Boolean(llibreId),
-  });
-}
-
-export function useRecurrents(llibres?: number[], nomesSubscripcions = false) {
-  return useQuery({
-    queryKey: [...claus.recurrents(llibres), nomesSubscripcions],
+    queryKey: dins(codi, "saldos", dies),
     queryFn: () =>
-      get<SerieRecurrent[]>("/recurring", {
-        ledger_ids: llibres,
+      get<PuntSaldo[]>(`/workspaces/${codi}/analytics/balance-series`, { days: dies }),
+    enabled: Boolean(codi),
+  });
+}
+
+export function usePrevisio(codi: string, dies = 90) {
+  return useQuery({
+    queryKey: dins(codi, "previsio", dies),
+    queryFn: () =>
+      get<Previsio>(`/workspaces/${codi}/analytics/forecast`, { horizon_days: dies }),
+    enabled: Boolean(codi),
+  });
+}
+
+export function useRecurrents(codi: string, nomesSubscripcions = false) {
+  return useQuery({
+    queryKey: dins(codi, "recurrents", nomesSubscripcions),
+    queryFn: () =>
+      get<SerieRecurrent[]>(`/workspaces/${codi}/recurring`, {
         only_subscriptions: nomesSubscripcions,
       }),
+    enabled: Boolean(codi),
   });
 }
 
-export function useResumSubscripcions(llibres?: number[]) {
+export function useResumSubscripcions(codi: string) {
   return useQuery({
-    queryKey: ["subscripcions-resum", llibres],
-    queryFn: () => get<Record<string, string>>("/recurring/summary", { ledger_ids: llibres }),
+    queryKey: dins(codi, "resum-subscripcions"),
+    queryFn: () => get<Record<string, string>>(`/workspaces/${codi}/recurring/summary`),
+    enabled: Boolean(codi),
   });
 }
 
-export function useActualitzaSerie() {
+export function useActualitzaSerie(codi: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...dades }: { id: number; include_in_forecast?: boolean; label?: string }) =>
-      patch<SerieRecurrent>(`/recurring/${id}`, dades),
-    onSuccess: () => {
-      client.invalidateQueries({ queryKey: ["recurrents"] });
-      client.invalidateQueries({ queryKey: ["previsio"] });
-    },
+      patch<SerieRecurrent>(`/workspaces/${codi}/recurring/${id}`, dades),
+    onSuccess: () => invalidaEspai(client, codi),
   });
 }
 
-export function useAvisos() {
-  return useQuery({ queryKey: claus.avisos, queryFn: () => get<Avis[]>("/alerts") });
+export function useAvisos(codi: string) {
+  return useQuery({
+    queryKey: dins(codi, "avisos"),
+    queryFn: () => get<Avis[]>(`/workspaces/${codi}/alerts`),
+    enabled: Boolean(codi),
+  });
 }
 
-export function useDescartaAvis() {
+export function useDescartaAvis(codi: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => post(`/alerts/${id}/dismiss`),
-    onSuccess: () => client.invalidateQueries({ queryKey: claus.avisos }),
+    mutationFn: (id: number) => post(`/workspaces/${codi}/alerts/${id}/dismiss`),
+    onSuccess: () => invalidaEspai(client, codi),
   });
 }
+
+export function useComercos(codi: string, cerca: string, nomesPendents: boolean) {
+  return useQuery({
+    queryKey: dins(codi, "comercos", cerca, nomesPendents),
+    queryFn: () =>
+      get<Pagina<Comerc>>(`/workspaces/${codi}/merchants`, {
+        search: cerca || undefined,
+        only_unclassified: nomesPendents,
+        limit: 200,
+      }),
+    enabled: Boolean(codi),
+  });
+}
+
+export function useActualitzaComerc(codi: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...dades }: { id: number; default_category_id: number | null }) =>
+      patch<Comerc>(`/workspaces/${codi}/merchants/${id}`, dades),
+    onSuccess: () => invalidaEspai(client, codi),
+  });
+}
+
+export function useRegles(codi: string) {
+  return useQuery({
+    queryKey: dins(codi, "regles"),
+    queryFn: () => get<Regla[]>(`/workspaces/${codi}/rules`),
+    enabled: Boolean(codi),
+  });
+}
+
+export function useEsborraRegla(codi: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => del(`/workspaces/${codi}/rules/${id}`),
+    onSuccess: () => invalidaEspai(client, codi),
+  });
+}
+
+export function useAplicaRegla(codi: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => post<{ message: string }>(`/workspaces/${codi}/rules/${id}/apply`),
+    onSuccess: () => invalidaEspai(client, codi),
+  });
+}
+
+// --- Administració (transversal, fora dels espais) -------------------------
 
 export function useConnexions() {
   return useQuery({
@@ -258,13 +346,18 @@ export function useConnexions() {
   });
 }
 
+export function useComptesSenseEspai() {
+  return useQuery({
+    queryKey: [...claus.connexions, "sense-espai"],
+    queryFn: () => get<Compte[]>("/connections/accounts/unassigned"),
+    retry: false,
+  });
+}
+
 export function useAutoritza() {
   return useMutation({
     mutationFn: (dades: { aspsp_name?: string; connection_id?: number }) =>
-      post<{ authorization_url: string; connection_id: number }>(
-        "/connections/authorize",
-        dades,
-      ),
+      post<{ authorization_url: string; connection_id: number }>("/connections/authorize", dades),
   });
 }
 
@@ -277,52 +370,19 @@ export function useSincronitza() {
   });
 }
 
-export function useAssignaLlibre() {
+export function useAssignaEspai() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ledger_id }: { id: number; ledger_id: number | null }) =>
-      patch<Compte>(`/accounts/${id}`, { ledger_id }),
+      patch<Compte>(`/connections/accounts/${id}`, { ledger_id }),
     onSuccess: () => client.invalidateQueries(),
   });
 }
 
-export function useComercos(cerca: string, nomesPendents: boolean) {
+export function useUsuaris() {
   return useQuery({
-    queryKey: claus.comercos(cerca, nomesPendents),
-    queryFn: () =>
-      get<Pagina<Comerc>>("/merchants", {
-        search: cerca || undefined,
-        only_unclassified: nomesPendents,
-        limit: 200,
-      }),
-  });
-}
-
-export function useActualitzaComerc() {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, ...dades }: { id: number; default_category_id: number | null }) =>
-      patch<Comerc>(`/merchants/${id}`, dades),
-    onSuccess: () => client.invalidateQueries(),
-  });
-}
-
-export function useRegles() {
-  return useQuery({ queryKey: claus.regles, queryFn: () => get<Regla[]>("/rules") });
-}
-
-export function useEsborraRegla() {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => del(`/rules/${id}`),
-    onSuccess: () => client.invalidateQueries({ queryKey: claus.regles }),
-  });
-}
-
-export function useAplicaRegla() {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => post<{ message: string }>(`/rules/${id}/apply`),
-    onSuccess: () => client.invalidateQueries(),
+    queryKey: claus.usuaris,
+    queryFn: () => get<Usuari[]>("/users"),
+    retry: false,
   });
 }

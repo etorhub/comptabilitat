@@ -1,33 +1,42 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useActualitzaComerc,
+  useActualitzaEspai,
   useAplicaRegla,
   useCategories,
   useComercos,
   useEsborraRegla,
+  useEspai,
+  useMembres,
   useRegles,
 } from "../api/hooks";
 import { Boto, Estat, Etiqueta, Targeta } from "../components/ui";
 import { data } from "../lib/format";
+import { useEspaiActiu } from "../lib/espai";
 
-const PESTANYES = ["Comerços", "Regles"] as const;
-type Pestanya = (typeof PESTANYES)[number];
+const ROLS: Record<string, string> = {
+  viewer: "només mira",
+  editor: "pot classificar",
+  admin: "el gestiona",
+};
 
 export function Configuracio() {
-  const [pestanya, setPestanya] = useState<Pestanya>("Comerços");
+  const { espai, potGestionar } = useEspaiActiu();
+  const pestanyes = ["Comerços", "Regles", ...(potGestionar ? ["Espai"] : [])];
+  const [pestanya, setPestanya] = useState(pestanyes[0]);
 
   return (
     <div className="flex flex-col gap-4">
       <header>
-        <h1 className="text-2xl font-semibold">Configuració</h1>
+        <h1 className="text-2xl font-semibold">Configuració de {espai.name}</h1>
         <p className="text-suau text-sm">
-          La memòria de comerços i les regles són el que fa que els moviments nous ja arribin
-          classificats.
+          Els comerços i les regles són només d'aquest espai: el que decideixis aquí no toca
+          res dels altres.
         </p>
       </header>
 
       <nav className="flex gap-2">
-        {PESTANYES.map((nom) => (
+        {pestanyes.map((nom) => (
           <button
             key={nom}
             type="button"
@@ -35,7 +44,10 @@ export function Configuracio() {
             className="rounded-lg px-3 py-1.5 text-sm font-medium"
             style={
               pestanya === nom
-                ? { background: "color-mix(in srgb, var(--accent) 12%, transparent)", color: "var(--accent)" }
+                ? {
+                    background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+                    color: "var(--accent)",
+                  }
                 : { color: "var(--text-suau)" }
             }
           >
@@ -44,17 +56,20 @@ export function Configuracio() {
         ))}
       </nav>
 
-      {pestanya === "Comerços" ? <Comercos /> : <Regles />}
+      {pestanya === "Comerços" && <Comercos />}
+      {pestanya === "Regles" && <Regles />}
+      {pestanya === "Espai" && <ConfiguracioEspai />}
     </div>
   );
 }
 
 function Comercos() {
+  const { codi, potEditar } = useEspaiActiu();
   const [cerca, setCerca] = useState("");
   const [nomesPendents, setNomesPendents] = useState(false);
-  const comercos = useComercos(cerca, nomesPendents);
-  const { data: categories = [] } = useCategories();
-  const actualitza = useActualitzaComerc();
+  const comercos = useComercos(codi, cerca, nomesPendents);
+  const { data: categories = [] } = useCategories(codi);
+  const actualitza = useActualitzaComerc(codi);
 
   return (
     <Targeta>
@@ -105,6 +120,7 @@ function Comercos() {
                   <td>
                     <select
                       value={comerc.default_category_id ?? ""}
+                      disabled={!potEditar}
                       onChange={(event) =>
                         actualitza.mutate({
                           id: comerc.id,
@@ -145,9 +161,10 @@ function Comercos() {
 }
 
 function Regles() {
-  const regles = useRegles();
-  const esborra = useEsborraRegla();
-  const aplica = useAplicaRegla();
+  const { codi, potEditar } = useEspaiActiu();
+  const regles = useRegles(codi);
+  const esborra = useEsborraRegla(codi);
+  const aplica = useAplicaRegla(codi);
 
   return (
     <Targeta>
@@ -163,11 +180,10 @@ function Regles() {
               <tr>
                 <th>Nom</th>
                 <th>Condicions</th>
-                <th>Assigna</th>
                 <th className="text-right">Prioritat</th>
                 <th className="text-right">Encerts</th>
                 <th>Origen</th>
-                <th />
+                {potEditar && <th />}
               </tr>
             </thead>
             <tbody>
@@ -176,10 +192,12 @@ function Regles() {
                   <td className="text-sm font-medium">{regla.name}</td>
                   <td className="text-suau text-sm">
                     {regla.conditions
-                      .map((condicio) => `${condicio.field} ${condicio.operator} "${condicio.value}"`)
+                      .map(
+                        (condicio) =>
+                          `${condicio.field} ${condicio.operator} "${condicio.value}"`,
+                      )
                       .join(" i ")}
                   </td>
-                  <td className="text-sm">{regla.set_category_id ?? "—"}</td>
                   <td className="text-right text-sm tabular-nums">{regla.priority}</td>
                   <td className="text-right text-sm tabular-nums">{regla.match_count}</td>
                   <td>
@@ -187,12 +205,14 @@ function Regles() {
                       {regla.source === "learned" ? "apresa" : "manual"}
                     </Etiqueta>
                   </td>
-                  <td className="whitespace-nowrap">
-                    <Boto onClick={() => aplica.mutate(regla.id)}>Torna-la a aplicar</Boto>{" "}
-                    <Boto tipus="perillos" onClick={() => esborra.mutate(regla.id)}>
-                      Esborra
-                    </Boto>
-                  </td>
+                  {potEditar && (
+                    <td className="whitespace-nowrap">
+                      <Boto onClick={() => aplica.mutate(regla.id)}>Torna-la a aplicar</Boto>{" "}
+                      <Boto tipus="perillos" onClick={() => esborra.mutate(regla.id)}>
+                        Esborra
+                      </Boto>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -200,5 +220,101 @@ function Regles() {
         </div>
       </Estat>
     </Targeta>
+  );
+}
+
+function ConfiguracioEspai() {
+  const { codi } = useEspaiActiu();
+  const detall = useEspai(codi);
+  const membres = useMembres(codi);
+  const actualitza = useActualitzaEspai(codi);
+  const [destinataris, setDestinataris] = useState("");
+  const [llindar, setLlindar] = useState("");
+
+  useEffect(() => {
+    if (detall.data) {
+      setDestinataris(detall.data.alert_recipients.join(", "));
+      setLlindar(detall.data.overdraft_threshold);
+    }
+  }, [detall.data]);
+
+  function desa() {
+    actualitza.mutate({
+      alert_recipients: destinataris
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+      overdraft_threshold: llindar,
+    });
+  }
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Targeta titol="Avisos d'aquest espai">
+        <Estat carregant={detall.isLoading} error={detall.error}>
+          <label className="block text-sm">
+            <span className="text-suau block text-xs">
+              Qui rep els avisos (correus separats per comes)
+            </span>
+            <input
+              value={destinataris}
+              onChange={(event) => setDestinataris(event.target.value)}
+              placeholder="tu@example.com, parella@example.com"
+              className="mt-1 w-full"
+            />
+          </label>
+          <p className="text-suau mt-1 text-xs">
+            Si es deixa buit, s'envien als destinataris generals de la configuració.
+          </p>
+
+          <label className="mt-4 block text-sm">
+            <span className="text-suau block text-xs">
+              Llindar de descobert (avisa si el saldo previst hi baixa)
+            </span>
+            <input
+              value={llindar}
+              onChange={(event) => setLlindar(event.target.value)}
+              className="mt-1 w-40"
+            />
+          </label>
+
+          <div className="mt-4">
+            <Boto tipus="primari" onClick={desa} disabled={actualitza.isPending}>
+              {actualitza.isPending ? "Desant…" : "Desa"}
+            </Boto>
+          </div>
+        </Estat>
+      </Targeta>
+
+      <Targeta titol="Qui hi té accés">
+        <Estat
+          carregant={membres.isLoading}
+          error={membres.error}
+          buit={!membres.data?.length}
+          missatgeBuit="Encara no hi ha ningú més."
+        >
+          <table className="dades">
+            <tbody>
+              {membres.data?.map((membre) => (
+                <tr key={membre.user_id}>
+                  <td className="text-sm">
+                    <div className="font-medium">{membre.full_name || membre.email}</div>
+                    <div className="text-suau text-xs">{membre.email}</div>
+                  </td>
+                  <td>
+                    <Etiqueta to={membre.role === "admin" ? "accent" : "neutre"}>
+                      {ROLS[membre.role] ?? membre.role}
+                    </Etiqueta>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="text-suau mt-3 text-xs">
+            Els accessos es donen des de l'administració d'usuaris.
+          </p>
+        </Estat>
+      </Targeta>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-"""Exportacio dels moviments i dels informes."""
+"""Exportacio dels moviments i dels informes d'un espai."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from fastapi.responses import Response
 from sqlalchemy import select
 
 from app.core.time import today_local
-from app.deps import CurrentUser, DbSession, resolve_ledger_scope
-from app.models import Ledger, Transaction
+from app.deps import DbSession, Workspace
+from app.models import Transaction
 from app.services import reports
 from app.services.export import (
     report_to_pdf,
@@ -26,13 +26,13 @@ MAX_ROWS = 20000
 
 def _load(
     db: DbSession,
-    scope: list[int],
+    ledger_id: int,
     date_from: date | None,
     date_to: date | None,
     search: str | None,
     category_ids: list[int] | None,
 ) -> list[Transaction]:
-    query = select(Transaction).where(Transaction.ledger_id.in_(scope))
+    query = select(Transaction).where(Transaction.ledger_id == ledger_id)
     if date_from is not None:
         query = query.where(Transaction.booking_date >= date_from)
     if date_to is not None:
@@ -49,8 +49,8 @@ def _load(
     )
 
 
-def _filename(prefix: str, extension: str) -> str:
-    return f"{prefix}-{today_local():%Y%m%d}.{extension}"
+def _filename(prefix: str, codi: str, extension: str) -> str:
+    return f"{prefix}-{codi}-{today_local():%Y%m%d}.{extension}"
 
 
 def _attachment(content: bytes, filename: str, media_type: str) -> Response:
@@ -64,35 +64,33 @@ def _attachment(content: bytes, filename: str, media_type: str) -> Response:
 @router.get("/transactions.csv")
 def export_csv(
     db: DbSession,
-    user: CurrentUser,
-    ledger_ids: list[int] | None = Query(default=None),
+    workspace: Workspace,
     date_from: date | None = None,
     date_to: date | None = None,
     search: str | None = None,
     category_ids: list[int] | None = Query(default=None),
 ):
-    scope = resolve_ledger_scope(db, user, ledger_ids)
-    rows = _load(db, scope, date_from, date_to, search, category_ids) if scope else []
+    rows = _load(db, workspace.id, date_from, date_to, search, category_ids)
     return _attachment(
-        transactions_to_csv(rows), _filename("moviments", "csv"), "text/csv; charset=utf-8"
+        transactions_to_csv(rows),
+        _filename("moviments", workspace.code, "csv"),
+        "text/csv; charset=utf-8",
     )
 
 
 @router.get("/transactions.xlsx")
 def export_xlsx(
     db: DbSession,
-    user: CurrentUser,
-    ledger_ids: list[int] | None = Query(default=None),
+    workspace: Workspace,
     date_from: date | None = None,
     date_to: date | None = None,
     search: str | None = None,
     category_ids: list[int] | None = Query(default=None),
 ):
-    scope = resolve_ledger_scope(db, user, ledger_ids)
-    rows = _load(db, scope, date_from, date_to, search, category_ids) if scope else []
+    rows = _load(db, workspace.id, date_from, date_to, search, category_ids)
     return _attachment(
-        transactions_to_xlsx(rows),
-        _filename("moviments", "xlsx"),
+        transactions_to_xlsx(rows, title=workspace.name),
+        _filename("moviments", workspace.code, "xlsx"),
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
@@ -100,18 +98,16 @@ def export_xlsx(
 @router.get("/report.xlsx")
 def export_report_xlsx(
     db: DbSession,
-    user: CurrentUser,
-    ledger_ids: list[int] | None = Query(default=None),
+    workspace: Workspace,
     months: int = Query(default=12, ge=1, le=60),
 ):
-    scope = resolve_ledger_scope(db, user, ledger_ids)
     date_to = today_local()
     date_from = (date_to.replace(day=1) - timedelta(days=31 * (months - 1))).replace(day=1)
-    monthly = reports.monthly_series(db, scope, date_from, date_to)
-    categories = reports.category_breakdown(db, scope, date_from, date_to)
+    monthly = reports.monthly_series(db, [workspace.id], date_from, date_to)
+    categories = reports.category_breakdown(db, [workspace.id], date_from, date_to)
     return _attachment(
         summary_to_xlsx(monthly, categories),
-        _filename("informe", "xlsx"),
+        _filename("informe", workspace.code, "xlsx"),
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
@@ -119,37 +115,22 @@ def export_report_xlsx(
 @router.get("/report.pdf")
 def export_report_pdf(
     db: DbSession,
-    user: CurrentUser,
-    ledger_ids: list[int] | None = Query(default=None),
+    workspace: Workspace,
     date_from: date | None = None,
     date_to: date | None = None,
 ):
-    scope = resolve_ledger_scope(db, user, ledger_ids)
     date_to = date_to or today_local()
     date_from = date_from or date_to.replace(day=1)
 
-    income, expenses = reports.income_and_expenses(db, scope, date_from, date_to)
-    monthly = reports.monthly_series(db, scope, date_from, date_to)
-    categories = reports.category_breakdown(db, scope, date_from, date_to)
-
-    names = (
-        [ledger.name for ledger in db.scalars(select(Ledger).where(Ledger.id.in_(scope)))]
-        if scope
-        else []
-    )
-    subtitle = (
-        f"{', '.join(names) or 'Sense llibres'} · del {date_from:%d/%m/%Y} al {date_to:%d/%m/%Y}"
-    )
+    income, expenses = reports.income_and_expenses(db, [workspace.id], date_from, date_to)
+    monthly = reports.monthly_series(db, [workspace.id], date_from, date_to)
+    categories = reports.category_breakdown(db, [workspace.id], date_from, date_to)
 
     content = report_to_pdf(
-        title="Informe de comptabilitat",
-        subtitle=subtitle,
-        summary={
-            "Ingressos": income,
-            "Despeses": expenses,
-            "Resultat": income - expenses,
-        },
+        title=f"Comptabilitat de {workspace.name}",
+        subtitle=f"Del {date_from:%d/%m/%Y} al {date_to:%d/%m/%Y}",
+        summary={"Ingressos": income, "Despeses": expenses, "Resultat": income - expenses},
         monthly=monthly,
         categories=categories,
     )
-    return _attachment(content, _filename("informe", "pdf"), "application/pdf")
+    return _attachment(content, _filename("informe", workspace.code, "pdf"), "application/pdf")

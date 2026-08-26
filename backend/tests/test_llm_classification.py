@@ -49,7 +49,12 @@ def activa_el_model(monkeypatch):
 
 
 @pytest.fixture
-def compte(db, ledgers) -> Account:
+def espai(ledgers):
+    return ledgers["personal"]
+
+
+@pytest.fixture
+def compte(db, espai) -> Account:
     connection = BankConnection(
         aspsp_name="Santander", aspsp_country="ES", status=ConnectionStatus.ACTIVE
     )
@@ -57,7 +62,7 @@ def compte(db, ledgers) -> Account:
     db.flush()
     account = Account(
         connection_id=connection.id,
-        ledger_id=ledgers["personal"].id,
+        ledger_id=espai.id,
         eb_account_uid="uid-1",
     )
     db.add(account)
@@ -66,7 +71,9 @@ def compte(db, ledgers) -> Account:
 
 
 def comerc_amb_moviment(db, compte, nom, amount="-30.00") -> Merchant:
-    merchant = Merchant(normalized_name=nom, display_name=nom.capitalize())
+    merchant = Merchant(
+        ledger_id=compte.ledger_id, normalized_name=nom, display_name=nom.capitalize()
+    )
     db.add(merchant)
     db.flush()
     db.add(
@@ -86,8 +93,8 @@ def comerc_amb_moviment(db, compte, nom, amount="-30.00") -> Merchant:
     return merchant
 
 
-def test_el_cataleg_nomes_porta_categories_fulla(db, categories):
-    catalog = categories_catalog(db)
+def test_el_cataleg_nomes_porta_categories_fulla(db, espai, categories):
+    catalog = categories_catalog(db, espai.id)
     slugs = {slug for slug, _ in catalog}
 
     assert "habitatge-lloguer-o-hipoteca" in slugs
@@ -97,9 +104,15 @@ def test_el_cataleg_nomes_porta_categories_fulla(db, categories):
     assert not any(slug.startswith("traspassos") for slug in slugs)
 
 
-def test_un_suggeriment_amb_confianca_alta_sapliica_pero_queda_per_revisar(db, compte, categories):
+def test_un_suggeriment_amb_confianca_alta_sapliica_pero_queda_per_revisar(
+    db, compte, espai, categories
+):
     merchant = comerc_amb_moviment(db, compte, "MERCADONA")
-    supermercat = db.scalar(select(Category).where(Category.slug == "alimentacio-supermercat"))
+    supermercat = db.scalar(
+        select(Category).where(
+            Category.ledger_id == espai.id, Category.slug == "alimentacio-supermercat"
+        )
+    )
     client = FakeOllama(
         {
             "Mercadona": Suggestion(
@@ -112,7 +125,7 @@ def test_un_suggeriment_amb_confianca_alta_sapliica_pero_queda_per_revisar(db, c
         }
     )
 
-    stats = classify_merchants(db, client=client)
+    stats = classify_merchants(db, espai.id, client=client)
 
     assert stats.classified == 1
     db.refresh(merchant)
@@ -126,7 +139,7 @@ def test_un_suggeriment_amb_confianca_alta_sapliica_pero_queda_per_revisar(db, c
     assert transaction.needs_review is True
 
 
-def test_un_suggeriment_amb_poca_confianca_no_sapliica(db, compte, categories):
+def test_un_suggeriment_amb_poca_confianca_no_sapliica(db, compte, espai, categories):
     merchant = comerc_amb_moviment(db, compte, "COSA RARA")
     client = FakeOllama(
         {
@@ -136,7 +149,7 @@ def test_un_suggeriment_amb_poca_confianca_no_sapliica(db, compte, categories):
         }
     )
 
-    stats = classify_merchants(db, client=client)
+    stats = classify_merchants(db, espai.id, client=client)
 
     assert stats.low_confidence == 1
     db.refresh(merchant)
@@ -145,57 +158,61 @@ def test_un_suggeriment_amb_poca_confianca_no_sapliica(db, compte, categories):
     assert db.scalar(select(LlmSuggestion)) is not None
 
 
-def test_una_categoria_inventada_no_sacepta(db, compte, categories):
+def test_una_categoria_inventada_no_sacepta(db, compte, espai, categories):
     merchant = comerc_amb_moviment(db, compte, "MERCADONA")
     client = FakeOllama(
         {"Mercadona": Suggestion(category_slug="categoria-inventada", confidence=0.99, model="m")}
     )
 
-    stats = classify_merchants(db, client=client)
+    stats = classify_merchants(db, espai.id, client=client)
 
     assert stats.failed == 1
     db.refresh(merchant)
     assert merchant.default_category_id is None
 
 
-def test_els_comercos_ja_confirmats_no_es_tornen_a_mirar(db, compte, categories):
+def test_els_comercos_ja_confirmats_no_es_tornen_a_mirar(db, compte, espai, categories):
     merchant = comerc_amb_moviment(db, compte, "MERCADONA")
-    supermercat = db.scalar(select(Category).where(Category.slug == "alimentacio-supermercat"))
+    supermercat = db.scalar(
+        select(Category).where(
+            Category.ledger_id == espai.id, Category.slug == "alimentacio-supermercat"
+        )
+    )
     merchant.default_category_id = supermercat.id
     merchant.is_confirmed = True
     db.flush()
     client = FakeOllama({})
 
-    stats = classify_merchants(db, client=client)
+    stats = classify_merchants(db, espai.id, client=client)
 
     assert client.asked == []
     assert "no hi ha cap comerc nou" in stats.skipped
 
 
-def test_si_el_model_no_esta_disponible_no_es_trenca_res(db, compte, categories):
+def test_si_el_model_no_esta_disponible_no_es_trenca_res(db, compte, espai, categories):
     comerc_amb_moviment(db, compte, "MERCADONA")
 
-    stats = classify_merchants(db, client=FakeOllama(available=False))
+    stats = classify_merchants(db, espai.id, client=FakeOllama(available=False))
 
     assert "no esta disponible" in stats.skipped
     assert db.scalar(select(Transaction)).category_id is None
 
 
-def test_un_error_del_model_no_atura_la_resta(db, compte, categories):
+def test_un_error_del_model_no_atura_la_resta(db, compte, espai, categories):
     comerc_amb_moviment(db, compte, "MERCADONA")
     comerc_amb_moviment(db, compte, "NETFLIX", amount="-12.99")
 
-    stats = classify_merchants(db, client=FakeOllama(raise_error=True))
+    stats = classify_merchants(db, espai.id, client=FakeOllama(raise_error=True))
 
     assert stats.examined == 2
     assert stats.failed == 2
 
 
-def test_amb_el_model_desactivat_no_es_fa_res(db, compte, categories, monkeypatch):
+def test_amb_el_model_desactivat_no_es_fa_res(db, compte, espai, categories, monkeypatch):
     monkeypatch.setattr(settings, "ollama_enabled", False)
     comerc_amb_moviment(db, compte, "MERCADONA")
 
-    stats = classify_merchants(db, client=FakeOllama())
+    stats = classify_merchants(db, espai.id, client=FakeOllama())
 
     assert "desactivat" in stats.skipped
 

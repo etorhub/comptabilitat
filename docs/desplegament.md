@@ -80,7 +80,7 @@ Què fa cada servei:
 | Servei | Xarxa | Notes |
 |---|---|---|
 | `db` | interna | PostgreSQL 16 amb volum persistent |
-| `api` | interna | Aplica les migracions i sembra llibres i categories en arrencar |
+| `api` | interna | Aplica les migracions i sembra els espais i les seves categories en arrencar |
 | `worker` | interna + externa | Feines programades; necessita sortida per parlar amb el banc i l'SMTP |
 | `web` | interna | nginx amb l'aplicació i el proxy cap a `api` |
 | `cloudflared` | interna + externa | Túnel |
@@ -103,11 +103,18 @@ família, des de la interfície o bé:
 ```bash
 docker compose exec api python -m app.cli create-user --email parella@example.com
 docker compose exec api python -m app.cli grant --email parella@example.com \
-  --ledger calella --role editor
+  --ledger pardals --role editor
 ```
 
-Els rols per llibre són `viewer` (només mirar), `editor` (categoritzar i anotar) i `admin`
-(a més, configurar el llibre).
+Els rols per espai són `viewer` (només mirar), `editor` (categoritzar i anotar) i `admin`
+(a més, configurar l'espai). **Ser administrador de l'aplicació no dona accés a cap espai**:
+també te l'has de concedir a tu mateix. Vegeu [`espais.md`](espais.md).
+
+```bash
+docker compose exec api python -m app.cli grant --email tu@example.com --ledger personal --role admin
+docker compose exec api python -m app.cli grant --email tu@example.com --ledger calella --role admin
+docker compose exec api python -m app.cli grant --email tu@example.com --ledger pardals --role admin
+```
 
 ## 5. Model local amb Ollama (opcional)
 
@@ -143,7 +150,8 @@ docker compose logs worker | head -20  # les feines programades i els seus horar
 ```
 
 Després, al navegador: entra, ves a **Connexions** i segueix
-[la posada en marxa d'Enable Banking](enable-banking.md).
+[la posada en marxa d'Enable Banking](enable-banking.md). En connectar el banc hauràs
+d'assignar cada compte al seu espai.
 
 ## 7. Desenvolupament en local
 

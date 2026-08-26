@@ -1,11 +1,11 @@
-"""Categories."""
+"""Categories d'un espai. Cada espai te el seu pla, sense res compartit."""
 
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import func, select
 
-from app.deps import CurrentUser, DbSession
+from app.deps import DbSession, EditableWorkspace, Workspace
 from app.models import Category, Transaction
 from app.schemas.common import Message
 from app.schemas.transaction import CategoryCreate, CategoryOut, CategoryUpdate
@@ -28,32 +28,44 @@ def _to_out(category: Category) -> CategoryOut:
     )
 
 
+def _get_in_workspace(db: DbSession, workspace, category_id: int) -> Category:
+    category = db.get(Category, category_id)
+    if category is None or category.ledger_id != workspace.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Categoria no trobada")
+    return category
+
+
 @router.get("", response_model=list[CategoryOut])
-def list_categories(db: DbSession, user: CurrentUser):
+def list_categories(db: DbSession, workspace: Workspace):
     categories = db.scalars(
-        select(Category).order_by(Category.kind, Category.position, Category.name)
+        select(Category)
+        .where(Category.ledger_id == workspace.id)
+        .order_by(Category.kind, Category.position, Category.name)
     ).all()
     return [_to_out(category) for category in categories]
 
 
 @router.post("", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
-def create_category(payload: CategoryCreate, db: DbSession, user: CurrentUser):
-    parent = db.get(Category, payload.parent_id) if payload.parent_id else None
-    if payload.parent_id and parent is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "La categoria pare no existeix")
+def create_category(payload: CategoryCreate, db: DbSession, workspace: EditableWorkspace):
+    parent = None
+    if payload.parent_id is not None:
+        parent = _get_in_workspace(db, workspace, payload.parent_id)
 
     base_slug = f"{parent.slug}-{slugify(payload.name)}" if parent else slugify(payload.name)
     slug = base_slug
     suffix = 2
-    while db.scalar(select(Category).where(Category.slug == slug)):
+    while db.scalar(
+        select(Category).where(Category.ledger_id == workspace.id, Category.slug == slug)
+    ):
         slug = f"{base_slug}-{suffix}"
         suffix += 1
 
     category = Category(
+        ledger_id=workspace.id,
         slug=slug,
         name=payload.name,
         kind=parent.kind if parent else payload.kind,
-        parent_id=payload.parent_id,
+        parent_id=parent.id if parent else None,
         color=payload.color,
         icon=payload.icon,
     )
@@ -63,15 +75,17 @@ def create_category(payload: CategoryCreate, db: DbSession, user: CurrentUser):
 
 
 @router.patch("/{category_id}", response_model=CategoryOut)
-def update_category(category_id: int, payload: CategoryUpdate, db: DbSession, user: CurrentUser):
-    category = db.get(Category, category_id)
-    if category is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Categoria no trobada")
+def update_category(
+    category_id: int, payload: CategoryUpdate, db: DbSession, workspace: EditableWorkspace
+):
+    category = _get_in_workspace(db, workspace, category_id)
     data = payload.model_dump(exclude_unset=True)
-    if data.get("parent_id") == category_id:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "Una categoria no pot ser pare d'ella mateixa"
-        )
+    if (parent_id := data.get("parent_id")) is not None:
+        if parent_id == category_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "Una categoria no pot ser pare d'ella mateixa"
+            )
+        _get_in_workspace(db, workspace, parent_id)
     for field, value in data.items():
         setattr(category, field, value)
     db.commit()
@@ -79,11 +93,9 @@ def update_category(category_id: int, payload: CategoryUpdate, db: DbSession, us
 
 
 @router.delete("/{category_id}", response_model=Message)
-def delete_category(category_id: int, db: DbSession, user: CurrentUser):
+def delete_category(category_id: int, db: DbSession, workspace: EditableWorkspace):
     """Nomes es poden esborrar categories propies i sense moviments."""
-    category = db.get(Category, category_id)
-    if category is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Categoria no trobada")
+    category = _get_in_workspace(db, workspace, category_id)
     if category.is_system:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Les categories del sistema no s'esborren")
 

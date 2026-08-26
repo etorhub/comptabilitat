@@ -37,12 +37,17 @@ if TYPE_CHECKING:
 
 class Category(Base, TimestampMixin):
     __tablename__ = "categories"
+    __table_args__ = (UniqueConstraint("ledger_id", "slug", name="uq_category_ledger_slug"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Cada espai te el seu pla de categories: no se'n comparteix cap.
+    ledger_id: Mapped[int] = mapped_column(
+        ForeignKey("ledgers.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     parent_id: Mapped[int | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL"), index=True
     )
-    slug: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
+    slug: Mapped[str] = mapped_column(String(80), nullable=False)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     kind: Mapped[CategoryKind] = enum_column(CategoryKind, nullable=False)
     color: Mapped[str] = mapped_column(String(9), nullable=False, default="#94a3b8")
@@ -58,12 +63,23 @@ class Category(Base, TimestampMixin):
 
 
 class Merchant(Base, TimestampMixin):
-    """Memoria de comercos: cada comerc es classifica una sola vegada."""
+    """Memoria de comercos d'un espai: cada comerc s'hi classifica una sola vegada.
+
+    La memoria no es comparteix entre espais: el mateix comerc es classifica per
+    separat a cada un, perque una decisio presa a Calella no ha de canviar res
+    del Personal.
+    """
 
     __tablename__ = "merchants"
+    __table_args__ = (
+        UniqueConstraint("ledger_id", "normalized_name", name="uq_merchant_ledger_name"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    normalized_name: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
+    ledger_id: Mapped[int] = mapped_column(
+        ForeignKey("ledgers.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    normalized_name: Mapped[str] = mapped_column(String(200), nullable=False)
     display_name: Mapped[str] = mapped_column(String(200), nullable=False)
     default_category_id: Mapped[int | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL"), index=True
@@ -160,9 +176,9 @@ class Rule(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
-    # Nul = s'aplica a tots els llibres.
-    ledger_id: Mapped[int | None] = mapped_column(
-        ForeignKey("ledgers.id", ondelete="CASCADE"), index=True
+    # Les regles son sempre d'un espai: no n'hi ha de globals.
+    ledger_id: Mapped[int] = mapped_column(
+        ForeignKey("ledgers.id", ondelete="CASCADE"), nullable=False, index=True
     )
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

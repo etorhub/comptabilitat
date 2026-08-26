@@ -10,7 +10,7 @@ import {
 import type { Moviment } from "../api/types";
 import { Boto, Estat, Etiqueta, Import, Targeta } from "../components/ui";
 import { data, diesEnrere } from "../lib/format";
-import { useAmbitLlibres } from "../lib/llibres";
+import { useEspaiActiu } from "../lib/espai";
 
 const PER_PAGINA = 50;
 
@@ -23,10 +23,10 @@ const ORIGEN: Record<Moviment["category_source"], { text: string; to: Parameters
 };
 
 export function Moviments() {
-  const { filtre, llibres } = useAmbitLlibres();
-  const { data: categories = [] } = useCategories();
-  const categoritza = useCategoritza();
-  const enLot = useCategoritzaEnLot();
+  const { codi, espai, potEditar } = useEspaiActiu();
+  const { data: categories = [] } = useCategories(codi);
+  const categoritza = useCategoritza(codi);
+  const enLot = useCategoritzaEnLot(codi);
 
   const [cerca, setCerca] = useState("");
   const [desDe, setDesDe] = useState(diesEnrere(90));
@@ -38,7 +38,6 @@ export function Moviments() {
 
   const filtres: FiltresMoviments = useMemo(
     () => ({
-      ledger_ids: filtre,
       search: cerca || undefined,
       date_from: desDe || undefined,
       date_to: finsA || undefined,
@@ -47,15 +46,14 @@ export function Moviments() {
       limit: PER_PAGINA,
       offset: pagina * PER_PAGINA,
     }),
-    [filtre, cerca, desDe, finsA, nomesSenseClassificar, inclouTraspassos, pagina],
+    [cerca, desDe, finsA, nomesSenseClassificar, inclouTraspassos, pagina],
   );
 
-  const moviments = useMoviments(filtres);
+  const moviments = useMoviments(codi, filtres);
   const total = moviments.data?.total ?? 0;
   const ultimaPagina = Math.max(0, Math.ceil(total / PER_PAGINA) - 1);
 
   const parametresExport = {
-    ledger_ids: filtre,
     search: cerca || undefined,
     date_from: desDe || undefined,
     date_to: finsA || undefined,
@@ -80,15 +78,14 @@ export function Moviments() {
         <div>
           <h1 className="text-2xl font-semibold">Moviments</h1>
           <p className="text-suau text-sm">
-            {total} {total === 1 ? "moviment" : "moviments"}
-            {llibres.length > 1 && filtre ? " als llibres seleccionats" : ""}
+            {total} {total === 1 ? "moviment" : "moviments"} a {espai.name}
           </p>
         </div>
         <div className="flex gap-2">
-          <Boto onClick={() => descarrega("/export/transactions.csv", parametresExport)}>
+          <Boto onClick={() => descarrega(`/workspaces/${codi}/export/transactions.csv`, parametresExport)}>
             Exporta CSV
           </Boto>
-          <Boto onClick={() => descarrega("/export/transactions.xlsx", parametresExport)}>
+          <Boto onClick={() => descarrega(`/workspaces/${codi}/export/transactions.xlsx`, parametresExport)}>
             Exporta Excel
           </Boto>
         </div>
@@ -157,7 +154,7 @@ export function Moviments() {
         </div>
       </Targeta>
 
-      {seleccio.length > 0 && (
+      {potEditar && seleccio.length > 0 && (
         <Targeta>
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm font-medium">{seleccio.length} seleccionats</span>
@@ -225,6 +222,7 @@ export function Moviments() {
                   <td>
                     <select
                       value={moviment.category_id ?? ""}
+                      disabled={!potEditar}
                       onChange={(event) =>
                         categoritza.mutate({
                           id: moviment.id,

@@ -5,9 +5,13 @@ comptes bancaris a través de l'API d'[Enable Banking](https://enablebanking.com
 classifica (amb ajuda d'un model local via Ollama), i mostra saldos, gràfiques, moviments
 recurrents, previsions de descobert i informes exportables.
 
-Hi conviuen tres llibres comptables independents — **Personal**, **Calella** i
-**Pardals** — amb una vista consolidada per damunt, i permisos per llibre per a cada
-persona de la família.
+Hi conviuen tres **espais de treball estancs** — **Personal**, **Calella** i **Pardals**.
+Cadascun és una comptabilitat completament separada: els seus comptes, el seu pla de
+categories, els seus comerços, les seves regles i els seus usuaris. **No hi ha cap vista
+que en barregi més d'un**: sempre s'hi treballa des de dins d'un espai.
+
+Així, a Personal només hi entres tu; a Pardals, tu i la parella; a Calella, tu i la sogra.
+Qui no té accés a un espai no en veu res, ni tan sols que existeixi.
 
 ## Estructura
 
@@ -16,7 +20,7 @@ persona de la família.
 | `backend/` | API FastAPI, models SQLAlchemy, migracions Alembic i feines programades |
 | `frontend/` | Interfície React + TypeScript |
 | `deploy/` | Stacks de Docker Compose (producció i local), túnel de Cloudflare i còpies |
-| `docs/` | Provar-ho en local, Enable Banking, desplegament i operació |
+| `docs/` | Espais, provar-ho en local, Enable Banking, desplegament i operació |
 
 ## Com funciona
 
@@ -26,10 +30,11 @@ dona el banc o, si no n'hi ha, per un resum estable de les dades que no canvien.
 moviments pendents es reconcilien amb el seu apunt definitiu en comptes de duplicar-se, i
 conserven la categoria que hi haguessis posat.
 
-**Classificació.** L'ordre és sempre el mateix, del més barat i explícit al més car: el que
-has decidit tu (que no es toca mai), les regles per prioritat, la memòria de comerços i,
-només per als comerços que no han encaixat enlloc, el model local. La resta va a la safata
-de revisió. Quan corregeixes una categoria, la decisió es recorda per a tot el comerç.
+**Classificació.** Dins de cada espai, l'ordre és sempre el mateix, del més barat i explícit
+al més car: el que has decidit tu (que no es toca mai), les regles per prioritat, la memòria
+de comerços i, només per als comerços que no han encaixat enlloc, el model local. La resta
+va a la safata de revisió. Quan corregeixes una categoria, la decisió es recorda per a tot
+el comerç **d'aquell espai**: la sogra classificant a Calella no toca res del teu Personal.
 
 **El model local classifica per comerç, no per moviment.** És el que fa viable un NAS sense
 targeta gràfica: en règim normal apareixen pocs comerços nous cada nit, i un cop resolts no
@@ -40,8 +45,10 @@ l'estabilitat de l'import. A partir d'aquí, el saldo es projecta a 90 dies suma
 rebuts previstos i restant una deriva de despesa variable calculada amb els imports
 extrems descartats, en banda esperada, optimista i pessimista.
 
-**Traspassos.** Moure diners entre comptes propis no és ni ingrés ni despesa: els imports
-oposats en comptes diferents dins de tres dies s'aparellen i queden fora dels informes.
+**Traspassos.** Dins d'un mateix espai, moure diners entre dos comptes seus no és ni ingrés
+ni despesa: els imports oposats dins de tres dies s'aparellen i queden fora dels informes.
+El que arriba **d'un altre espai**, en canvi, sí que compta: per a qui mira Calella, uns
+diners que hi entren són una entrada de debò.
 
 ## Provar-ho ara mateix
 
@@ -57,6 +64,7 @@ Els detalls, i com fer-ho sense Docker, a [`docs/provar-en-local.md`](docs/prova
 
 ## Posada en marxa de debò
 
+- **Com funcionen els espais**: [`docs/espais.md`](docs/espais.md)
 - **Al NAS**: [`docs/desplegament.md`](docs/desplegament.md)
 - **Enable Banking**: [`docs/enable-banking.md`](docs/enable-banking.md)
 - **Dia a dia**: [`docs/operacio.md`](docs/operacio.md)

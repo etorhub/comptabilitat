@@ -1,13 +1,13 @@
 import { useCategories, useCategoritza, useRevisio } from "../api/hooks";
 import { Boto, Estat, Etiqueta, Import, Targeta } from "../components/ui";
 import { data } from "../lib/format";
-import { useAmbitLlibres } from "../lib/llibres";
+import { useEspaiActiu } from "../lib/espai";
 
 export function Revisio() {
-  const { filtre } = useAmbitLlibres();
-  const revisio = useRevisio(filtre);
-  const { data: categories = [] } = useCategories();
-  const categoritza = useCategoritza();
+  const { codi } = useEspaiActiu();
+  const revisio = useRevisio(codi);
+  const { data: categories = [] } = useCategories(codi);
+  const categoritza = useCategoritza(codi);
 
   const elements = revisio.data?.items ?? [];
 

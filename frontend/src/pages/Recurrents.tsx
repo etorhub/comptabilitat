@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useActualitzaSerie, useRecurrents, useResumSubscripcions } from "../api/hooks";
 import { Estat, Etiqueta, Import, Targeta, Xifra } from "../components/ui";
 import { data, euros } from "../lib/format";
-import { useAmbitLlibres } from "../lib/llibres";
+import { useEspaiActiu } from "../lib/espai";
 
 const CADENCIES: Record<string, string> = {
   weekly: "setmanal",
@@ -15,11 +15,11 @@ const CADENCIES: Record<string, string> = {
 };
 
 export function Recurrents() {
-  const { filtre } = useAmbitLlibres();
+  const { codi } = useEspaiActiu();
   const [nomesSubscripcions, setNomesSubscripcions] = useState(false);
-  const series = useRecurrents(filtre, nomesSubscripcions);
-  const resum = useResumSubscripcions(filtre);
-  const actualitza = useActualitzaSerie();
+  const series = useRecurrents(codi, nomesSubscripcions);
+  const resum = useResumSubscripcions(codi);
+  const actualitza = useActualitzaSerie(codi);
 
   return (
     <div className="flex flex-col gap-4">

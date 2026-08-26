@@ -2,6 +2,7 @@ import { useAvisos, useDescartaAvis } from "../api/hooks";
 import type { Avis } from "../api/types";
 import { Boto, Estat, Etiqueta, Targeta } from "../components/ui";
 import { data } from "../lib/format";
+import { useEspaiActiu } from "../lib/espai";
 
 const GRAVETAT: Record<Avis["severity"], { text: string; color: string }> = {
   critical: { text: "Urgent", color: "var(--negatiu)" },
@@ -10,8 +11,9 @@ const GRAVETAT: Record<Avis["severity"], { text: string; color: string }> = {
 };
 
 export function Avisos() {
-  const avisos = useAvisos();
-  const descarta = useDescartaAvis();
+  const { codi } = useEspaiActiu();
+  const avisos = useAvisos(codi);
+  const descarta = useDescartaAvis(codi);
 
   return (
     <div className="flex flex-col gap-4">

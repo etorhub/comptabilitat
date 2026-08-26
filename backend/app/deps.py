@@ -1,10 +1,15 @@
-"""Dependencies de FastAPI: usuari autenticat i control d'acces per llibre."""
+"""Dependencies de FastAPI: usuari autenticat i espai de treball actiu.
+
+Cada espai es una comptabilitat estanca. Les rutes de dades pengen sempre d'un
+espai (`/api/workspaces/{codi}/...`) i la dependencia `workspace` comprova que
+l'usuari hi tingui acces abans que el codi de la ruta vegi res.
+"""
 
 from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Path, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -52,67 +57,66 @@ def require_admin(user: CurrentUser) -> User:
 AdminUser = Annotated[User, Depends(require_admin)]
 
 
-def accessible_ledger_ids(
-    db: Session, user: User, min_role: LedgerRole = LedgerRole.VIEWER
-) -> list[int]:
-    """Identificadors dels llibres que l'usuari pot veure amb el rol demanat.
+def role_in(db: Session, user: User, ledger_id: int) -> LedgerRole | None:
+    """Rol de l'usuari en un espai, o None si no hi te acces.
 
-    Tota consulta de dades ha de filtrar per aquesta llista: mai per un
-    identificador de llibre que vingui del client sense comprovar.
+    Ser administrador de l'aplicacio no dona acces automatic a cap espai: qui
+    gestiona els bancs i els usuaris no ha de veure per defecte la comptabilitat
+    de tothom. L'acces s'ha de concedir espai per espai.
     """
-    if user.is_admin:
-        return list(db.scalars(select(Ledger.id).where(Ledger.is_active.is_(True))))
-
-    allowed: list[int] = []
-    for permission in db.scalars(
-        select(LedgerPermission).where(LedgerPermission.user_id == user.id)
-    ):
-        if permission.role.level >= min_role.level:
-            allowed.append(permission.ledger_id)
-    return allowed
+    permission = db.scalar(
+        select(LedgerPermission).where(
+            LedgerPermission.user_id == user.id, LedgerPermission.ledger_id == ledger_id
+        )
+    )
+    return permission.role if permission else None
 
 
-def resolve_ledger_scope(
-    db: Session,
-    user: User,
-    requested: list[int] | None,
-    min_role: LedgerRole = LedgerRole.VIEWER,
-) -> list[int]:
-    """Interseca els llibres demanats amb els permesos.
-
-    Si el client no en demana cap, retorna tots els permesos (vista consolidada).
-    Si en demana algun que no li pertoca, es rebutja la peticio sencera.
-    """
-    allowed = accessible_ledger_ids(db, user, min_role)
-    if not requested:
-        return allowed
-    invalid = set(requested) - set(allowed)
-    if invalid:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Sense acces a algun dels llibres demanats")
-    return list(requested)
+def my_workspaces(db: Session, user: User) -> list[Ledger]:
+    """Espais on l'usuari te acces, en l'ordre en que s'han de mostrar."""
+    return list(
+        db.scalars(
+            select(Ledger)
+            .join(LedgerPermission, LedgerPermission.ledger_id == Ledger.id)
+            .where(LedgerPermission.user_id == user.id, Ledger.is_active.is_(True))
+            .order_by(Ledger.position, Ledger.name)
+        )
+    )
 
 
-def require_ledger_access(ledger_id: int, min_role: LedgerRole = LedgerRole.VIEWER):
-    """Genera una dependencia que comprova l'acces a un llibre concret."""
+def get_workspace(
+    db: DbSession,
+    user: CurrentUser,
+    codi: Annotated[str, Path(description="Codi de l'espai: personal, calella…")],
+) -> Ledger:
+    """Resol l'espai de la ruta i comprova que l'usuari hi tingui acces."""
+    ledger = db.scalar(select(Ledger).where(Ledger.code == codi))
+    if ledger is None or not ledger.is_active:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Espai no trobat")
+    if role_in(db, user, ledger.id) is None:
+        # El mateix error que si no existis: qui no hi te acces no ha de saber
+        # ni que l'espai existeix.
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Espai no trobat")
+    return ledger
 
-    def dependency(db: DbSession, user: CurrentUser) -> Ledger:
-        ledger = db.get(Ledger, ledger_id)
-        if ledger is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Llibre no trobat")
-        if ledger_id not in accessible_ledger_ids(db, user, min_role):
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "Sense acces a aquest llibre")
-        return ledger
+
+Workspace = Annotated[Ledger, Depends(get_workspace)]
+
+
+def _require_role(minim: LedgerRole):
+    def dependency(db: DbSession, user: CurrentUser, workspace: Workspace) -> Ledger:
+        rol = role_in(db, user, workspace.id)
+        if rol is None or rol.level < minim.level:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                f"Cal ser com a minim {minim.value} en aquest espai",
+            )
+        return workspace
 
     return dependency
 
 
-def get_ledger_or_403(
-    db: Session, user: User, ledger_id: int, min_role: LedgerRole = LedgerRole.VIEWER
-) -> Ledger:
-    """Versio directa, per fer servir dins del cos d'un endpoint."""
-    ledger = db.get(Ledger, ledger_id)
-    if ledger is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Llibre no trobat")
-    if ledger_id not in accessible_ledger_ids(db, user, min_role):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Sense acces a aquest llibre")
-    return ledger
+# Espai on l'usuari pot editar (categoritzar, anotar, crear regles).
+EditableWorkspace = Annotated[Ledger, Depends(_require_role(LedgerRole.EDITOR))]
+# Espai on l'usuari el pot configurar (comptes, destinataris d'avisos, usuaris).
+ManagedWorkspace = Annotated[Ledger, Depends(_require_role(LedgerRole.ADMIN))]

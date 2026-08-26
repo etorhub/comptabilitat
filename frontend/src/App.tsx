@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useUsuari } from "./api/hooks";
 import { Layout } from "./components/Layout";
-import { ProveidorLlibres } from "./lib/llibres";
+import { ProveidorEspai, ultimEspai } from "./lib/espai";
 import { Avisos } from "./pages/Avisos";
 import { Configuracio } from "./pages/Configuracio";
 import { Connexions } from "./pages/Connexions";
@@ -22,31 +22,52 @@ function Protegit({ children }: { children: React.ReactNode }) {
   if (isError || !usuari) {
     return <Navigate to="/entrada" replace />;
   }
-  return <ProveidorLlibres>{children}</ProveidorLlibres>;
+  return <>{children}</>;
 }
 
 export default function App() {
+  // L'aplicació sempre és dins d'un espai: l'arrel porta a l'últim visitat.
+  const inici = ultimEspai() ? `/e/${ultimEspai()}` : "/e/-";
+
   return (
     <Routes>
       <Route path="/entrada" element={<Entrada />} />
+
       <Route
+        path="/e/:codi"
         element={
           <Protegit>
-            <Layout />
+            <ProveidorEspai>
+              <Layout />
+            </ProveidorEspai>
           </Protegit>
         }
       >
-        <Route path="/" element={<Panell />} />
-        <Route path="/moviments" element={<Moviments />} />
-        <Route path="/revisio" element={<Revisio />} />
-        <Route path="/recurrents" element={<Recurrents />} />
-        <Route path="/informes" element={<Informes />} />
-        <Route path="/previsio" element={<Previsio />} />
-        <Route path="/avisos" element={<Avisos />} />
-        <Route path="/connexions" element={<Connexions />} />
-        <Route path="/configuracio" element={<Configuracio />} />
+        <Route index element={<Panell />} />
+        <Route path="moviments" element={<Moviments />} />
+        <Route path="revisio" element={<Revisio />} />
+        <Route path="recurrents" element={<Recurrents />} />
+        <Route path="informes" element={<Informes />} />
+        <Route path="previsio" element={<Previsio />} />
+        <Route path="avisos" element={<Avisos />} />
+        <Route path="configuracio" element={<Configuracio />} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+
+      {/* Les connexions bancàries són transversals: no pengen de cap espai. */}
+      <Route
+        path="/connexions"
+        element={
+          <Protegit>
+            <ProveidorEspai>
+              <Layout />
+            </ProveidorEspai>
+          </Protegit>
+        }
+      >
+        <Route index element={<Connexions />} />
+      </Route>
+
+      <Route path="*" element={<Navigate to={inici} replace />} />
     </Routes>
   );
 }

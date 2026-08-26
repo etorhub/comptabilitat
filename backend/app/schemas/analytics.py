@@ -11,8 +11,12 @@ from app.models.enums import AlertSeverity, AlertStatus, AlertType, Cadence, Ser
 from app.schemas.common import ORMModel
 
 
-class LedgerSummary(BaseModel):
+class DashboardOut(BaseModel):
+    """Resum d'un sol espai. No hi ha cap vista que en barregi mes d'un."""
+
+    generated_at: datetime
     ledger_id: int
+    ledger_code: str
     ledger_name: str
     ledger_color: str
     currency: str
@@ -23,14 +27,8 @@ class LedgerSummary(BaseModel):
     net_this_month: Decimal
     accounts: int
     uncategorized: int
-
-
-class DashboardOut(BaseModel):
-    generated_at: datetime
-    total_balance: Decimal
-    ledgers: list[LedgerSummary]
-    active_alerts: int
     pending_review: int
+    active_alerts: int
 
 
 class MonthlyPoint(BaseModel):

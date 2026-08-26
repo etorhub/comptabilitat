@@ -1,23 +1,19 @@
-"""Autenticacio i control d'acces per llibre."""
+"""Autenticació. L'accés als espais es prova a test_espais.py."""
 
 from __future__ import annotations
 
-from app.models.enums import LedgerRole
-from tests.conftest import grant, login, make_user
+from tests.conftest import login, make_user
 
 
-def test_login_correcte_retorna_els_llibres_permesos(client, db, ledgers):
-    user = make_user(db, "anna@example.com")
-    grant(db, user, ledgers["calella"], LedgerRole.VIEWER)
+def test_login_correcte(client, db):
+    make_user(db, "anna@example.com")
 
     response = client.post(
         "/api/auth/login", json={"email": "anna@example.com", "password": "contrasenya-llarga"}
     )
 
     assert response.status_code == 200
-    body = response.json()
-    assert body["email"] == "anna@example.com"
-    assert [item["ledger_code"] for item in body["ledgers"]] == ["calella"]
+    assert response.json()["email"] == "anna@example.com"
 
 
 def test_login_incorrecte(client, db):
@@ -28,37 +24,52 @@ def test_login_incorrecte(client, db):
     assert response.status_code == 401
 
 
+def test_un_usuari_desactivat_no_pot_entrar(client, db):
+    user = make_user(db, "anna@example.com")
+    user.is_active = False
+    db.flush()
+
+    response = client.post(
+        "/api/auth/login", json={"email": "anna@example.com", "password": "contrasenya-llarga"}
+    )
+
+    assert response.status_code == 401
+
+
 def test_sense_sessio_no_hi_ha_acces(client):
     assert client.get("/api/auth/me").status_code == 401
+    assert client.get("/api/workspaces").status_code == 401
 
 
-def test_nomes_es_veuen_els_llibres_permesos(client, db, ledgers):
-    user = make_user(db, "anna@example.com")
-    grant(db, user, ledgers["calella"])
-    login(client, "anna@example.com")
-
-    codes = [item["code"] for item in client.get("/api/ledgers").json()]
-    assert codes == ["calella"]
-
-
-def test_un_llibre_alie_dona_403(client, db, ledgers):
-    user = make_user(db, "anna@example.com")
-    grant(db, user, ledgers["calella"])
-    login(client, "anna@example.com")
-
-    assert client.get(f"/api/ledgers/{ledgers['personal'].id}").status_code == 403
-
-
-def test_administrador_veu_tots_els_llibres(client, db, ledgers):
-    make_user(db, "admin@example.com", is_admin=True)
-    login(client, "admin@example.com")
-
-    codes = sorted(item["code"] for item in client.get("/api/ledgers").json())
-    assert codes == ["calella", "pardals", "personal"]
-
-
-def test_logout_invalida_la_sessio(client, db, ledgers):
+def test_logout_invalida_la_sessio(client, db):
     make_user(db, "anna@example.com")
     login(client, "anna@example.com")
+
     assert client.post("/api/auth/logout").status_code == 200
     assert client.get("/api/auth/me").status_code == 401
+
+
+def test_canviar_la_contrasenya_tanca_les_sessions(client, db):
+    make_user(db, "anna@example.com")
+    login(client, "anna@example.com")
+
+    response = client.post(
+        "/api/auth/password",
+        json={"current_password": "contrasenya-llarga", "new_password": "una-de-nova-llarga"},
+    )
+
+    assert response.status_code == 200
+    assert client.get("/api/auth/me").status_code == 401
+
+
+def test_la_contrasenya_actual_ha_de_ser_correcta(client, db):
+    make_user(db, "anna@example.com")
+    login(client, "anna@example.com")
+
+    response = client.post(
+        "/api/auth/password",
+        json={"current_password": "no-es-aquesta", "new_password": "una-de-nova-llarga"},
+    )
+
+    assert response.status_code == 400
+    assert client.get("/api/auth/me").status_code == 200
