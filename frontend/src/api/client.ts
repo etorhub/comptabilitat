@@ -36,7 +36,10 @@ async function processa(resposta: Response) {
     }
   }
   if (!resposta.ok) {
-    const detall = cos?.detail;
+    const detall =
+      typeof cos === "object" && cos !== null && "detail" in cos
+        ? (cos as { detail?: unknown }).detail
+        : undefined;
     const missatge =
       typeof detall === "string"
         ? detall
