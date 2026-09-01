@@ -28,7 +28,7 @@ Fitxer: `deploy/secrets/eb_public_key.pem`
 5. **Redirect URL** (exactament):
 
    ```
-   https://comptes.elmeudomini.cat/api/auth/callback
+   https://comptabilitat.dossierapp.org/api/auth/callback
    ```
 
    Canvia el domini si el teu hostname de Cloudflare és diferent.
