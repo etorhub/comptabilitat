@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import sys
@@ -63,7 +64,8 @@ def load_env() -> list[dict[str, str]]:
         env_map[name] = value
 
     if SECRET_FILE.is_file():
-        env_map["EB_PRIVATE_KEY"] = SECRET_FILE.read_text().strip()
+        env_map["EB_PRIVATE_KEY_B64"] = base64.b64encode(SECRET_FILE.read_bytes()).decode("ascii")
+        env_map.pop("EB_PRIVATE_KEY", None)
 
     return [{"name": k, "value": v} for k, v in env_map.items()]
 
@@ -153,7 +155,9 @@ def main() -> int:
         "RepositoryURL": REPO_URL,
         "RepositoryReferenceName": REPO_REF,
         "ComposeFilePathInRepository": COMPOSE_PATH,
-        "RepositoryAuthentication": False,
+        "RepositoryAuthentication": bool(os.environ.get("GITHUB_TOKEN")),
+        "RepositoryUsername": os.environ.get("GITHUB_USERNAME", "etorhub"),
+        "RepositoryPassword": os.environ.get("GITHUB_TOKEN", ""),
         "Env": env,
     }
 

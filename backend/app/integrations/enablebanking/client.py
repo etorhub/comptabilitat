@@ -57,14 +57,12 @@ class MissingCredentialsError(EnableBankingError):
 
 def _load_private_key() -> str:
     """Llegeix la clau privada del secret muntat o de la variable d'entorn."""
-    if settings.eb_private_key:
-        return settings.eb_private_key
-    path = settings.eb_private_key_path
-    if path and path.exists():
-        return path.read_text()
+    key = settings.resolved_eb_private_key
+    if key:
+        return key
     raise MissingCredentialsError(
-        f"No s'ha trobat la clau privada d'Enable Banking a {path}. "
-        "Comprova el secret eb_private_key del stack."
+        f"No s'ha trobat la clau privada d'Enable Banking a {settings.eb_private_key_path}. "
+        "Comprova EB_PRIVATE_KEY, EB_PRIVATE_KEY_B64 o el secret eb_private_key del stack."
     )
 
 

@@ -5,6 +5,8 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
+import base64
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -36,6 +38,8 @@ class Settings(BaseSettings):
     eb_private_key_path: Path = Path("/run/secrets/eb_private_key")
     # Alternativa al fitxer: la clau en PEM directament (util en desenvolupament).
     eb_private_key: str = ""
+    # Variante en base64 per desplegar via Portainer (una sola linia).
+    eb_private_key_b64: str = ""
     eb_default_aspsp_name: str = "Santander"
     eb_default_aspsp_country: str = "ES"
     # Dies de validesa que demanem del consentiment (el maxim habitual sota PSD2 es 90).
@@ -83,6 +87,16 @@ class Settings(BaseSettings):
     @property
     def eb_redirect_url(self) -> str:
         return f"{self.public_base_url.rstrip('/')}/api/auth/callback"
+
+    @property
+    def resolved_eb_private_key(self) -> str:
+        if self.eb_private_key:
+            return self.eb_private_key
+        if self.eb_private_key_b64:
+            return base64.b64decode(self.eb_private_key_b64).decode()
+        if self.eb_private_key_path.exists():
+            return self.eb_private_key_path.read_text()
+        return ""
 
     @property
     def smtp_configured(self) -> bool:
