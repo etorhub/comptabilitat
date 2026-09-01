@@ -1,0 +1,114 @@
+# Stack per a Portainer (compose path: docker-compose.yml).
+# Per desplegar des de deploy/: docker compose -f deploy/docker-compose.yml up -d
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-comptabilitat}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?cal definir POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-comptabilitat}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./deploy/backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-comptabilitat}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [interna]
+
+  api:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    command: ["api"]
+    env_file: [stack.env]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-comptabilitat}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-comptabilitat}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks: [interna]
+
+  worker:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    command: ["worker"]
+    env_file: [stack.env]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-comptabilitat}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-comptabilitat}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [interna, externa]
+
+  web:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks: [interna]
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    profiles: [tunnel]
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - web
+    networks: [interna, externa]
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    profiles: [ai]
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_KEEP_ALIVE: "10m"
+      OLLAMA_NUM_PARALLEL: "1"
+    networks: [interna]
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-comptabilitat}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-comptabilitat}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+    volumes:
+      - ./deploy/backups:/backups
+      - ./deploy/backup.sh:/backup.sh:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [interna]
+
+networks:
+  interna:
+    internal: true
+  externa:
+
+volumes:
+  db_data:
+  ollama_models:

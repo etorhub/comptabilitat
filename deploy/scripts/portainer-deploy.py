@@ -22,7 +22,7 @@ ENDPOINT_ID = int(os.environ.get("PORTAINER_ENDPOINT_ID", "3"))
 STACK_NAME = os.environ.get("STACK_NAME", "comptabilitat")
 REPO_URL = os.environ.get("REPO_URL", "https://github.com/etorhub/comptabilitat")
 REPO_REF = os.environ.get("REPO_REF", "refs/heads/master")
-COMPOSE_PATH = os.environ.get("COMPOSE_PATH", "deploy/docker-compose.yml")
+COMPOSE_PATH = os.environ.get("COMPOSE_PATH", "docker-compose.yml")
 
 
 def request(method: str, path: str, headers: dict | None = None, body: dict | None = None):
