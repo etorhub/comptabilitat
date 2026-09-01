@@ -24,7 +24,19 @@ Fitxer: `deploy/secrets/eb_public_key.pem`
 1. Entra a [enablebanking.com/cp](https://enablebanking.com/cp)
 2. **Create application** → **Personal use** → només **AIS**
 3. Puja `eb_public_key.pem` o enganxa la clau de dalt
-4. Apunta l'**Application ID** → posa'l a `EB_APPLICATION_ID` a `deploy/.env`
+4. Apunta l'**Application ID** (`app_id` de la resposta) → posa'l a `EB_APPLICATION_ID` a `deploy/.env`
+
+   També es pot crear via API (substitueix el token per un de fresc del panell):
+
+   ```bash
+   curl -X POST \
+     -H "Authorization: Bearer $ENABLE_BANKING_CP_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d "{\"name\":\"Comptabilitat\",\"certificate\":\"$(cat deploy/secrets/eb_public_key.pem)\",\"environment\":\"SANDBOX\",\"redirect_urls\":[\"https://comptabilitat.dossierapp.org/api/auth/callback\"]}" \
+     https://enablebanking.com/api/applications
+   ```
+
+   Després: `./deploy/scripts/update-eb-app-id.sh <app_id>`
 5. **Redirect URL** (exactament):
 
    ```
@@ -40,7 +52,7 @@ Fitxer: `deploy/secrets/eb_public_key.pem`
 Després d'omplir `EB_APPLICATION_ID` i tornar a desplegar:
 
 ```bash
-docker compose exec api python -c "
+docker compose exec worker python -c "
 from app.integrations.enablebanking.client import EnableBankingClient
 with EnableBankingClient() as c:
     print(c.get_application())
