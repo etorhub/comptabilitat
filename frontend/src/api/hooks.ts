@@ -217,7 +217,7 @@ function invalidaEspai(client: ReturnType<typeof useQueryClient>, codi: string) 
   client.invalidateQueries({ queryKey: ["espai", codi] });
 }
 
-export function useCategoritza(codi: string) {
+export function useActualitzaMoviment(codi: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({
@@ -225,12 +225,17 @@ export function useCategoritza(codi: string) {
       ...dades
     }: {
       id: number;
-      category_id: number | null;
+      category_id?: number | null;
+      display_description?: string | null;
       remember_merchant?: boolean;
       create_rule?: boolean;
     }) => patch<Moviment>(`/workspaces/${codi}/transactions/${id}`, dades),
     onSuccess: () => invalidaEspai(client, codi),
   });
+}
+
+export function useCategoritza(codi: string) {
+  return useActualitzaMoviment(codi);
 }
 
 export function useCategoritzaEnLot(codi: string) {

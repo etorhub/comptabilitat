@@ -134,6 +134,8 @@ class Transaction(Base, TimestampMixin):
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     normalized_description: Mapped[str] = mapped_column(String(200), nullable=False, default="")
     counterparty: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    # Concepte visible: si hi ha text, amaga el del banc (description) i el comerç.
+    display_description: Mapped[str | None] = mapped_column(String(200))
     bank_transaction_code: Mapped[str] = mapped_column(String(60), nullable=False, default="")
 
     # --- Classificacio ---
@@ -168,6 +170,14 @@ class Transaction(Base, TimestampMixin):
     @property
     def is_expense(self) -> bool:
         return self.amount < 0
+
+    @property
+    def is_masked(self) -> bool:
+        return bool(self.display_description)
+
+    @property
+    def visible_description(self) -> str:
+        return self.display_description or self.description
 
 
 class Rule(Base, TimestampMixin):

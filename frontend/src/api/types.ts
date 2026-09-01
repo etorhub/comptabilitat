@@ -112,6 +112,7 @@ export interface Moviment {
   notes: string;
   tags: string[];
   is_excluded: boolean;
+  is_masked: boolean;
 }
 
 export interface ElementRevisio {

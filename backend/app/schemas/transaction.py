@@ -91,6 +91,7 @@ class TransactionOut(ORMModel):
     notes: str
     tags: list[str]
     is_excluded: bool
+    is_masked: bool = False
 
 
 class TransactionUpdate(BaseModel):
@@ -98,6 +99,8 @@ class TransactionUpdate(BaseModel):
     notes: str | None = None
     tags: list[str] | None = None
     is_excluded: bool | None = None
+    # Text visible: cadena buida o null treu la mascara i torna el concepte del banc.
+    display_description: str | None = Field(default=None, max_length=200)
     # Recorda la decisio per a aquest comerc i la aplica als moviments futurs.
     remember_merchant: bool = True
     # A mes, crea una regla explicita.

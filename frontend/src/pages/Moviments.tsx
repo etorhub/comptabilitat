@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { descarrega } from "../api/client";
 import {
+  useActualitzaMoviment,
   useCategories,
-  useCategoritza,
   useCategoritzaEnLot,
   useMoviments,
   type FiltresMoviments,
@@ -26,7 +26,7 @@ const ORIGEN: Record<Moviment["category_source"], { text: string; to: Parameters
 export function Moviments() {
   const { codi, espai, potEditar } = useEspaiActiu();
   const { data: categories = [] } = useCategories(codi);
-  const categoritza = useCategoritza(codi);
+  const categoritza = useActualitzaMoviment(codi);
   const enLot = useCategoritzaEnLot(codi);
 
   const [cerca, setCerca] = useState("");
@@ -209,12 +209,17 @@ export function Moviments() {
                     )}
                   </td>
                   <td className="max-w-md text-sm">
-                    <div className="truncate" title={moviment.description}>
-                      {moviment.description || "—"}
-                    </div>
+                    <Concepte
+                      moviment={moviment}
+                      disabled={!potEditar}
+                      onDesa={(text) =>
+                        categoritza.mutate({ id: moviment.id, display_description: text })
+                      }
+                    />
                     {moviment.transfer_group_id && <Etiqueta>traspàs</Etiqueta>}
+                    {moviment.is_masked && <Etiqueta>enmascarat</Etiqueta>}
                   </td>
-                  <td className="text-sm">{moviment.merchant_name ?? "—"}</td>
+                  <td className="text-sm">{moviment.is_masked ? "—" : (moviment.merchant_name ?? "—")}</td>
                   <td>
                     <SelectorCategoria
                       categories={categories}
@@ -260,5 +265,63 @@ export function Moviments() {
         </div>
       )}
     </div>
+  );
+}
+
+function Concepte({
+  moviment,
+  disabled,
+  onDesa,
+}: {
+  moviment: Moviment;
+  disabled: boolean;
+  onDesa: (text: string) => void;
+}) {
+  const [editant, setEditant] = useState(false);
+  const [text, setText] = useState(moviment.description);
+
+  useEffect(() => {
+    setText(moviment.description);
+  }, [moviment.description]);
+
+  function desa() {
+    const nou = text.trim();
+    setEditant(false);
+    if (nou === moviment.description) return;
+    onDesa(nou);
+  }
+
+  if (disabled || !editant) {
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setEditant(true)}
+        className={`block max-w-full truncate text-left ${disabled ? "" : "hover:underline"}`}
+      >
+        {moviment.description || "—"}
+      </button>
+    );
+  }
+
+  return (
+    <input
+      autoFocus
+      value={text}
+      onChange={(event) => setText(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          desa();
+        }
+        if (event.key === "Escape") {
+          setText(moviment.description);
+          setEditant(false);
+        }
+      }}
+      onBlur={desa}
+      className="w-full"
+      maxLength={200}
+    />
   );
 }

@@ -6,7 +6,7 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Query, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
@@ -27,9 +27,40 @@ router = APIRouter(prefix="/transactions", tags=["moviments"])
 
 def to_out(transaction: Transaction) -> TransactionOut:
     data = TransactionOut.model_validate(transaction)
-    data.merchant_name = transaction.merchant.display_name if transaction.merchant else None
     data.category_name = transaction.category.full_name if transaction.category else None
+    if transaction.is_masked:
+        data.description = transaction.display_description or ""
+        data.normalized_description = ""
+        data.counterparty = ""
+        data.merchant_name = None
+        data.is_masked = True
+    else:
+        data.merchant_name = transaction.merchant.display_name if transaction.merchant else None
+        data.is_masked = False
     return data
+
+
+def search_clause(pattern: str):
+    """Cerca el text visible. Un moviment enmascarat no es troba pel concepte del banc."""
+    masked = Transaction.display_description.isnot(None)
+    return or_(
+        and_(
+            masked,
+            or_(
+                Transaction.display_description.ilike(pattern),
+                Transaction.notes.ilike(pattern),
+            ),
+        ),
+        and_(
+            Transaction.display_description.is_(None),
+            or_(
+                Transaction.description.ilike(pattern),
+                Transaction.normalized_description.ilike(pattern),
+                Transaction.counterparty.ilike(pattern),
+                Transaction.notes.ilike(pattern),
+            ),
+        ),
+    )
 
 
 def _apply_filters(
@@ -61,15 +92,7 @@ def _apply_filters(
     if merchant_id is not None:
         query = query.where(Transaction.merchant_id == merchant_id)
     if search:
-        pattern = f"%{search.strip()}%"
-        query = query.where(
-            or_(
-                Transaction.description.ilike(pattern),
-                Transaction.normalized_description.ilike(pattern),
-                Transaction.counterparty.ilike(pattern),
-                Transaction.notes.ilike(pattern),
-            )
-        )
+        query = query.where(search_clause(f"%{search.strip()}%"))
     if min_amount is not None:
         query = query.where(Transaction.amount >= min_amount)
     if max_amount is not None:
@@ -274,11 +297,33 @@ def update_transaction(
         if create_rule:
             build_learned_rule(db, transaction, category_id, created_by_id=user.id)
 
+    if "display_description" in data:
+        _apply_display_description(db, workspace.id, transaction, data.pop("display_description"))
+
     for field, value in data.items():
         setattr(transaction, field, value)
     db.commit()
     db.refresh(transaction)
     return to_out(transaction)
+
+
+def _apply_display_description(
+    db: Session, ledger_id: int, transaction: Transaction, alias: str | None
+) -> None:
+    """Desa l'àlies i, si es un traspàs, el copia a l'altra cama."""
+    value = alias.strip()[:200] if alias and alias.strip() else None
+    transaction.display_description = value
+    if not transaction.transfer_group_id:
+        return
+    siblings = db.scalars(
+        select(Transaction).where(
+            Transaction.transfer_group_id == transaction.transfer_group_id,
+            Transaction.ledger_id == ledger_id,
+            Transaction.id != transaction.id,
+        )
+    )
+    for sibling in siblings:
+        sibling.display_description = value
 
 
 def _close_suggestion(db: Session, transaction: Transaction, category_id: int | None) -> None:

@@ -72,6 +72,14 @@ def _signature(transaction: Transaction) -> str | None:
     return f"{base}|{direction}"[:220]
 
 
+def _series_label(transaction: Transaction) -> str:
+    if transaction.display_description:
+        return transaction.display_description
+    if transaction.merchant:
+        return transaction.merchant.display_name
+    return transaction.normalized_description or transaction.description[:80]
+
+
 def _closest_cadence(interval_days: float) -> Cadence | None:
     for cadence in Cadence:
         if abs(interval_days - cadence.days) <= CADENCE_TOLERANCE_DAYS[cadence]:
@@ -166,8 +174,7 @@ def _evaluate_group(
         existing = RecurringSeries(
             ledger_id=ledger.id,
             signature=signature,
-            label=(last.merchant.display_name if last.merchant else last.normalized_description)
-            or last.description[:80],
+            label=_series_label(last),
             merchant_id=last.merchant_id,
             category_id=last.category_id,
             cadence=cadence,
@@ -197,6 +204,8 @@ def _evaluate_group(
         existing.status = SeriesStatus.ACTIVE
         existing.expected_amount = expected_amount
         existing.amount_tolerance = amount_tolerance
+        if last.display_description:
+            existing.label = last.display_description
         stats.updated += 1
 
         if abs(last.amount - previous_amount) > existing.amount_tolerance:

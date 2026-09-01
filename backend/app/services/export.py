@@ -33,13 +33,14 @@ HEADER_FONT = Font(color="FFFFFF", bold=True)
 
 
 def _row(transaction: Transaction) -> list:
+    masked = transaction.is_masked
     return [
         transaction.booking_date,
         transaction.value_date,
         transaction.ledger.name if transaction.ledger else "",
         transaction.account.display_name if transaction.account else "",
-        transaction.description,
-        transaction.merchant.display_name if transaction.merchant else "",
+        transaction.visible_description,
+        "" if masked else (transaction.merchant.display_name if transaction.merchant else ""),
         transaction.category.full_name if transaction.category else "",
         transaction.amount,
         transaction.currency,
