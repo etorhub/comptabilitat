@@ -28,6 +28,9 @@ class CategoryOut(ORMModel):
     color: str
     icon: str
     is_system: bool
+    is_subscription: bool
+    transaction_count: int = 0
+    total_amount: Decimal = Decimal(0)
 
 
 class CategoryCreate(BaseModel):
@@ -36,6 +39,7 @@ class CategoryCreate(BaseModel):
     parent_id: int | None = None
     color: str = "#94a3b8"
     icon: str = ""
+    is_subscription: bool = False
 
 
 class CategoryUpdate(BaseModel):
@@ -43,6 +47,7 @@ class CategoryUpdate(BaseModel):
     parent_id: int | None = None
     color: str | None = None
     icon: str | None = None
+    is_subscription: bool | None = None
 
 
 class MerchantOut(ORMModel):

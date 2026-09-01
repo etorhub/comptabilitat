@@ -53,6 +53,7 @@ class Category(Base, TimestampMixin):
     color: Mapped[str] = mapped_column(String(9), nullable=False, default="#94a3b8")
     icon: Mapped[str] = mapped_column(String(40), nullable=False, default="")
     is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_subscription: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     parent: Mapped[Category | None] = relationship(remote_side="Category.id", lazy="selectin")

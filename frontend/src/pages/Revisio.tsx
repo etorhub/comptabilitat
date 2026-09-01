@@ -1,4 +1,5 @@
 import { useCategories, useCategoritza, useRevisio } from "../api/hooks";
+import { SelectorCategoria } from "../components/SelectorCategoria";
 import { Boto, Estat, Etiqueta, Import, Targeta } from "../components/ui";
 import { data } from "../lib/format";
 import { useEspaiActiu } from "../lib/espai";
@@ -55,23 +56,16 @@ export function Revisio() {
                 <div className="flex shrink-0 flex-col items-end gap-2">
                   <Import valor={transaction.amount} />
                   <div className="flex items-center gap-2">
-                    <select
-                      value={transaction.category_id ?? suggested_category_id ?? ""}
-                      onChange={(event) =>
+                    <SelectorCategoria
+                      categories={categories}
+                      value={transaction.category_id ?? suggested_category_id ?? null}
+                      onChange={(categoryId) =>
                         categoritza.mutate({
                           id: transaction.id,
-                          category_id: event.target.value ? Number(event.target.value) : null,
+                          category_id: categoryId,
                         })
                       }
-                      className="max-w-56 text-sm"
-                    >
-                      <option value="">Sense classificar</option>
-                      {categories.map((categoria) => (
-                        <option key={categoria.id} value={categoria.id}>
-                          {categoria.full_name}
-                        </option>
-                      ))}
-                    </select>
+                    />
                     <Boto
                       tipus="primari"
                       disabled={!transaction.category_id && !suggested_category_id}

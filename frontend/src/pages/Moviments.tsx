@@ -8,6 +8,7 @@ import {
   type FiltresMoviments,
 } from "../api/hooks";
 import type { Moviment } from "../api/types";
+import { SelectorCategoria } from "../components/SelectorCategoria";
 import { Boto, Estat, Etiqueta, Import, Targeta } from "../components/ui";
 import { data, diesEnrere } from "../lib/format";
 import { useEspaiActiu } from "../lib/espai";
@@ -158,19 +159,14 @@ export function Moviments() {
         <Targeta>
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm font-medium">{seleccio.length} seleccionats</span>
-            <select
-              defaultValue=""
-              onChange={(event) => {
-                if (event.target.value) aplicaEnLot(Number(event.target.value));
+            <SelectorCategoria
+              categories={categories}
+              value={null}
+              onChange={(categoryId) => {
+                if (categoryId !== null) aplicaEnLot(categoryId);
               }}
-            >
-              <option value="">Assigna una categoria…</option>
-              {categories.map((categoria) => (
-                <option key={categoria.id} value={categoria.id}>
-                  {categoria.full_name}
-                </option>
-              ))}
-            </select>
+              placeholder="Assigna una categoria…"
+            />
             <Boto onClick={() => setSeleccio([])}>Deselecciona</Boto>
           </div>
         </Targeta>
@@ -220,24 +216,17 @@ export function Moviments() {
                   </td>
                   <td className="text-sm">{moviment.merchant_name ?? "—"}</td>
                   <td>
-                    <select
-                      value={moviment.category_id ?? ""}
+                    <SelectorCategoria
+                      categories={categories}
+                      value={moviment.category_id}
                       disabled={!potEditar}
-                      onChange={(event) =>
+                      onChange={(categoryId) =>
                         categoritza.mutate({
                           id: moviment.id,
-                          category_id: event.target.value ? Number(event.target.value) : null,
+                          category_id: categoryId,
                         })
                       }
-                      className="max-w-56 text-sm"
-                    >
-                      <option value="">Sense classificar</option>
-                      {categories.map((categoria) => (
-                        <option key={categoria.id} value={categoria.id}>
-                          {categoria.full_name}
-                        </option>
-                      ))}
-                    </select>
+                    />
                     <div className="mt-1">
                       <Etiqueta to={ORIGEN[moviment.category_source].to}>
                         {ORIGEN[moviment.category_source].text}

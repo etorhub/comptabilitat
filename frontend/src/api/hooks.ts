@@ -126,6 +126,59 @@ export function useCategories(codi: string) {
   });
 }
 
+export function useCategoriesAmbEstadistiques(codi: string) {
+  return useQuery({
+    queryKey: dins(codi, "categories", "estadistiques"),
+    queryFn: () =>
+      get<Categoria[]>(`/workspaces/${codi}/categories`, { with_stats: true }),
+    enabled: Boolean(codi),
+  });
+}
+
+export function useCreaCategoria(codi: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (dades: {
+      name: string;
+      kind: Categoria["kind"];
+      parent_id?: number | null;
+      color?: string;
+      icon?: string;
+      is_subscription?: boolean;
+    }) => post<Categoria>(`/workspaces/${codi}/categories`, dades),
+    onSuccess: () => invalidaEspai(client, codi),
+  });
+}
+
+export function useActualitzaCategoria(codi: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...dades
+    }: {
+      id: number;
+      name?: string;
+      parent_id?: number | null;
+      color?: string;
+      icon?: string;
+      is_subscription?: boolean;
+    }) => patch<Categoria>(`/workspaces/${codi}/categories/${id}`, dades),
+    onSuccess: () => invalidaEspai(client, codi),
+  });
+}
+
+export function useEsborraCategoria(codi: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reassign_to }: { id: number; reassign_to?: number | null }) =>
+      del<{ message: string }>(`/workspaces/${codi}/categories/${id}`, {
+        reassign_to: reassign_to ?? undefined,
+      }),
+    onSuccess: () => invalidaEspai(client, codi),
+  });
+}
+
 export function useComptes(codi: string) {
   return useQuery({
     queryKey: dins(codi, "comptes"),

@@ -3,6 +3,7 @@ import { useUsuari } from "./api/hooks";
 import { Layout } from "./components/Layout";
 import { ProveidorEspai, ultimEspai } from "./lib/espai";
 import { Avisos } from "./pages/Avisos";
+import { Categories } from "./pages/Categories";
 import { Configuracio } from "./pages/Configuracio";
 import { Connexions } from "./pages/Connexions";
 import { Entrada } from "./pages/Entrada";
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="moviments" element={<Moviments />} />
         <Route path="revisio" element={<Revisio />} />
         <Route path="recurrents" element={<Recurrents />} />
+        <Route path="categories" element={<Categories />} />
         <Route path="informes" element={<Informes />} />
         <Route path="previsio" element={<Previsio />} />
         <Route path="avisos" element={<Avisos />} />

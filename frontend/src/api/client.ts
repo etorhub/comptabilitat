@@ -69,7 +69,10 @@ async function ambCos<T>(metode: string, ruta: string, cos?: unknown): Promise<T
 export const post = <T,>(ruta: string, cos?: unknown) => ambCos<T>("POST", ruta, cos);
 export const patch = <T,>(ruta: string, cos?: unknown) => ambCos<T>("PATCH", ruta, cos);
 export const put = <T,>(ruta: string, cos?: unknown) => ambCos<T>("PUT", ruta, cos);
-export const del = <T,>(ruta: string) => ambCos<T>("DELETE", ruta);
+export const del = <T,>(ruta: string, parametres?: Parametres) =>
+  fetch(construeixURL(ruta, parametres), { method: "DELETE", credentials: "same-origin" }).then(
+    (resposta) => processa(resposta) as Promise<T>,
+  );
 
 /** Obre una descarrega: el navegador ja porta la cookie de sessio. */
 export function descarrega(ruta: string, parametres?: Parametres): void {
