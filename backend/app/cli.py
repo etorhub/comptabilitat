@@ -16,10 +16,10 @@ from app.services.seed import seed_categories, seed_ledgers
 
 
 def cmd_init(args: argparse.Namespace) -> int:
-    """Crea els llibres inicials i el pla de categories."""
+    """Crea els llibres inicials i el pla de categories de cada espai."""
     with session_scope() as db:
         ledgers = seed_ledgers(db)
-        categories = seed_categories(db)
+        categories = sum(seed_categories(db, ledger.id) for ledger in db.scalars(select(Ledger)))
     print(f"Llibres creats: {len(ledgers)}")
     print(f"Categories creades: {categories}")
     return 0
