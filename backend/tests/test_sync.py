@@ -134,6 +134,43 @@ def test_sincronitzar_dos_cops_no_duplica_res(db, connexio):
     assert len(list(db.scalars(select(Transaction)))) == 1
 
 
+def test_la_sync_conserva_lalias_si_el_banc_canvia_el_concepte(db, connexio):
+    avui = date.today()
+    sync_connection(
+        db,
+        connexio,
+        client=FakeEnableBanking(
+            transactions=[
+                moviment("r1", Decimal("-12.30"), avui, concepte="TRANSFERENCIA DE JOAN PUIG")
+            ]
+        ),
+    )
+    transaccio = db.scalar(select(Transaction))
+    assert transaccio is not None
+    transaccio.display_description = "Traspàs estalvis"
+    db.flush()
+    original_alias = transaccio.display_description
+
+    sync_connection(
+        db,
+        connexio,
+        client=FakeEnableBanking(
+            transactions=[
+                moviment(
+                    "r1",
+                    Decimal("-12.30"),
+                    avui,
+                    concepte="TRANSFERENCIA DE JOAN PUIG CONCEPTO NOU",
+                )
+            ]
+        ),
+    )
+
+    db.refresh(transaccio)
+    assert transaccio.display_description == original_alias
+    assert "CONCEPTO NOU" in transaccio.description
+
+
 def test_un_pendent_que_es_consolida_conserva_la_categoria(db, connexio, categories):
     avui = date.today()
     sync_connection(

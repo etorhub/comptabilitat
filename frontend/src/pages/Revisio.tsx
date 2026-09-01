@@ -39,9 +39,12 @@ export function Revisio() {
                       <span className="font-medium">{transaction.merchant_name}</span>
                     )}
                   </div>
-                  <p className="text-suau mt-1 truncate text-sm" title={transaction.description}>
-                    {transaction.description}
-                  </p>
+                  <p className="text-suau mt-1 truncate text-sm">{transaction.description}</p>
+                  {transaction.is_masked && (
+                    <div className="mt-1">
+                      <Etiqueta>enmascarat</Etiqueta>
+                    </div>
+                  )}
                   {suggested_category_name && (
                     <p className="mt-2 text-sm">
                       <Etiqueta to="avis">

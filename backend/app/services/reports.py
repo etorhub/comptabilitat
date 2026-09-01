@@ -191,7 +191,7 @@ def merchant_breakdown(
             date_to,
         )
         .join(Merchant, Merchant.id == Transaction.merchant_id)
-        .where(Transaction.amount < 0)
+        .where(Transaction.amount < 0, Transaction.display_description.is_(None))
         .group_by(Merchant.id, Merchant.display_name)
         .order_by(total_expression.desc())
         .limit(limit)

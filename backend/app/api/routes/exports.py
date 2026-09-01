@@ -8,6 +8,7 @@ from fastapi import APIRouter, Query
 from fastapi.responses import Response
 from sqlalchemy import select
 
+from app.api.routes.transactions import search_clause
 from app.core.time import today_local
 from app.deps import DbSession, Workspace
 from app.models import Transaction
@@ -40,8 +41,7 @@ def _load(
     if category_ids:
         query = query.where(Transaction.category_id.in_(category_ids))
     if search:
-        pattern = f"%{search.strip()}%"
-        query = query.where(Transaction.description.ilike(pattern))
+        query = query.where(search_clause(f"%{search.strip()}%"))
     return list(
         db.scalars(
             query.order_by(Transaction.booking_date.desc(), Transaction.id.desc()).limit(MAX_ROWS)
