@@ -73,6 +73,9 @@ export interface Categoria {
   color: string;
   icon: string;
   is_system: boolean;
+  is_subscription: boolean;
+  transaction_count?: number;
+  total_amount?: string;
 }
 
 export interface Comerc {

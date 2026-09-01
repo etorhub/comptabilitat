@@ -8,6 +8,7 @@ const SECCIONS = [
   { a: "moviments", text: "Moviments" },
   { a: "revisio", text: "Per revisar", comptador: "revisio" as const },
   { a: "recurrents", text: "Recurrents" },
+  { a: "categories", text: "Categories" },
   { a: "informes", text: "Informes" },
   { a: "previsio", text: "Previsió" },
   { a: "avisos", text: "Avisos", comptador: "avisos" as const },

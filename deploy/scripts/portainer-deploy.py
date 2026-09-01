@@ -130,8 +130,7 @@ def connect_cloudflared(headers: dict[str, str]) -> None:
         docker_post(f"/networks/{network_id}/connect", headers, {"Container": cloudflared["Id"]})
         print("Connected cloudflared to comptabilitat_interna")
 
-    if web:
-        print("Cloudflare tunnel service URL: http://web:8080")
+    print("Cloudflare tunnel service URL: http://web:8080")
 
 
 def main() -> int:
