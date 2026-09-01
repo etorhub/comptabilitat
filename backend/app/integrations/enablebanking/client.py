@@ -134,13 +134,16 @@ class EnableBankingClient:
     ) -> dict[str, Any]:
         url = f"{self.base_url}{path}"
         clean_params = {k: v for k, v in (params or {}).items() if v is not None}
-        response = self._client.request(
-            method,
-            url,
-            params=clean_params or None,
-            json=json,
-            headers={"Authorization": f"Bearer {self._jwt()}"},
-        )
+        try:
+            response = self._client.request(
+                method,
+                url,
+                params=clean_params or None,
+                json=json,
+                headers={"Authorization": f"Bearer {self._jwt()}"},
+            )
+        except httpx.RequestError as exc:
+            raise EnableBankingError(f"No s'ha pogut contactar Enable Banking: {exc}") from exc
         if response.status_code >= 400:
             raise self._to_error(response)
         if not response.content:

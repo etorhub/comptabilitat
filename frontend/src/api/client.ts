@@ -27,7 +27,14 @@ function construeixURL(ruta: string, parametres?: Parametres): string {
 async function processa(resposta: Response) {
   if (resposta.status === 204) return null;
   const text = await resposta.text();
-  const cos = text ? JSON.parse(text) : null;
+  let cos: unknown = null;
+  if (text) {
+    try {
+      cos = JSON.parse(text);
+    } catch {
+      throw new ErrorAPI(text || `Error ${resposta.status}`, resposta.status);
+    }
+  }
   if (!resposta.ok) {
     const detall = cos?.detail;
     const missatge =

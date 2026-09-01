@@ -34,7 +34,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
-    networks: [interna]
+    networks: [interna, externa]
 
   worker:
     build:
