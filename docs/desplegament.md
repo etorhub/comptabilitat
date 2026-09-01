@@ -23,7 +23,35 @@ Al [tauler de Cloudflare Zero Trust](https://one.dash.cloudflare.com) → **Netw
 
 No cal obrir cap port al router ni tocar el tallafoc del NAS.
 
-### Cloudflare Access (recomanat)
+### Reutilitzar un cloudflared existent (recomanat al NAS)
+
+Si ja tens un contenidor `cloudflared` per a una altra aplicació, l'stack **no
+l'arrenca per defecte** (el servei té el perfil `tunnel`). Després de desplegar:
+
+```bash
+cd deploy && bash scripts/connect-tunnel.sh
+```
+
+Això connecta el teu `cloudflared` a la xarxa `comptabilitat_interna` i t'indica
+l'URL del servei per al hostname del túnel (`http://comptabilitat-web-1:8080` o
+similar).
+
+Al túnel existent, afegeix un **Public Hostname**:
+
+| Camp | Valor |
+|---|---|
+| Subdomain | `comptes` |
+| Domain | el teu domini |
+| Service | el que indica `connect-tunnel.sh` |
+
+`PUBLIC_BASE_URL` a `deploy/.env` ha de ser exactament `https://comptes.el-teu-domini`.
+
+Per usar el cloudflared integrat de l'stack (túnel propi amb token):
+
+```bash
+docker compose --profile tunnel up -d
+```
+
 
 A **Zero Trust** → **Access** → **Applications**, afegeix el hostname com a aplicació
 self-hosted amb una política que només permeti el teu correu (one-time PIN). Queda una

@@ -66,12 +66,15 @@ services:
       retries: 5
     networks: [interna]
 
+  # Per defecte no s'arrenca: reutilitza el cloudflared que ja tinguis al NAS.
+  # Per usar el tunel integrat: `docker compose --profile tunnel up -d`.
   cloudflared:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
+    profiles: [tunnel]
     command: tunnel --no-autoupdate run
     environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?cal definir CLOUDFLARE_TUNNEL_TOKEN}
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
     depends_on:
       - web
     networks: [interna, externa]
