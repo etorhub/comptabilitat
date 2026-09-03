@@ -14,6 +14,7 @@
 import { Hono } from "hono";
 
 import { alertsRoutes } from "./alerts/alerts.routes.ts";
+import { analyticsRoutes } from "./analytics/analytics.routes.ts";
 import { authRoutes } from "./auth/auth.routes.ts";
 import { categoriesRoutes } from "./categories/categories.routes.ts";
 import { homeRoutes } from "./home/home.routes.ts";
@@ -44,6 +45,9 @@ export function registerRoutes(app: Hono): void {
   espai.route("/regles", rulesRoutes);
   espai.route("/moviments", transactionsRoutes);
   espai.route("/recurrents", recurringRoutes);
+
+  // Les analitiques porten l'arrel de l'espai, els informes i la previsio.
+  espai.route("/", analyticsRoutes);
 
   app.route("/e/:codi", espai);
 }

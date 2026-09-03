@@ -843,3 +843,61 @@ tr.exclos {
   font-size: 1.35rem;
   font-variant-numeric: tabular-nums;
 }
+
+/* --- Grafics --------------------------------------------------------------- */
+
+.grafic {
+  width: 100%;
+  min-height: 200px;
+}
+
+/* Si no hi ha dades, val mes un buit honest que uns eixos sols. */
+.grafic[data-buit]::after {
+  content: "Encara no hi ha prou dades per dibuixar-ho.";
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--text-suau);
+  font-size: 0.9rem;
+}
+
+.dues-columnes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+@media (max-width: 60rem) {
+  .dues-columnes {
+    grid-template-columns: 1fr;
+  }
+}
+
+.punt-gran {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.xifra-enllac {
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 120ms ease;
+}
+
+.xifra-enllac:hover {
+  border-color: var(--accent);
+}
+
+.avis-fort {
+  background: color-mix(in srgb, var(--negatiu) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--negatiu) 35%, transparent);
+  border-radius: 0.75rem;
+  padding: 0.9rem 1.1rem;
+  margin: 0 0 1.25rem;
+}
+
+.descarregues {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}

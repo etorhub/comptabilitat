@@ -72,6 +72,13 @@ export function Layout(props: LayoutProps): Html {
         <link rel="icon" href="/favicon.svg" />
         <link rel="stylesheet" href="/app.css" />
         <script src="/htmx.min.js" defer></script>
+        <!--
+          Els grafics son una illa: ECharts i un fitxer que llegeix les dades
+          que el servidor ha escrit a la pagina. Sense empaquetador i sense
+          cap estat de client.
+        -->
+        <script src="/echarts.min.js" defer></script>
+        <script src="/grafics.js" defer></script>
       </head>
       <!--
         El testimoni CSRF surt aqui i enlloc mes. Va lligat a la sessio, de
