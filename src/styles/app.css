@@ -901,3 +901,9 @@ tr.exclos {
   gap: 0.5rem;
   margin-left: auto;
 }
+
+.descarregues-linia {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}

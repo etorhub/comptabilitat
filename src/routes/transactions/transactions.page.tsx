@@ -8,7 +8,7 @@ import type { Html } from "../../lib/html.ts";
 import type { GrupCategories } from "../../services/categories.ts";
 import type { ItemRevisio, PaginaMoviments } from "../../services/transactions.ts";
 import { BarraFiltres, CuaRevisio, Taula } from "./transactions.fragment.tsx";
-import type { TransactionFilters } from "./transactions.schema.ts";
+import { transactionFiltersToQuery, type TransactionFilters } from "./transactions.schema.ts";
 
 export interface TransactionsPageProps {
   codi: string;
@@ -21,6 +21,8 @@ export interface TransactionsPageProps {
 
 export function TransactionsPage(props: TransactionsPageProps): Html {
   const { codi, pagina, grups, comptes, filters, potEditar } = props;
+  // El que et descarregues es el que estas veient: els mateixos filtres.
+  const consulta = transactionFiltersToQuery(filters);
 
   return html`
     <header class="capçalera">
@@ -30,6 +32,15 @@ export function TransactionsPage(props: TransactionsPageProps): Html {
         demanes: no son ni ingres ni despesa.
       </p>
     </header>
+
+    <p class="descarregues-linia">
+      <a class="boto boto-discret" href="/e/${codi}/moviments/moviments.csv${consulta}">
+        Descarrega en CSV
+      </a>
+      <a class="boto boto-discret" href="/e/${codi}/moviments/moviments.xlsx${consulta}">
+        Descarrega en Excel
+      </a>
+    </p>
 
     ${BarraFiltres({ codi, filters, comptes, grups })}
     ${Taula({ codi, pagina, grups, filters, potEditar })}
