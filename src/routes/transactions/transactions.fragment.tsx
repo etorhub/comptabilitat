@@ -17,7 +17,11 @@ import type {
   MovimentVista,
   PaginaMoviments,
 } from "../../services/transactions.ts";
-import { PER_PAGINA, type TransactionFilters } from "./transactions.schema.ts";
+import {
+  PER_PAGINA,
+  transactionFiltersToQuery,
+  type TransactionFilters,
+} from "./transactions.schema.ts";
 
 /** D'on ha sortit la categoria, en català. */
 const ORIGEN: Record<CategorySource, { text: string; titol: string }> = {
@@ -47,13 +51,7 @@ export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): 
       pagina.items.length === 0
         ? html`<p class="buit text-suau">Cap moviment encaixa amb aquests filtres.</p>`
         : html`
-          <form
-            id="form-bloc"
-            hx-post="/e/${codi}/moviments/bloc"
-            hx-target="#taula-moviments"
-            hx-swap="outerHTML"
-          >
-            ${potEditar ? BarraBloc({ grups }) : ""}
+          ${potEditar ? BarraBloc({ codi, grups, filters }) : ""}
 
             <div class="desplaçable">
               <table class="dades taula-moviments">
@@ -72,7 +70,6 @@ export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): 
                 </tbody>
               </table>
             </div>
-          </form>
 
           <nav class="paginacio" aria-label="Paginacio">
             <span class="text-suau">
@@ -95,25 +92,47 @@ export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): 
  * la seleccio son les caselles del formulari i prou, de manera que el que
  * s'aplica es sempre el que es veu.
  */
-function BarraBloc({ grups }: { grups: GrupCategories[] }): Html {
+function BarraBloc({
+  codi,
+  grups,
+  filters,
+}: {
+  codi: string;
+  grups: GrupCategories[];
+  filters: TransactionFilters;
+}): Html {
+  // Els filtres van a l'adreça: sense aixo, la resposta tornaria la primera
+  // pagina sense filtrar i la barra d'adreces diria una altra cosa.
+  const consulta = transactionFiltersToQuery(filters);
   return html`<div class="barra-bloc">
     <label class="casella">
       <input
         type="checkbox"
         aria-label="Tria'ls tots"
-        onclick="var f=this.closest('form');f.querySelectorAll('input[name=moviment]').forEach(function(c){c.checked=this.checked}.bind(this))"
+        onclick="document.querySelectorAll('#taula-moviments input[name=moviment]').forEach(function(c){c.checked=this.checked}.bind(this))"
       />
       <span>Tria'ls tots</span>
     </label>
 
     ${Tria({
       nom: "category_id",
+      id: "bloc-categoria",
       etiqueta: "Posa'ls la categoria",
       grups,
       buit: "— tria una categoria —",
     })}
 
-    <button type="submit" class="boto">Aplica-la als triats</button>
+    <button
+      type="button"
+      class="boto"
+      hx-post="/e/${codi}/moviments/bloc${consulta}"
+      hx-target="#taula-moviments"
+      hx-swap="outerHTML"
+      hx-include="#bloc-categoria, #taula-moviments input[name='moviment']:checked"
+      hx-indicator="#taula-moviments"
+    >
+      Aplica-la als triats
+    </button>
   </div>` as Html;
 }
 
@@ -243,6 +262,7 @@ export function Fila({ codi, moviment, grups, potEditar }: FilaProps): Html {
         potEditar
           ? Tria({
               nom: "category_id",
+              id: `categoria-${moviment.id}`,
               etiqueta: `Categoria de ${moviment.description}`,
               valor: moviment.categoryId,
               grups,
@@ -468,6 +488,7 @@ export function TargetaRevisio({
     >
       ${Tria({
         nom: "category_id",
+        id: `revisio-categoria-${moviment.id}`,
         etiqueta: "Categoria",
         valor: item.suggestedCategoryId ?? moviment.categoryId,
         grups,

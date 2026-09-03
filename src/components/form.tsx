@@ -46,6 +46,8 @@ interface CampProps {
   maxlength?: number;
   step?: string;
   placeholder?: string;
+  /** Vegeu `TriaProps.id`: cal quan el camp es dibuixa mes d'un cop. */
+  id?: string;
 }
 
 export function Camp(props: CampProps): Html {
@@ -64,9 +66,10 @@ export function Camp(props: CampProps): Html {
     placeholder,
   } = props;
 
+  const id = props.id ?? nom;
   const error = fieldError(errors, nom);
-  const idError = `${nom}-error`;
-  const idAjuda = `${nom}-ajuda`;
+  const idError = `${id}-error`;
+  const idAjuda = `${id}-ajuda`;
   const descriu = [error ? idError : null, ajuda ? idAjuda : null].filter(Boolean).join(" ");
 
   return html`<label class="camp">
@@ -74,7 +77,7 @@ export function Camp(props: CampProps): Html {
     <input
       type="${tipus}"
       name="${nom}"
-      id="${nom}"
+      id="${id}"
       value="${valor ?? ""}"
       ${requerit ? raw("required") : ""}
       ${autofocus ? raw("autofocus") : ""}
@@ -112,6 +115,13 @@ interface TriaProps {
   errors?: FieldErrors | undefined;
   ajuda?: string;
   atributs?: string;
+  /**
+   * L'`id` de l'element. Per defecte es el nom del camp, pero **quan el
+   * mateix camp es dibuixa mes d'un cop a la pagina (una fila per moviment,
+   * per exemple) cal donar-n'hi un de propi**: dos elements amb el mateix
+   * `id` son HTML invalid i fan que l'`aria-describedby` apunti al primer.
+   */
+  id?: string;
 }
 
 /**
@@ -124,8 +134,9 @@ interface TriaProps {
  */
 export function Tria(props: TriaProps): Html {
   const { nom, etiqueta, valor, opcions, grups, buit, errors, ajuda, atributs } = props;
+  const id = props.id ?? nom;
   const error = fieldError(errors, nom);
-  const idError = `${nom}-error`;
+  const idError = `${id}-error`;
   const valorActual = valor === null || valor === undefined ? "" : String(valor);
 
   const opcio = (o: Opcio) =>
@@ -137,7 +148,7 @@ export function Tria(props: TriaProps): Html {
     <span class="camp-etiqueta">${etiqueta}</span>
     <select
       name="${nom}"
-      id="${nom}"
+      id="${id}"
       ${error ? raw('aria-invalid="true"') : ""}
       ${error ? raw(`aria-describedby="${idError}"`) : ""}
       ${atributs ? raw(atributs) : ""}

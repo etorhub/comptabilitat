@@ -165,6 +165,7 @@ export function FilaCompte({
     <td>
       ${Tria({
         nom: "ledger_id",
+        id: `espai-compte-${compte.id}`,
         etiqueta: `Espai del compte ${compte.name}`,
         valor: compte.ledgerId,
         opcions: espais.map((e) => ({ valor: e.id, text: e.name })),

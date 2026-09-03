@@ -367,6 +367,11 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
   const { filters, pagina, grups } = await dades(espai.id, c.req.query());
   const perRevisar = await comptaPerRevisar(espai.id);
 
+  // Els filtres venen a l'adreça del `hx-post`, de manera que la taula torna
+  // amb la mateixa vista que hi havia; i es torna a empenyer l'adreça perque
+  // la barra d'adreces i el que es veu no diguin coses diferents.
+  pushUrl(c, `/e/${espai.code}/moviments${transactionFiltersToQuery(filters)}`);
+
   return fragment(
     c,
     await withOob(

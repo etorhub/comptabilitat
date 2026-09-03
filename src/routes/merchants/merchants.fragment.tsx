@@ -138,6 +138,7 @@ export function Fila({ codi, comerc, grups, potEditar }: FilaProps): Html {
         potEditar
           ? Tria({
               nom: "default_category_id",
+              id: `categoria-comerc-${comerc.id}`,
               etiqueta: `Categoria de ${comerc.displayName}`,
               valor: comerc.defaultCategoryId,
               grups,
