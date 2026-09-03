@@ -7,7 +7,7 @@
  * l'unic que cal validar son els filtres de la llista.
  */
 
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export const alertFiltersSchema = z.object({
   /** Per defecte els descartats no es veuen: descartar-ne un vol dir «fora». */

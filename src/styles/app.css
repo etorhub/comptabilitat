@@ -421,3 +421,213 @@ table.dades tbody tr:hover {
 .htmx-request.taula-carregant tbody {
   opacity: 0.55;
 }
+
+/* --- Capçaleres i targetes ----------------------------------------------- */
+
+.capçalera {
+  margin-bottom: 1.25rem;
+}
+
+.capçalera h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.capçalera p {
+  margin: 0;
+  max-width: 60ch;
+}
+
+.targeta {
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.targeta h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+
+.buit {
+  padding: 2rem 0;
+  text-align: center;
+}
+
+/* --- Formularis en línia -------------------------------------------------- */
+
+.form-linia,
+.linia {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.form-linia .camp,
+.linia .camp,
+.camp-linia {
+  margin-bottom: 0;
+  min-width: 12rem;
+}
+
+.form-linia h2 {
+  flex-basis: 100%;
+}
+
+.form-ok {
+  background: color-mix(in srgb, var(--positiu) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--positiu) 35%, transparent);
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  margin: 0 0 0.9rem;
+}
+
+.filtres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+/* --- Etiquetes ------------------------------------------------------------ */
+
+.etiqueta {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+}
+
+.etiqueta-suau {
+  background: color-mix(in srgb, var(--text-suau) 18%, transparent);
+  color: var(--text-suau);
+  font-weight: 500;
+  margin-left: 0.4rem;
+}
+
+/* --- Arbre de categories -------------------------------------------------- */
+
+.punt {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  margin-right: 0.5rem;
+  vertical-align: baseline;
+}
+
+.sagnat {
+  color: var(--text-suau);
+  margin-right: 0.3rem;
+}
+
+tr.filla .nom {
+  color: var(--text-suau);
+}
+
+tr.pare .nom {
+  font-weight: 600;
+}
+
+.dreta {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.accions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  white-space: nowrap;
+}
+
+tr.editant td,
+tr.reassignant td {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.reassignant-text {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+/* --- Avisos --------------------------------------------------------------- */
+
+.avisos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.avis {
+  background: var(--superficie);
+  border: 1px solid var(--vora);
+  border-left-width: 4px;
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.avis-nou {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.avis-critic {
+  border-left-color: var(--negatiu);
+}
+.avis-atencio {
+  border-left-color: var(--avis);
+}
+.avis-info {
+  border-left-color: var(--accent);
+}
+
+.avis-cap {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.avis-titol {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.avis-cos {
+  margin: 0.5rem 0 0;
+  color: var(--text-suau);
+}
+
+.avis-accions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.avis-fora {
+  display: none;
+}
+
+/* --- Barra lateral, restes ------------------------------------------------ */
+
+.barra-cap {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--vora);
+}
+
+.menu-seccio {
+  border-top: 1px solid var(--vora);
+  padding-top: 0.75rem;
+}
+
+.selector-espai {
+  width: 100%;
+}

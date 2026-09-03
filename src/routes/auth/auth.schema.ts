@@ -6,7 +6,7 @@
  * es valida son les dades del formulari, que no coincideixen amb la fila.
  */
 
-import { z } from "zod";
+import { z } from "zod/v4";
 
 /** Mínim de la contrasenya. El mateix que tenia el Python. */
 export const MIN_CONTRASENYA = 10;

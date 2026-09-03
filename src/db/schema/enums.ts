@@ -12,7 +12,7 @@
  * canviar cap sense migrar les files que ja el fan servir.
  */
 
-import { z } from "zod";
+import { z } from "zod/v4";
 
 /** Helper: una tupla no buida de literals, per fer-ne `z.enum` i un tipus. */
 const values = <const T extends readonly [string, ...string[]]>(...v: T): T => v;

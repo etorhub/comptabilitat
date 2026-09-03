@@ -15,6 +15,7 @@ import { Hono } from "hono";
 
 import { alertsRoutes } from "./alerts/alerts.routes.ts";
 import { authRoutes } from "./auth/auth.routes.ts";
+import { categoriesRoutes } from "./categories/categories.routes.ts";
 import { homeRoutes } from "./home/home.routes.ts";
 import { requireUser } from "../middleware/session.ts";
 import { workspaceMiddleware } from "../middleware/workspace.ts";
@@ -34,6 +35,7 @@ export function registerRoutes(app: Hono): void {
   espai.use("*", workspaceMiddleware);
 
   espai.route("/avisos", alertsRoutes);
+  espai.route("/categories", categoriesRoutes);
 
   app.route("/e/:codi", espai);
 }
