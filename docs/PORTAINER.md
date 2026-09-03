@@ -12,7 +12,7 @@ Al túnel existent, afegeix un **Public Hostname**:
 |---|---|
 | Subdomain | `comptes` |
 | Domain | el teu domini |
-| Service | `http://web:8080` *(després del pas 5, actualitza amb el nom real del contenidor)* |
+| Service | `http://app:8000` *(després del pas 5, actualitza amb el nom real del contenidor)* |
 
 `PUBLIC_BASE_URL` ha de ser `https://comptes.el-teu-domini` (sense barra final).
 
@@ -53,7 +53,8 @@ openssl rand -base64 24       # POSTGRES_PASSWORD
 | Environment variables | Contingut de `deploy/.env` |
 
 Portainer clona el repositori i fa `docker compose build` al NAS. La primera
-vegada pot trigar uns minuts (frontend + backend).
+vegada pot trigar uns minuts: la imatge instal·la les dependències i compila el
+full d'estil.
 
 **No activis el perfil `tunnel`** si reutilitzes el cloudflared existent.
 
@@ -99,6 +100,6 @@ bash deploy/scripts/nas-deploy.sh --build
 
 ```bash
 docker compose ps
-curl -s https://comptes.el-teu-domini/api/health
+curl -s https://comptes.el-teu-domini/salut
 docker compose logs worker | head -20
 ```

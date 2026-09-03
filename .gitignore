@@ -1,26 +1,17 @@
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-.pytest_cache/
-.ruff_cache/
-*.egg-info/
-
-# Node
+# Bun
 node_modules/
-dist/
 
 # Entorn i secrets
 .env
 *.pem
 *.key
 
-# Copies de seguretat locals
-deploy/backups/*.sql.gz
-
-# Bun / Hono
 # El full d'estil es compila; el codi font es a src/styles/app.css.
 public/app.css
+
 # Sortida de `drizzle-kit pull`, nomes per comparar contra la base de dades viva.
 .introspect/
 dk.config.ts
+
+# Copies de seguretat locals
+deploy/backups/*.sql.gz

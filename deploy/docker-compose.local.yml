@@ -1,12 +1,16 @@
 # Stack per provar-ho a la teva maquina.
 #
 #   docker compose -f deploy/docker-compose.local.yml up -d --build
-#   docker compose -f deploy/docker-compose.local.yml exec api python -m app.cli demo
+#   docker compose -f deploy/docker-compose.local.yml exec app bun run cli demo
 #   obre http://localhost:8080
 #
 # A diferencia del de produccio: publica ports a localhost, no necessita ni el
 # tunel de Cloudflare ni les claus d'Enable Banking, i les galetes no son
 # «secure» perque aqui no hi ha HTTPS.
+#
+# Ja no hi ha contenidor `web`: l'aplicacio serveix el seu propi HTML i els
+# seus estatics. El 8080 es manté com a port public perque totes les adreces
+# de la documentacio segueixin valent.
 services:
   db:
     image: postgres:16-alpine
@@ -26,21 +30,19 @@ services:
       timeout: 5s
       retries: 20
 
-  api:
+  app:
     build:
-      context: ../backend
+      context: ..
     restart: unless-stopped
-    command: ["api"]
-    environment:
-      DATABASE_URL: postgresql+psycopg://comptabilitat:comptabilitat@db:5432/comptabilitat
+    command: ["app"]
+    environment: &entorn
+      DATABASE_URL: postgresql://comptabilitat:comptabilitat@db:5432/comptabilitat
       ENVIRONMENT: local
       DEBUG: "true"
-      SECRET_KEY: clau-nomes-per-a-proves-locals
+      SECRET_KEY: clau-nomes-per-a-proves-locals-32-caracters
       PUBLIC_BASE_URL: http://localhost:8080
       COOKIE_SECURE: "false"
       TIMEZONE: Europe/Madrid
-      # Sense planificador: aqui les feines es llancen a ma quan convingui.
-      SCHEDULER_ENABLED: "false"
       OLLAMA_ENABLED: "${OLLAMA_ENABLED:-false}"
       OLLAMA_BASE_URL: http://ollama:11434
       OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen3:4b}"
@@ -48,25 +50,24 @@ services:
       EB_APPLICATION_ID: "${EB_APPLICATION_ID:-}"
       EB_PRIVATE_KEY: "${EB_PRIVATE_KEY:-}"
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:8080:8000"
     depends_on:
       db:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 40s
 
-  web:
+  # Sense planificador per defecte: aqui les feines es llancen a ma amb
+  # `bun run jobs sync|classify|llm|analyze|notify`. Per tenir-lo:
+  # `docker compose -f deploy/docker-compose.local.yml --profile cron up -d`.
+  worker:
     build:
-      context: ../frontend
+      context: ..
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:8080:8080"
+    command: ["worker"]
+    profiles: [cron]
+    environment: *entorn
     depends_on:
-      - api
+      app:
+        condition: service_healthy
 
   # Opcional: `docker compose -f deploy/docker-compose.local.yml --profile ai up -d`
   ollama:

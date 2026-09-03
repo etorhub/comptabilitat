@@ -1,8 +1,5 @@
 COMPOSE_LOCAL := docker compose -f deploy/docker-compose.local.yml
 
-# Fa servir l'entorn virtual del projecte si existeix, i si no el python del sistema.
-PY := $(if $(wildcard .venv/bin/python),$(CURDIR)/.venv/bin/python,python3)
-
 .DEFAULT_GOAL := help
 
 .PHONY: help
@@ -15,22 +12,22 @@ help: ## Mostra aquesta ajuda
 .PHONY: up
 up: ## Arrenca l'aplicacio a http://localhost:8080
 	$(COMPOSE_LOCAL) up -d --build
-	@echo "Esperant que l'API estigui a punt…"
-	@until curl -fsS http://localhost:8000/api/health >/dev/null 2>&1; do sleep 2; done
+	@echo "Esperant que l'aplicacio estigui a punt…"
+	@until curl -fsS http://localhost:8080/salut >/dev/null 2>&1; do sleep 2; done
 	@echo "Llest: http://localhost:8080"
 
 .PHONY: demo
 demo: ## Omple la base de dades amb moviments d'exemple
-	$(COMPOSE_LOCAL) exec api python -m app.cli demo
+	$(COMPOSE_LOCAL) exec app bun run cli demo
 
 .PHONY: usuari
 usuari: ## Crea un usuari administrador (EMAIL=... PASSWORD=...)
-	$(COMPOSE_LOCAL) exec api python -m app.cli create-user \
+	$(COMPOSE_LOCAL) exec app bun run cli crea-usuari \
 		--email "$(EMAIL)" --password "$(PASSWORD)" --admin
 
 .PHONY: logs
-logs: ## Segueix els registres de l'API
-	$(COMPOSE_LOCAL) logs -f api
+logs: ## Segueix els registres de l'aplicacio
+	$(COMPOSE_LOCAL) logs -f app
 
 .PHONY: shell
 shell: ## Obre una consola de PostgreSQL
@@ -46,14 +43,36 @@ clean: ## Atura l'aplicacio i ESBORRA les dades
 
 # --- Desenvolupament --------------------------------------------------------
 
+.PHONY: install
+install: ## Instal·la les dependencies
+	bun install
+
+.PHONY: dev
+dev: ## Servidor de desenvolupament amb recarrega (cal un PostgreSQL accessible)
+	bun run dev
+
 .PHONY: test
-test: ## Passa les proves del backend (cal un PostgreSQL accessible)
-	cd backend && $(PY) -m pytest
+test: ## Passa les proves (cal un PostgreSQL accessible)
+	bun test
 
-.PHONY: lint
-lint: ## Comprova l'estil del backend
-	cd backend && $(PY) -m ruff check . && $(PY) -m ruff format --check .
+.PHONY: typecheck
+typecheck: ## Comprova els tipus, en mode estricte
+	bun run typecheck
 
-.PHONY: build-frontend
-build-frontend: ## Compila la interficie
-	cd frontend && npm run build
+.PHONY: css
+css: ## Compila el full d'estil a public/app.css
+	bun run css
+
+# --- Base de dades ----------------------------------------------------------
+
+.PHONY: migracions
+migracions: ## Genera una migracio a partir dels canvis a src/db/schema/
+	bun run db:generate
+
+.PHONY: migra
+migra: ## Aplica les migracions pendents
+	bun run db:migrate
+
+.PHONY: comprova-esquema
+comprova-esquema: ## Compara src/db/schema/ amb la base de dades viva
+	bun run db:pull

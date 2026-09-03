@@ -26,8 +26,8 @@ necessites accés a Personal, Calella i Pardals com qualsevol altre.
 Qui no té accés a un espai rep un **404**, no un 403: no ha de saber ni que existeix.
 
 ```bash
-docker compose exec api python -m app.cli grant \
-  --email sogra@example.com --ledger calella --role viewer
+docker compose exec app bun run cli dona-acces \
+  --email sogra@example.com --espai calella --rol viewer
 ```
 
 ## Què no es comparteix
@@ -84,13 +84,15 @@ van sempre als destinataris generals.
 
 ## Crear-ne un de nou
 
-Des de l'API, com a administrador de l'aplicació:
+Des de la línia d'ordres. No hi ha pantalla per fer-ho: crear un espai és una cosa
+d'una vegada, i una pantalla que es fa servir un cop és una pantalla de més.
 
 ```bash
-curl -X POST https://EL-TEU-DOMINI/api/workspaces \
-  -H 'Content-Type: application/json' \
-  -d '{"code": "nou", "name": "Nom de l espai", "color": "#7c3aed"}'
+docker compose exec app bun run cli crea-espai \
+  --codi nou --nom "Nom de l'espai" --color "#7c3aed"
 ```
 
-Es crea amb el seu pla de categories sencer i amb accés per a qui l'ha creat. Després
-només cal assignar-hi un compte des de Connexions.
+Es crea amb el seu pla de categories sencer, però **sense ningú a dins**: l'accés es dona
+a part, amb `dona-acces`. Després només cal assignar-hi un compte des de Connexions. El
+llindar de descobert i els destinataris dels avisos es configuren des de la pantalla de
+**Configuració** de l'espai.

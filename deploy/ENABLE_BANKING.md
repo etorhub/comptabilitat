@@ -52,11 +52,10 @@ Fitxer: `deploy/secrets/eb_public_key.pem`
 Després d'omplir `EB_APPLICATION_ID` i tornar a desplegar:
 
 ```bash
-docker compose exec worker python -c "
-from app.integrations.enablebanking.client import EnableBankingClient
-with EnableBankingClient() as c:
-    print(c.get_application())
-"
+docker compose exec worker bun -e '
+  import { EnableBankingClient } from "./src/lib/enablebanking/client.ts";
+  console.log(await new EnableBankingClient().getApplication());
+'
 ```
 
 Si retorna dades de l'aplicació, les credencials són correctes.

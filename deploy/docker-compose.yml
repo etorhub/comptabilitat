@@ -1,4 +1,8 @@
 # Stack per a Portainer. Cap servei publica ports: l'unic acces es el tunel.
+#
+# Amb el canvi de pila desapareix el contenidor `web`: la interficie ja no es
+# una aplicacio de React servida per nginx, sino HTML que genera la mateixa
+# aplicacio. El tunel hi va directe, a `app:8000`.
 services:
   db:
     image: postgres:16-alpine
@@ -17,54 +21,39 @@ services:
       retries: 10
     networks: [interna]
 
-  api:
+  app:
     build:
-      context: ../backend
+      context: ..
     restart: unless-stopped
-    command: ["api"]
+    command: ["app"]
     env_file: [.env]
-    environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-comptabilitat}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-comptabilitat}
+    environment: &entorn
+      # El servidor de Bun no enten el prefix de SQLAlchemy, pero el treu ell
+      # mateix si encara hi es (vegeu `lib/config.ts`).
+      DATABASE_URL: postgresql://${POSTGRES_USER:-comptabilitat}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-comptabilitat}
     depends_on:
       db:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
+    # La comprovacio de salut es la de la imatge: GET /salut.
     networks: [interna, externa]
+    secrets: [eb_private_key]
 
   worker:
     build:
-      context: ../backend
+      context: ..
     restart: unless-stopped
     command: ["worker"]
     env_file: [.env]
-    environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-comptabilitat}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-comptabilitat}
+    environment: *entorn
     depends_on:
-      api:
+      app:
         condition: service_healthy
     networks: [interna, externa]
-
-  web:
-    build:
-      context: ../frontend
-    restart: unless-stopped
-    depends_on:
-      api:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8080/healthz"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-    networks: [interna]
+    secrets: [eb_private_key]
 
   # Per defecte no s'arrenca: reutilitza el cloudflared que ja tinguis al NAS.
   # Per usar el tunel integrat: `docker compose --profile tunnel up -d`.
+  # Apunta'l a `app:8000`; el `web:8080` d'abans ja no hi es.
   cloudflared:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
@@ -73,7 +62,7 @@ services:
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
     depends_on:
-      - web
+      - app
     networks: [interna, externa]
 
   # Opcional: s'arrenca amb `docker compose --profile ai up -d`.
@@ -108,6 +97,14 @@ services:
       db:
         condition: service_healthy
     networks: [interna]
+
+# La clau privada d'Enable Banking, muntada a /run/secrets/eb_private_key (que
+# es on la busca `EB_PRIVATE_KEY_PATH` per defecte). Es millor que posar-la en
+# una variable d'entorn: un secret no surt a `docker inspect` ni a l'entorn de
+# tot el que corri dins del contenidor.
+secrets:
+  eb_private_key:
+    file: ./secrets/eb_private_key.pem
 
 networks:
   # Sense sortida a internet: nomes trafic entre contenidors.

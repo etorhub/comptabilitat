@@ -94,7 +94,7 @@ def docker_post(path: str, headers: dict[str, str], body: dict | None = None):
 
 def wait_for_containers(headers: dict[str, str], timeout: int = 600) -> None:
     deadline = time.time() + timeout
-    wanted = {"comptabilitat-api-1", "comptabilitat-web-1", "comptabilitat-worker-1"}
+    wanted = {"comptabilitat-app-1", "comptabilitat-worker-1"}
     while time.time() < deadline:
         containers = docker_get("/containers/json?all=1", headers)
         names = {c["Names"][0].lstrip("/") for c in containers}
@@ -130,7 +130,7 @@ def connect_cloudflared(headers: dict[str, str]) -> None:
         docker_post(f"/networks/{network_id}/connect", headers, {"Container": cloudflared["Id"]})
         print("Connected cloudflared to comptabilitat_interna")
 
-    print("Cloudflare tunnel service URL: http://web:8080")
+    print("Cloudflare tunnel service URL: http://app:8000")
 
 
 def main() -> int:
@@ -176,7 +176,7 @@ def main() -> int:
     print("")
     print("=== Deployed ===")
     print(f"URL: {public_url}")
-    print(f"Health: {public_url}/api/health")
+    print(f"Health: {public_url}/salut")
     print(f"Enable Banking redirect: {public_url}/api/auth/callback")
     return 0
 

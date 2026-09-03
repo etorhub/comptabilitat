@@ -23,6 +23,19 @@ la interfície.
 
 ---
 
+## D'on ve això
+
+Fins al setembre del 2026 això era una API de FastAPI amb una interfície de
+React al davant. Molts fitxers de `src/` diuen d'on venen («traducció de
+`backend/app/services/...`»): **aquells camins ja no existeixen**, són a
+l'historial del git. Serveixen per saber què s'estava traduint i per què una
+funció fa el que fa, no per anar-hi a mirar.
+
+Quan una decisió d'abans no era bona, el comentari ho diu. No es dona per bo
+res només perquè ho fos.
+
+---
+
 ## Estructura
 
 ```
@@ -32,10 +45,10 @@ src/
     <recurs>.page.tsx       pàgina sencera (GET)
     <recurs>.fragment.tsx   fragments d'HTMX i els seus intercanvis fora de banda
     <recurs>.schema.ts      Zod
-  db/schema/                per agregat, com backend/app/models/
+  db/schema/                per agregat, no per recurs
   db/client.ts
   components/               disposició, formularis, avisos
-  services/                 lògica de negoci portada del Python
+  services/                 la lògica: importació, classificació, informes…
   lib/                      config, auth, csrf, http, money, html
   middleware/               sessió, csrf, espai
   workers/                  planificador
@@ -45,8 +58,8 @@ src/
   fragments, el fitxer existeix igualment i queda buit d'exportacions.
 - **La lògica de negoci no és un recurs.** `sync`, `normalization`,
   `classification`, `forecast`, `recurring`, `reports`... van a `src/services/`,
-  un per un com a `backend/app/services/`. Les rutes són primes: llegir
-  paràmetres, autoritzar, cridar el servei, dibuixar.
+  un mòdul per tema. Les rutes són primes: llegir paràmetres, autoritzar,
+  cridar el servei, dibuixar.
 - **`db/schema/` va per agregat, no per recurs.** Les claus foranes es creuen
   entre taules que la interfície tracta com a recursos diferents.
 
@@ -257,10 +270,12 @@ bun test
 
 - `tests/espais.test.ts` és la més important: comprova les dues garanties dels
   espais estancs. **No la toquis per fer passar res.**
-- La bateria de `backend/tests/` és l'especificació del comportament. En portar
-  un servei, porta-hi les seves proves, començant per les de lògica pura
-  (`test_normalitzacio`, `test_classification`, `test_recurring_forecast`,
-  `test_enmascarar`), que és on hi ha el coneixement que costa de retrobar.
+- Cap prova no toca res de fora. El banc, el servidor de correu i el model
+  local són servidors locals que munta la prova mateixa; la normalització i les
+  claus de deduplicació es comproven contra la sortida gravada de la
+  implementació anterior. Si canvies `dedupKey()`, la propera importació no
+  reconeixerà cap moviment i duplicarà tot l'historial en silenci: hi ha una
+  prova que ho impedeix, i no és per treure-la.
 
 ---
 

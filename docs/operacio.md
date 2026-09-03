@@ -9,6 +9,7 @@
 | 06:30 | Sincronització | Baixa els moviments del banc, els classifica, aparella traspassos i torna a analitzar |
 | 08:00 | Resum d'avisos | Un correu amb tots els avisos nous |
 | cada hora | Avisos urgents | Correu immediat per als crítics (descobert imminent, consentiment caducat) |
+| 04:30 | Manteniment | Esborra les sessions caducades |
 
 Els horaris es canvien amb `SYNC_CRON_HOUR`, `CLASSIFY_CRON_HOUR`, `ANALYSIS_CRON_HOUR` i
 `NOTIFY_CRON_HOUR` a `deploy/.env`.
@@ -16,11 +17,15 @@ Els horaris es canvien amb `SYNC_CRON_HOUR`, `CLASSIFY_CRON_HOUR`, `ANALYSIS_CRO
 Per llançar-les a mà:
 
 ```bash
-docker compose exec worker python -m app.cli sync        # sincronitza ara
-docker compose exec worker python -m app.cli classify    # torna a classificar
-docker compose exec worker python -m app.cli analyze     # recurrents i previsions
-docker compose exec worker python -m app.cli notify      # envia els avisos pendents
+docker compose exec worker bun run jobs sync        # sincronitza ara
+docker compose exec worker bun run jobs classify    # torna a classificar
+docker compose exec worker bun run jobs llm         # passa el model local pels comerços nous
+docker compose exec worker bun run jobs analyze     # recurrents i previsions
+docker compose exec worker bun run jobs notify      # envia els avisos pendents
+docker compose exec worker bun run jobs maintenance # esborra les sessions caducades
 ```
+
+`sync` accepta `--connexio 1` i `--dies 30`; `notify`, `--urgents`.
 
 ## Com es classifiquen els moviments
 
@@ -37,7 +42,7 @@ L'ordre és sempre el mateix, del més barat i explícit al més car:
 
 Quan corregeixes la categoria d'un moviment, per defecte la decisió es recorda per a **tot
 el comerç d'aquell espai** i es propaga als moviments passats que no haguessis tocat tu. Si
-a més marques «crea una regla», queda una regla apresa visible a **Configuració → Regles**.
+a més marques «crea una regla», queda una regla apresa visible a **Regles**.
 
 El model local mai confirma res pel seu compte: quan proposa una categoria, el moviment
 queda marcat per revisar amb la seva confiança i la seva justificació.
@@ -55,7 +60,7 @@ Es veuen a **Moviments** marcant «Inclou traspassos».
 
 ## Avisos
 
-Els avisos van als destinataris de cada espai (**Configuració → Espai**); els que no són
+Els avisos van als destinataris de cada espai (**Configuració**); els que no són
 de cap espai, com una sincronització fallida, van als destinataris generals.
 
 | Avís | Quan salta |
@@ -70,7 +75,7 @@ de cap espai, com una sincronització fallida, van als destinataris generals.
 Cap avís es repeteix: la clau de deduplicació inclou el període. Si en descartes un, no
 torna.
 
-El llindar de descobert de cada espai es configura a **Configuració → Espai** i per
+El llindar de descobert de cada espai es configura a **Configuració** i per
 defecte és zero. Si
 un compte té una línia de crèdit, posa-hi el número negatiu que correspongui.
 
@@ -93,10 +98,10 @@ gunzip -c deploy/backups/comptabilitat-XXXXXXXX-XXXXXX.sql.gz | head -20
 Restaurar:
 
 ```bash
-docker compose stop api worker
+docker compose stop app worker
 gunzip -c deploy/backups/comptabilitat-XXXXXXXX-XXXXXX.sql.gz \
   | docker compose exec -T db psql -U comptabilitat -d comptabilitat
-docker compose start api worker
+docker compose start app worker
 ```
 
 ## Actualitzar
@@ -106,14 +111,14 @@ git pull
 docker compose up -d --build
 ```
 
-L'`api` aplica les migracions pendents en arrencar, abans d'acceptar cap petició. El
-`worker` espera que l'`api` estigui sana, de manera que les migracions no s'executen dues
+L'`app` aplica les migracions pendents en arrencar, abans d'acceptar cap petició. El
+`worker` no les aplica i espera que l'`app` estigui sana, de manera que no s'executen dues
 vegades alhora.
 
 ## Mirar què passa
 
 ```bash
-docker compose logs -f api worker
+docker compose logs -f app worker
 docker compose exec db psql -U comptabilitat -d comptabilitat \
   -c "select started_at, status, transactions_inserted, error from sync_runs order by started_at desc limit 10;"
 ```
@@ -122,9 +127,16 @@ docker compose exec db psql -U comptabilitat -d comptabilitat \
 
 - Les contrasenyes es desen amb argon2 i les sessions són galetes `httpOnly` + `Secure` +
   `SameSite=Lax`; a la base de dades només hi ha el resum del testimoni.
-- Cada ruta de dades penja d'un espai i la dependència que el resol comprova l'accés abans
-  que el codi vegi res. Qui no hi té accés rep un 404, no un 403.
+- Cada ruta de dades penja d'un espai i el middleware que el resol comprova l'accés abans
+  que el codi vegi res. Qui no hi té accés rep un 404, no un 403. El mateix a
+  **Connexions** i **Usuaris**: qui no és administrador no en veu ni que hi són.
 - Ser administrador de l'aplicació no dona accés a cap espai: s'ha de concedir un per un.
 - La clau privada d'Enable Banking es munta com a secret de només lectura i no és mai al
   repositori.
-- Canviar la contrasenya tanca la resta de sessions obertes.
+- Canviar la contrasenya tanca la resta de sessions obertes; la que fas servir en aquell
+  moment es manté.
+- Tota petició que canvia alguna cosa duu un testimoni CSRF lligat a la sessió, i es
+  comprova també l'`Origin`. L'única excepció és el retorn del banc, que no pot dur-lo:
+  el que el protegeix és un estat d'un sol ús.
+- Hi ha límit d'intents a l'entrada, per correu i per adreça, i tant si l'usuari existeix
+  com si no la resposta és exactament la mateixa.

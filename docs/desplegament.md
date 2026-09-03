@@ -4,10 +4,13 @@ El NAS és un UGREEN DXP2800 (Intel N100, 16 GB). L'stack no publica cap port: l
 d'entrada és el túnel de Cloudflare.
 
 ```
-Internet ──▶ Cloudflare ──▶ cloudflared ──▶ web (nginx) ──┬──▶ api ──▶ db
-                                                          └──▶ (estàtics)
-                                            worker ──▶ api/db i, opcionalment, ollama
+Internet ──▶ Cloudflare ──▶ cloudflared ──▶ app ──▶ db
+                                            worker ──▶ db, el banc i, opcionalment, ollama
 ```
+
+L'`app` genera l'HTML i serveix els seus propis estàtics, de manera que **ja no hi ha cap
+nginx al davant**. Si vens de la pila anterior, això és l'únic que has de canviar del
+túnel: apunta'l a `app:8000` en comptes de `web:8080`.
 
 ## 1. Túnel de Cloudflare
 
@@ -19,7 +22,7 @@ Al [tauler de Cloudflare Zero Trust](https://one.dash.cloudflare.com) → **Netw
 3. A **Public hostnames**, afegeix-ne un:
    - **Subdomain**: `comptes` (o el que vulguis)
    - **Domain**: el teu domini
-   - **Service**: `http://web:8080`
+   - **Service**: `http://app:8000`
 
 No cal obrir cap port al router ni tocar el tallafoc del NAS.
 
@@ -33,7 +36,7 @@ cd deploy && bash scripts/connect-tunnel.sh
 ```
 
 Això connecta el teu `cloudflared` a la xarxa `comptabilitat_interna` i t'indica
-l'URL del servei per al hostname del túnel (`http://comptabilitat-web-1:8080` o
+l'URL del servei per al hostname del túnel (`http://comptabilitat-app-1:8000` o
 similar).
 
 Al túnel existent, afegeix un **Public Hostname**:
@@ -108,30 +111,34 @@ Què fa cada servei:
 | Servei | Xarxa | Notes |
 |---|---|---|
 | `db` | interna | PostgreSQL 16 amb volum persistent |
-| `api` | interna | Aplica les migracions i sembra els espais i les seves categories en arrencar |
+| `app` | interna + externa | Servidor web. Aplica les migracions i sembra els espais i les seves categories en arrencar |
 | `worker` | interna + externa | Feines programades; necessita sortida per parlar amb el banc i l'SMTP |
-| `web` | interna | nginx amb l'aplicació i el proxy cap a `api` |
 | `cloudflared` | interna + externa | Túnel |
 | `backup` | interna | `pg_dump` diari a `deploy/backups/` |
 | `ollama` | interna | Només amb el perfil `ai` |
 
-La xarxa `interna` està marcada com a `internal: true`: la base de dades i l'API no tenen
-sortida a internet.
+La xarxa `interna` està marcada com a `internal: true`: la base de dades no té sortida a
+internet.
+
+`app` i `worker` són **la mateixa imatge**; el que canvia és l'ordre amb què s'arrenquen.
+Només l'`app` aplica les migracions, de manera que no es poden executar dues vegades
+alhora.
 
 ## 4. Primer usuari
 
 ```bash
-docker compose exec api python -m app.cli create-user \
-  --email tu@example.com --name "El teu nom" --admin
+docker compose exec app bun run cli crea-usuari \
+  --email tu@example.com --nom "El teu nom" --password "una-contrasenya-llarga" --admin
 ```
 
-Demana la contrasenya de manera interactiva (mínim 10 caràcters). Per a la resta de la
-família, des de la interfície o bé:
+La contrasenya ha de tenir un mínim de 10 caràcters. Per a la resta de la família, des de
+**Usuaris** o bé:
 
 ```bash
-docker compose exec api python -m app.cli create-user --email parella@example.com
-docker compose exec api python -m app.cli grant --email parella@example.com \
-  --ledger pardals --role editor
+docker compose exec app bun run cli crea-usuari \
+  --email parella@example.com --password "una-altra-contrasenya"
+docker compose exec app bun run cli dona-acces --email parella@example.com \
+  --espai pardals --rol editor
 ```
 
 Els rols per espai són `viewer` (només mirar), `editor` (categoritzar i anotar) i `admin`
@@ -139,9 +146,9 @@ Els rols per espai són `viewer` (només mirar), `editor` (categoritzar i anotar
 també te l'has de concedir a tu mateix. Vegeu [`espais.md`](espais.md).
 
 ```bash
-docker compose exec api python -m app.cli grant --email tu@example.com --ledger personal --role admin
-docker compose exec api python -m app.cli grant --email tu@example.com --ledger calella --role admin
-docker compose exec api python -m app.cli grant --email tu@example.com --ledger pardals --role admin
+docker compose exec app bun run cli dona-acces --email tu@example.com --espai personal --rol admin
+docker compose exec app bun run cli dona-acces --email tu@example.com --espai calella --rol admin
+docker compose exec app bun run cli dona-acces --email tu@example.com --espai pardals --rol admin
 ```
 
 ## 5. Model local amb Ollama (opcional)
@@ -172,8 +179,8 @@ haurà més coses a la safata de revisió.
 
 ```bash
 docker compose ps                      # tots amb estat healthy
-docker compose logs -f api             # migracions aplicades i servidor amunt
-curl -s https://comptes.el-teu-domini/api/health
+docker compose logs -f app             # migracions aplicades i servidor amunt
+curl -s https://comptes.el-teu-domini/salut
 docker compose logs worker | head -20  # les feines programades i els seus horaris
 ```
 
@@ -184,22 +191,22 @@ d'assignar cada compte al seu espai.
 ## 7. Desenvolupament en local
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -e "backend[dev]"
 docker run -d --name comptabilitat-db -e POSTGRES_USER=comptabilitat \
   -e POSTGRES_PASSWORD=comptabilitat -e POSTGRES_DB=comptabilitat \
   -p 5432:5432 postgres:16-alpine
 
-export DATABASE_URL="postgresql+psycopg://comptabilitat:comptabilitat@localhost:5432/comptabilitat"
-export COOKIE_SECURE=false
-cd backend && alembic upgrade head && python -m app.cli init
-python -m app.cli create-user --email tu@example.com --admin
-uvicorn app.main:app --reload
+bun install
+bun run css
+
+export DATABASE_URL="postgresql://comptabilitat:comptabilitat@localhost:5432/comptabilitat"
+export SECRET_KEY="una-clau-qualsevol-de-32-caracters-o-mes"
+export COOKIE_SECURE=false ENVIRONMENT=local DEBUG=true
+export PUBLIC_BASE_URL=http://localhost:8000
+
+bun run cli init                        # espais i pla de categories
+bun run cli crea-usuari --email tu@example.com --password "..." --admin
+bun run dev
 ```
 
-I en un altre terminal:
-
-```bash
-cd frontend && npm install && npm run dev
-```
-
-El servidor de Vite reenvia `/api` cap a `http://localhost:8000` (o cap a `API_URL`).
+Queda a http://localhost:8000, sencer. Els detalls, a
+[`provar-en-local.md`](provar-en-local.md).
