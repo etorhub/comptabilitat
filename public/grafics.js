@@ -64,7 +64,9 @@
       opcions.tooltip.trigger = "axis";
       opcions.xAxis = {
         type: "category",
-        data: dades.map(function (d) { return d.periode; }),
+        data: dades.map(function (d) {
+          return d.periode;
+        }),
         axisLine: { lineStyle: { color: c.vora } },
         axisLabel: { color: c.suau },
       };
@@ -78,13 +80,17 @@
           name: "Ingressos",
           type: "bar",
           itemStyle: { color: c.positiu, borderRadius: [3, 3, 0, 0] },
-          data: dades.map(function (d) { return Number(d.ingressos); }),
+          data: dades.map(function (d) {
+            return Number(d.ingressos);
+          }),
         },
         {
           name: "Despeses",
           type: "bar",
           itemStyle: { color: c.negatiu, borderRadius: [3, 3, 0, 0] },
-          data: dades.map(function (d) { return Number(d.despeses); }),
+          data: dades.map(function (d) {
+            return Number(d.despeses);
+          }),
         },
         {
           name: "Resultat",
@@ -93,7 +99,9 @@
           symbol: "circle",
           lineStyle: { color: c.accent },
           itemStyle: { color: c.accent },
-          data: dades.map(function (d) { return Number(d.net); }),
+          data: dades.map(function (d) {
+            return Number(d.net);
+          }),
         },
       ];
       return opcions;
@@ -129,7 +137,9 @@
       opcions.tooltip.trigger = "axis";
       opcions.xAxis = {
         type: "category",
-        data: dades.map(function (d) { return d.dia; }),
+        data: dades.map(function (d) {
+          return d.dia;
+        }),
         axisLine: { lineStyle: { color: c.vora } },
         axisLabel: { color: c.suau },
       };
@@ -147,7 +157,9 @@
           showSymbol: false,
           lineStyle: { color: c.accent },
           areaStyle: { color: c.accent, opacity: 0.12 },
-          data: dades.map(function (d) { return Number(d.saldo); }),
+          data: dades.map(function (d) {
+            return Number(d.saldo);
+          }),
         },
       ];
       return opcions;
@@ -159,7 +171,9 @@
       opcions.tooltip.trigger = "axis";
       opcions.xAxis = {
         type: "category",
-        data: dades.punts.map(function (p) { return p.dia; }),
+        data: dades.punts.map(function (p) {
+          return p.dia;
+        }),
         axisLine: { lineStyle: { color: c.vora } },
         axisLabel: { color: c.suau },
       };
@@ -176,7 +190,9 @@
           smooth: true,
           showSymbol: false,
           lineStyle: { color: c.positiu, type: "dashed", width: 1 },
-          data: dades.punts.map(function (p) { return Number(p.optimista); }),
+          data: dades.punts.map(function (p) {
+            return Number(p.optimista);
+          }),
         },
         {
           name: "Esperat",
@@ -185,7 +201,9 @@
           showSymbol: false,
           lineStyle: { color: c.accent, width: 2 },
           areaStyle: { color: c.accent, opacity: 0.1 },
-          data: dades.punts.map(function (p) { return Number(p.esperat); }),
+          data: dades.punts.map(function (p) {
+            return Number(p.esperat);
+          }),
           markLine: {
             silent: true,
             symbol: "none",
@@ -200,7 +218,9 @@
           smooth: true,
           showSymbol: false,
           lineStyle: { color: c.avis, type: "dashed", width: 1 },
-          data: dades.punts.map(function (p) { return Number(p.pessimista); }),
+          data: dades.punts.map(function (p) {
+            return Number(p.pessimista);
+          }),
         },
       ];
       return opcions;
@@ -215,7 +235,9 @@
       opcions.yAxis = {
         type: "category",
         inverse: true,
-        data: dades.map(function (d) { return d.merchantName; }),
+        data: dades.map(function (d) {
+          return d.merchantName;
+        }),
         axisLine: { lineStyle: { color: c.vora } },
         axisLabel: { color: c.suau, width: 140, overflow: "truncate" },
       };
@@ -228,7 +250,9 @@
         {
           type: "bar",
           itemStyle: { color: c.accent, borderRadius: [0, 3, 3, 0] },
-          data: dades.map(function (d) { return Number(d.amount); }),
+          data: dades.map(function (d) {
+            return Number(d.amount);
+          }),
         },
       ];
       return opcions;
@@ -248,7 +272,8 @@
     var dades;
     try {
       dades = JSON.parse(font.textContent);
-    } catch (e) {
+    } catch {
+      // Dades malmeses: val mes no dibuixar res que dibuixar mentides.
       return;
     }
 

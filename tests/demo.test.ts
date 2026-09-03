@@ -57,7 +57,7 @@ describe("els usuaris", () => {
 
     const accessos = new Map<string, string[]>();
     for (const fila of files) {
-      accessos.set(fila.email, [...(accessos.get(fila.email) ?? []), fila.codi].sort());
+      accessos.set(fila.email, [...(accessos.get(fila.email) ?? []), fila.codi].toSorted());
     }
 
     expect(accessos.get("demo@exemple.cat")).toEqual(["calella", "pardals", "personal"]);

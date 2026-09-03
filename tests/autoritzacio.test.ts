@@ -61,12 +61,19 @@ let sessioAdmin = { cookie: "", csrf: "" };
 
 async function clauRsaPem(): Promise<string> {
   const parell = await crypto.subtle.generateKey(
-    { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
     true,
     ["sign", "verify"],
   );
   const pkcs8 = await crypto.subtle.exportKey("pkcs8", parell.privateKey);
-  const base64 = Buffer.from(pkcs8).toString("base64").replace(/(.{64})/g, "$1\n");
+  const base64 = Buffer.from(pkcs8)
+    .toString("base64")
+    .replace(/(.{64})/g, "$1\n");
   return `-----BEGIN PRIVATE KEY-----\n${base64}\n-----END PRIVATE KEY-----\n`;
 }
 
@@ -87,7 +94,7 @@ async function entra(email: string): Promise<{ cookie: string; csrf: string }> {
   return { cookie, csrf };
 }
 
-function autoritza(
+async function autoritza(
   sessio: { cookie: string; csrf: string },
   cos: Record<string, string>,
 ): Promise<Response> {
@@ -103,7 +110,7 @@ function autoritza(
   });
 }
 
-function retornDelBanc(params: Record<string, string>): Promise<Response> {
+async function retornDelBanc(params: Record<string, string>): Promise<Response> {
   return app.request(`/api/auth/callback?${new URLSearchParams(params).toString()}`);
 }
 
@@ -161,8 +168,20 @@ beforeEach(async () => {
 
   const passwordHash = await hashPassword(CONTRASENYA);
   await db.insert(users).values([
-    { email: "admin@exemple.cat", fullName: "Admin", passwordHash, isAdmin: true, isActive: true },
-    { email: "anna@exemple.cat", fullName: "Anna", passwordHash, isAdmin: false, isActive: true },
+    {
+      email: "admin@exemple.cat",
+      fullName: "Admin",
+      passwordHash,
+      isAdmin: true,
+      isActive: true,
+    },
+    {
+      email: "anna@exemple.cat",
+      fullName: "Anna",
+      passwordHash,
+      isAdmin: false,
+      isActive: true,
+    },
   ]);
 
   sessioAdmin = await entra("admin@exemple.cat");
@@ -218,7 +237,10 @@ describe("el flux d'autoritzacio", () => {
     const primera = await connexio();
     await retornDelBanc({ code: "codi-1", state: primera?.ebAuthState ?? "" });
 
-    await db.update(accounts).set({ ledgerId: calellaId }).where(eq(accounts.ebAccountUid, "uid-1"));
+    await db
+      .update(accounts)
+      .set({ ledgerId: calellaId })
+      .where(eq(accounts.ebAccountUid, "uid-1"));
 
     // Segona autoritzacio sobre la mateixa connexio, com quan caduca el consentiment.
     await autoritza(sessioAdmin, { connection_id: String(primera?.id ?? 0) });
@@ -238,9 +260,9 @@ describe("qui pot gestionar les connexions", () => {
 
     // Aqui hi ha un canvi respecte de l'aplicacio de Python, que responia 403:
     // ara es un 404, com amb els espais. Qui no ho es, no ha de saber que hi ha.
-    expect((await app.request("/connexions", { headers: { Cookie: anna.cookie } })).status).toBe(
-      404,
-    );
+    expect(
+      (await app.request("/connexions", { headers: { Cookie: anna.cookie } })).status,
+    ).toBe(404);
     expect((await autoritza(anna, {})).status).toBe(404);
     expect(await connexio()).toBeUndefined();
   });

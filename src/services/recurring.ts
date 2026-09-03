@@ -55,7 +55,7 @@ export function resumRecurrents(s: EstadistiquesRecurrents): string {
 /** Mediana d'una llista de numeros, com la de `statistics`. */
 function mediana(valors: number[]): number {
   if (valors.length === 0) return 0;
-  const ordenats = [...valors].sort((a, b) => a - b);
+  const ordenats = valors.toSorted((a, b) => a - b);
   const mig = Math.floor(ordenats.length / 2);
   if (ordenats.length % 2 === 1) return ordenats[mig] as number;
   return ((ordenats[mig - 1] as number) + (ordenats[mig] as number)) / 2;
@@ -64,7 +64,7 @@ function mediana(valors: number[]): number {
 /** Mediana d'imports, sense passar mai per coma flotant. */
 function medianaImports(valors: string[]): Decimal {
   if (valors.length === 0) return new Decimal(0);
-  const ordenats = [...valors].map((v) => new Decimal(v)).sort((a, b) => a.comparedTo(b));
+  const ordenats = valors.map((v) => new Decimal(v)).toSorted((a, b) => a.comparedTo(b));
   const mig = Math.floor(ordenats.length / 2);
   if (ordenats.length % 2 === 1) return ordenats[mig] as Decimal;
   return (ordenats[mig - 1] as Decimal).plus(ordenats[mig] as Decimal).dividedBy(2);

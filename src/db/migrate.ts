@@ -77,9 +77,7 @@ export async function aplicaMigracions(): Promise<void> {
    * crear unes taules que ja hi son.
    */
   const teHistorialDrizzle = await db
-    .execute<{ n: number }>(
-      sql`select count(*)::int as n from drizzle."__drizzle_migrations"`,
-    )
+    .execute<{ n: number }>(sql`select count(*)::int as n from drizzle."__drizzle_migrations"`)
     .then((files) => Number(files[0]?.n ?? 0) > 0)
     .catch(() => false);
 
@@ -110,4 +108,15 @@ export async function aplicaMigracions(): Promise<void> {
 
   await migrate(db, { migrationsFolder: "drizzle" });
   console.info("[migracions] al dia.");
+}
+
+// Executable directament, per als desplegaments i per a la integracio
+// continua: `bun run src/db/migrate.ts`.
+if (import.meta.main) {
+  const { closeDb } = await import("./client.ts");
+  try {
+    await aplicaMigracions();
+  } finally {
+    await closeDb();
+  }
 }

@@ -7,7 +7,7 @@
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { db } from "../src/db/client.ts";
 import {
@@ -294,7 +294,10 @@ describe("les aparicions", () => {
     await detectaRecurrents(ledgerId);
     await detectaRecurrents(ledgerId);
 
-    const [serie] = await db.select().from(recurringSeries).where(eq(recurringSeries.ledgerId, ledgerId));
+    const [serie] = await db
+      .select()
+      .from(recurringSeries)
+      .where(eq(recurringSeries.ledgerId, ledgerId));
     const aparicions = await db
       .select()
       .from(recurringOccurrences)

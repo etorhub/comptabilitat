@@ -32,10 +32,7 @@ export async function aplicaReglaAlsExistents(rule: Rule): Promise<number> {
     })
     .from(transactions)
     .where(
-      and(
-        eq(transactions.ledgerId, rule.ledgerId),
-        ne(transactions.categorySource, "user"),
-      ),
+      and(eq(transactions.ledgerId, rule.ledgerId), ne(transactions.categorySource, "user")),
     );
 
   const encaixen = candidats.filter((t) => reglaEncaixa(rule, t as MovimentAvaluable));
@@ -45,7 +42,7 @@ export async function aplicaReglaAlsExistents(rule: Rule): Promise<number> {
     for (const moviment of encaixen) {
       const etiquetes =
         rule.setTags.length > 0
-          ? [...new Set([...(moviment.tags ?? []), ...rule.setTags])].sort()
+          ? [...new Set([...(moviment.tags ?? []), ...rule.setTags])].toSorted()
           : moviment.tags;
 
       await tx

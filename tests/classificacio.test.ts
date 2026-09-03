@@ -57,7 +57,7 @@ async function entra(email: string): Promise<{ cookie: string; csrf: string }> {
   return { cookie, csrf };
 }
 
-function envia(url: string, cos: Record<string, string | string[]>): Promise<Response> {
+async function envia(url: string, cos: Record<string, string | string[]>): Promise<Response> {
   const params = new URLSearchParams();
   for (const [clau, valor] of Object.entries(cos)) {
     if (Array.isArray(valor)) for (const v of valor) params.append(clau, v);
@@ -109,7 +109,7 @@ async function moviment(opcions: OpcionsMoviment = {}): Promise<number> {
       accountId,
       ledgerId: opcions.ledgerId ?? personalId,
       dedupKey: `k-${accountId}-${amount}-${dia}-${normalized.slice(0, 8)}`,
-      source: "bank",
+      source: "enablebanking",
       bookingDate: dia,
       amount,
       currency: "EUR",
@@ -152,12 +152,11 @@ async function creaRegla(valors: Partial<typeof rules.$inferInsert> & { name: st
     ledgerId: personalId,
     priority: 100,
     isActive: true,
-    source: "manual",
+    source: "user",
     conditions: [],
     setCategoryId: null,
     setMerchantId: null,
     setTags: [],
-    stopProcessing: true,
     matchCount: 0,
     ...valors,
   });

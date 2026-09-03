@@ -54,7 +54,10 @@ class OllamaFals {
     return Promise.resolve(this.disponible);
   }
 
-  classify(context: ContextComerc, _categories: readonly CategoriaCatalog[]): Promise<Suggeriment> {
+  classify(
+    context: ContextComerc,
+    _categories: readonly CategoriaCatalog[],
+  ): Promise<Suggeriment> {
     void _categories;
     this.preguntats.push(context.normalizedName);
     if (this.falla) return Promise.reject(new OllamaError("no respon"));
@@ -106,7 +109,7 @@ async function comercAmbMoviment(nom: string, amount = "-30.00"): Promise<number
     accountId,
     ledgerId,
     dedupKey: `k-${nom}`,
-    source: "bank",
+    source: "enablebanking",
     bookingDate: "2026-02-01",
     amount,
     currency: "EUR",

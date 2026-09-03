@@ -65,7 +65,7 @@ export async function classificaMoviment(
   if (regla !== null) {
     const etiquetes =
       regla.setTags.length > 0
-        ? [...new Set([...(moviment.tags ?? []), ...regla.setTags])].sort()
+        ? [...new Set([...(moviment.tags ?? []), ...regla.setTags])].toSorted()
         : moviment.tags;
 
     await connexio
@@ -216,9 +216,7 @@ export async function construeixReglaApresa(
       ledgerId: moviment.ledgerId,
       priority: 50,
       isActive: true,
-      conditions: [
-        { field: "normalized_description", operator: "equals", value: patro },
-      ],
+      conditions: [{ field: "normalized_description", operator: "equals", value: patro }],
       setCategoryId: categoryId,
       setMerchantId: null,
       setTags: [],

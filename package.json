@@ -16,7 +16,12 @@
     "db:migrate": "drizzle-kit migrate",
     "db:check": "drizzle-kit check",
     "jobs": "bun run src/workers/cli.ts",
-    "cli": "bun run src/cli.ts"
+    "cli": "bun run src/cli.ts",
+    "lint": "oxlint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "bun run typecheck && bun run lint && bun run format:check",
+    "db:apply": "bun run src/db/migrate.ts"
   },
   "dependencies": {
     "croner": "^10.0.1",

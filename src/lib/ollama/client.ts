@@ -18,8 +18,8 @@ import {
 
 /** El model local no ha respost o ha respost malament. */
 export class OllamaError extends Error {
-  constructor(missatge: string) {
-    super(missatge);
+  constructor(text: string) {
+    super(text);
     this.name = "OllamaError";
   }
 }
@@ -95,7 +95,7 @@ export class OllamaClient {
     const hiEs = noms.some((nom) => nom.split(":")[0] === base);
     if (!hiEs) {
       console.warn(
-        `[ollama] el model ${this.model} no esta descarregat (n'hi ha ${noms.sort().join(", ")})`,
+        `[ollama] el model ${this.model} no esta descarregat (n'hi ha ${noms.toSorted().join(", ")})`,
       );
     }
     return hiEs;
