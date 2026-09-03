@@ -907,3 +907,52 @@ tr.exclos {
   gap: 0.5rem;
   margin: 0 0 1rem;
 }
+
+/* --- Estat d'una importacio ------------------------------------------------ */
+
+.sync-estat {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--vora);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  font-size: 0.9rem;
+}
+
+.sync-estat small {
+  flex-basis: 100%;
+}
+
+.sync-estat:empty {
+  display: none;
+}
+
+.filador {
+  width: 0.9rem;
+  height: 0.9rem;
+  border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 999px;
+  animation: gira 0.8s linear infinite;
+}
+
+@keyframes gira {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filador {
+    animation: none;
+  }
+}
+
+.etiqueta-perill {
+  background: color-mix(in srgb, var(--negatiu) 15%, transparent);
+  color: var(--negatiu);
+}

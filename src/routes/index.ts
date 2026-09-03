@@ -14,6 +14,7 @@
 import { Hono } from "hono";
 
 import { alertsRoutes } from "./alerts/alerts.routes.ts";
+import { callbackRoute, connectionsRoutes } from "./connections/connections.routes.ts";
 import { analyticsRoutes } from "./analytics/analytics.routes.ts";
 import { authRoutes } from "./auth/auth.routes.ts";
 import { categoriesRoutes } from "./categories/categories.routes.ts";
@@ -33,6 +34,11 @@ export function registerRoutes(app: Hono): void {
   app.route("/", authRoutes);
   app.route("/", homeRoutes);
 
+  // El retorn del banc despres de l'autenticacio forta. **No va autenticat i
+  // esta exempt de CSRF**: qui hi arriba ve del banc i no duu cap testimoni
+  // nostre. El que el protegeix es l'`eb_auth_state` d'un sol us.
+  app.route("/", callbackRoute);
+
   // --- Administracio de la instal·lacio ------------------------------------
   //
   // Gestionar bancs i usuaris no dona acces a cap espai: son coses separades.
@@ -46,6 +52,12 @@ export function registerRoutes(app: Hono): void {
   usuaris.use("*", requireAdmin);
   usuaris.route("/", usersRoutes);
   app.route("/usuaris", usuaris);
+
+  const connexions = new Hono();
+  connexions.use("*", requireUser);
+  connexions.use("*", requireAdmin);
+  connexions.route("/", connectionsRoutes);
+  app.route("/connexions", connexions);
 
   // --- Dins d'un espai -----------------------------------------------------
   //
