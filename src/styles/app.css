@@ -706,3 +706,71 @@ tr.inactiva {
   flex-wrap: wrap;
   margin-top: 0.25rem;
 }
+
+/* --- Moviments ------------------------------------------------------------ */
+
+.taula-moviments .data {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.taula-moviments .tria {
+  width: 2rem;
+}
+
+.concepte {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px dashed var(--vora);
+}
+
+.concepte:hover {
+  border-bottom-color: var(--accent);
+}
+
+.nota {
+  display: block;
+  margin-top: 0.2rem;
+}
+
+.origen {
+  margin-left: 0.35rem;
+}
+
+.negatiu {
+  color: var(--negatiu);
+}
+
+.positiu {
+  color: var(--positiu);
+}
+
+tr.exclos {
+  opacity: 0.55;
+}
+
+.barra-bloc {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--vora);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.visualment-ocult {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

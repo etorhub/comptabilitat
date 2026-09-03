@@ -19,6 +19,7 @@ import { categoriesRoutes } from "./categories/categories.routes.ts";
 import { homeRoutes } from "./home/home.routes.ts";
 import { merchantsRoutes } from "./merchants/merchants.routes.ts";
 import { rulesRoutes } from "./rules/rules.routes.ts";
+import { transactionsRoutes } from "./transactions/transactions.routes.ts";
 import { requireUser } from "../middleware/session.ts";
 import { workspaceMiddleware } from "../middleware/workspace.ts";
 
@@ -40,6 +41,7 @@ export function registerRoutes(app: Hono): void {
   espai.route("/categories", categoriesRoutes);
   espai.route("/comercos", merchantsRoutes);
   espai.route("/regles", rulesRoutes);
+  espai.route("/moviments", transactionsRoutes);
 
   app.route("/e/:codi", espai);
 }
