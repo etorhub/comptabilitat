@@ -112,7 +112,9 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous }: SidebarProps) 
         { href: `/e/${codi}`, text: "Panell" },
         { href: `/e/${codi}/moviments`, text: "Moviments" },
         {
-          href: `/e/${codi}/revisio`,
+          // La cua de revisio es una vista dels moviments, i per aixo penja
+          // d'ells. A l'aplicacio de React era `/e/:codi/revisio`.
+          href: `/e/${codi}/moviments/revisio`,
           text: "Per revisar",
           comptador: ComptadorRevisio(perRevisar),
         },
@@ -120,6 +122,8 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous }: SidebarProps) 
         { href: `/e/${codi}/previsio`, text: "Previsio" },
         { href: `/e/${codi}/informes`, text: "Informes" },
         { href: `/e/${codi}/categories`, text: "Categories" },
+        { href: `/e/${codi}/comercos`, text: "Comerços" },
+        { href: `/e/${codi}/regles`, text: "Regles" },
         { href: `/e/${codi}/avisos`, text: "Avisos", comptador: ComptadorAvisos(avisosNous) },
         { href: `/e/${codi}/configuracio`, text: "Configuracio" },
       ]

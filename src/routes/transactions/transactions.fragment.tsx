@@ -12,7 +12,11 @@ import type { CategorySource } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
 import type { GrupCategories } from "../../services/categories.ts";
-import type { MovimentVista, PaginaMoviments } from "../../services/transactions.ts";
+import type {
+  ItemRevisio,
+  MovimentVista,
+  PaginaMoviments,
+} from "../../services/transactions.ts";
 import { PER_PAGINA, type TransactionFilters } from "./transactions.schema.ts";
 
 /** D'on ha sortit la categoria, en català. */
@@ -371,4 +375,91 @@ export function BarraFiltres({ codi, filters, comptes, grups }: BarraFiltresProp
       <span>Inclou els traspassos</span>
     </label>
   </form>` as Html;
+}
+
+// --- Safata de revisio -------------------------------------------------------
+
+
+export interface CuaRevisioProps {
+  codi: string;
+  items: ItemRevisio[];
+  grups: GrupCategories[];
+  total: number;
+}
+
+export function CuaRevisio({ codi, items, grups, total }: CuaRevisioProps): Html {
+  return html`<div id="cua-revisio">
+    ${items.length === 0
+      ? html`<p class="buit text-suau">
+          No hi ha res per revisar. Tot te categoria.
+        </p>`
+      : html`
+          <p class="text-suau">
+            ${String(total)} ${total === 1 ? "moviment espera" : "moviments esperen"} que algu
+            en confirmi la categoria.
+          </p>
+          <ul class="revisio">
+            ${items.map((item) => TargetaRevisio({ codi, item, grups }))}
+          </ul>
+        `}
+  </div>` as Html;
+}
+
+export function TargetaRevisio({
+  codi,
+  item,
+  grups,
+}: {
+  codi: string;
+  item: ItemRevisio;
+  grups: GrupCategories[];
+}): Html {
+  const { moviment } = item;
+  const negatiu = moviment.amount.startsWith("-");
+
+  return html`<li id="revisio-${moviment.id}" class="superficie targeta item-revisio">
+    <div class="item-cap">
+      <time datetime="${moviment.bookingDate}" class="text-suau">
+        ${dataCurta.format(new Date(`${moviment.bookingDate}T00:00:00`))}
+      </time>
+      <strong>${moviment.description}</strong>
+      <span class="${negatiu ? "negatiu" : "positiu"}">${formatMoney(moviment.amount)}</span>
+    </div>
+
+    ${moviment.merchantName
+      ? html`<p class="text-suau">${moviment.merchantName}</p>`
+      : ""}
+
+    ${item.suggestedCategoryName
+      ? html`<p class="proposta">
+          <span class="etiqueta">proposta del model</span>
+          ${item.suggestedCategoryName}
+          ${item.confidence !== null
+            ? html`<span class="text-suau">· ${String(Math.round(item.confidence * 100))}%</span>`
+            : ""}
+          ${item.rationale ? html`<small class="text-suau">${item.rationale}</small>` : ""}
+        </p>`
+      : ""}
+
+    <form
+      class="linia"
+      hx-post="/e/${codi}/moviments/${moviment.id}/revisa"
+      hx-target="#revisio-${moviment.id}"
+      hx-swap="outerHTML"
+    >
+      ${Tria({
+        nom: "category_id",
+        etiqueta: "Categoria",
+        valor: item.suggestedCategoryId ?? moviment.categoryId,
+        grups,
+        buit: "— tria una categoria —",
+      })}
+      <button type="submit" class="boto">Confirma</button>
+    </form>
+  </li>` as Html;
+}
+
+/** Un cop confirmat, l'element se'n va de la cua. */
+export function RevisioFeta(id: number): Html {
+  return html`<li id="revisio-${id}" hidden></li>` as Html;
 }

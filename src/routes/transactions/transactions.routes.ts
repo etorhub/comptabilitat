@@ -5,13 +5,20 @@
  * `vistaMoviment()`, que es on s'aplica l'emmascarament.
  */
 
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { Hono } from "hono";
 
 import { ComptadorRevisio } from "../../components/layout.tsx";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
-import { accounts, categories, merchants, roleAtLeast, transactions } from "../../db/schema/index.ts";
+import {
+  accounts,
+  categories,
+  llmSuggestions,
+  merchants,
+  roleAtLeast,
+  transactions,
+} from "../../db/schema/index.ts";
 import {
   clearToast,
   fragment,
@@ -35,10 +42,16 @@ import {
   filaMoviment,
   llistaMoviments,
   movimentDeLespai,
+  safataRevisio,
   type MovimentVista,
 } from "../../services/transactions.ts";
-import { Fila, FilaConcepte, Taula } from "./transactions.fragment.tsx";
-import { TransactionsPage } from "./transactions.page.tsx";
+import {
+  Fila,
+  FilaConcepte,
+  RevisioFeta,
+  Taula,
+} from "./transactions.fragment.tsx";
+import { ReviewPage, TransactionsPage } from "./transactions.page.tsx";
 import {
   bulkCategorizeSchema,
   categorizeSchema,
@@ -371,3 +384,92 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
 });
 
 export type { MovimentVista };
+
+// --- Safata de revisio -------------------------------------------------------
+
+transactionsRoutes.get("/revisio", async (c) => {
+  const espai = currentWorkspace(c);
+  const [{ items, total }, grups] = await Promise.all([
+    safataRevisio(espai.id),
+    opcionsCategories(espai.id),
+  ]);
+
+  return page(
+    c,
+    await workspacePage(
+      c,
+      "Per revisar",
+      ReviewPage({ codi: espai.code, items, grups, total }),
+    ),
+  );
+});
+
+/**
+ * Confirmar la categoria d'un moviment de la cua.
+ *
+ * Es exactament el mateix que canviar-la des de la llista —queda com a
+ * decisio d'una persona i es recorda per al comerç—, pero la resposta treu
+ * l'element de la cua en lloc de redibuixar-ne la fila.
+ */
+transactionsRoutes.post("/:id/revisa", requireEditor, async (c) => {
+  const espai = currentWorkspace(c);
+  const id = idDeLaRuta(c.req.param("id"));
+  const parsed = categorizeSchema.safeParse(await c.req.parseBody());
+
+  if (!parsed.success || parsed.data.category_id === null) {
+    return fragment(c, toast("Tria una categoria per confirmar-lo"), 422);
+  }
+  if (!(await categoriaValida(parsed.data.category_id, espai.id))) {
+    return fragment(c, toast("La categoria no es d'aquest espai"), 422);
+  }
+
+  const fila = await filaMoviment(id, espai.id);
+
+  await db
+    .update(transactions)
+    .set({
+      categoryId: parsed.data.category_id,
+      categorySource: "user",
+      categoryConfidence: 1,
+      needsReview: false,
+    })
+    .where(eq(transactions.id, id));
+
+  // Tanca la proposta del model dient si l'encertava.
+  if (fila.merchantId !== null) {
+    const [proposta] = await db
+      .select()
+      .from(llmSuggestions)
+      .where(and(eq(llmSuggestions.merchantId, fila.merchantId), isNull(llmSuggestions.accepted)))
+      .limit(1);
+    if (proposta) {
+      await db
+        .update(llmSuggestions)
+        .set({
+          accepted: proposta.suggestedCategoryId === parsed.data.category_id,
+          reviewedAt: new Date(),
+        })
+        .where(eq(llmSuggestions.id, proposta.id));
+    }
+
+    if (parsed.data.recorda_comerc) {
+      const [comerc] = await db
+        .select()
+        .from(merchants)
+        .where(eq(merchants.id, fila.merchantId))
+        .limit(1);
+      if (comerc) await recordaEleccioComerc(comerc, parsed.data.category_id, true);
+    }
+  }
+
+  const perRevisar = await comptaPerRevisar(espai.id);
+
+  return fragment(
+    c,
+    await withOob(
+      RevisioFeta(id),
+      ComptadorRevisio(perRevisar, true),
+      toast("Confirmat", "success"),
+    ),
+  );
+});

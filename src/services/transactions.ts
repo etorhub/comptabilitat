@@ -291,3 +291,95 @@ export async function filaMoviment(id: number, ledgerId: number) {
   if (!fila) throw new NotFoundError("Aquest moviment no existeix");
   return fila;
 }
+
+// --- Safata de revisio -------------------------------------------------------
+
+/** Un moviment per revisar, amb la proposta del model local si n'hi ha. */
+export interface ItemRevisio {
+  moviment: MovimentVista;
+  suggestedCategoryId: number | null;
+  suggestedCategoryName: string | null;
+  confidence: number | null;
+  rationale: string;
+}
+
+/**
+ * La cua de revisio.
+ *
+ * El model local **no confirma res pel seu compte**: quan proposa una
+ * categoria, el moviment queda marcat per revisar amb la seva confiança i la
+ * seva justificacio, i qui decideix es una persona.
+ */
+export async function safataRevisio(
+  ledgerId: number,
+  limit = 50,
+  offset = 0,
+): Promise<{ items: ItemRevisio[]; total: number }> {
+  const on = and(eq(transactions.ledgerId, ledgerId), eq(transactions.needsReview, true));
+
+  const [resum] = await db.select({ n: count() }).from(transactions).where(on);
+
+  const files = await db
+    .select(CAMPS)
+    .from(transactions)
+    .leftJoin(accounts, eq(accounts.id, transactions.accountId))
+    .leftJoin(merchants, eq(merchants.id, transactions.merchantId))
+    .leftJoin(categories, eq(categories.id, transactions.categoryId))
+    .where(on)
+    .orderBy(desc(transactions.bookingDate), desc(transactions.id))
+    .limit(limit)
+    .offset(offset);
+
+  const comercIds = [
+    ...new Set(files.map((f) => f.merchantId).filter((x): x is number => x !== null)),
+  ];
+
+  // La proposta mes recent de cada comerç.
+  const propostes = new Map<number, { categoryId: number | null; categoryName: string | null; confidence: number | null; rationale: string }>();
+  if (comercIds.length > 0) {
+    const { llmSuggestions } = await import("../db/schema/index.ts");
+    const suggeriments = await db
+      .select({
+        merchantId: llmSuggestions.merchantId,
+        categoryId: llmSuggestions.suggestedCategoryId,
+        categoryName: categories.name,
+        confidence: llmSuggestions.confidence,
+        rationale: llmSuggestions.rationale,
+      })
+      .from(llmSuggestions)
+      .leftJoin(categories, eq(categories.id, llmSuggestions.suggestedCategoryId))
+      .where(inArray(llmSuggestions.merchantId, comercIds))
+      .orderBy(llmSuggestions.createdAt);
+
+    for (const s of suggeriments) {
+      if (s.merchantId === null) continue;
+      propostes.set(s.merchantId, {
+        categoryId: s.categoryId,
+        categoryName: s.categoryName,
+        confidence: s.confidence,
+        rationale: s.rationale,
+      });
+    }
+  }
+
+  const items = files.map((fila) => {
+    const moviment = vistaMoviment(fila);
+    // Si el moviment esta emmascarat, la proposta tambe s'amaga: parla del
+    // comerç, que es justament el que no s'ha de veure.
+    const proposta = moviment.isMasked
+      ? undefined
+      : fila.merchantId !== null
+        ? propostes.get(fila.merchantId)
+        : undefined;
+
+    return {
+      moviment,
+      suggestedCategoryId: proposta?.categoryId ?? null,
+      suggestedCategoryName: proposta?.categoryName ?? null,
+      confidence: proposta?.confidence ?? null,
+      rationale: proposta?.rationale ?? "",
+    };
+  });
+
+  return { items, total: resum?.n ?? 0 };
+}
