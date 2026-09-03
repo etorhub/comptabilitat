@@ -23,13 +23,29 @@ import { merchantsRoutes } from "./merchants/merchants.routes.ts";
 import { recurringRoutes } from "./recurring/recurring.routes.ts";
 import { rulesRoutes } from "./rules/rules.routes.ts";
 import { transactionsRoutes } from "./transactions/transactions.routes.ts";
-import { requireUser } from "../middleware/session.ts";
+import { usersRoutes } from "./users/users.routes.ts";
+import { workspacesRoutes } from "./workspaces/workspaces.routes.ts";
+import { requireAdmin, requireUser } from "../middleware/session.ts";
 import { workspaceMiddleware } from "../middleware/workspace.ts";
 
 export function registerRoutes(app: Hono): void {
   // --- Transversals --------------------------------------------------------
   app.route("/", authRoutes);
   app.route("/", homeRoutes);
+
+  // --- Administracio de la instal·lacio ------------------------------------
+  //
+  // Gestionar bancs i usuaris no dona acces a cap espai: son coses separades.
+  //
+  // Compte amb el punt de muntatge: un `app.route("/", admin)` amb un
+  // `use("*")` a dins **aplica la guarda a tota l'aplicacio**, no nomes a les
+  // seves rutes, i deixaria fora del programa qui no fos administrador. La
+  // guarda es penja del sub-programa i es munta ja sota `/usuaris`.
+  const usuaris = new Hono();
+  usuaris.use("*", requireUser);
+  usuaris.use("*", requireAdmin);
+  usuaris.route("/", usersRoutes);
+  app.route("/usuaris", usuaris);
 
   // --- Dins d'un espai -----------------------------------------------------
   //
@@ -46,6 +62,7 @@ export function registerRoutes(app: Hono): void {
   espai.route("/regles", rulesRoutes);
   espai.route("/moviments", transactionsRoutes);
   espai.route("/recurrents", recurringRoutes);
+  espai.route("/configuracio", workspacesRoutes);
   // Les descarregues pengen de Moviments i d'Informes, que son d'on surten.
   espai.route("/moviments", exportsRoutes);
   espai.route("/informes", exportsRoutes);
