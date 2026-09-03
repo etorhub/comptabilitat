@@ -17,3 +17,10 @@ dist/
 
 # Copies de seguretat locals
 deploy/backups/*.sql.gz
+
+# Bun / Hono
+# El full d'estil es compila; el codi font es a src/styles/app.css.
+public/app.css
+# Sortida de `drizzle-kit pull`, nomes per comparar contra la base de dades viva.
+.introspect/
+dk.config.ts
