@@ -430,6 +430,52 @@ describe("corregir una categoria", () => {
   });
 });
 
+describe("quan una peticio falla", () => {
+  /**
+   * Un cos que nomes duu el `#toast` es queda buit quan HTMX en treu els
+   * intercanvis fora de banda, i aleshores HTMX intercanviaria aquest buit
+   * dins de l'`hx-target`. Amb `hx-swap="outerHTML"` aixo esborra la fila que
+   * l'usuari estava tocant. `HX-Reswap: none` ho evita.
+   */
+  test("l'error no s'endu la fila: hi ha d'anar `HX-Reswap: none`", async () => {
+    const id = await moviment();
+    const alie = await categoria(calellaId);
+
+    const res = await envia(`/e/personal/moviments/${id}/categoria`, {
+      category_id: String(alie.id),
+    });
+
+    expect(res.status).toBe(422);
+    expect(res.headers.get("HX-Reswap")).toBe("none");
+    // I el cos nomes duu el `#toast`, fora de banda.
+    const cos = await res.text();
+    expect(cos).toContain('id="toast"');
+    expect(cos).toContain('hx-swap-oob="true"');
+  });
+
+  test("tambe quan no es troba res", async () => {
+    const res = await envia("/e/personal/moviments/999999/categoria", {
+      category_id: String((await categoria(personalId)).id),
+    });
+
+    expect(res.status).toBe(404);
+    expect(res.headers.get("HX-Reswap")).toBe("none");
+  });
+
+  test("i quan la seleccio en bloc porta un moviment de fora", async () => {
+    const meu = await moviment();
+    const alie = await moviment({ accountId: compteCalella, ledgerId: calellaId });
+
+    const res = await envia("/e/personal/moviments/bloc", {
+      moviment: [String(meu), String(alie)],
+      category_id: String((await categoria(personalId)).id),
+    });
+
+    expect(res.status).toBe(404);
+    expect(res.headers.get("HX-Reswap")).toBe("none");
+  });
+});
+
 describe("la recategoritzacio en lot", () => {
   test("aplica la categoria a tots els triats", async () => {
     const primer = await moviment();

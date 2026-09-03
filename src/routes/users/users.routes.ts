@@ -14,7 +14,15 @@ import { Layout } from "../../components/layout.tsx";
 import { db } from "../../db/client.ts";
 import { ledgers, userLedgerPermissions, users } from "../../db/schema/index.ts";
 import { destroyAllSessions, hashPassword } from "../../lib/auth.ts";
-import { fragment, NotFoundError, page, toast, withOob, AppError } from "../../lib/http.ts";
+import {
+  AppError,
+  fragment,
+  NotFoundError,
+  page,
+  toast,
+  toastOnly,
+  withOob,
+} from "../../lib/http.ts";
 import { currentUser } from "../../middleware/session.ts";
 import { myWorkspaces } from "../../middleware/workspace.ts";
 import { FormAlta, Llista, Targeta, type UsuariVista } from "./users.fragment.tsx";
@@ -156,7 +164,7 @@ usersRoutes.post("/", async (c) => {
 usersRoutes.post("/:id/acces", async (c) => {
   const id = idDeLaRuta(c.req.param("id"));
   const parsed = grantSchema.safeParse(await c.req.parseBody());
-  if (!parsed.success) return fragment(c, toast("Peticio no valida"), 422);
+  if (!parsed.success) return toastOnly(c, "Peticio no valida", 422);
 
   const [usuari] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   if (!usuari) throw new NotFoundError("Aquest usuari no existeix");

@@ -12,7 +12,7 @@ import { logger } from "hono/logger";
 
 import { ErrorPage, NotFoundPage } from "./components/shell.tsx";
 import { config, validateConfig } from "./lib/config.ts";
-import { describeError, toast } from "./lib/http.ts";
+import { describeError, toastOnly } from "./lib/http.ts";
 import { csrfMiddleware } from "./middleware/csrf.ts";
 import { sessionMiddleware } from "./middleware/session.ts";
 import { registerRoutes } from "./routes/index.ts";
@@ -55,8 +55,7 @@ registerRoutes(app);
  */
 app.notFound((c) => {
   if (c.req.header("HX-Request") === "true") {
-    c.status(404);
-    return c.html(toast("No s'ha trobat"));
+    return toastOnly(c, "No s'ha trobat", 404);
   }
   c.status(404);
   return c.html(NotFoundPage());
@@ -68,10 +67,10 @@ app.notFound((c) => {
  */
 app.onError((err, c) => {
   const { status, missatge, detall } = describeError(err);
-  c.status(status as 400);
   if (c.req.header("HX-Request") === "true") {
-    return c.html(toast(missatge, "error", detall));
+    return toastOnly(c, missatge, status, "error", detall);
   }
+  c.status(status as 400);
   return c.html(ErrorPage(missatge));
 });
 

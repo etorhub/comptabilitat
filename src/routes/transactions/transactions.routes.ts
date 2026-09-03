@@ -26,6 +26,7 @@ import {
   page,
   pushUrl,
   toast,
+  toastOnly,
   withOob,
 } from "../../lib/http.ts";
 import { currentUser } from "../../middleware/session.ts";
@@ -206,9 +207,9 @@ transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
   const id = idDeLaRuta(c.req.param("id"));
   const parsed = categorizeSchema.safeParse(await c.req.parseBody());
 
-  if (!parsed.success) return fragment(c, toast("La categoria no es valida"), 422);
+  if (!parsed.success) return toastOnly(c, "La categoria no es valida", 422);
   if (!(await categoriaValida(parsed.data.category_id, espai.id))) {
-    return fragment(c, toast("La categoria no es d'aquest espai"), 422);
+    return toastOnly(c, "La categoria no es d'aquest espai", 422);
   }
 
   const fila = await filaMoviment(id, espai.id);
@@ -316,10 +317,10 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
   const parsed = bulkCategorizeSchema.safeParse(cos);
 
   if (!parsed.success) {
-    return fragment(c, toast("No hi ha cap moviment triat"), 422);
+    return toastOnly(c, "No hi ha cap moviment triat", 422);
   }
   if (!(await categoriaValida(parsed.data.category_id, espai.id))) {
-    return fragment(c, toast("La categoria no es d'aquest espai"), 422);
+    return toastOnly(c, "La categoria no es d'aquest espai", 422);
   }
 
   // Nomes els que son d'aquest espai: aixi no s'hi pot colar un identificador.
@@ -332,7 +333,7 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
   // **Tot o res.** Si algun identificador no es d'aquest espai, no s'aplica
   // a cap: una peticio a mitges deixaria l'usuari sense saber que ha canviat.
   if (meus.length !== demanats.length) {
-    return fragment(c, toast("No s'ha trobat"), 404);
+    return toastOnly(c, "No s'ha trobat", 404);
   }
 
   await db
@@ -419,10 +420,10 @@ transactionsRoutes.post("/:id/revisa", requireEditor, async (c) => {
   const parsed = categorizeSchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success || parsed.data.category_id === null) {
-    return fragment(c, toast("Tria una categoria per confirmar-lo"), 422);
+    return toastOnly(c, "Tria una categoria per confirmar-lo", 422);
   }
   if (!(await categoriaValida(parsed.data.category_id, espai.id))) {
-    return fragment(c, toast("La categoria no es d'aquest espai"), 422);
+    return toastOnly(c, "La categoria no es d'aquest espai", 422);
   }
 
   const fila = await filaMoviment(id, espai.id);

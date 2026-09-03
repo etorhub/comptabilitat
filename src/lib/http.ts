@@ -155,15 +155,35 @@ export function clearToast() {
 }
 
 /**
- * Resposta d'error estandard: nomes el `#toast`, amb el codi que toqui.
+ * Resposta que nomes duu el `#toast`, amb el codi que toqui.
  *
- * HTMX no intercanvia els 4xx per defecte; el `htmx:beforeSwap` de la
- * disposicio ho permet perque aixo arribi. Vegeu `components/layout.tsx`.
+ * **La capçalera `HX-Reswap: none` no es opcional.** Un cos que nomes conte
+ * intercanvis fora de banda es queda buit quan HTMX els treu d'alli, i llavors
+ * HTMX intercanvia aquest buit dins de l'`hx-target`. Amb
+ * `hx-swap="outerHTML"` —que es el que fan servir totes les files i totes les
+ * targetes de l'aplicacio— aixo **esborra de la pagina l'element que l'usuari
+ * estava tocant**. Amb `HX-Reswap: none` no hi ha intercanvi principal, i els
+ * fora de banda s'apliquen igualment.
+ *
+ * Recorda que el `htmx:beforeSwap` de `components/layout.tsx` deixa passar els
+ * 4xx a proposit; sense aixo el `#toast` no arribaria mai.
  */
+export function toastOnly(
+  c: Context,
+  missatge: string,
+  status = 422,
+  tone: ToastTone = "error",
+  detall?: string,
+) {
+  c.header("HX-Reswap", "none");
+  c.status(status as Parameters<typeof c.status>[0]);
+  return c.html(toast(missatge, tone, detall));
+}
+
+/** El mateix, a partir d'un error del domini. */
 export function toastError(c: Context, error: unknown) {
   const { status, missatge, detall } = describeError(error);
-  c.status(status as Parameters<typeof c.status>[0]);
-  return c.html(toast(missatge, "error", detall));
+  return toastOnly(c, missatge, status, "error", detall);
 }
 
 export function describeError(error: unknown): {

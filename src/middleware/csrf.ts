@@ -15,7 +15,7 @@ import {
   csrfTokenValid,
   originAllowed,
 } from "../lib/csrf.ts";
-import { toast } from "../lib/http.ts";
+import { toastOnly } from "../lib/http.ts";
 
 const METODES_SEGURS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -40,8 +40,7 @@ export const csrfMiddleware: MiddlewareHandler = async (c, next) => {
   }
 
   if (!originAllowed(c)) {
-    c.status(403);
-    return c.html(toast("La peticio ve d'un lloc que no toca"));
+    return toastOnly(c, "La peticio ve d'un lloc que no toca", 403);
   }
 
   /**
@@ -50,8 +49,7 @@ export const csrfMiddleware: MiddlewareHandler = async (c, next) => {
    */
   const llavor = c.get("sessionTokenHash") ?? getCookie(c, CSRF_SEED_COOKIE) ?? null;
   if (llavor === null) {
-    c.status(403);
-    return c.html(toast("La sessio s'ha tancat. Torna a carregar la pagina."));
+    return toastOnly(c, "La sessio s'ha tancat. Torna a carregar la pagina.", 403);
   }
 
   // La capçalera la posa `hx-headers` del `<body>`; el camp ocult, els
@@ -70,8 +68,7 @@ export const csrfMiddleware: MiddlewareHandler = async (c, next) => {
   }
 
   if (!(await csrfTokenValid(llavor, presentat))) {
-    c.status(403);
-    return c.html(toast("El formulari ha caducat. Torna a carregar la pagina."));
+    return toastOnly(c, "El formulari ha caducat. Torna a carregar la pagina.", 403);
   }
 
   await next();

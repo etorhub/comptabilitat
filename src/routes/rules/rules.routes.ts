@@ -10,7 +10,15 @@ import { zodErrors } from "../../components/form.tsx";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { categories, roleAtLeast, rules } from "../../db/schema/index.ts";
-import { clearToast, fragment, NotFoundError, page, toast, withOob } from "../../lib/http.ts";
+import {
+  clearToast,
+  fragment,
+  NotFoundError,
+  page,
+  toast,
+  toastOnly,
+  withOob,
+} from "../../lib/http.ts";
 import { currentUser } from "../../middleware/session.ts";
 import { currentRole, currentWorkspace, requireEditor } from "../../middleware/workspace.ts";
 import { opcionsCategories } from "../../services/categories.ts";
@@ -128,7 +136,7 @@ rulesRoutes.post("/", requireEditor, async (c) => {
       )
       .limit(1);
     if (!categoria) {
-      return fragment(c, toast("La categoria no es d'aquest espai"), 422);
+      return toastOnly(c, "La categoria no es d'aquest espai", 422);
     }
   }
 

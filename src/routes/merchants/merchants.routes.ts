@@ -13,6 +13,7 @@ import {
   page,
   pushUrl,
   toast,
+  toastOnly,
   withOob,
 } from "../../lib/http.ts";
 import { currentRole, currentWorkspace, requireEditor } from "../../middleware/workspace.ts";
@@ -107,7 +108,7 @@ merchantsRoutes.post("/:id/categoria", requireEditor, async (c) => {
   const parsed = merchantCategorySchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success) {
-    return fragment(c, toast("La categoria no es valida"), 422);
+    return toastOnly(c, "La categoria no es valida", 422);
   }
 
   const canviats = await assignaCategoria(

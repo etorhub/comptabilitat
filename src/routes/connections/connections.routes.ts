@@ -38,6 +38,7 @@ import {
   page,
   redirect,
   toast,
+  toastOnly,
   withOob,
 } from "../../lib/http.ts";
 import { daysBetween, todayLocal } from "../../lib/time.ts";
@@ -226,7 +227,7 @@ connectionsRoutes.post("/:id/sincronitza", async (c) => {
   if (!connexio) throw new NotFoundError("Aquesta connexio no existeix");
 
   if (connexio.status !== "active") {
-    return fragment(c, toast("Aquesta connexio no esta activa"), 422);
+    return toastOnly(c, "Aquesta connexio no esta activa", 422);
   }
 
   // Arrenca en segon pla i contesta de seguida: la primera importacio pot
