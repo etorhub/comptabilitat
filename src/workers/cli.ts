@@ -3,16 +3,20 @@
  *
  *   bun run src/workers/cli.ts sync [--connexio 1] [--dies 30]
  *   bun run src/workers/cli.ts classify
+ *   bun run src/workers/cli.ts llm [--limit 50]
  *   bun run src/workers/cli.ts analyze
+ *   bun run src/workers/cli.ts notify [--urgents]
  *   bun run src/workers/cli.ts maintenance
  *
- * Equival al `python -m app.cli sync|classify|analyze` d'abans.
+ * Equival al `python -m app.cli sync|classify|analyze|notify` d'abans.
  */
 
 import { closeDb } from "../db/client.ts";
 import { feinaAnalisi } from "./jobs/analyze.ts";
 import { feinaClassificacio } from "./jobs/classify.ts";
+import { feinaModelLocal } from "./jobs/llm.ts";
 import { feinaManteniment } from "./jobs/maintenance.ts";
+import { feinaAvisos, feinaAvisosUrgents } from "./jobs/notify.ts";
 import { feinaSincronitzacio } from "./jobs/sync.ts";
 
 function arg(nom: string): string | undefined {
@@ -29,7 +33,9 @@ const feines: Record<string, () => Promise<string>> = {
   sync: () =>
     feinaSincronitzacio({ connectionId: enter("connexio"), daysBack: enter("dies") }),
   classify: feinaClassificacio,
+  llm: () => feinaModelLocal(enter("limit") ?? 50),
   analyze: feinaAnalisi,
+  notify: () => (process.argv.includes("--urgents") ? feinaAvisosUrgents() : feinaAvisos()),
   maintenance: feinaManteniment,
 };
 

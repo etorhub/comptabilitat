@@ -19,7 +19,9 @@ import { closeDb } from "../db/client.ts";
 import { config, validateConfig } from "../lib/config.ts";
 import { feinaAnalisi } from "./jobs/analyze.ts";
 import { feinaClassificacio } from "./jobs/classify.ts";
+import { feinaModelLocal } from "./jobs/llm.ts";
 import { feinaManteniment } from "./jobs/maintenance.ts";
+import { feinaAvisos, feinaAvisosUrgents } from "./jobs/notify.ts";
 import { feinaSincronitzacio } from "./jobs/sync.ts";
 
 validateConfig();
@@ -54,6 +56,16 @@ async function passadaDiaria(): Promise<string> {
   return trossos.join("\n");
 }
 
+/**
+ * La passada nocturna: el model local mira els comerços nous i despres es
+ * torna a classificar, ja sense model, per escampar el que hagi proposat.
+ */
+async function passadaNocturna(): Promise<string> {
+  const model = await feinaModelLocal();
+  const classificacio = await feinaClassificacio();
+  return `${model}\n${classificacio}`;
+}
+
 function main(): void {
   if (!config.schedulerEnabled) {
     console.info("[planificador] desactivat (SCHEDULER_ENABLED=false)");
@@ -79,6 +91,24 @@ function main(): void {
       corre("analisi", feinaAnalisi),
     ),
   );
+
+  // El model local, de matinada: en un NAS sense targeta grafica cada
+  // pregunta triga segons, i de dia molestaria.
+  if (config.ollamaEnabled) {
+    feines.push(
+      new Cron(`15 ${config.classifyCronHour} * * *`, opcions, () =>
+        corre("model-local", passadaNocturna),
+      ),
+    );
+  }
+
+  // El resum d'avisos, un cop al dia.
+  feines.push(
+    new Cron(`0 ${config.notifyCronHour} * * *`, opcions, () => corre("avisos", feinaAvisos)),
+  );
+
+  // Els urgents, cada hora: un descobert previst no pot esperar al resum.
+  feines.push(new Cron("5 * * * *", opcions, () => corre("avisos-urgents", feinaAvisosUrgents)));
 
   // Manteniment: esborra les sessions caducades.
   feines.push(new Cron("30 4 * * *", opcions, () => corre("manteniment", feinaManteniment)));

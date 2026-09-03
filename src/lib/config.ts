@@ -111,8 +111,13 @@ export const config = rawConfig;
  * que hi ha configurada al panell d'Enable Banking. */
 export const ebRedirectUrl = `${config.publicBaseUrl}/api/auth/callback`;
 
-export const smtpConfigured =
-  Boolean(config.smtpHost) && Boolean(config.smtpFrom) && config.alertRecipients.length > 0;
+/**
+ * Es funcio i no constant perque es llegeix quan s'envia, no quan s'importa:
+ * aixi les proves poden canviar la configuracio i aixo se n'assabenta.
+ */
+export function smtpConfigured(): boolean {
+  return Boolean(config.smtpHost) && Boolean(config.smtpFrom) && config.alertRecipients.length > 0;
+}
 
 /**
  * Comprovacions que nomes tenen sentit quan aixo corre de debò. En
