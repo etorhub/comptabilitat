@@ -33,15 +33,19 @@ export interface LlistaAvisosProps {
 
 export function LlistaAvisos({ codi, avisos, filters }: LlistaAvisosProps): Html {
   return html`<div id="llista-avisos">
-    ${avisos.length === 0
-      ? html`<p class="buit text-suau">
-          ${filters.descartats
-            ? "Aqui no hi ha cap avis."
-            : "Cap avis pendent. Quan n'hi hagi, sortiran aqui."}
+    ${
+      avisos.length === 0
+        ? html`<p class="buit text-suau">
+          ${
+            filters.descartats
+              ? "Aqui no hi ha cap avis."
+              : "Cap avis pendent. Quan n'hi hagi, sortiran aqui."
+          }
         </p>`
-      : html`<ul class="avisos">
+        : html`<ul class="avisos">
           ${avisos.map((avis) => TargetaAvis({ codi, avis }))}
-        </ul>`}
+        </ul>`
+    }
   </div>` as Html;
 }
 
@@ -69,11 +73,13 @@ export function TargetaAvis({ codi, avis }: TargetaAvisProps): Html {
     ${avis.body ? html`<p class="avis-cos">${avis.body}</p>` : ""}
 
     <div class="avis-accions">
-      ${descartat
-        ? html`<span class="text-suau">Descartat</span>`
-        : html`
-            ${avis.status === "new"
-              ? html`<button
+      ${
+        descartat
+          ? html`<span class="text-suau">Descartat</span>`
+          : html`
+            ${
+              avis.status === "new"
+                ? html`<button
                   type="button"
                   class="boto boto-discret"
                   hx-post="/e/${codi}/avisos/${avis.id}/llegit"
@@ -82,7 +88,8 @@ export function TargetaAvis({ codi, avis }: TargetaAvisProps): Html {
                 >
                   Marca'l com a llegit
                 </button>`
-              : ""}
+                : ""
+            }
             <button
               type="button"
               class="boto boto-discret"
@@ -92,7 +99,8 @@ export function TargetaAvis({ codi, avis }: TargetaAvisProps): Html {
             >
               Descarta
             </button>
-          `}
+          `
+      }
     </div>
   </li>` as Html;
 }

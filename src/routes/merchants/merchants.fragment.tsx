@@ -32,13 +32,16 @@ export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): 
   const fins = Math.min(pagina.offset + pagina.limit, pagina.total);
 
   return html`<div id="taula-comercos">
-    ${pagina.items.length === 0
-      ? html`<p class="buit text-suau">
-          ${filters.cerca
-            ? html`No hi ha cap comerç que encaixi amb «${filters.cerca}».`
-            : "Encara no hi ha cap comerç. N'apareixeran a mesura que s'importin moviments."}
+    ${
+      pagina.items.length === 0
+        ? html`<p class="buit text-suau">
+          ${
+            filters.cerca
+              ? html`No hi ha cap comerç que encaixi amb «${filters.cerca}».`
+              : "Encara no hi ha cap comerç. N'apareixeran a mesura que s'importin moviments."
+          }
         </p>`
-      : html`
+        : html`
           <div class="desplaçable">
             <table class="dades">
               <thead>
@@ -50,9 +53,7 @@ export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): 
                 </tr>
               </thead>
               <tbody>
-                ${pagina.items.map((comerc) =>
-                  Fila({ codi, comerc, grups, potEditar }),
-                )}
+                ${pagina.items.map((comerc) => Fila({ codi, comerc, grups, potEditar }))}
               </tbody>
             </table>
           </div>
@@ -63,7 +64,8 @@ export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): 
             </span>
             ${Passos({ codi, filters, total: pagina.total })}
           </nav>
-        `}
+        `
+    }
   </div>` as Html;
 }
 
@@ -123,29 +125,35 @@ export function Fila({ codi, comerc, grups, potEditar }: FilaProps): Html {
   return html`<tr id="comerc-${comerc.id}">
     <td>
       <span class="nom">${comerc.displayName}</span>
-      ${comerc.isConfirmed
-        ? html`<span class="etiqueta" title="Ho ha confirmat una persona">confirmat</span>`
-        : ""}
+      ${
+        comerc.isConfirmed
+          ? html`<span class="etiqueta" title="Ho ha confirmat una persona">confirmat</span>`
+          : ""
+      }
       <br />
       <small class="text-suau">${comerc.normalizedName}</small>
     </td>
     <td>
-      ${potEditar
-        ? Tria({
-            nom: "default_category_id",
-            etiqueta: `Categoria de ${comerc.displayName}`,
-            valor: comerc.defaultCategoryId,
-            grups,
-            buit: "— sense classificar —",
-            atributs: `hx-post="${base}/categoria" hx-target="#comerc-${comerc.id}" hx-swap="outerHTML" hx-trigger="change"`,
-          })
-        : (comerc.categoryName ?? html`<span class="text-suau">sense classificar</span>`)}
+      ${
+        potEditar
+          ? Tria({
+              nom: "default_category_id",
+              etiqueta: `Categoria de ${comerc.displayName}`,
+              valor: comerc.defaultCategoryId,
+              grups,
+              buit: "— sense classificar —",
+              atributs: `hx-post="${base}/categoria" hx-target="#comerc-${comerc.id}" hx-swap="outerHTML" hx-trigger="change"`,
+            })
+          : (comerc.categoryName ?? html`<span class="text-suau">sense classificar</span>`)
+      }
     </td>
     <td class="dreta">${String(comerc.transactionCount)}</td>
     <td>
-      ${comerc.lastSeenAt
-        ? dataCurta.format(new Date(`${comerc.lastSeenAt}T00:00:00`))
-        : html`<span class="text-suau">—</span>`}
+      ${
+        comerc.lastSeenAt
+          ? dataCurta.format(new Date(`${comerc.lastSeenAt}T00:00:00`))
+          : html`<span class="text-suau">—</span>`
+      }
     </td>
   </tr>` as Html;
 }

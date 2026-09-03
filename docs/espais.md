@@ -12,11 +12,11 @@ que veus a sota és sempre d'un sol espai, i la seva adreça ho reflecteix
 
 L'accés es dona espai per espai, amb tres nivells:
 
-| Rol | Què pot fer |
-|---|---|
-| `viewer` | Mirar-ho tot de l'espai: moviments, informes, previsió |
-| `editor` | A més, classificar moviments, anotar-los i crear regles |
-| `admin` | A més, configurar l'espai: destinataris d'avisos, llindar de descobert i comptes |
+| Rol      | Què pot fer                                                                      |
+| -------- | -------------------------------------------------------------------------------- |
+| `viewer` | Mirar-ho tot de l'espai: moviments, informes, previsió                           |
+| `editor` | A més, classificar moviments, anotar-los i crear regles                          |
+| `admin`  | A més, configurar l'espai: destinataris d'avisos, llindar de descobert i comptes |
 
 **Ser administrador de l'aplicació no dona accés a cap espai.** Qui gestiona les connexions
 bancàries i els usuaris no veu, per defecte, la comptabilitat de ningú: l'accés s'ha de
@@ -32,17 +32,17 @@ docker compose exec app bun run cli dona-acces \
 
 ## Què no es comparteix
 
-| | Compartit | De cada espai |
-|---|---|---|
-| Usuaris i sessions | ✓ | |
-| Connexions bancàries | ✓ | |
-| Comptes | | ✓ (assignats a un espai) |
-| Moviments | | ✓ |
-| Categories | | ✓ |
-| Comerços | | ✓ |
-| Regles | | ✓ |
-| Recurrents i previsions | | ✓ |
-| Avisos i destinataris | | ✓ |
+|                         | Compartit | De cada espai            |
+| ----------------------- | --------- | ------------------------ |
+| Usuaris i sessions      | ✓         |                          |
+| Connexions bancàries    | ✓         |                          |
+| Comptes                 |           | ✓ (assignats a un espai) |
+| Moviments               |           | ✓                        |
+| Categories              |           | ✓                        |
+| Comerços                |           | ✓                        |
+| Regles                  |           | ✓                        |
+| Recurrents i previsions |           | ✓                        |
+| Avisos i destinataris   |           | ✓                        |
 
 Que els comerços no es comparteixin té un cost i un motiu. El cost: el mateix Mercadona
 s'ha de classificar un cop a cada espai on aparegui. El motiu: si es compartissin, la

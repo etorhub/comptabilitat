@@ -37,10 +37,12 @@ homeRoutes.get("/sense-espais", requireUser, async (c) => {
         <p class="text-suau">
           Els espais es concedeixen un per un. Ser administrador de la
           instal·lacio no en dona cap:
-          ${user.isAdmin
-            ? html`pots crear-ne un o donar-te acces des de
+          ${
+            user.isAdmin
+              ? html`pots crear-ne un o donar-te acces des de
               <a href="/usuaris">Usuaris</a>.`
-            : html`demana-ho a qui administri la instal·lacio.`}
+              : html`demana-ho a qui administri la instal·lacio.`
+          }
         </p>
       `,
     }),

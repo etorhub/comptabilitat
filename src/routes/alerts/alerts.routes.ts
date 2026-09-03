@@ -21,14 +21,7 @@ import { ComptadorAvisos } from "../../components/layout.tsx";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { alerts } from "../../db/schema/index.ts";
-import {
-  clearToast,
-  fragment,
-  NotFoundError,
-  page,
-  pushUrl,
-  withOob,
-} from "../../lib/http.ts";
+import { clearToast, fragment, NotFoundError, page, pushUrl, withOob } from "../../lib/http.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
 import { comptaAvisosNous } from "../../services/comptadors.ts";
 import { AvisDescartat, LlistaAvisos, TargetaAvis } from "./alerts.fragment.tsx";
@@ -74,7 +67,10 @@ alertsRoutes.get("/", async (c) => {
   const filters = alertFiltersSchema.parse(c.req.query());
   const avisos = await llegeixAvisos(espai.id, filters.descartats, filters.limit);
 
-  return page(c, await workspacePage(c, "Avisos", AlertsPage({ codi: espai.code, avisos, filters })));
+  return page(
+    c,
+    await workspacePage(c, "Avisos", AlertsPage({ codi: espai.code, avisos, filters })),
+  );
 });
 
 // --- Fragments -------------------------------------------------------------
@@ -103,11 +99,7 @@ alertsRoutes.post("/:id/llegit", async (c) => {
   const actualitzat =
     avis.status === "new"
       ? ((
-          await db
-            .update(alerts)
-            .set({ status: "read" })
-            .where(eq(alerts.id, id))
-            .returning()
+          await db.update(alerts).set({ status: "read" }).where(eq(alerts.id, id)).returning()
         )[0] ?? avis)
       : avis;
 

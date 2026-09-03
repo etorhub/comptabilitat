@@ -41,11 +41,11 @@ similar).
 
 Al túnel existent, afegeix un **Public Hostname**:
 
-| Camp | Valor |
-|---|---|
-| Subdomain | `comptes` |
-| Domain | el teu domini |
-| Service | el que indica `connect-tunnel.sh` |
+| Camp      | Valor                             |
+| --------- | --------------------------------- |
+| Subdomain | `comptes`                         |
+| Domain    | el teu domini                     |
+| Service   | el que indica `connect-tunnel.sh` |
 
 `PUBLIC_BASE_URL` a `deploy/.env` ha de ser exactament `https://comptes.el-teu-domini`.
 
@@ -54,7 +54,6 @@ Per usar el cloudflared integrat de l'stack (túnel propi amb token):
 ```bash
 docker compose --profile tunnel up -d
 ```
-
 
 A **Zero Trust** → **Access** → **Applications**, afegeix el hostname com a aplicació
 self-hosted amb una política que només permeti el teu correu (one-time PIN). Queda una
@@ -76,20 +75,20 @@ chmod 600 deploy/secrets/eb_private_key.pem
 
 Omple `deploy/.env`. Els que no poden quedar buits:
 
-| Variable | Per a què serveix |
-|---|---|
-| `POSTGRES_PASSWORD` | Contrasenya de la base de dades |
-| `SECRET_KEY` | Signatura de les sessions |
-| `PUBLIC_BASE_URL` | `https://comptes.el-teu-domini` — ha de coincidir amb el túnel i amb el redirect d'Enable Banking |
-| `EB_APPLICATION_ID` | Identificador de l'aplicació d'Enable Banking |
-| `CLOUDFLARE_TUNNEL_TOKEN` | Token del túnel |
-| `SMTP_*` i `ALERT_RECIPIENTS` | Per rebre els avisos per correu |
+| Variable                      | Per a què serveix                                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------------------------- |
+| `POSTGRES_PASSWORD`           | Contrasenya de la base de dades                                                                   |
+| `SECRET_KEY`                  | Signatura de les sessions                                                                         |
+| `PUBLIC_BASE_URL`             | `https://comptes.el-teu-domini` — ha de coincidir amb el túnel i amb el redirect d'Enable Banking |
+| `EB_APPLICATION_ID`           | Identificador de l'aplicació d'Enable Banking                                                     |
+| `CLOUDFLARE_TUNNEL_TOKEN`     | Token del túnel                                                                                   |
+| `SMTP_*` i `ALERT_RECIPIENTS` | Per rebre els avisos per correu                                                                   |
 
 ## 3. Desplegar l'stack
 
 A Portainer → **Stacks** → **Add stack**:
 
-- **Build method**: *Repository*
+- **Build method**: _Repository_
 - **Repository URL**: el d'aquest projecte
 - **Compose path**: `deploy/docker-compose.yml`
 - Carrega les variables des de `deploy/.env`
@@ -108,14 +107,14 @@ docker compose --profile ai up -d --build
 
 Què fa cada servei:
 
-| Servei | Xarxa | Notes |
-|---|---|---|
-| `db` | interna | PostgreSQL 16 amb volum persistent |
-| `app` | interna + externa | Servidor web. Aplica les migracions i sembra els espais i les seves categories en arrencar |
-| `worker` | interna + externa | Feines programades; necessita sortida per parlar amb el banc i l'SMTP |
-| `cloudflared` | interna + externa | Túnel |
-| `backup` | interna | `pg_dump` diari a `deploy/backups/` |
-| `ollama` | interna | Només amb el perfil `ai` |
+| Servei        | Xarxa             | Notes                                                                                      |
+| ------------- | ----------------- | ------------------------------------------------------------------------------------------ |
+| `db`          | interna           | PostgreSQL 16 amb volum persistent                                                         |
+| `app`         | interna + externa | Servidor web. Aplica les migracions i sembra els espais i les seves categories en arrencar |
+| `worker`      | interna + externa | Feines programades; necessita sortida per parlar amb el banc i l'SMTP                      |
+| `cloudflared` | interna + externa | Túnel                                                                                      |
+| `backup`      | interna           | `pg_dump` diari a `deploy/backups/`                                                        |
+| `ollama`      | interna           | Només amb el perfil `ai`                                                                   |
 
 La xarxa `interna` està marcada com a `internal: true`: la base de dades no té sortida a
 internet.

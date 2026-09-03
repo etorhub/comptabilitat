@@ -15,11 +15,7 @@ import {
   toast,
   withOob,
 } from "../../lib/http.ts";
-import {
-  currentRole,
-  currentWorkspace,
-  requireEditor,
-} from "../../middleware/workspace.ts";
+import { currentRole, currentWorkspace, requireEditor } from "../../middleware/workspace.ts";
 import { opcionsCategories } from "../../services/categories.ts";
 import { assignaCategoria, llistaComercos, vistaComerc } from "../../services/merchants.ts";
 import { comptaPerRevisar } from "../../services/comptadors.ts";

@@ -204,7 +204,10 @@ describe("la cerca", () => {
   });
 
   test("si que el troba per l'alies", async () => {
-    const pagina = await llistaMoviments(ledgerId, { ...CAP_FILTRE, cerca: "Despesa personal" });
+    const pagina = await llistaMoviments(ledgerId, {
+      ...CAP_FILTRE,
+      cerca: "Despesa personal",
+    });
     expect(pagina.items).toHaveLength(1);
     expect(pagina.items[0]?.id).toBe(idAmagat);
   });

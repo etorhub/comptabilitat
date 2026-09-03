@@ -13,12 +13,7 @@
 import { and, asc, count, desc, eq, ilike, isNull, ne, or, type SQL } from "drizzle-orm";
 
 import { db, type Db } from "../db/client.ts";
-import {
-  categories,
-  merchants,
-  transactions,
-  type Merchant,
-} from "../db/schema/index.ts";
+import { categories, merchants, transactions, type Merchant } from "../db/schema/index.ts";
 import { AppError, NotFoundError } from "../lib/http.ts";
 
 /** Filtres de la llista de comerços. */
@@ -55,9 +50,7 @@ function condicions(ledgerId: number, filtres: FiltresComercos): SQL | undefined
   const cerca = filtres.cerca.trim();
   if (cerca) {
     const patro = `%${cerca}%`;
-    parts.push(
-      or(ilike(merchants.normalizedName, patro), ilike(merchants.displayName, patro)),
-    );
+    parts.push(or(ilike(merchants.normalizedName, patro), ilike(merchants.displayName, patro)));
   }
   if (filtres.nomesSenseClassificar) parts.push(isNull(merchants.defaultCategoryId));
   if (filtres.nomesSenseConfirmar) parts.push(eq(merchants.isConfirmed, false));

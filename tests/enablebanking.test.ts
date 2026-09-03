@@ -33,9 +33,10 @@ describe("es comporta igual que la implementacio de Python", () => {
       expect(obtingut).not.toBeNull();
       const { raw, ...resta } = obtingut as NonNullable<typeof obtingut>;
       void raw;
-      expect({ ...resta, dedupKey: dedupKey(obtingut as NonNullable<typeof obtingut>) }).toEqual(
-        cas.esperat as never,
-      );
+      expect({
+        ...resta,
+        dedupKey: dedupKey(obtingut as NonNullable<typeof obtingut>),
+      }).toEqual(cas.esperat as never);
     }
   });
 });

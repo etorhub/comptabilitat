@@ -37,6 +37,7 @@ Fitxer: `deploy/secrets/eb_public_key.pem`
    ```
 
    Després: `./deploy/scripts/update-eb-app-id.sh <app_id>`
+
 5. **Redirect URL** (exactament):
 
    ```

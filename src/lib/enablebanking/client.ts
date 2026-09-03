@@ -148,9 +148,13 @@ export class EnableBankingClient {
   }
 
   async listAspsps(country?: string) {
-    const payload = await this.request<{ aspsps?: Record<string, unknown>[] }>("GET", "/aspsps", {
-      params: { country },
-    });
+    const payload = await this.request<{ aspsps?: Record<string, unknown>[] }>(
+      "GET",
+      "/aspsps",
+      {
+        params: { country },
+      },
+    );
     return payload.aspsps ?? [];
   }
 

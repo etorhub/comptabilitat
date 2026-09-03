@@ -23,10 +23,7 @@ export async function feinaSincronitzacio(
           .select()
           .from(bankConnections)
           .where(
-            and(
-              eq(bankConnections.status, "active"),
-              isNotNull(bankConnections.ebSessionId),
-            ),
+            and(eq(bankConnections.status, "active"), isNotNull(bankConnections.ebSessionId)),
           );
 
   for (const connexio of connexions) {

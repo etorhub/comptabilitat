@@ -14,7 +14,11 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { displayName, normalizeDescription, stripAccents } from "../src/services/normalization.ts";
+import {
+  displayName,
+  normalizeDescription,
+  stripAccents,
+} from "../src/services/normalization.ts";
 import casos from "./fixtures/normalitzacio.json";
 
 interface Cas {

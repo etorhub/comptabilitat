@@ -37,7 +37,10 @@ export const passwordChangeSchema = z
     current_password: z.string().min(1, "Cal la contrasenya actual"),
     new_password: z
       .string()
-      .min(MIN_CONTRASENYA, `La contrasenya nova ha de tenir ${MIN_CONTRASENYA} carácters o mes`),
+      .min(
+        MIN_CONTRASENYA,
+        `La contrasenya nova ha de tenir ${MIN_CONTRASENYA} carácters o mes`,
+      ),
     confirm_password: z.string().min(1, "Cal repetir la contrasenya nova"),
   })
   .refine((d) => d.new_password === d.confirm_password, {

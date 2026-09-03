@@ -22,7 +22,11 @@ import {
   transactions,
   type Ledger,
 } from "../src/db/schema/index.ts";
-import { comprovaDescoberts, construeixPrevisio, despesaDiariaVariable } from "../src/services/forecast.ts";
+import {
+  comprovaDescoberts,
+  construeixPrevisio,
+  despesaDiariaVariable,
+} from "../src/services/forecast.ts";
 import { ingressosIDespeses, serieMensual } from "../src/services/reports.ts";
 import { seedCategories } from "../src/services/seed.ts";
 import { addDays, todayLocal } from "../src/lib/time.ts";
@@ -35,7 +39,11 @@ async function moviment(
   clau: string,
   data: string,
   quantitat: string,
-  extra: Partial<{ transferGroupId: string; isExcluded: boolean; status: "booked" | "pending" }> = {},
+  extra: Partial<{
+    transferGroupId: string;
+    isExcluded: boolean;
+    status: "booked" | "pending";
+  }> = {},
 ) {
   const [t] = await db
     .insert(transactions)
@@ -97,7 +105,14 @@ beforeEach(async () => {
 
   const [connexio] = await db
     .insert(bankConnections)
-    .values({ name: "P", aspspName: "S", aspspCountry: "ES", psuType: "personal", status: "active", lastError: "" })
+    .values({
+      name: "P",
+      aspspName: "S",
+      aspspCountry: "ES",
+      psuType: "personal",
+      status: "active",
+      lastError: "",
+    })
     .returning();
   const [compte] = await db
     .insert(accounts)
@@ -196,10 +211,7 @@ describe("l'avis de descobert", () => {
     const creats = await comprovaDescoberts(espai, 60);
     expect(creats).toBe(1);
 
-    const [avis] = await db
-      .select()
-      .from(alerts)
-      .where(eq(alerts.type, "projected_overdraft"));
+    const [avis] = await db.select().from(alerts).where(eq(alerts.type, "projected_overdraft"));
     expect(avis?.title).toContain("possible descobert");
     expect(avis?.ledgerId).toBe(espai.id);
   });

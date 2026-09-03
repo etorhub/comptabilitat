@@ -13,12 +13,13 @@
 import { html, raw } from "hono/html";
 import type { Html } from "../lib/html.ts";
 
-
 /** Errors per camp, tal com surten de `zodErrors()`. */
 export type FieldErrors = Record<string, string[]>;
 
 /** Converteix un `ZodError` en el mapa que esperen aquests components. */
-export function zodErrors(error: { issues: { path: PropertyKey[]; message: string }[] }): FieldErrors {
+export function zodErrors(error: {
+  issues: { path: PropertyKey[]; message: string }[];
+}): FieldErrors {
   const errors: FieldErrors = {};
   for (const issue of error.issues) {
     const clau = issue.path.length > 0 ? issue.path.map(String).join(".") : "_";
@@ -141,13 +142,17 @@ export function Tria(props: TriaProps): Html {
       ${error ? raw(`aria-describedby="${idError}"`) : ""}
       ${atributs ? raw(atributs) : ""}
     >
-      ${buit !== undefined
-        ? html`<option value="" ${valorActual === "" ? raw("selected") : ""}>${buit}</option>`
-        : ""}
+      ${
+        buit !== undefined
+          ? html`<option value="" ${valorActual === "" ? raw("selected") : ""}>${buit}</option>`
+          : ""
+      }
       ${opcions?.map(opcio) ?? ""}
-      ${grups?.map(
-        (g) => html`<optgroup label="${g.etiqueta}">${g.opcions.map(opcio)}</optgroup>`,
-      ) ?? ""}
+      ${
+        grups?.map(
+          (g) => html`<optgroup label="${g.etiqueta}">${g.opcions.map(opcio)}</optgroup>`,
+        ) ?? ""
+      }
     </select>
     ${ajuda ? html`<small class="camp-ajuda">${ajuda}</small>` : ""}
     ${error ? html`<p id="${idError}" class="camp-error">${error}</p>` : ""}

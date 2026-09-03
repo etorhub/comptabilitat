@@ -10,20 +10,9 @@ import { zodErrors } from "../../components/form.tsx";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { categories, roleAtLeast, rules } from "../../db/schema/index.ts";
-import {
-  clearToast,
-  fragment,
-  NotFoundError,
-  page,
-  toast,
-  withOob,
-} from "../../lib/http.ts";
+import { clearToast, fragment, NotFoundError, page, toast, withOob } from "../../lib/http.ts";
 import { currentUser } from "../../middleware/session.ts";
-import {
-  currentRole,
-  currentWorkspace,
-  requireEditor,
-} from "../../middleware/workspace.ts";
+import { currentRole, currentWorkspace, requireEditor } from "../../middleware/workspace.ts";
 import { opcionsCategories } from "../../services/categories.ts";
 import { comptaPerRevisar } from "../../services/comptadors.ts";
 import { aplicaReglaAlsExistents } from "../../services/rules-apply.ts";
@@ -135,10 +124,7 @@ rulesRoutes.post("/", requireEditor, async (c) => {
       .select({ id: categories.id })
       .from(categories)
       .where(
-        and(
-          eq(categories.id, parsed.data.setCategoryId),
-          eq(categories.ledgerId, espai.id),
-        ),
+        and(eq(categories.id, parsed.data.setCategoryId), eq(categories.ledgerId, espai.id)),
       )
       .limit(1);
     if (!categoria) {
@@ -243,8 +229,5 @@ rulesRoutes.delete("/:id", requireEditor, async (c) => {
 
   await db.delete(rules).where(eq(rules.id, id));
 
-  return fragment(
-    c,
-    await withOob(FilaEsborrada(id), toast("Regla esborrada", "success")),
-  );
+  return fragment(c, await withOob(FilaEsborrada(id), toast("Regla esborrada", "success")));
 });

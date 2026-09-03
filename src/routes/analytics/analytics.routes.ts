@@ -24,8 +24,19 @@ import {
   repartimentComercos,
   serieMensual,
 } from "../../services/reports.ts";
-import { ContingutInformes, ContingutPrevisio, DashboardPage, ForecastPage, ReportsPage } from "./analytics.page.tsx";
-import { dashboardSchema, forecastSchema, reportFiltersSchema, reportFiltersToQuery } from "./analytics.schema.ts";
+import {
+  ContingutInformes,
+  ContingutPrevisio,
+  DashboardPage,
+  ForecastPage,
+  ReportsPage,
+} from "./analytics.page.tsx";
+import {
+  dashboardSchema,
+  forecastSchema,
+  reportFiltersSchema,
+  reportFiltersToQuery,
+} from "./analytics.schema.ts";
 
 export const analyticsRoutes = new Hono();
 
@@ -48,25 +59,17 @@ analyticsRoutes.get("/", async (c) => {
   const [inici] = limitsDelMes(avui);
   const desDeMensual = addDays(avui, -365);
 
-  const [
-    saldo,
-    mesActual,
-    perRevisar,
-    senseClassificar,
-    nAvisos,
-    mensual,
-    categories,
-    saldos,
-  ] = await Promise.all([
-    saldoEspai(espai.id),
-    ingressosIDespeses([espai.id], inici, avui),
-    comptaPendentsRevisio([espai.id]),
-    comptaSenseClassificar([espai.id]),
-    avisosActius(espai.id),
-    serieMensual([espai.id], desDeMensual, avui),
-    repartimentCategories([espai.id], null, null, true, 9),
-    serieSaldos([espai.id], addDays(avui, -dies), avui),
-  ]);
+  const [saldo, mesActual, perRevisar, senseClassificar, nAvisos, mensual, categories, saldos] =
+    await Promise.all([
+      saldoEspai(espai.id),
+      ingressosIDespeses([espai.id], inici, avui),
+      comptaPendentsRevisio([espai.id]),
+      comptaSenseClassificar([espai.id]),
+      avisosActius(espai.id),
+      serieMensual([espai.id], desDeMensual, avui),
+      repartimentCategories([espai.id], null, null, true, 9),
+      serieSaldos([espai.id], addDays(avui, -dies), avui),
+    ]);
 
   return page(
     c,

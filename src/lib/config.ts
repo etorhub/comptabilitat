@@ -116,7 +116,9 @@ export const ebRedirectUrl = `${config.publicBaseUrl}/api/auth/callback`;
  * aixi les proves poden canviar la configuracio i aixo se n'assabenta.
  */
 export function smtpConfigured(): boolean {
-  return Boolean(config.smtpHost) && Boolean(config.smtpFrom) && config.alertRecipients.length > 0;
+  return (
+    Boolean(config.smtpHost) && Boolean(config.smtpFrom) && config.alertRecipients.length > 0
+  );
 }
 
 /**

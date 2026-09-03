@@ -7,7 +7,16 @@
  */
 
 /** Camps de la resposta del banc que poden dur dades personals. */
-const CAMPS_SENSIBLES = ["psu", "account", "accounts", "iban", "holder", "name", "debtor", "creditor"];
+const CAMPS_SENSIBLES = [
+  "psu",
+  "account",
+  "accounts",
+  "iban",
+  "holder",
+  "name",
+  "debtor",
+  "creditor",
+];
 
 export class EnableBankingError extends Error {
   readonly statusCode: number | null;

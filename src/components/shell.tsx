@@ -9,7 +9,6 @@
 import { html } from "hono/html";
 import type { Html } from "../lib/html.ts";
 
-
 export interface ShellProps {
   titol: string;
   children: unknown;

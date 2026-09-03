@@ -90,7 +90,9 @@ function capçalera(full: ExcelJS.Worksheet, columnes: [string, number][]): void
   fila1.alignment = { vertical: "middle" };
 }
 
-export async function movimentsAXlsx(moviments: MovimentVista[]): Promise<Uint8Array<ArrayBuffer>> {
+export async function movimentsAXlsx(
+  moviments: MovimentVista[],
+): Promise<Uint8Array<ArrayBuffer>> {
   const llibre = new ExcelJS.Workbook();
   llibre.creator = "Comptabilitat";
   const full = llibre.addWorksheet("Moviments");
@@ -99,11 +101,7 @@ export async function movimentsAXlsx(moviments: MovimentVista[]): Promise<Uint8A
 
   for (const moviment of moviments) {
     const valors = fila(moviment);
-    full.addRow([
-      ...valors.slice(0, 6),
-      Number(moviment.amount),
-      ...valors.slice(7),
-    ]);
+    full.addRow([...valors.slice(0, 6), Number(moviment.amount), ...valors.slice(7)]);
   }
 
   full.getColumn(7).numFmt = '#,##0.00 "€"';
@@ -130,7 +128,12 @@ export async function resumAXlsx(
     ["Resultat", 14],
   ]);
   for (const punt of mensual) {
-    mesos.addRow([punt.periode, Number(punt.ingressos), Number(punt.despeses), Number(punt.net)]);
+    mesos.addRow([
+      punt.periode,
+      Number(punt.ingressos),
+      Number(punt.despeses),
+      Number(punt.net),
+    ]);
   }
   for (const col of [2, 3, 4]) mesos.getColumn(col).numFmt = '#,##0.00 "€"';
 
@@ -173,7 +176,11 @@ export interface DadesInforme {
 
 export function informeAPdf(dades: DadesInforme): Promise<Uint8Array<ArrayBuffer>> {
   return new Promise<Uint8Array<ArrayBuffer>>((resolve, reject) => {
-    const doc = new PDFDocument({ size: "A4", margin: 48, info: { Title: `Informe · ${dades.nomEspai}` } });
+    const doc = new PDFDocument({
+      size: "A4",
+      margin: 48,
+      info: { Title: `Informe · ${dades.nomEspai}` },
+    });
     const trossos: Buffer[] = [];
 
     doc.on("data", (t: Buffer) => trossos.push(t));
@@ -225,7 +232,11 @@ export function informeAPdf(dades: DadesInforme): Promise<Uint8Array<ArrayBuffer
         doc.text(text, x, y, { width: columnes[i], align: i === 0 ? "left" : "right" });
       });
       y = doc.y + 4;
-      doc.moveTo(x0, y).lineTo(x0 + AMPLADA, y).strokeColor("#e2e8f0").stroke();
+      doc
+        .moveTo(x0, y)
+        .lineTo(x0 + AMPLADA, y)
+        .strokeColor("#e2e8f0")
+        .stroke();
       doc.y = y + 6;
 
       doc.font("Helvetica").fontSize(9.5).fillColor("#0f172a");

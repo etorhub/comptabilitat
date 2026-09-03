@@ -13,7 +13,6 @@
 import { html, raw } from "hono/html";
 import type { Html } from "../../lib/html.ts";
 
-
 import { Camp, ErrorGeneral, type FieldErrors } from "../../components/form.tsx";
 import { CSRF_FIELD } from "../../lib/csrf.ts";
 
@@ -75,11 +74,13 @@ export function PasswordForm(props: PasswordFormProps): Html {
     hx-target="#form-contrasenya"
     hx-swap="outerHTML"
   >
-    ${fet
-      ? html`<p class="form-ok" role="status">
+    ${
+      fet
+        ? html`<p class="form-ok" role="status">
           La contrasenya s'ha canviat. Les altres sessions s'han tancat.
         </p>`
-      : ""}
+        : ""
+    }
     ${ErrorGeneral(errors)}
     ${Camp({
       nom: "current_password",

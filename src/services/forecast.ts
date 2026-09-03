@@ -226,10 +226,7 @@ function setmanaIso(isoDate: string): string {
  *
  * Un avis per espai i setmana: el mateix descobert no ha d'avisar cada dia.
  */
-export async function comprovaDescoberts(
-  espai: Ledger,
-  horitzoDies?: number,
-): Promise<number> {
+export async function comprovaDescoberts(espai: Ledger, horitzoDies?: number): Promise<number> {
   const previsio = await construeixPrevisio(espai, horitzoDies);
   if (previsio.primerDescobert === null) return 0;
 

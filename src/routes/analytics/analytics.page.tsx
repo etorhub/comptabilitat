@@ -219,14 +219,16 @@ export function ForecastPage({ codi, previsio }: ForecastPageProps): Html {
       </p>
     </header>
 
-    ${previsio.primerDescobert !== null
-      ? html`<p class="avis-fort" role="alert">
+    ${
+      previsio.primerDescobert !== null
+        ? html`<p class="avis-fort" role="alert">
           Amb aquest ritme, el saldo baixaria a
           <strong>${formatMoney(previsio.primerDescobertImport)}</strong> el
           <strong>${formatDate(previsio.primerDescobert)}</strong>, per sota del
           llindar de ${formatMoney(previsio.llindar)}.
         </p>`
-      : ""}
+        : ""
+    }
 
     <form
       class="filtres"

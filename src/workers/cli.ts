@@ -30,8 +30,7 @@ const enter = (nom: string): number | null => {
 };
 
 const feines: Record<string, () => Promise<string>> = {
-  sync: () =>
-    feinaSincronitzacio({ connectionId: enter("connexio"), daysBack: enter("dies") }),
+  sync: () => feinaSincronitzacio({ connectionId: enter("connexio"), daysBack: enter("dies") }),
   classify: feinaClassificacio,
   llm: () => feinaModelLocal(enter("limit") ?? 50),
   analyze: feinaAnalisi,

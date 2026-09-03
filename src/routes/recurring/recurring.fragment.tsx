@@ -56,12 +56,13 @@ export interface TaulaProps {
 
 export function Taula({ codi, series, potEditar }: TaulaProps): Html {
   return html`<div id="taula-recurrents">
-    ${series.length === 0
-      ? html`<p class="buit text-suau">
+    ${
+      series.length === 0
+        ? html`<p class="buit text-suau">
           Encara no s'ha detectat cap serie. Calen com a minim tres aparicions a
           intervals regulars perque una despesa es reconegui com a rebut.
         </p>`
-      : html`<div class="desplaçable">
+        : html`<div class="desplaçable">
           <table class="dades">
             <thead>
               <tr>
@@ -78,7 +79,8 @@ export function Taula({ codi, series, potEditar }: TaulaProps): Html {
               ${series.map((serie) => Fila({ codi, serie, potEditar }))}
             </tbody>
           </table>
-        </div>`}
+        </div>`
+    }
   </div>` as Html;
 }
 
@@ -96,32 +98,41 @@ export function Fila({
   return html`<tr id="serie-${serie.id}" class="${serie.status === "ended" ? "inactiva" : ""}">
     <td>
       <span class="nom">${serie.label}</span>
-      ${serie.isSubscription
-        ? html`<span class="etiqueta" title="Despesa mensual regular">subscripcio</span>`
-        : ""}
-      ${serie.status === "ended"
-        ? html`<span class="etiqueta etiqueta-suau">acabada</span>`
-        : ""}
-      ${serie.categoryName
-        ? html`<br /><small class="text-suau">${serie.categoryName}</small>`
-        : ""}
+      ${
+        serie.isSubscription
+          ? html`<span class="etiqueta" title="Despesa mensual regular">subscripcio</span>`
+          : ""
+      }
+      ${
+        serie.status === "ended"
+          ? html`<span class="etiqueta etiqueta-suau">acabada</span>`
+          : ""
+      }
+      ${
+        serie.categoryName
+          ? html`<br /><small class="text-suau">${serie.categoryName}</small>`
+          : ""
+      }
     </td>
     <td>${CADENCIES[serie.cadence]}</td>
     <td class="dreta">${formatMoney(serie.expectedAmount)}</td>
     <td class="dreta">${formatMoney(serie.monthlyCost)}</td>
     <td>
-      ${serie.nextExpectedDate
-        ? html`<time datetime="${serie.nextExpectedDate}">
+      ${
+        serie.nextExpectedDate
+          ? html`<time datetime="${serie.nextExpectedDate}">
             ${formatDate(serie.nextExpectedDate)}
           </time>`
-        : html`<span class="text-suau">—</span>`}
+          : html`<span class="text-suau">—</span>`
+      }
     </td>
     <td class="dreta" title="${String(serie.occurrencesCount)} aparicions">
       ${String(Math.round(serie.confidence * 100))}%
     </td>
     <td>
-      ${potEditar
-        ? html`<input
+      ${
+        potEditar
+          ? html`<input
             type="checkbox"
             name="include_in_forecast"
             ${serie.includeInForecast ? raw("checked") : ""}
@@ -130,9 +141,10 @@ export function Fila({
             hx-target="#serie-${serie.id}"
             hx-swap="outerHTML"
           />`
-        : serie.includeInForecast
-          ? "Si"
-          : "No"}
+          : serie.includeInForecast
+            ? "Si"
+            : "No"
+      }
     </td>
   </tr>` as Html;
 }

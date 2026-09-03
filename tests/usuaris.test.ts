@@ -73,8 +73,20 @@ beforeEach(async () => {
   const creats = await db
     .insert(users)
     .values([
-      { email: "arrel@exemple.cat", fullName: "Arrel", passwordHash, isAdmin: true, isActive: true },
-      { email: "pau@exemple.cat", fullName: "Pau", passwordHash, isAdmin: false, isActive: true },
+      {
+        email: "arrel@exemple.cat",
+        fullName: "Arrel",
+        passwordHash,
+        isAdmin: true,
+        isActive: true,
+      },
+      {
+        email: "pau@exemple.cat",
+        fullName: "Pau",
+        passwordHash,
+        isAdmin: false,
+        isActive: true,
+      },
     ])
     .returning();
 
@@ -141,9 +153,9 @@ describe("donar acces a un espai", () => {
       .returning();
 
     const sessio = await entra("sogra@exemple.cat");
-    expect((await app.request("/e/personal", { headers: { Cookie: sessio.cookie } })).status).toBe(
-      404,
-    );
+    expect(
+      (await app.request("/e/personal", { headers: { Cookie: sessio.cookie } })).status,
+    ).toBe(404);
 
     // L'administrador li'n dona.
     const admin = await entra("arrel@exemple.cat");
@@ -160,9 +172,9 @@ describe("donar acces a un espai", () => {
     expect(res.status).toBe(200);
 
     // I ara si.
-    expect((await app.request("/e/personal", { headers: { Cookie: sessio.cookie } })).status).toBe(
-      200,
-    );
+    expect(
+      (await app.request("/e/personal", { headers: { Cookie: sessio.cookie } })).status,
+    ).toBe(200);
   });
 
   test("treure'l el torna a deixar fora", async () => {
@@ -181,9 +193,9 @@ describe("donar acces a un espai", () => {
       body: new URLSearchParams({ ledger_id: String(idPersonal), role: "" }).toString(),
     });
 
-    expect((await app.request("/e/personal", { headers: { Cookie: sessio.cookie } })).status).toBe(
-      404,
-    );
+    expect(
+      (await app.request("/e/personal", { headers: { Cookie: sessio.cookie } })).status,
+    ).toBe(404);
   });
 });
 
@@ -191,9 +203,9 @@ describe("desactivar un usuari", () => {
   test("li tanca les sessions obertes", async () => {
     const [pau] = await db.select().from(users).where(eq(users.email, "pau@exemple.cat"));
     const sessio = await entra("pau@exemple.cat");
-    expect((await app.request("/contrasenya", { headers: { Cookie: sessio.cookie } })).status).toBe(
-      200,
-    );
+    expect(
+      (await app.request("/contrasenya", { headers: { Cookie: sessio.cookie } })).status,
+    ).toBe(200);
 
     const admin = await entra("arrel@exemple.cat");
     await app.request(`/usuaris/${pau?.id}/estat`, {
@@ -216,7 +228,10 @@ describe("desactivar un usuari", () => {
     });
     expect(res.status).toBe(422);
 
-    const [encara] = await db.select().from(users).where(eq(users.id, arrel?.id ?? 0));
+    const [encara] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, arrel?.id ?? 0));
     expect(encara?.isActive).toBe(true);
   });
 });

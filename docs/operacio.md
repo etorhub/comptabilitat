@@ -2,14 +2,14 @@
 
 ## Què passa sol i quan
 
-| Hora | Feina | Què fa |
-|---|---|---|
-| 03:15 | Model local | Proposa categoria per als comerços nous (només si Ollama està actiu) |
-| 04:45 | Anàlisi | Recalcula recurrents, previsions i avisos de descobert |
-| 06:30 | Sincronització | Baixa els moviments del banc, els classifica, aparella traspassos i torna a analitzar |
-| 08:00 | Resum d'avisos | Un correu amb tots els avisos nous |
-| cada hora | Avisos urgents | Correu immediat per als crítics (descobert imminent, consentiment caducat) |
-| 04:30 | Manteniment | Esborra les sessions caducades |
+| Hora      | Feina          | Què fa                                                                                |
+| --------- | -------------- | ------------------------------------------------------------------------------------- |
+| 03:15     | Model local    | Proposa categoria per als comerços nous (només si Ollama està actiu)                  |
+| 04:45     | Anàlisi        | Recalcula recurrents, previsions i avisos de descobert                                |
+| 06:30     | Sincronització | Baixa els moviments del banc, els classifica, aparella traspassos i torna a analitzar |
+| 08:00     | Resum d'avisos | Un correu amb tots els avisos nous                                                    |
+| cada hora | Avisos urgents | Correu immediat per als crítics (descobert imminent, consentiment caducat)            |
+| 04:30     | Manteniment    | Esborra les sessions caducades                                                        |
 
 Els horaris es canvien amb `SYNC_CRON_HOUR`, `CLASSIFY_CRON_HOUR`, `ANALYSIS_CRON_HOUR` i
 `NOTIFY_CRON_HOUR` a `deploy/.env`.
@@ -63,14 +63,14 @@ Es veuen a **Moviments** marcant «Inclou traspassos».
 Els avisos van als destinataris de cada espai (**Configuració**); els que no són
 de cap espai, com una sincronització fallida, van als destinataris generals.
 
-| Avís | Quan salta |
-|---|---|
-| Possible descobert | La projecció d'un espai baixa del seu llindar dins l'horitzó |
-| Consentiment a punt de caducar | 7, 3 i 1 dia abans |
-| Consentiment caducat | El banc rebutja la sessió |
-| Canvi d'import d'un rebut | L'últim rebut s'aparta més d'un 10% del que és habitual |
-| Rebut que no ha arribat | Han passat 7 dies de la data prevista |
-| Sincronització fallida | L'intent del dia ha fallat |
+| Avís                           | Quan salta                                                   |
+| ------------------------------ | ------------------------------------------------------------ |
+| Possible descobert             | La projecció d'un espai baixa del seu llindar dins l'horitzó |
+| Consentiment a punt de caducar | 7, 3 i 1 dia abans                                           |
+| Consentiment caducat           | El banc rebutja la sessió                                    |
+| Canvi d'import d'un rebut      | L'últim rebut s'aparta més d'un 10% del que és habitual      |
+| Rebut que no ha arribat        | Han passat 7 dies de la data prevista                        |
+| Sincronització fallida         | L'intent del dia ha fallat                                   |
 
 Cap avís es repeteix: la clau de deduplicació inclou el període. Si en descartes un, no
 torna.

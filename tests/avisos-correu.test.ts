@@ -89,7 +89,13 @@ describe("el resum", () => {
   test("inclou tots els avisos i l'adreça de l'aplicacio", async () => {
     const { html, text } = await renderitzaResum(
       [
-        { severity: "warning", title: "Primer", body: "b", ledgerName: "", created: "01/01/2026" },
+        {
+          severity: "warning",
+          title: "Primer",
+          body: "b",
+          ledgerName: "",
+          created: "01/01/2026",
+        },
         { severity: "info", title: "Segon", body: "b", ledgerName: "", created: "01/01/2026" },
       ],
       "Resum",

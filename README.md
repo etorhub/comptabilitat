@@ -15,15 +15,15 @@ Qui no té accés a un espai no en veu res, ni tan sols que existeixi.
 
 ## Estructura
 
-| Directori | Contingut |
-|---|---|
-| `src/routes/` | Una carpeta per recurs: rutes, pàgina, fragments i esquemes |
-| `src/services/` | La lògica: importació, classificació, recurrents, previsió, informes |
-| `src/db/schema/` | L'esquema de Drizzle, per agregats |
-| `src/workers/` | El planificador i les cinc feines programades |
-| `public/` | HTMX, ECharts, el full d'estil compilat i el fitxer de les gràfiques |
-| `deploy/` | Stacks de Docker Compose (producció i local), túnel de Cloudflare i còpies |
-| `docs/` | Espais, provar-ho en local, Enable Banking, desplegament i operació |
+| Directori        | Contingut                                                                  |
+| ---------------- | -------------------------------------------------------------------------- |
+| `src/routes/`    | Una carpeta per recurs: rutes, pàgina, fragments i esquemes                |
+| `src/services/`  | La lògica: importació, classificació, recurrents, previsió, informes       |
+| `src/db/schema/` | L'esquema de Drizzle, per agregats                                         |
+| `src/workers/`   | El planificador i les cinc feines programades                              |
+| `public/`        | HTMX, ECharts, el full d'estil compilat i el fitxer de les gràfiques       |
+| `deploy/`        | Stacks de Docker Compose (producció i local), túnel de Cloudflare i còpies |
+| `docs/`          | Espais, provar-ho en local, Enable Banking, desplegament i operació        |
 
 **Una sola cosa que córrer.** El servidor genera l'HTML i serveix els seus
 estàtics; no hi ha ni empaquetador, ni API JSON per al navegador, ni estat de

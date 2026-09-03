@@ -24,16 +24,18 @@ export function ConnectionsPage({ connexions, espais, retorn }: ConnectionsPageP
       </p>
     </header>
 
-    ${retorn
-      ? retorn.ok
-        ? html`<p class="form-ok" role="status">
+    ${
+      retorn
+        ? retorn.ok
+          ? html`<p class="form-ok" role="status">
             El banc s'ha connectat. Assigna cada compte al seu espai i despres
             prem «Sincronitza».
           </p>`
-        : html`<p class="form-error" role="alert">
+          : html`<p class="form-error" role="alert">
             El banc no ha completat l'autoritzacio${retorn.motiu ? html`: ${retorn.motiu}` : ""}.
           </p>`
-      : ""}
+        : ""
+    }
 
     ${FormConnecta()} ${Llista({ connexions, espais })}
   ` as Html;

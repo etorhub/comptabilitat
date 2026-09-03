@@ -31,11 +31,11 @@ comptabilitat
 La demo crea tres usuaris amb accessos diferents, per veure com funcionen els espais
 estancs. Tots tres tenen la contrasenya `comptabilitat`:
 
-| Usuari | On entra |
-|---|---|
-| `demo@exemple.cat` | Personal, Calella i Pardals |
-| `parella@exemple.cat` | Només Pardals |
-| `sogra@exemple.cat` | Només Calella |
+| Usuari                | On entra                    |
+| --------------------- | --------------------------- |
+| `demo@exemple.cat`    | Personal, Calella i Pardals |
+| `parella@exemple.cat` | Només Pardals               |
+| `sogra@exemple.cat`   | Només Calella               |
 
 Val la pena entrar amb la sogra i comprovar que no veu ni el selector d'altres espais ni
 res del teu Personal.
@@ -145,10 +145,10 @@ full d'estil, `bun run css:watch` en un altre terminal.
 
 ## Si alguna cosa no va
 
-| Símptoma | Causa i solució |
-|---|---|
-| `port is already allocated` | Ja tens alguna cosa al 8080 o al 5432. Atura-ho, o canvia el port a `deploy/docker-compose.local.yml` |
-| La pàgina carrega però no entra | Mira `make logs`; si encara s'apliquen migracions, espera uns segons |
-| Es veu sense estils | Falta `public/app.css`. Amb Docker es compila a la imatge; sense Docker, `bun run css` |
-| `ja hi havia dades` en fer `make demo` | Ja n'hi ha; per començar de zero, `make clean && make up && make demo` |
-| Vols un usuari propi | `make usuari EMAIL=tu@example.com PASSWORD=unacontrasenyallarga` |
+| Símptoma                               | Causa i solució                                                                                       |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `port is already allocated`            | Ja tens alguna cosa al 8080 o al 5432. Atura-ho, o canvia el port a `deploy/docker-compose.local.yml` |
+| La pàgina carrega però no entra        | Mira `make logs`; si encara s'apliquen migracions, espera uns segons                                  |
+| Es veu sense estils                    | Falta `public/app.css`. Amb Docker es compila a la imatge; sense Docker, `bun run css`                |
+| `ja hi havia dades` en fer `make demo` | Ja n'hi ha; per començar de zero, `make clean && make up && make demo`                                |
+| Vols un usuari propi                   | `make usuari EMAIL=tu@example.com PASSWORD=unacontrasenyallarga`                                      |

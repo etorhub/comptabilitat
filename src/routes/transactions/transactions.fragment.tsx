@@ -43,9 +43,10 @@ export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): 
   const fins = Math.min(pagina.offset + pagina.limit, pagina.total);
 
   return html`<div id="taula-moviments">
-    ${pagina.items.length === 0
-      ? html`<p class="buit text-suau">Cap moviment encaixa amb aquests filtres.</p>`
-      : html`
+    ${
+      pagina.items.length === 0
+        ? html`<p class="buit text-suau">Cap moviment encaixa amb aquests filtres.</p>`
+        : html`
           <form
             id="form-bloc"
             hx-post="/e/${codi}/moviments/bloc"
@@ -67,9 +68,7 @@ export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): 
                   </tr>
                 </thead>
                 <tbody>
-                  ${pagina.items.map((moviment) =>
-                    Fila({ codi, moviment, grups, potEditar }),
-                  )}
+                  ${pagina.items.map((moviment) => Fila({ codi, moviment, grups, potEditar }))}
                 </tbody>
               </table>
             </div>
@@ -82,7 +81,8 @@ export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): 
             </span>
             ${Passos({ codi, filters, total: pagina.total })}
           </nav>
-        `}
+        `
+    }
   </div>` as Html;
 }
 
@@ -178,8 +178,9 @@ export function Fila({ codi, moviment, grups, potEditar }: FilaProps): Html {
   const negatiu = moviment.amount.startsWith("-");
 
   return html`<tr id="moviment-${moviment.id}" class="${moviment.isExcluded ? "exclos" : ""}">
-    ${potEditar
-      ? html`<td class="tria">
+    ${
+      potEditar
+        ? html`<td class="tria">
           <input
             type="checkbox"
             name="moviment"
@@ -187,20 +188,24 @@ export function Fila({ codi, moviment, grups, potEditar }: FilaProps): Html {
             aria-label="Tria el moviment de ${moviment.description}"
           />
         </td>`
-      : ""}
+        : ""
+    }
 
     <td class="data">
       <time datetime="${moviment.bookingDate}">
         ${dataCurta.format(new Date(`${moviment.bookingDate}T00:00:00`))}
       </time>
-      ${moviment.status === "pending"
-        ? html`<span class="etiqueta etiqueta-suau" title="Encara no es definitiu">pendent</span>`
-        : ""}
+      ${
+        moviment.status === "pending"
+          ? html`<span class="etiqueta etiqueta-suau" title="Encara no es definitiu">pendent</span>`
+          : ""
+      }
     </td>
 
     <td>
-      ${potEditar
-        ? html`<button
+      ${
+        potEditar
+          ? html`<button
             type="button"
             class="concepte"
             title="Canvia com es veu aquest concepte"
@@ -210,17 +215,22 @@ export function Fila({ codi, moviment, grups, potEditar }: FilaProps): Html {
           >
             ${moviment.description}
           </button>`
-        : html`<span>${moviment.description}</span>`}
-      ${moviment.isMasked
-        ? html`<span class="etiqueta etiqueta-suau" title="El concepte del banc esta amagat"
+          : html`<span>${moviment.description}</span>`
+      }
+      ${
+        moviment.isMasked
+          ? html`<span class="etiqueta etiqueta-suau" title="El concepte del banc esta amagat"
             >alies</span
           >`
-        : ""}
-      ${moviment.transferGroupId
-        ? html`<span class="etiqueta etiqueta-suau" title="Traspas entre comptes propis"
+          : ""
+      }
+      ${
+        moviment.transferGroupId
+          ? html`<span class="etiqueta etiqueta-suau" title="Traspas entre comptes propis"
             >traspas</span
           >`
-        : ""}
+          : ""
+      }
       ${moviment.notes ? html`<small class="text-suau nota">${moviment.notes}</small>` : ""}
     </td>
 
@@ -229,20 +239,24 @@ export function Fila({ codi, moviment, grups, potEditar }: FilaProps): Html {
     </td>
 
     <td>
-      ${potEditar
-        ? Tria({
-            nom: "category_id",
-            etiqueta: `Categoria de ${moviment.description}`,
-            valor: moviment.categoryId,
-            grups,
-            buit: "— sense classificar —",
-            atributs: `hx-post="${base}/categoria" hx-target="#moviment-${moviment.id}" hx-swap="outerHTML" hx-trigger="change"`,
-          })
-        : (moviment.categoryName ?? html`<span class="text-suau">—</span>`)}
+      ${
+        potEditar
+          ? Tria({
+              nom: "category_id",
+              etiqueta: `Categoria de ${moviment.description}`,
+              valor: moviment.categoryId,
+              grups,
+              buit: "— sense classificar —",
+              atributs: `hx-post="${base}/categoria" hx-target="#moviment-${moviment.id}" hx-swap="outerHTML" hx-trigger="change"`,
+            })
+          : (moviment.categoryName ?? html`<span class="text-suau">—</span>`)
+      }
       <span class="origen etiqueta etiqueta-suau" title="${origen.titol}">${origen.text}</span>
-      ${moviment.needsReview
-        ? html`<span class="etiqueta" title="Cal que algu ho confirmi">per revisar</span>`
-        : ""}
+      ${
+        moviment.needsReview
+          ? html`<span class="etiqueta" title="Cal que algu ho confirmi">per revisar</span>`
+          : ""
+      }
     </td>
 
     <td class="dreta ${negatiu ? "negatiu" : "positiu"}">${formatMoney(moviment.amount)}</td>
@@ -332,15 +346,17 @@ export function BarraFiltres({ codi, filters, comptes, grups }: BarraFiltresProp
       <input type="date" name="fins" value="${filters.fins ?? ""}" />
     </label>
 
-    ${comptes.length > 1
-      ? Tria({
-          nom: "compte",
-          etiqueta: "Compte",
-          valor: filters.compte,
-          opcions: comptes,
-          buit: "— tots —",
-        })
-      : ""}
+    ${
+      comptes.length > 1
+        ? Tria({
+            nom: "compte",
+            etiqueta: "Compte",
+            valor: filters.compte,
+            opcions: comptes,
+            buit: "— tots —",
+          })
+        : ""
+    }
 
     ${Tria({
       nom: "categoria",
@@ -379,7 +395,6 @@ export function BarraFiltres({ codi, filters, comptes, grups }: BarraFiltresProp
 
 // --- Safata de revisio -------------------------------------------------------
 
-
 export interface CuaRevisioProps {
   codi: string;
   items: ItemRevisio[];
@@ -389,11 +404,12 @@ export interface CuaRevisioProps {
 
 export function CuaRevisio({ codi, items, grups, total }: CuaRevisioProps): Html {
   return html`<div id="cua-revisio">
-    ${items.length === 0
-      ? html`<p class="buit text-suau">
+    ${
+      items.length === 0
+        ? html`<p class="buit text-suau">
           No hi ha res per revisar. Tot te categoria.
         </p>`
-      : html`
+        : html`
           <p class="text-suau">
             ${String(total)} ${total === 1 ? "moviment espera" : "moviments esperen"} que algu
             en confirmi la categoria.
@@ -401,7 +417,8 @@ export function CuaRevisio({ codi, items, grups, total }: CuaRevisioProps): Html
           <ul class="revisio">
             ${items.map((item) => TargetaRevisio({ codi, item, grups }))}
           </ul>
-        `}
+        `
+    }
   </div>` as Html;
 }
 
@@ -426,20 +443,22 @@ export function TargetaRevisio({
       <span class="${negatiu ? "negatiu" : "positiu"}">${formatMoney(moviment.amount)}</span>
     </div>
 
-    ${moviment.merchantName
-      ? html`<p class="text-suau">${moviment.merchantName}</p>`
-      : ""}
+    ${moviment.merchantName ? html`<p class="text-suau">${moviment.merchantName}</p>` : ""}
 
-    ${item.suggestedCategoryName
-      ? html`<p class="proposta">
+    ${
+      item.suggestedCategoryName
+        ? html`<p class="proposta">
           <span class="etiqueta">proposta del model</span>
           ${item.suggestedCategoryName}
-          ${item.confidence !== null
-            ? html`<span class="text-suau">· ${String(Math.round(item.confidence * 100))}%</span>`
-            : ""}
+          ${
+            item.confidence !== null
+              ? html`<span class="text-suau">· ${String(Math.round(item.confidence * 100))}%</span>`
+              : ""
+          }
           ${item.rationale ? html`<small class="text-suau">${item.rationale}</small>` : ""}
         </p>`
-      : ""}
+        : ""
+    }
 
     <form
       class="linia"

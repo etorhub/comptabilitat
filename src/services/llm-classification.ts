@@ -21,12 +21,12 @@ import {
 } from "../db/schema/index.ts";
 import { config } from "../lib/config.ts";
 import { abs, money } from "../lib/money.ts";
+import { OllamaClient, OllamaError, type Suggeriment } from "../lib/ollama/client.ts";
 import {
-  OllamaClient,
-  OllamaError,
-  type Suggeriment,
-} from "../lib/ollama/client.ts";
-import { PROMPT_VERSION, type CategoriaCatalog, type ContextComerc } from "../lib/ollama/prompts.ts";
+  PROMPT_VERSION,
+  type CategoriaCatalog,
+  type ContextComerc,
+} from "../lib/ollama/prompts.ts";
 
 export interface EstadistiquesLlm {
   mirats: number;
@@ -66,7 +66,9 @@ export async function catalegCategories(ledgerId: number): Promise<CategoriaCata
     .orderBy(categories.kind, categories.position);
 
   const perId = new Map(files.map((c) => [c.id, c]));
-  const ambFills = new Set(files.map((c) => c.parentId).filter((id): id is number => id !== null));
+  const ambFills = new Set(
+    files.map((c) => c.parentId).filter((id): id is number => id !== null),
+  );
 
   const cataleg: CategoriaCatalog[] = [];
   for (const categoria of files) {
@@ -132,7 +134,8 @@ async function desaSuggeriment(
   await db.insert(llmSuggestions).values({
     merchantId: comerc.id,
     model: suggeriment.model,
-    promptVersion: suggeriment.promptVersion !== "" ? suggeriment.promptVersion : PROMPT_VERSION,
+    promptVersion:
+      suggeriment.promptVersion !== "" ? suggeriment.promptVersion : PROMPT_VERSION,
     inputText: context.normalizedName,
     suggestedCategoryId: categoria?.id ?? null,
     suggestedDisplayName: suggeriment.merchant,
@@ -185,7 +188,9 @@ export async function classificaComercos(
       suggeriment = await client.classify(context, cataleg);
     } catch (error) {
       if (!(error instanceof OllamaError)) throw error;
-      console.warn(`[ollama] no ha pogut classificar ${comerc.normalizedName}: ${error.message}`);
+      console.warn(
+        `[ollama] no ha pogut classificar ${comerc.normalizedName}: ${error.message}`,
+      );
       estadistiques.errors += 1;
       continue;
     }

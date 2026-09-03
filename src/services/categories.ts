@@ -5,7 +5,7 @@
  * la ruta i posada aqui.
  */
 
-import { and, count, eq, isNotNull,  sum } from "drizzle-orm";
+import { and, count, eq, isNotNull, sum } from "drizzle-orm";
 
 import { db } from "../db/client.ts";
 import {
@@ -129,7 +129,11 @@ export async function arbreCategories(
     };
   };
 
-  const arbre: Record<CategoryKind, NodeCategoria[]> = { expense: [], income: [], transfer: [] };
+  const arbre: Record<CategoryKind, NodeCategoria[]> = {
+    expense: [],
+    income: [],
+    transfer: [],
+  };
   for (const categoria of totes) {
     if (categoria.parentId !== null) continue;
     arbre[categoria.kind].push({
@@ -369,4 +373,3 @@ export async function comptaCategories(ledgerId: number): Promise<number> {
     .where(eq(categories.ledgerId, ledgerId));
   return fila?.n ?? 0;
 }
-

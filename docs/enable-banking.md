@@ -17,6 +17,7 @@ Al [panell de control d'Enable Banking](https://enablebanking.com/cp):
    ```
 
    Puja només la **pública**. La privada no surt mai del NAS.
+
 3. Apunta l'**Application ID**: és el `kid` del JWT.
 4. Posa com a **redirect URL** exactament:
 
@@ -88,10 +89,10 @@ dia per compte). Per això:
 
 ## 7. Quan alguna cosa falla
 
-| Símptoma | Què vol dir | Què fer |
-|---|---|---|
-| `No s'ha trobat la clau privada` | El secret no està muntat | Comprova `deploy/secrets/eb_private_key.pem` i torna a desplegar l'stack |
-| `Falta EB_APPLICATION_ID` | Variable buida | Omple-la a `deploy/.env` |
-| Retorn amb `estat=error` | El banc ha cancel·lat l'autorització | Torna a començar; si diu `access_denied`, és que s'ha denegat el permís al banc |
-| `Estat d'autorització desconegut` | El `state` ja s'ha fet servir o ha caducat | Torna a prémer «Connecta un banc»: cada intent en genera un de nou |
-| Consentiment caducat | Han passat els 90 dies | «Renova el consentiment» |
+| Símptoma                          | Què vol dir                                | Què fer                                                                         |
+| --------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------- |
+| `No s'ha trobat la clau privada`  | El secret no està muntat                   | Comprova `deploy/secrets/eb_private_key.pem` i torna a desplegar l'stack        |
+| `Falta EB_APPLICATION_ID`         | Variable buida                             | Omple-la a `deploy/.env`                                                        |
+| Retorn amb `estat=error`          | El banc ha cancel·lat l'autorització       | Torna a començar; si diu `access_denied`, és que s'ha denegat el permís al banc |
+| `Estat d'autorització desconegut` | El `state` ja s'ha fet servir o ha caducat | Torna a prémer «Connecta un banc»: cada intent en genera un de nou              |
+| Consentiment caducat              | Han passat els 90 dies                     | «Renova el consentiment»                                                        |

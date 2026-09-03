@@ -12,7 +12,21 @@
  * el tipus de la fila sencera**.
  */
 
-import { and, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, or, sum, type SQL } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  or,
+  sum,
+  type SQL,
+} from "drizzle-orm";
 
 import { db } from "../db/client.ts";
 import {
@@ -180,10 +194,7 @@ function clausulaCerca(patro: string): SQL | undefined {
   return or(
     and(
       isNotNull(transactions.displayDescription),
-      or(
-        ilike(transactions.displayDescription, patro),
-        ilike(transactions.notes, patro),
-      ),
+      or(ilike(transactions.displayDescription, patro), ilike(transactions.notes, patro)),
     ),
     and(
       isNull(transactions.displayDescription),
@@ -335,7 +346,15 @@ export async function safataRevisio(
   ];
 
   // La proposta mes recent de cada comerç.
-  const propostes = new Map<number, { categoryId: number | null; categoryName: string | null; confidence: number | null; rationale: string }>();
+  const propostes = new Map<
+    number,
+    {
+      categoryId: number | null;
+      categoryName: string | null;
+      confidence: number | null;
+      rationale: string;
+    }
+  >();
   if (comercIds.length > 0) {
     const { llmSuggestions } = await import("../db/schema/index.ts");
     const suggeriments = await db

@@ -79,9 +79,10 @@ export function TaulaMembres({ membres }: { membres: MembreVista[] }): Html {
       L'acces es dona des de <a href="/usuaris">Usuaris</a>, que es on hi ha
       tots els espais alhora.
     </p>
-    ${membres.length === 0
-      ? html`<p class="buit text-suau">Encara no hi entra ningu mes.</p>`
-      : html`<div class="desplaçable">
+    ${
+      membres.length === 0
+        ? html`<p class="buit text-suau">Encara no hi entra ningu mes.</p>`
+        : html`<div class="desplaçable">
           <table class="dades">
             <thead>
               <tr>
@@ -101,7 +102,8 @@ export function TaulaMembres({ membres }: { membres: MembreVista[] }): Html {
               )}
             </tbody>
           </table>
-        </div>`}
+        </div>`
+    }
   </section>` as Html;
 }
 

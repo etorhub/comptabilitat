@@ -14,7 +14,11 @@ import { Tria } from "../../components/form.tsx";
 import type { CategoryKind } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
-import type { CategoriaVista, GrupCategories, NodeCategoria } from "../../services/categories.ts";
+import type {
+  CategoriaVista,
+  GrupCategories,
+  NodeCategoria,
+} from "../../services/categories.ts";
 
 const NOMS_KIND: Record<CategoryKind, string> = {
   expense: "Despeses",
@@ -57,9 +61,7 @@ export function Arbre({ codi, arbre, potEditar, oob = false }: ArbreProps): Html
             <tbody>
               ${nodes.flatMap((pare) => [
                 Fila({ codi, categoria: pare, potEditar, filla: false }),
-                ...pare.filles.map((f) =>
-                  Fila({ codi, categoria: f, potEditar, filla: true }),
-                ),
+                ...pare.filles.map((f) => Fila({ codi, categoria: f, potEditar, filla: true })),
               ])}
             </tbody>
           </table>
@@ -85,13 +87,16 @@ export function Fila({ codi, categoria, potEditar, filla }: FilaProps): Html {
       <span class="punt" style="background:${categoria.color}" aria-hidden="true"></span>
       ${filla ? html`<span class="sagnat" aria-hidden="true">›</span>` : ""}
       <span class="nom">${categoria.name}</span>
-      ${categoria.isSystem
-        ? html`<span class="etiqueta etiqueta-suau" title="Ve del pla inicial">sistema</span>`
-        : ""}
+      ${
+        categoria.isSystem
+          ? html`<span class="etiqueta etiqueta-suau" title="Ve del pla inicial">sistema</span>`
+          : ""
+      }
     </td>
     <td>
-      ${potEditar
-        ? html`<input
+      ${
+        potEditar
+          ? html`<input
             type="checkbox"
             name="is_subscription"
             ${categoria.isSubscription ? raw("checked") : ""}
@@ -100,14 +105,16 @@ export function Fila({ codi, categoria, potEditar, filla }: FilaProps): Html {
             hx-target="#categoria-${categoria.id}"
             hx-swap="outerHTML"
           />`
-        : categoria.isSubscription
-          ? "Si"
-          : ""}
+          : categoria.isSubscription
+            ? "Si"
+            : ""
+      }
     </td>
     <td class="dreta">${String(categoria.transactionCount)}</td>
     <td class="dreta">${formatMoney(categoria.totalAmount)}</td>
-    ${potEditar
-      ? html`<td class="accions">
+    ${
+      potEditar
+        ? html`<td class="accions">
           <button
             type="button"
             class="boto boto-discret"
@@ -117,13 +124,14 @@ export function Fila({ codi, categoria, potEditar, filla }: FilaProps): Html {
           >
             Reanomena
           </button>
-          ${categoria.isProtected
-            ? html`<span
+          ${
+            categoria.isProtected
+              ? html`<span
                 class="text-suau"
                 title="Hi ha logica que depen d'aquesta categoria"
                 >no es pot esborrar</span
               >`
-            : html`<button
+              : html`<button
                 type="button"
                 class="boto boto-discret"
                 hx-delete="${base}"
@@ -132,14 +140,22 @@ export function Fila({ codi, categoria, potEditar, filla }: FilaProps): Html {
                 hx-confirm="Segur que vols esborrar «${categoria.name}»?"
               >
                 Esborra
-              </button>`}
+              </button>`
+          }
         </td>`
-      : ""}
+        : ""
+    }
   </tr>` as Html;
 }
 
 /** La fila convertida en un camp de text, per reanomenar-la sense sortir. */
-export function FilaEdicio({ codi, categoria }: { codi: string; categoria: CategoriaVista }): Html {
+export function FilaEdicio({
+  codi,
+  categoria,
+}: {
+  codi: string;
+  categoria: CategoriaVista;
+}): Html {
   const base = `/e/${codi}/categories/${categoria.id}`;
   return html`<tr id="categoria-${categoria.id}" class="editant">
     <td colspan="5">
@@ -251,9 +267,7 @@ export function FormAlta({ codi, grups, errors, valors }: FormAltaProps): Html {
         required
         ${errors?.name ? raw('aria-invalid="true" aria-describedby="name-error"') : ""}
       />
-      ${errors?.name
-        ? html`<p id="name-error" class="camp-error">${errors.name[0]}</p>`
-        : ""}
+      ${errors?.name ? html`<p id="name-error" class="camp-error">${errors.name[0]}</p>` : ""}
     </label>
 
     ${Tria({

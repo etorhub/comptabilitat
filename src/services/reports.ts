@@ -47,9 +47,7 @@ export function limitsDelMes(referencia?: string): [string, string] {
   const mes = Number(base.slice(5, 7));
   const primer = `${base.slice(0, 7)}-01`;
   const seguent =
-    mes === 12
-      ? `${any + 1}-01-01`
-      : `${any}-${String(mes + 1).padStart(2, "0")}-01`;
+    mes === 12 ? `${any + 1}-01-01` : `${any}-${String(mes + 1).padStart(2, "0")}-01`;
   return [primer, seguent];
 }
 
@@ -248,9 +246,7 @@ export async function comptaPendentsRevisio(ledgerIds: number[]): Promise<number
   const [fila] = await db
     .select({ n: count() })
     .from(transactions)
-    .where(
-      and(inArray(transactions.ledgerId, ledgerIds), eq(transactions.needsReview, true)),
-    );
+    .where(and(inArray(transactions.ledgerId, ledgerIds), eq(transactions.needsReview, true)));
   return fila?.n ?? 0;
 }
 

@@ -25,11 +25,7 @@ import {
   verifyPassword,
 } from "../../lib/auth.ts";
 import { config } from "../../lib/config.ts";
-import {
-  CSRF_SEED_COOKIE,
-  csrfTokenFor,
-  newCsrfSeed,
-} from "../../lib/csrf.ts";
+import { CSRF_SEED_COOKIE, csrfTokenFor, newCsrfSeed } from "../../lib/csrf.ts";
 import { fragment, page, redirect } from "../../lib/http.ts";
 import { currentUser, requireUser } from "../../middleware/session.ts";
 import { myWorkspaces } from "../../middleware/workspace.ts";

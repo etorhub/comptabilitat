@@ -98,9 +98,21 @@ beforeAll(async () => {
   const creats = await db
     .insert(users)
     .values([
-      { email: "pau@exemple.cat", fullName: "Pau", passwordHash, isAdmin: false, isActive: true },
+      {
+        email: "pau@exemple.cat",
+        fullName: "Pau",
+        passwordHash,
+        isAdmin: false,
+        isActive: true,
+      },
       // Administrador de la instal·lacio, pero sense acces a cap espai.
-      { email: "arrel@exemple.cat", fullName: "Arrel", passwordHash, isAdmin: true, isActive: true },
+      {
+        email: "arrel@exemple.cat",
+        fullName: "Arrel",
+        passwordHash,
+        isAdmin: true,
+        isActive: true,
+      },
     ])
     .returning();
 

@@ -5,7 +5,12 @@
 import { and, asc, eq, ne } from "drizzle-orm";
 
 import { db } from "../db/client.ts";
-import { categories, recurringSeries, type Cadence, type SeriesStatus } from "../db/schema/index.ts";
+import {
+  categories,
+  recurringSeries,
+  type Cadence,
+  type SeriesStatus,
+} from "../db/schema/index.ts";
 import { NotFoundError } from "../lib/http.ts";
 import { Decimal, money, toMoneyString, type MoneyString } from "../lib/money.ts";
 import { costMensual } from "./recurring.ts";

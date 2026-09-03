@@ -150,10 +150,7 @@ export async function reglesActives(ledgerId: number): Promise<Rule[]> {
 }
 
 /** La primera regla que encaixa. La primera guanya i les altres no es miren. */
-export function primeraQueEncaixa(
-  regles: Rule[],
-  moviment: MovimentAvaluable,
-): Rule | null {
+export function primeraQueEncaixa(regles: Rule[], moviment: MovimentAvaluable): Rule | null {
   return regles.find((regla) => reglaEncaixa(regla, moviment)) ?? null;
 }
 

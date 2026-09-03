@@ -8,7 +8,12 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { informeAPdf, movimentsACsv, movimentsAXlsx, resumAXlsx } from "../src/services/export.ts";
+import {
+  informeAPdf,
+  movimentsACsv,
+  movimentsAXlsx,
+  resumAXlsx,
+} from "../src/services/export.ts";
 import type { MovimentVista } from "../src/services/transactions.ts";
 
 const normal: MovimentVista = {

@@ -107,7 +107,7 @@ L'aplicació de Python **no en tenia cap defensa**. Ara sí, i funciona així:
 
 Si canvies la sessió d'un usuari enmig d'una petició, recorda que **invalides el
 testimoni que ja has dibuixat a la pàgina**. Per això canviar-se la contrasenya
-tanca *la resta* de sessions i conserva l'actual (`destroyOtherSessions()`).
+tanca _la resta_ de sessions i conserva l'actual (`destroyOtherSessions()`).
 
 ---
 
@@ -148,13 +148,13 @@ retornis codis a mà.
 Quan una mutació canvia alguna cosa que és **fora del seu propi tros**, la torna
 al costat, amb `hx-swap-oob="true"`. Fes servir `withOob()`.
 
-| Objectiu | De qui és | Quan canvia |
-|---|---|---|
-| `#toast` | `lib/http.ts` | qualsevol error o confirmació |
-| `#comptador-revisio` | moviments | es classifica un moviment |
-| `#comptador-avisos` | avisos | es llegeix o es descarta un avís |
-| `#saldo-capcalera` | analítiques | acaba una sincronització |
-| `#resum-subscripcions` | recurrents | canvia `include_in_forecast` o `is_subscription` |
+| Objectiu               | De qui és     | Quan canvia                                      |
+| ---------------------- | ------------- | ------------------------------------------------ |
+| `#toast`               | `lib/http.ts` | qualsevol error o confirmació                    |
+| `#comptador-revisio`   | moviments     | es classifica un moviment                        |
+| `#comptador-avisos`    | avisos        | es llegeix o es descarta un avís                 |
+| `#saldo-capcalera`     | analítiques   | acaba una sincronització                         |
+| `#resum-subscripcions` | recurrents    | canvia `include_in_forecast` o `is_subscription` |
 
 - **Cada objectiu té un sol amo.** El fragment del recurs propietari l'exporta i
   cap altre recurs no el dibuixa.

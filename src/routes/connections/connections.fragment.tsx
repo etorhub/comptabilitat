@@ -49,11 +49,13 @@ export interface LlistaProps {
 
 export function Llista({ connexions, espais, oob = false }: LlistaProps): Html {
   return html`<div id="llista-connexions" ${oob ? raw('hx-swap-oob="true"') : ""}>
-    ${connexions.length === 0
-      ? html`<p class="buit text-suau">
+    ${
+      connexions.length === 0
+        ? html`<p class="buit text-suau">
           Encara no hi ha cap banc connectat.
         </p>`
-      : connexions.map((connexio) => Targeta({ connexio, espais }))}
+        : connexions.map((connexio) => Targeta({ connexio, espais }))
+    }
   </div>` as Html;
 }
 
@@ -71,21 +73,27 @@ export function Targeta({
     <div class="item-cap">
       <strong>${connexio.aspspName}</strong>
       <span class="etiqueta ${estat.classe}">${estat.text}</span>
-      ${connexio.diesPerCaducar !== null && connexio.status === "active"
-        ? html`<span class="text-suau">
+      ${
+        connexio.diesPerCaducar !== null && connexio.status === "active"
+          ? html`<span class="text-suau">
             caduca ${connexio.diesPerCaducar <= 0 ? "avui" : `en ${connexio.diesPerCaducar} dies`}
           </span>`
-        : ""}
-      ${connexio.lastSyncAt
-        ? html`<span class="text-suau">
+          : ""
+      }
+      ${
+        connexio.lastSyncAt
+          ? html`<span class="text-suau">
             ultima importacio ${formatDate(connexio.lastSyncAt.toISOString().slice(0, 10))}
           </span>`
-        : ""}
+          : ""
+      }
     </div>
 
-    ${connexio.lastError
-      ? html`<p class="form-error" role="alert">${connexio.lastError}</p>`
-      : ""}
+    ${
+      connexio.lastError
+        ? html`<p class="form-error" role="alert">${connexio.lastError}</p>`
+        : ""
+    }
 
     <div class="form-accions">
       <form hx-post="${base}/sincronitza" hx-target="#sync-${connexio.id}" hx-swap="outerHTML">
@@ -163,11 +171,13 @@ export function FilaCompte({
         buit: "— sense assignar —",
         atributs: `hx-post="/connexions/comptes/${compte.id}/espai" hx-target="#compte-${compte.id}" hx-swap="outerHTML" hx-trigger="change" hx-confirm="Moure un compte d'espai n'esborra les classificacions i les torna a calcular. Vols continuar?"`,
       })}
-      ${compte.ledgerId === null
-        ? html`<small class="text-suau">
+      ${
+        compte.ledgerId === null
+          ? html`<small class="text-suau">
             Mentre no tingui espai, els seus moviments no es veuen enlloc.
           </small>`
-        : ""}
+          : ""
+      }
     </td>
   </tr>` as Html;
 }
@@ -195,16 +205,19 @@ export function EstatSync({
   return html`<div
     id="sync-${connexioId}"
     class="sync-estat ${acabada ? "" : "sync-corrent"}"
-    ${acabada
-      ? ""
-      : raw(
-          `hx-get="/connexions/${connexioId}/fragment/sync" hx-target="#sync-${connexioId}" hx-swap="outerHTML" hx-trigger="every 2s"`,
-        )}
+    ${
+      acabada
+        ? ""
+        : raw(
+            `hx-get="/connexions/${connexioId}/fragment/sync" hx-target="#sync-${connexioId}" hx-swap="outerHTML" hx-trigger="every 2s"`,
+          )
+    }
     role="status"
     aria-live="polite"
   >
-    ${acabada
-      ? html`
+    ${
+      acabada
+        ? html`
           <strong>${execucio.status === "failed" ? "Ha fallat" : "Fet"}</strong>
           <span class="text-suau">
             ${String(execucio.transactionsInserted)} moviments nous,
@@ -213,10 +226,11 @@ export function EstatSync({
           </span>
           ${execucio.error ? html`<small class="text-suau">${execucio.error}</small>` : ""}
         `
-      : html`
+        : html`
           <span class="filador" aria-hidden="true"></span>
           <span>Important els moviments del banc…</span>
-        `}
+        `
+    }
   </div>` as Html;
 }
 

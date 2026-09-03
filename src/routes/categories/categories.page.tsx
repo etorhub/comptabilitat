@@ -16,12 +16,7 @@ export interface CategoriesPageProps {
   potEditar: boolean;
 }
 
-export function CategoriesPage({
-  codi,
-  arbre,
-  grups,
-  potEditar,
-}: CategoriesPageProps): Html {
+export function CategoriesPage({ codi, arbre, grups, potEditar }: CategoriesPageProps): Html {
   return html`
     <header class="capçalera">
       <h1>Categories</h1>

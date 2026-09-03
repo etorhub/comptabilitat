@@ -14,7 +14,11 @@ import { comptadors } from "../services/comptadors.ts";
 import { currentUser } from "../middleware/session.ts";
 import { currentWorkspace, myWorkspaces } from "../middleware/workspace.ts";
 
-export async function workspacePage(c: Context, titol: string, children: unknown): Promise<Html> {
+export async function workspacePage(
+  c: Context,
+  titol: string,
+  children: unknown,
+): Promise<Html> {
   const user = currentUser(c);
   const espai = currentWorkspace(c);
 

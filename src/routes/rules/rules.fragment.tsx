@@ -8,7 +8,12 @@ import { Tria } from "../../components/form.tsx";
 import { RULE_FIELDS, RULE_OPERATORS, type Rule } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
 import type { GrupCategories } from "../../services/categories.ts";
-import { condicioLlegible, condicionsDe, NOMS_CAMP, NOMS_OPERADOR } from "../../services/rules.ts";
+import {
+  condicioLlegible,
+  condicionsDe,
+  NOMS_CAMP,
+  NOMS_OPERADOR,
+} from "../../services/rules.ts";
 import type { FieldErrors } from "../../components/form.tsx";
 
 export interface ReglaVista extends Rule {
@@ -25,12 +30,13 @@ export interface LlistaProps {
 
 export function Llista({ codi, regles, potEditar, oob = false }: LlistaProps): Html {
   return html`<div id="llista-regles" ${oob ? raw('hx-swap-oob="true"') : ""}>
-    ${regles.length === 0
-      ? html`<p class="buit text-suau">
+    ${
+      regles.length === 0
+        ? html`<p class="buit text-suau">
           Encara no hi ha cap regla. Les regles s'apliquen abans que la memoria
           de comerços, i la primera que encaixa guanya.
         </p>`
-      : html`<div class="desplaçable">
+        : html`<div class="desplaçable">
           <table class="dades">
             <thead>
               <tr>
@@ -45,7 +51,8 @@ export function Llista({ codi, regles, potEditar, oob = false }: LlistaProps): H
               ${regles.map((regla) => Fila({ codi, regla, potEditar }))}
             </tbody>
           </table>
-        </div>`}
+        </div>`
+    }
   </div>` as Html;
 }
 
@@ -65,11 +72,13 @@ export function Fila({
     <td class="dreta">${String(regla.priority)}</td>
     <td>
       <span class="nom">${regla.name}</span>
-      ${regla.source === "learned"
-        ? html`<span class="etiqueta etiqueta-suau" title="Creada en corregir un moviment"
+      ${
+        regla.source === "learned"
+          ? html`<span class="etiqueta etiqueta-suau" title="Creada en corregir un moviment"
             >apresa</span
           >`
-        : ""}
+          : ""
+      }
       ${regla.isActive ? "" : html`<span class="etiqueta etiqueta-suau">aturada</span>`}
       <ul class="condicions">
         ${condicions.map((c) => html`<li>${condicioLlegible(c)}</li>`)}
@@ -77,15 +86,18 @@ export function Fila({
     </td>
     <td>
       ${regla.categoryName ?? html`<span class="text-suau">—</span>`}
-      ${regla.setTags.length > 0
-        ? html`<div class="etiquetes">
+      ${
+        regla.setTags.length > 0
+          ? html`<div class="etiquetes">
             ${regla.setTags.map((t) => html`<span class="etiqueta etiqueta-suau">${t}</span>`)}
           </div>`
-        : ""}
+          : ""
+      }
     </td>
     <td class="dreta">${String(regla.matchCount)}</td>
-    ${potEditar
-      ? html`<td class="accions">
+    ${
+      potEditar
+        ? html`<td class="accions">
           <button
             type="button"
             class="boto boto-discret"
@@ -115,7 +127,8 @@ export function Fila({
             Esborra
           </button>
         </td>`
-      : ""}
+        : ""
+    }
   </tr>` as Html;
 }
 
@@ -147,9 +160,11 @@ export function FormAlta({ codi, grups, errors, valors }: FormAltaProps): Html {
   >
     <h2>Afegeix una regla</h2>
 
-    ${errors?.conditions
-      ? html`<p class="form-error" role="alert">${errors.conditions[0]}</p>`
-      : ""}
+    ${
+      errors?.conditions
+        ? html`<p class="form-error" role="alert">${errors.conditions[0]}</p>`
+        : ""
+    }
 
     <div class="form-linia">
       <label class="camp camp-linia">

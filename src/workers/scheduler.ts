@@ -78,10 +78,8 @@ function main(): void {
   // La passada diaria. Nomes una: sota PSD2 el banc limita les consultes
   // sense l'usuari present, i abusar-ne les gasta.
   feines.push(
-    new Cron(
-      `${config.syncCronMinute} ${config.syncCronHour} * * *`,
-      opcions,
-      () => corre("passada-diaria", passadaDiaria),
+    new Cron(`${config.syncCronMinute} ${config.syncCronHour} * * *`, opcions, () =>
+      corre("passada-diaria", passadaDiaria),
     ),
   );
 
@@ -108,7 +106,9 @@ function main(): void {
   );
 
   // Els urgents, cada hora: un descobert previst no pot esperar al resum.
-  feines.push(new Cron("5 * * * *", opcions, () => corre("avisos-urgents", feinaAvisosUrgents)));
+  feines.push(
+    new Cron("5 * * * *", opcions, () => corre("avisos-urgents", feinaAvisosUrgents)),
+  );
 
   // Manteniment: esborra les sessions caducades.
   feines.push(new Cron("30 4 * * *", opcions, () => corre("manteniment", feinaManteniment)));

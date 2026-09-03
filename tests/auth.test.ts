@@ -141,7 +141,11 @@ describe("entrada", () => {
     const resDesconegut = await app.request("/entrada", {
       method: "POST",
       headers: capçaleres,
-      body: cosEntrada({ _csrf: csrfCamp, email: "ningu@exemple.cat", password: "el-que-sigui" }),
+      body: cosEntrada({
+        _csrf: csrfCamp,
+        email: "ningu@exemple.cat",
+        password: "el-que-sigui",
+      }),
     });
 
     const resDolenta = await app.request("/entrada", {

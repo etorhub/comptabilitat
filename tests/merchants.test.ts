@@ -155,10 +155,7 @@ describe("assignar la categoria d'un comerç", () => {
     const canviats = await assignaCategoria(merchantId, ledgerId, bars.id);
     expect(canviats).toBe(2);
 
-    const [meu] = await db
-      .select()
-      .from(transactions)
-      .where(eq(transactions.dedupKey, "meu"));
+    const [meu] = await db.select().from(transactions).where(eq(transactions.dedupKey, "meu"));
     // Ni la categoria ni l'origen: la decisio de la persona mana.
     expect(meu?.categoryId).toBe(restaurants.id);
     expect(meu?.categorySource).toBe("user");

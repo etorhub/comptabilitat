@@ -72,18 +72,16 @@ export const categorizeSchema = z.object({
 
 /** Classificacio en bloc: les caselles marcades de la taula. */
 export const bulkCategorizeSchema = z.object({
-  moviment: z
-    .union([z.string(), z.array(z.string())])
-    .transform((v, ctx) => {
-      const bruts = Array.isArray(v) ? v : [v];
-      const ids = bruts
-        .map((x) => Number.parseInt(x, 10))
-        .filter((n) => Number.isInteger(n) && n > 0);
-      if (ids.length === 0) {
-        ctx.addIssue({ code: "custom", message: "No hi ha cap moviment triat" });
-      }
-      return ids;
-    }),
+  moviment: z.union([z.string(), z.array(z.string())]).transform((v, ctx) => {
+    const bruts = Array.isArray(v) ? v : [v];
+    const ids = bruts
+      .map((x) => Number.parseInt(x, 10))
+      .filter((n) => Number.isInteger(n) && n > 0);
+    if (ids.length === 0) {
+      ctx.addIssue({ code: "custom", message: "No hi ha cap moviment triat" });
+    }
+    return ids;
+  }),
   category_id: z
     .union([z.literal(""), z.coerce.number().int().positive()])
     .transform((v) => (v === "" ? null : v)),

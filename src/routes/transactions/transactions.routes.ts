@@ -29,11 +29,7 @@ import {
   withOob,
 } from "../../lib/http.ts";
 import { currentUser } from "../../middleware/session.ts";
-import {
-  currentRole,
-  currentWorkspace,
-  requireEditor,
-} from "../../middleware/workspace.ts";
+import { currentRole, currentWorkspace, requireEditor } from "../../middleware/workspace.ts";
 import { opcionsCategories } from "../../services/categories.ts";
 import { construeixReglaApresa } from "../../services/classification.ts";
 import { comptaPerRevisar } from "../../services/comptadors.ts";
@@ -45,12 +41,7 @@ import {
   safataRevisio,
   type MovimentVista,
 } from "../../services/transactions.ts";
-import {
-  Fila,
-  FilaConcepte,
-  RevisioFeta,
-  Taula,
-} from "./transactions.fragment.tsx";
+import { Fila, FilaConcepte, RevisioFeta, Taula } from "./transactions.fragment.tsx";
 import { ReviewPage, TransactionsPage } from "./transactions.page.tsx";
 import {
   bulkCategorizeSchema,
@@ -244,7 +235,11 @@ transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
 
   if (parsed.data.crea_regla) {
     await construeixReglaApresa(
-      { ledgerId: espai.id, normalizedDescription: fila.normalizedDescription, counterparty: fila.counterparty },
+      {
+        ledgerId: espai.id,
+        normalizedDescription: fila.normalizedDescription,
+        counterparty: fila.counterparty,
+      },
       parsed.data.category_id,
       user.id,
     );
@@ -297,10 +292,7 @@ transactionsRoutes.post("/:id/concepte", requireEditor, async (c) => {
       .update(transactions)
       .set({ displayDescription: alies })
       .where(
-        and(
-          eq(transactions.transferGroupId, fila.transferGroupId),
-          ne(transactions.id, id),
-        ),
+        and(eq(transactions.transferGroupId, fila.transferGroupId), ne(transactions.id, id)),
       );
   }
 
@@ -335,12 +327,7 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
   const meus = await db
     .select({ id: transactions.id, merchantId: transactions.merchantId })
     .from(transactions)
-    .where(
-      and(
-        eq(transactions.ledgerId, espai.id),
-        inArray(transactions.id, demanats),
-      ),
-    );
+    .where(and(eq(transactions.ledgerId, espai.id), inArray(transactions.id, demanats)));
 
   // **Tot o res.** Si algun identificador no es d'aquest espai, no s'aplica
   // a cap: una peticio a mitges deixaria l'usuari sense saber que ha canviat.
@@ -356,10 +343,17 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
       categoryConfidence: 1,
       needsReview: false,
     })
-    .where(inArray(transactions.id, meus.map((m) => m.id)));
+    .where(
+      inArray(
+        transactions.id,
+        meus.map((m) => m.id),
+      ),
+    );
 
   if (parsed.data.recorda_comerc) {
-    const comercIds = [...new Set(meus.map((m) => m.merchantId).filter((x): x is number => x !== null))];
+    const comercIds = [
+      ...new Set(meus.map((m) => m.merchantId).filter((x): x is number => x !== null)),
+    ];
     for (const comercId of comercIds) {
       const [comerc] = await db
         .select()
@@ -443,7 +437,9 @@ transactionsRoutes.post("/:id/revisa", requireEditor, async (c) => {
     const [proposta] = await db
       .select()
       .from(llmSuggestions)
-      .where(and(eq(llmSuggestions.merchantId, fila.merchantId), isNull(llmSuggestions.accepted)))
+      .where(
+        and(eq(llmSuggestions.merchantId, fila.merchantId), isNull(llmSuggestions.accepted)),
+      )
       .limit(1);
     if (proposta) {
       await db

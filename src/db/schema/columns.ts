@@ -13,9 +13,7 @@ import { numeric, timestamp, varchar } from "drizzle-orm/pg-core";
 
 /** Import monetari: `numeric(14,2)`, sempre `string` a la banda de TypeScript. */
 export const money = (name?: string) =>
-  name
-    ? numeric(name, { precision: 14, scale: 2 })
-    : numeric({ precision: 14, scale: 2 });
+  name ? numeric(name, { precision: 14, scale: 2 }) : numeric({ precision: 14, scale: 2 });
 
 /**
  * Enumeracio del domini: `varchar(32)` amb el tipus estret des de TypeScript.

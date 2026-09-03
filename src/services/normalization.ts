@@ -64,7 +64,12 @@ const NOISE_PATTERNS: [RegExp, string][] = [
 ];
 
 /** A partir d'aquestes paraules, la resta del concepte es referencia interna. */
-const TRUNCATE_PATTERNS: RegExp[] = [/\bCONCEPTO\b/i, /\bREF\.?\b/i, /\bMANDATO\b/i, /\bN\.?\s?ORDEN\b/i];
+const TRUNCATE_PATTERNS: RegExp[] = [
+  /\bCONCEPTO\b/i,
+  /\bREF\.?\b/i,
+  /\bMANDATO\b/i,
+  /\bN\.?\s?ORDEN\b/i,
+];
 
 /** Operacions que no tenen comerç: es normalitzen a un nom fix i reconeixible. */
 const SPECIAL_PATTERNS: [RegExp, string][] = [
@@ -78,28 +83,88 @@ const LEADING_STOPWORDS = new Set(["EN", "A", "DE", "DEL", "LA", "EL", "POR", "P
 
 /** Els mesos surten a nomines i rebuts i no identifiquen res. */
 const MONTHS = new Set([
-  "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO",
-  "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE",
-  "GENER", "FEBRER", "MARC", "MAIG", "JUNY", "JULIOL", "AGOST", "SETEMBRE",
-  "NOVEMBRE", "DESEMBRE",
+  "ENERO",
+  "FEBRERO",
+  "MARZO",
+  "ABRIL",
+  "MAYO",
+  "JUNIO",
+  "JULIO",
+  "AGOSTO",
+  "SEPTIEMBRE",
+  "OCTUBRE",
+  "NOVIEMBRE",
+  "DICIEMBRE",
+  "GENER",
+  "FEBRER",
+  "MARC",
+  "MAIG",
+  "JUNY",
+  "JULIOL",
+  "AGOST",
+  "SETEMBRE",
+  "NOVEMBRE",
+  "DESEMBRE",
 ]);
 
 /** Sigles societaries que es deixen en majuscules encara que siguin llargues. */
 const COMPANY_SUFFIXES = new Set([
-  "SA", "SL", "SLU", "SAU", "SARL", "SCP", "SCCL", "SAS", "BV", "GMBH", "LTD",
+  "SA",
+  "SL",
+  "SLU",
+  "SAU",
+  "SARL",
+  "SCP",
+  "SCCL",
+  "SAS",
+  "BV",
+  "GMBH",
+  "LTD",
 ]);
 
 /** Enllaços que dins d'un nom van en minuscula. */
 const CONNECTORS = new Set([
-  "DE", "DEL", "DELS", "LA", "LES", "EL", "ELS", "I", "Y", "D'", "DA", "DO", "EN",
+  "DE",
+  "DEL",
+  "DELS",
+  "LA",
+  "LES",
+  "EL",
+  "ELS",
+  "I",
+  "Y",
+  "D'",
+  "DA",
+  "DO",
+  "EN",
 ]);
 
 /** Paraules curtes que son paraules de debò, no sigles: «Bar», no «BAR». */
-const SHORT_WORDS = new Set(["BAR", "CAL", "CAN", "MAS", "MAR", "SOL", "VIA", "PAN", "SUD", "RIU", "CASA"]);
+const SHORT_WORDS = new Set([
+  "BAR",
+  "CAL",
+  "CAN",
+  "MAS",
+  "MAR",
+  "SOL",
+  "VIA",
+  "PAN",
+  "SUD",
+  "RIU",
+  "CASA",
+]);
 
 /** Paraules finals que solen ser la poblacio o dades del terminal. */
 const TRAILING_NOISE = new Set([
-  "ES", "ESP", "ESPANA", "TARJ", "TARJETA", "COMERCIO", "TERMINAL", "OFICINA", "SUCURSAL",
+  "ES",
+  "ESP",
+  "ESPANA",
+  "TARJ",
+  "TARJETA",
+  "COMERCIO",
+  "TERMINAL",
+  "OFICINA",
+  "SUCURSAL",
 ]);
 
 export function stripAccents(text: string): string {
@@ -164,10 +229,7 @@ export function displayName(normalized: string): string {
  * La clau es en majuscules i sense accents, apta per agrupar. El nom per
  * mostrar es el mateix text amb una capitalitzacio llegible.
  */
-export function normalizeDescription(
-  description: string,
-  counterparty = "",
-): [string, string] {
+export function normalizeDescription(description: string, counterparty = ""): [string, string] {
   // Si el banc ja dona la contrapart, es molt mes fiable que el concepte lliure.
   const source = counterparty.trim() || description.trim();
   if (!source) return ["", ""];
@@ -219,7 +281,12 @@ export function normalizeDescription(
   // Els noms molt llargs es retallen: la cua sol ser referencia interna.
   let normalized = retallaExtrems(tokens.slice(0, 6).join(" ").slice(0, 200), " .");
   if (!normalized) {
-    normalized = stripAccents(source).toUpperCase().split(/\s+/).filter(Boolean).join(" ").slice(0, 200);
+    normalized = stripAccents(source)
+      .toUpperCase()
+      .split(/\s+/)
+      .filter(Boolean)
+      .join(" ")
+      .slice(0, 200);
   }
 
   return [normalized, displayName(normalized)];

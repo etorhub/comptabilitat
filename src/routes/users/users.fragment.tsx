@@ -5,7 +5,12 @@
 import { html, raw } from "hono/html";
 
 import { Camp, ErrorGeneral, type FieldErrors } from "../../components/form.tsx";
-import { LEDGER_ROLES, type Ledger, type LedgerRole, type User } from "../../db/schema/index.ts";
+import {
+  LEDGER_ROLES,
+  type Ledger,
+  type LedgerRole,
+  type User,
+} from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
 
 const NOMS_ROL: Record<LedgerRole, string> = {
@@ -48,9 +53,11 @@ export function Targeta({
     <div class="item-cap">
       <strong>${usuari.fullName || usuari.email}</strong>
       <span class="text-suau">${usuari.email}</span>
-      ${usuari.isAdmin
-        ? html`<span class="etiqueta" title="Gestiona bancs i usuaris">administrador</span>`
-        : ""}
+      ${
+        usuari.isAdmin
+          ? html`<span class="etiqueta" title="Gestiona bancs i usuaris">administrador</span>`
+          : ""
+      }
       ${usuari.isActive ? "" : html`<span class="etiqueta etiqueta-suau">desactivat</span>`}
     </div>
 

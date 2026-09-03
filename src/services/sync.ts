@@ -314,7 +314,9 @@ async function desaMoviments(
   };
   if (items.length === 0) return resultat;
 
-  const dataMinima = items.reduce((a, b) => (a.bookingDate < b.bookingDate ? a : b)).bookingDate;
+  const dataMinima = items.reduce((a, b) =>
+    a.bookingDate < b.bookingDate ? a : b,
+  ).bookingDate;
   const inicíFinestra = addDays(dataMinima, -PENDING_MATCH_DAYS);
 
   const existents = await db
@@ -330,10 +332,7 @@ async function desaMoviments(
     })
     .from(transactions)
     .where(
-      and(
-        eq(transactions.accountId, compte.id),
-        gte(transactions.bookingDate, inicíFinestra),
-      ),
+      and(eq(transactions.accountId, compte.id), gte(transactions.bookingDate, inicíFinestra)),
     );
 
   const perClau = new Map(existents.map((e) => [e.dedupKey, e]));

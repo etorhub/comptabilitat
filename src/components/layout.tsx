@@ -14,7 +14,6 @@
 import { html, raw } from "hono/html";
 import type { Html } from "../lib/html.ts";
 
-
 import type { Ledger, LedgerRole, User } from "../db/schema/index.ts";
 import { CSRF_HEADER } from "../lib/csrf.ts";
 
@@ -141,8 +140,9 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous }: SidebarProps) 
       <span class="marca">Comptabilitat</span>
     </div>
 
-    ${espais.length > 0
-      ? html`<label class="camp">
+    ${
+      espais.length > 0
+        ? html`<label class="camp">
           <span class="camp-etiqueta">Espai</span>
           <select
             class="selector-espai"
@@ -157,7 +157,8 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous }: SidebarProps) 
             )}
           </select>
         </label>`
-      : ""}
+        : ""
+    }
 
     <ul class="menu">
       ${enllacos.map(
@@ -170,15 +171,17 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous }: SidebarProps) 
       )}
     </ul>
 
-    ${user.isAdmin
-      ? html`<div class="menu-seccio">
+    ${
+      user.isAdmin
+        ? html`<div class="menu-seccio">
           <h2 class="menu-titol">Administracio</h2>
           <ul class="menu">
             <li><a href="/connexions">Connexions bancaries</a></li>
             <li><a href="/usuaris">Usuaris</a></li>
           </ul>
         </div>`
-      : ""}
+        : ""
+    }
 
     <div class="barra-peu">
       <span class="usuari" title="${user.email}">${user.fullName || user.email}</span>

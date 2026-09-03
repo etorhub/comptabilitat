@@ -10,20 +10,9 @@ import { Hono } from "hono";
 
 import { zodErrors } from "../../components/form.tsx";
 import { workspacePage } from "../../components/workspace-page.ts";
-import {
-  clearToast,
-  ConflictError,
-  fragment,
-  page,
-  toast,
-  withOob,
-} from "../../lib/http.ts";
+import { clearToast, ConflictError, fragment, page, toast, withOob } from "../../lib/http.ts";
 import { roleAtLeast } from "../../db/schema/index.ts";
-import {
-  currentRole,
-  currentWorkspace,
-  requireEditor,
-} from "../../middleware/workspace.ts";
+import { currentRole, currentWorkspace, requireEditor } from "../../middleware/workspace.ts";
 import {
   arbreCategories,
   categoriaDeLespai,
@@ -211,7 +200,12 @@ categoriesRoutes.patch("/:id", requireEditor, async (c) => {
   return fragment(
     c,
     await withOob(
-      Fila({ codi: espai.code, categoria: trobada.vista, potEditar: true, filla: trobada.filla }),
+      Fila({
+        codi: espai.code,
+        categoria: trobada.vista,
+        potEditar: true,
+        filla: trobada.filla,
+      }),
       clearToast(),
     ),
   );
@@ -232,7 +226,12 @@ categoriesRoutes.post("/:id/subscripcio", requireEditor, async (c) => {
   return fragment(
     c,
     await withOob(
-      Fila({ codi: espai.code, categoria: trobada.vista, potEditar: true, filla: trobada.filla }),
+      Fila({
+        codi: espai.code,
+        categoria: trobada.vista,
+        potEditar: true,
+        filla: trobada.filla,
+      }),
       clearToast(),
     ),
   );

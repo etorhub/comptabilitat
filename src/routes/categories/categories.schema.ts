@@ -32,18 +32,16 @@ const base = createInsertSchema(categories, {
  * Alta. `kind` nomes es fa servir quan no hi ha pare: una subcategoria hereta
  * sempre el tipus del pare, com feia el Python.
  */
-export const categoryCreateSchema = base
-  .pick({ name: true })
-  .extend({
-    kind: categoryKindSchema,
-    parent_id: idOpcional,
-    color: z
-      .string()
-      .regex(/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/, "El color ha de ser un codi hexadecimal")
-      .default("#94a3b8"),
-    icon: z.string().max(40).default(""),
-    is_subscription: casella,
-  });
+export const categoryCreateSchema = base.pick({ name: true }).extend({
+  kind: categoryKindSchema,
+  parent_id: idOpcional,
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/, "El color ha de ser un codi hexadecimal")
+    .default("#94a3b8"),
+  icon: z.string().max(40).default(""),
+  is_subscription: casella,
+});
 
 export type CategoryCreateInput = z.infer<typeof categoryCreateSchema>;
 

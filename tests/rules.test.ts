@@ -114,9 +114,9 @@ describe("comparacio d'imports", () => {
   });
 
   test("un valor que no es un numero no encaixa", () => {
-    expect(
-      condicioEncaixa({ field: "amount", operator: "gt", value: "molt" }, moviment),
-    ).toBe(false);
+    expect(condicioEncaixa({ field: "amount", operator: "gt", value: "molt" }, moviment)).toBe(
+      false,
+    );
   });
 });
 

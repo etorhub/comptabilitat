@@ -5,7 +5,6 @@
 import { html } from "hono/html";
 import type { Html } from "../../lib/html.ts";
 
-
 import { Shell } from "../../components/shell.tsx";
 import { LoginForm, type LoginFormProps } from "./auth.fragment.tsx";
 

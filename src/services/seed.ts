@@ -18,31 +18,22 @@ import { slugify } from "./slugs.ts";
 export type Arbre = readonly (readonly [string, string, readonly string[]])[];
 
 export const EXPENSE_TREE: Arbre = [
-  ["Habitatge", "#0ea5e9", [
-      "Lloguer o hipoteca",
-      "Comunitat",
-      "IBI i taxes",
-      "Reparacions i obres",
-      "Mobiliari",
-  ]],
-  ["Subministraments", "#22d3ee", [
-      "Electricitat",
-      "Aigua",
-      "Gas",
-      "Internet i telefon",
-      "Residus",
-  ]],
-  ["Alimentacio", "#16a34a", [
-      "Supermercat",
-      "Mercat i fruiteria",
-      "Forn i pastisseria",
-  ]],
-  ["Restauracio", "#f97316", [
-      "Restaurants",
-      "Bars i cafeteries",
-      "Menjar a domicili",
-  ]],
-  ["Transport", "#6366f1", [
+  [
+    "Habitatge",
+    "#0ea5e9",
+    ["Lloguer o hipoteca", "Comunitat", "IBI i taxes", "Reparacions i obres", "Mobiliari"],
+  ],
+  [
+    "Subministraments",
+    "#22d3ee",
+    ["Electricitat", "Aigua", "Gas", "Internet i telefon", "Residus"],
+  ],
+  ["Alimentacio", "#16a34a", ["Supermercat", "Mercat i fruiteria", "Forn i pastisseria"]],
+  ["Restauracio", "#f97316", ["Restaurants", "Bars i cafeteries", "Menjar a domicili"]],
+  [
+    "Transport",
+    "#6366f1",
+    [
       "Combustible",
       "Peatges i parquing",
       "Transport public",
@@ -50,79 +41,45 @@ export const EXPENSE_TREE: Arbre = [
       "Manteniment del vehicle",
       "Assegurança del vehicle",
       "Impost de circulacio",
-  ]],
-  ["Salut", "#ef4444", [
-      "Farmacia",
-      "Metge i dentista",
-      "Assegurança medica",
-  ]],
-  ["Compres", "#a855f7", [
-      "Roba i calçat",
-      "Electronica",
-      "Llar i bricolatge",
-      "Regals",
-  ]],
-  ["Oci i cultura", "#ec4899", [
+    ],
+  ],
+  ["Salut", "#ef4444", ["Farmacia", "Metge i dentista", "Assegurança medica"]],
+  ["Compres", "#a855f7", ["Roba i calçat", "Electronica", "Llar i bricolatge", "Regals"]],
+  [
+    "Oci i cultura",
+    "#ec4899",
+    [
       "Subscripcions",
       "Cinema i espectacles",
       "Esport i gimnas",
       "Llibres i premsa",
       "Viatges i vacances",
-  ]],
-  ["Educacio", "#14b8a6", [
-      "Matricules",
-      "Material escolar",
-      "Formacio",
-  ]],
-  ["Serveis financers", "#64748b", [
-      "Comissions bancaries",
-      "Interessos i prestecs",
-      "Assegurances",
-      "Inversio",
-  ]],
-  ["Impostos", "#78716c", [
-      "IRPF",
-      "IVA",
-      "Altres impostos",
-  ]],
-  ["Persones i familia", "#f59e0b", [
-      "Cura de persones",
-      "Mascotes",
-      "Donacions",
-  ]],
-  ["Altres despeses", "#94a3b8", [
-      "Efectiu retirat",
-      "Sense classificar",
-  ]],
+    ],
+  ],
+  ["Educacio", "#14b8a6", ["Matricules", "Material escolar", "Formacio"]],
+  [
+    "Serveis financers",
+    "#64748b",
+    ["Comissions bancaries", "Interessos i prestecs", "Assegurances", "Inversio"],
+  ],
+  ["Impostos", "#78716c", ["IRPF", "IVA", "Altres impostos"]],
+  ["Persones i familia", "#f59e0b", ["Cura de persones", "Mascotes", "Donacions"]],
+  ["Altres despeses", "#94a3b8", ["Efectiu retirat", "Sense classificar"]],
 ];
 
 export const INCOME_TREE: Arbre = [
-  ["Ingressos del treball", "#16a34a", [
-      "Nomina",
-      "Facturacio i autonoms",
-      "Pagues extra",
-  ]],
-  ["Rendes", "#10b981", [
-      "Lloguers cobrats",
-      "Interessos i dividends",
-  ]],
-  ["Prestacions", "#34d399", [
-      "Pensions",
-      "Subsidis i ajuts",
-  ]],
-  ["Altres ingressos", "#4ade80", [
-      "Devolucions",
-      "Vendes",
-      "Ingressos diversos",
-  ]],
+  ["Ingressos del treball", "#16a34a", ["Nomina", "Facturacio i autonoms", "Pagues extra"]],
+  ["Rendes", "#10b981", ["Lloguers cobrats", "Interessos i dividends"]],
+  ["Prestacions", "#34d399", ["Pensions", "Subsidis i ajuts"]],
+  ["Altres ingressos", "#4ade80", ["Devolucions", "Vendes", "Ingressos diversos"]],
 ];
 
 export const TRANSFER_TREE: Arbre = [
-  ["Traspassos", "#8b5cf6", [
-      "Traspas entre comptes propis",
-      "Liquidacio de targeta",
-      "Amortitzacio de prestec",
-  ]],
+  [
+    "Traspassos",
+    "#8b5cf6",
+    ["Traspas entre comptes propis", "Liquidacio de targeta", "Amortitzacio de prestec"],
+  ],
 ];
 
 export const DEFAULT_LEDGERS: readonly (readonly [string, string, string, string])[] = [

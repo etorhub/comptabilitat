@@ -24,11 +24,13 @@ export function WorkspacePage({ espai, membres, potConfigurar }: WorkspacePagePr
       </p>
     </header>
 
-    ${potConfigurar
-      ? FormEspai({ espai })
-      : html`<p class="text-suau">
+    ${
+      potConfigurar
+        ? FormEspai({ espai })
+        : html`<p class="text-suau">
           Cal ser administrador d'aquest espai per canviar-ne la configuracio.
-        </p>`}
+        </p>`
+    }
     ${TaulaMembres({ membres })}
   ` as Html;
 }

@@ -52,14 +52,14 @@ import {
   comencaAutoritzacio,
   sincronitzaConnexio,
 } from "../../services/sync.ts";
-import {
-  EstatSync,
-  FilaCompte,
-  Llista,
-  type ConnexioVista,
-} from "./connections.fragment.tsx";
+import { EstatSync, FilaCompte, Llista, type ConnexioVista } from "./connections.fragment.tsx";
 import { ConnectionsPage } from "./connections.page.tsx";
-import { assignSchema, authorizeSchema, callbackSchema, syncSchema } from "./connections.schema.ts";
+import {
+  assignSchema,
+  authorizeSchema,
+  callbackSchema,
+  syncSchema,
+} from "./connections.schema.ts";
 
 export const connectionsRoutes = new Hono();
 
@@ -135,9 +135,7 @@ connectionsRoutes.get("/", async (c) => {
 
   const estat = c.req.query("estat");
   const retorn =
-    estat === undefined
-      ? undefined
-      : { ok: estat === "ok", motiu: c.req.query("motiu") ?? "" };
+    estat === undefined ? undefined : { ok: estat === "ok", motiu: c.req.query("motiu") ?? "" };
 
   return page(
     c,
@@ -328,7 +326,10 @@ connectionsRoutes.post("/comptes/:id/espai", async (c) => {
         );
         await db
           .update(transactions)
-          .set({ normalizedDescription: normalitzat.slice(0, 200), merchantId: comerc?.id ?? null })
+          .set({
+            normalizedDescription: normalitzat.slice(0, 200),
+            merchantId: comerc?.id ?? null,
+          })
           .where(eq(transactions.id, moviment.id));
       }
 

@@ -12,12 +12,7 @@
 import { and, desc, eq } from "drizzle-orm";
 
 import { closeDb, db } from "./db/client.ts";
-import {
-  ledgers,
-  ledgerRoleSchema,
-  userLedgerPermissions,
-  users,
-} from "./db/schema/index.ts";
+import { ledgers, ledgerRoleSchema, userLedgerPermissions, users } from "./db/schema/index.ts";
 import { hashPassword, purgeExpiredSessions } from "./lib/auth.ts";
 import { workspaceCreateSchema } from "./routes/workspaces/workspaces.schema.ts";
 import { seedCategories } from "./services/seed.ts";
@@ -117,10 +112,17 @@ async function creaEspai(): Promise<void> {
     color: arg("color") ?? "#7c3aed",
   });
 
-  const [ja] = await db.select({ id: ledgers.id }).from(ledgers).where(eq(ledgers.code, dades.code));
+  const [ja] = await db
+    .select({ id: ledgers.id })
+    .from(ledgers)
+    .where(eq(ledgers.code, dades.code));
   if (ja) throw new Error(`Ja hi ha un espai amb el codi ${dades.code}`);
 
-  const [ultim] = await db.select({ position: ledgers.position }).from(ledgers).orderBy(desc(ledgers.position)).limit(1);
+  const [ultim] = await db
+    .select({ position: ledgers.position })
+    .from(ledgers)
+    .orderBy(desc(ledgers.position))
+    .limit(1);
 
   const [creat] = await db
     .insert(ledgers)

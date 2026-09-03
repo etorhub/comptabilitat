@@ -153,7 +153,10 @@ export async function destroyAllSessions(userId: number): Promise<void> {
  * tambe manté valid el testimoni CSRF que ja s'ha dibuixat a la pagina, que
  * en depen.
  */
-export async function destroyOtherSessions(userId: number, keepTokenHash: string): Promise<number> {
+export async function destroyOtherSessions(
+  userId: number,
+  keepTokenHash: string,
+): Promise<number> {
   const deleted = await db
     .delete(userSessions)
     .where(and(eq(userSessions.userId, userId), ne(userSessions.tokenHash, keepTokenHash)))

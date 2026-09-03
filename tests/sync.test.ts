@@ -184,7 +184,9 @@ describe("un apunt pendent que es consolida", () => {
     const [categoria] = await db
       .select()
       .from(categories)
-      .where(and(eq(categories.ledgerId, espaiId), eq(categories.slug, "alimentacio-supermercat")))
+      .where(
+        and(eq(categories.ledgerId, espaiId), eq(categories.slug, "alimentacio-supermercat")),
+      )
       .limit(1);
 
     await db

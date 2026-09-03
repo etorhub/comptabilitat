@@ -40,27 +40,76 @@ import { detectaTraspassos } from "./transfers.ts";
 
 /** [concepte, import minim, import maxim, pendent de la categoria] */
 const DESPESES: readonly (readonly [string, number, number, string])[] = [
-  ["COMPRA TARJ. 5402XXXXXXXX1234 EN MERCADONA, BARCELONA", -90, -25, "alimentacio-supermercat"],
-  ["COMPRA TARJ. 5402XXXXXXXX1234 EN CARREFOUR EXPRESS, BARCELONA", -45, -12, "alimentacio-supermercat"],
+  [
+    "COMPRA TARJ. 5402XXXXXXXX1234 EN MERCADONA, BARCELONA",
+    -90,
+    -25,
+    "alimentacio-supermercat",
+  ],
+  [
+    "COMPRA TARJ. 5402XXXXXXXX1234 EN CARREFOUR EXPRESS, BARCELONA",
+    -45,
+    -12,
+    "alimentacio-supermercat",
+  ],
   ["PAGO MOVIL EN BAR EL RACO", -18, -6, "restauracio-bars-i-cafeteries"],
   ["COMPRA TARJ. 5402XXXXXXXX1234 EN REPSOL, GIRONA", -70, -40, "transport-combustible"],
   ["COMPRA TARJ. 5402XXXXXXXX1234 EN AMAZON EU SARL, MADRID", -60, -10, "compres-electronica"],
   ["PAGO MOVIL EN FARMACIA CENTRAL", -25, -8, "salut-farmacia"],
-  ["COMPRA TARJ. 5402XXXXXXXX1234 EN DECATHLON, BARCELONA", -80, -15, "oci-i-cultura-esport-i-gimnas"],
+  [
+    "COMPRA TARJ. 5402XXXXXXXX1234 EN DECATHLON, BARCELONA",
+    -80,
+    -15,
+    "oci-i-cultura-esport-i-gimnas",
+  ],
 ];
 
 /** [concepte, import, cada quants dies, espai, pendent de la categoria] */
 const RECURRENTS: readonly (readonly [string, string, number, string, string])[] = [
-  ["ADEUDO POR DOMICILIACION DE ENDESA ENERGIA XXI SLU", "-72.40", 30, "personal", "subministraments-electricitat"],
-  ["RECIBO NETFLIX INTERNATIONAL B.V.", "-12.99", 30, "personal", "oci-i-cultura-subscripcions"],
+  [
+    "ADEUDO POR DOMICILIACION DE ENDESA ENERGIA XXI SLU",
+    "-72.40",
+    30,
+    "personal",
+    "subministraments-electricitat",
+  ],
+  [
+    "RECIBO NETFLIX INTERNATIONAL B.V.",
+    "-12.99",
+    30,
+    "personal",
+    "oci-i-cultura-subscripcions",
+  ],
   ["RECIBO SPOTIFY AB", "-11.99", 30, "personal", "oci-i-cultura-subscripcions"],
-  ["ADEUDO POR DOMICILIACION DE AGBAR AIGUES", "-38.10", 61, "calella", "subministraments-aigua"],
-  ["ADEUDO POR DOMICILIACION DE COMUNITAT DE PROPIETARIS", "-45.00", 30, "calella", "habitatge-comunitat"],
-  ["ADEUDO POR DOMICILIACION DE SEGURCAIXA ADESLAS", "-58.20", 30, "pardals", "salut-asseguranca-medica"],
+  [
+    "ADEUDO POR DOMICILIACION DE AGBAR AIGUES",
+    "-38.10",
+    61,
+    "calella",
+    "subministraments-aigua",
+  ],
+  [
+    "ADEUDO POR DOMICILIACION DE COMUNITAT DE PROPIETARIS",
+    "-45.00",
+    30,
+    "calella",
+    "habitatge-comunitat",
+  ],
+  [
+    "ADEUDO POR DOMICILIACION DE SEGURCAIXA ADESLAS",
+    "-58.20",
+    30,
+    "pardals",
+    "salut-asseguranca-medica",
+  ],
 ];
 
 const NOMINA = "NOMINA MES EMPRESA EXEMPLE SL";
-const SALDOS: Record<string, string> = {"personal": "2840.15", "calella": "610.40", "pardals": "1275.00"};
+const SALDOS: Record<string, string> = {
+  personal: "2840.15",
+  calella: "610.40",
+  pardals: "1275.00",
+};
 const MESOS = 18;
 
 const USUARIS: readonly (readonly [string, string, boolean, Record<string, LedgerRole>])[] = [
@@ -195,7 +244,11 @@ export async function omplePerAProves(
       ledgerId: compte.ledgerId,
       entryReference: null,
       transactionId: null,
-      dedupKey: `demo-${compte.id}-${dia}-${toMoneyString(quantitat)}-${concepte.slice(0, 14)}`.slice(0, 64),
+      dedupKey:
+        `demo-${compte.id}-${dia}-${toMoneyString(quantitat)}-${concepte.slice(0, 14)}`.slice(
+          0,
+          64,
+        ),
       source: "enablebanking",
       bookingDate: dia,
       valueDate: dia,

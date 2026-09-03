@@ -1,1122 +1,702 @@
 [
- {
-  "description": "COMPRA TARJ. 5402XXXXXXXX1234 MERCADONA BARCELONA, BARCELONA",
-  "counterparty": "",
-  "expected": [
-   "MERCADONA BARCELONA",
-   "Mercadona Barcelona"
-  ]
- },
- {
-  "description": "COMPRA CON TARJETA DE CREDITO EN CARREFOUR SABADELL ES",
-  "counterparty": "",
-  "expected": [
-   "CARREFOUR SABADELL",
-   "Carrefour Sabadell"
-  ]
- },
- {
-  "description": "ADEUDO POR DOMICILIACION DE ENDESA ENERGIA SA REF: 123456789012",
-  "counterparty": "",
-  "expected": [
-   "ENDESA ENERGIA SA",
-   "Endesa Energia SA"
-  ]
- },
- {
-  "description": "TRANSFERENCIA RECIBIDA DE JOAN GARCIA MANDATO: XYZ99",
-  "counterparty": "",
-  "expected": [
-   "JOAN GARCIA",
-   "Joan Garcia"
-  ]
- },
- {
-  "description": "BIZUM DE MARIA LOPEZ CONCEPTO: sopar",
-  "counterparty": "",
-  "expected": [
-   "MARIA LOPEZ",
-   "Maria Lopez"
-  ]
- },
- {
-  "description": "NOMINA MES OCTUBRE EMPRESA EXEMPLE SL",
-  "counterparty": "",
-  "expected": [
-   "EMPRESA EXEMPLE SL",
-   "Empresa Exemple SL"
-  ]
- },
- {
-  "description": "REINTEGRO EN CAJERO 4B OFICINA 1234",
-  "counterparty": "",
-  "expected": [
-   "REINTEGRO EFECTIU",
-   "Reintegro Efectiu"
-  ]
- },
- {
-  "description": "COMISION DE MANTENIMIENTO 12/03/2026",
-  "counterparty": "",
-  "expected": [
-   "COMISSIO BANCARIA",
-   "Comissio Bancaria"
-  ]
- },
- {
-  "description": "TRASPASO A CUENTA ES9121000418450200051332",
-  "counterparty": "",
-  "expected": [
-   "TRASPAS ENTRE COMPTES",
-   "Traspas Entre Comptes"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN BAR CAN PEPE 21:45",
-  "counterparty": "",
-  "expected": [
-   "BAR CAN PEPE",
-   "Bar Can Pepe"
-  ]
- },
- {
-  "description": "COMPRA EN AMAZON EU SARL 15-03",
-  "counterparty": "",
-  "expected": [
-   "AMAZON EU SARL",
-   "Amazon EU SARL"
-  ]
- },
- {
-  "description": "ADEUDO VODAFONE ESPANA SAU",
-  "counterparty": "",
-  "expected": [
-   "VODAFONE ESPANA SAU",
-   "Vodafone Espana SAU"
-  ]
- },
- {
-  "description": "PAGO EN COMUNITAT DE PROPIETARIS C/ MAJOR 4",
-  "counterparty": "",
-  "expected": [
-   "COMUNITAT DE PROPIETARIS C MAJOR",
-   "Comunitat de Propietaris C Major"
-  ]
- },
- {
-  "description": "Ajuntament de Calella · IBI 2026",
-  "counterparty": "",
-  "expected": [
-   "AJUNTAMENT DE CALELLA IBI",
-   "Ajuntament de Calella IBI"
-  ]
- },
- {
-  "description": "COMPRA TARJETA NETFLIX.COM 4B",
-  "counterparty": "",
-  "expected": [
-   "NETFLIX.COM 4B",
-   "Netflix.com 4B"
-  ]
- },
- {
-  "description": "",
-  "counterparty": "",
-  "expected": [
-   "",
-   ""
-  ]
- },
- {
-  "description": "   ",
-  "counterparty": "",
-  "expected": [
-   "",
-   ""
-  ]
- },
- {
-  "description": "MERCADONA",
-  "counterparty": "",
-  "expected": [
-   "MERCADONA",
-   "Mercadona"
-  ]
- },
- {
-  "description": "COMPRA TARJ. QUALSEVOL COSA",
-  "counterparty": "Bar Pepe S.L.",
-  "expected": [
-   "BAR PEPE S.L",
-   "Bar Pepe S.L"
-  ]
- },
- {
-  "description": "REINTEGRO EN CAJERO",
-  "counterparty": "Aigues de Barcelona",
-  "expected": [
-   "AIGUES DE BARCELONA",
-   "Aigues de Barcelona"
-  ]
- },
- {
-  "description": "COMISION DE AMAZON EU SARL",
-  "counterparty": "",
-  "expected": [
-   "COMISSIO BANCARIA",
-   "Comissio Bancaria"
-  ]
- },
- {
-  "description": "BAR CAN PEPE 21:45",
-  "counterparty": "",
-  "expected": [
-   "BAR CAN PEPE",
-   "Bar Can Pepe"
-  ]
- },
- {
-  "description": "TRANSFERENCIA RECIBIDA DE COMUNITAT DE PROPIETARIS MANDATO: ABC99",
-  "counterparty": "",
-  "expected": [
-   "COMUNITAT DE PROPIETARIS",
-   "Comunitat de Propietaris"
-  ]
- },
- {
-  "description": "TRASPASO A FARMACIA NÚRIA",
-  "counterparty": "",
-  "expected": [
-   "TRASPAS ENTRE COMPTES",
-   "Traspas Entre Comptes"
-  ]
- },
- {
-  "description": "BAR CAN PEPE 5402XXXXXXXX1234 ESP",
-  "counterparty": "",
-  "expected": [
-   "BAR CAN PEPE",
-   "Bar Can Pepe"
-  ]
- },
- {
-  "description": "REINTEGRO EN CAJERO MERCADONA ES9121000418450200051332",
-  "counterparty": "",
-  "expected": [
-   "REINTEGRO EFECTIU",
-   "Reintegro Efectiu"
-  ]
- },
- {
-  "description": "BIZUM DE ENDESA ENERGIA SA TERMINAL REF: 123456",
-  "counterparty": "",
-  "expected": [
-   "ENDESA ENERGIA SA",
-   "Endesa Energia SA"
-  ]
- },
- {
-  "description": "BIZUM DE JOAN GARCIA",
-  "counterparty": "",
-  "expected": [
-   "JOAN GARCIA",
-   "Joan Garcia"
-  ]
- },
- {
-  "description": "NOMINA MES JOAN GARCIA, BARCELONA 12345678A",
-  "counterparty": "",
-  "expected": [
-   "JOAN GARCIA",
-   "Joan Garcia"
-  ]
- },
- {
-  "description": "RECIBO DE MERCADONA MANDATO: ABC99",
-  "counterparty": "",
-  "expected": [
-   "MERCADONA",
-   "Mercadona"
-  ]
- },
- {
-  "description": "COMISION DE JOAN GARCIA",
-  "counterparty": "",
-  "expected": [
-   "COMISSIO BANCARIA",
-   "Comissio Bancaria"
-  ]
- },
- {
-  "description": "TRANSFERENCIA RECIBIDA DE NETFLIX.COM",
-  "counterparty": "",
-  "expected": [
-   "NETFLIX.COM",
-   "Netflix.com"
-  ]
- },
- {
-  "description": "TRASPASO A MERCADONA",
-  "counterparty": "",
-  "expected": [
-   "TRASPAS ENTRE COMPTES",
-   "Traspas Entre Comptes"
-  ]
- },
- {
-  "description": "REINTEGRO EN CAJERO JOAN GARCIA 5402XXXXXXXX1234 ES9121000418450200051332",
-  "counterparty": "",
-  "expected": [
-   "REINTEGRO EFECTIU",
-   "Reintegro Efectiu"
-  ]
- },
- {
-  "description": "TRASPASO A 4B 12345678A",
-  "counterparty": "",
-  "expected": [
-   "TRASPAS ENTRE COMPTES",
-   "Traspas Entre Comptes"
-  ]
- },
- {
-  "description": "ADEUDO POR DOMICILIACION DE 4B 5402XXXXXXXX1234 21:45",
-  "counterparty": "",
-  "expected": [
-   "4B",
-   "4B"
-  ]
- },
- {
-  "description": "RECIBO DE 4B REF: 123456, BARCELONA",
-  "counterparty": "",
-  "expected": [
-   "4B",
-   "4B"
-  ]
- },
- {
-  "description": "COMPRA EN 4B",
-  "counterparty": "",
-  "expected": [
-   "4B",
-   "4B"
-  ]
- },
- {
-  "description": "NETFLIX.COM ---",
-  "counterparty": "",
-  "expected": [
-   "NETFLIX.COM",
-   "Netflix.com"
-  ]
- },
- {
-  "description": "RECIBO DE 4B",
-  "counterparty": "",
-  "expected": [
-   "4B",
-   "4B"
-  ]
- },
- {
-  "description": "NOMINA MES BAR CAN PEPE MANDATO: ABC99",
-  "counterparty": "",
-  "expected": [
-   "BAR CAN PEPE",
-   "Bar Can Pepe"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN COMUNITAT DE PROPIETARIS 21:45 MANDATO: ABC99",
-  "counterparty": "",
-  "expected": [
-   "COMUNITAT DE PROPIETARIS",
-   "Comunitat de Propietaris"
-  ]
- },
- {
-  "description": "ADEUDO POR DOMICILIACION DE BAR CAN PEPE",
-  "counterparty": "",
-  "expected": [
-   "BAR CAN PEPE",
-   "Bar Can Pepe"
-  ]
- },
- {
-  "description": "COMPRA TARJ. 4B ES9121000418450200051332 12345678A",
-  "counterparty": "",
-  "expected": [
-   "4B",
-   "4B"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN FARMACIA NÚRIA",
-  "counterparty": "",
-  "expected": [
-   "FARMACIA NURIA",
-   "Farmacia Nuria"
-  ]
- },
- {
-  "description": "NOMINA MES ENDESA ENERGIA SA",
-  "counterparty": "",
-  "expected": [
-   "ENDESA ENERGIA SA",
-   "Endesa Energia SA"
-  ]
- },
- {
-  "description": "COMPRA EN 4B REF: 123456 MANDATO: ABC99",
-  "counterparty": "",
-  "expected": [
-   "4B",
-   "4B"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN MERCADONA",
-  "counterparty": "",
-  "expected": [
-   "MERCADONA",
-   "Mercadona"
-  ]
- },
- {
-  "description": "NOMINA MES NETFLIX.COM, BARCELONA TERMINAL",
-  "counterparty": "",
-  "expected": [
-   "NETFLIX.COM",
-   "Netflix.com"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN AMAZON EU SARL",
-  "counterparty": "",
-  "expected": [
-   "AMAZON EU SARL",
-   "Amazon EU SARL"
-  ]
- },
- {
-  "description": "CAL MARÇAL",
-  "counterparty": "",
-  "expected": [
-   "CAL MARCAL",
-   "Cal Marcal"
-  ]
- },
- {
-  "description": "COMPRA EN NETFLIX.COM ESP",
-  "counterparty": "",
-  "expected": [
-   "NETFLIX.COM",
-   "Netflix.com"
-  ]
- },
- {
-  "description": "REINTEGRO EN CAJERO COMUNITAT DE PROPIETARIS ES9121000418450200051332",
-  "counterparty": "",
-  "expected": [
-   "REINTEGRO EFECTIU",
-   "Reintegro Efectiu"
-  ]
- },
- {
-  "description": "COMPRA TARJ. MERCADONA 12345678A 12345678A",
-  "counterparty": "",
-  "expected": [
-   "MERCADONA",
-   "Mercadona"
-  ]
- },
- {
-  "description": "NOMINA MES 4B ESP, BARCELONA",
-  "counterparty": "",
-  "expected": [
-   "4B",
-   "4B"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN AIGÜES DE BARCELONA",
-  "counterparty": "",
-  "expected": [
-   "AIGUES DE BARCELONA",
-   "Aigues de Barcelona"
-  ]
- },
- {
-  "description": "TRASPASO A AIGÜES DE BARCELONA 5402XXXXXXXX1234",
-  "counterparty": "",
-  "expected": [
-   "TRASPAS ENTRE COMPTES",
-   "Traspas Entre Comptes"
-  ]
- },
- {
-  "description": "COMPRA EN JOAN GARCIA MANDATO: ABC99 ESP",
-  "counterparty": "",
-  "expected": [
-   "JOAN GARCIA",
-   "Joan Garcia"
-  ]
- },
- {
-  "description": "COMISION DE JOAN GARCIA 12/03/2026 ---",
-  "counterparty": "",
-  "expected": [
-   "COMISSIO BANCARIA",
-   "Comissio Bancaria"
-  ]
- },
- {
-  "description": "ADEUDO POR DOMICILIACION DE FARMACIA NÚRIA",
-  "counterparty": "",
-  "expected": [
-   "FARMACIA NURIA",
-   "Farmacia Nuria"
-  ]
- },
- {
-  "description": "RECIBO DE AMAZON EU SARL",
-  "counterparty": "",
-  "expected": [
-   "AMAZON EU SARL",
-   "Amazon EU SARL"
-  ]
- },
- {
-  "description": "COMPRA EN NETFLIX.COM, BARCELONA",
-  "counterparty": "",
-  "expected": [
-   "NETFLIX.COM",
-   "Netflix.com"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN FARMACIA NÚRIA REF: 123456 12345678A",
-  "counterparty": "",
-  "expected": [
-   "FARMACIA NURIA",
-   "Farmacia Nuria"
-  ]
- },
- {
-  "description": "COMPRA EN FARMACIA NÚRIA 5402XXXXXXXX1234",
-  "counterparty": "",
-  "expected": [
-   "FARMACIA NURIA",
-   "Farmacia Nuria"
-  ]
- },
- {
-  "description": "COMPRA EN NETFLIX.COM",
-  "counterparty": "",
-  "expected": [
-   "NETFLIX.COM",
-   "Netflix.com"
-  ]
- },
- {
-  "description": "ADEUDO POR DOMICILIACION DE NETFLIX.COM 21:45",
-  "counterparty": "",
-  "expected": [
-   "NETFLIX.COM",
-   "Netflix.com"
-  ]
- },
- {
-  "description": "ADEUDO POR DOMICILIACION DE NETFLIX.COM ESP 12345678A",
-  "counterparty": "",
-  "expected": [
-   "NETFLIX.COM",
-   "Netflix.com"
-  ]
- },
- {
-  "description": "COMPRA EN JOAN GARCIA REF: 123456",
-  "counterparty": "",
-  "expected": [
-   "JOAN GARCIA",
-   "Joan Garcia"
-  ]
- },
- {
-  "description": "COMPRA TARJ. AMAZON EU SARL 21:45 ES9121000418450200051332",
-  "counterparty": "",
-  "expected": [
-   "AMAZON EU SARL",
-   "Amazon EU SARL"
-  ]
- },
- {
-  "description": "RECIBO DE FARMACIA NÚRIA ESP",
-  "counterparty": "",
-  "expected": [
-   "FARMACIA NURIA",
-   "Farmacia Nuria"
-  ]
- },
- {
-  "description": "COMPRA TARJ. CAL MARÇAL",
-  "counterparty": "",
-  "expected": [
-   "CAL MARCAL",
-   "Cal Marcal"
-  ]
- },
- {
-  "description": "NOMINA MES FARMACIA NÚRIA",
-  "counterparty": "",
-  "expected": [
-   "FARMACIA NURIA",
-   "Farmacia Nuria"
-  ]
- },
- {
-  "description": "TRANSFERENCIA RECIBIDA DE CAL MARÇAL",
-  "counterparty": "",
-  "expected": [
-   "CAL MARCAL",
-   "Cal Marcal"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN 4B ES9121000418450200051332",
-  "counterparty": "",
-  "expected": [
-   "4B",
-   "4B"
-  ]
- },
- {
-  "description": "BIZUM DE AMAZON EU SARL 12345678A",
-  "counterparty": "",
-  "expected": [
-   "AMAZON EU SARL",
-   "Amazon EU SARL"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN FARMACIA NÚRIA",
-  "counterparty": "",
-  "expected": [
-   "FARMACIA NURIA",
-   "Farmacia Nuria"
-  ]
- },
- {
-  "description": "NOMINA MES COMUNITAT DE PROPIETARIS",
-  "counterparty": "",
-  "expected": [
-   "COMUNITAT DE PROPIETARIS",
-   "Comunitat de Propietaris"
-  ]
- },
- {
-  "description": "COMPRA EN JOAN GARCIA 12345678A ---",
-  "counterparty": "",
-  "expected": [
-   "JOAN GARCIA",
-   "Joan Garcia"
-  ]
- },
- {
-  "description": "REINTEGRO EN CAJERO AMAZON EU SARL REF: 123456 12345678A",
-  "counterparty": "",
-  "expected": [
-   "REINTEGRO EFECTIU",
-   "Reintegro Efectiu"
-  ]
- },
- {
-  "description": "COMPRA TARJ. MERCADONA",
-  "counterparty": "",
-  "expected": [
-   "MERCADONA",
-   "Mercadona"
-  ]
- },
- {
-  "description": "TRASPASO A BAR CAN PEPE",
-  "counterparty": "",
-  "expected": [
-   "TRASPAS ENTRE COMPTES",
-   "Traspas Entre Comptes"
-  ]
- },
- {
-  "description": "COMISION DE JOAN GARCIA ES9121000418450200051332, BARCELONA",
-  "counterparty": "",
-  "expected": [
-   "COMISSIO BANCARIA",
-   "Comissio Bancaria"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN COMUNITAT DE PROPIETARIS MANDATO: ABC99",
-  "counterparty": "",
-  "expected": [
-   "COMUNITAT DE PROPIETARIS",
-   "Comunitat de Propietaris"
-  ]
- },
- {
-  "description": "TRASPASO A CAL MARÇAL TERMINAL 12345678A",
-  "counterparty": "",
-  "expected": [
-   "TRASPAS ENTRE COMPTES",
-   "Traspas Entre Comptes"
-  ]
- },
- {
-  "description": "COMPRA EN CAL MARÇAL",
-  "counterparty": "",
-  "expected": [
-   "CAL MARCAL",
-   "Cal Marcal"
-  ]
- },
- {
-  "description": "TRANSFERENCIA RECIBIDA DE COMUNITAT DE PROPIETARIS TERMINAL",
-  "counterparty": "",
-  "expected": [
-   "COMUNITAT DE PROPIETARIS",
-   "Comunitat de Propietaris"
-  ]
- },
- {
-  "description": "COMISION DE JOAN GARCIA ESP",
-  "counterparty": "",
-  "expected": [
-   "COMISSIO BANCARIA",
-   "Comissio Bancaria"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN 4B 12/03/2026 21:45",
-  "counterparty": "",
-  "expected": [
-   "4B",
-   "4B"
-  ]
- },
- {
-  "description": "FARMACIA NÚRIA ---",
-  "counterparty": "",
-  "expected": [
-   "FARMACIA NURIA",
-   "Farmacia Nuria"
-  ]
- },
- {
-  "description": "BAR CAN PEPE",
-  "counterparty": "",
-  "expected": [
-   "BAR CAN PEPE",
-   "Bar Can Pepe"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN NETFLIX.COM --- 21:45",
-  "counterparty": "",
-  "expected": [
-   "NETFLIX.COM",
-   "Netflix.com"
-  ]
- },
- {
-  "description": "TRANSFERENCIA RECIBIDA DE FARMACIA NÚRIA",
-  "counterparty": "",
-  "expected": [
-   "FARMACIA NURIA",
-   "Farmacia Nuria"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN CAL MARÇAL ESP",
-  "counterparty": "",
-  "expected": [
-   "CAL MARCAL",
-   "Cal Marcal"
-  ]
- },
- {
-  "description": "ADEUDO POR DOMICILIACION DE AMAZON EU SARL",
-  "counterparty": "",
-  "expected": [
-   "AMAZON EU SARL",
-   "Amazon EU SARL"
-  ]
- },
- {
-  "description": "BIZUM DE MERCADONA MANDATO: ABC99",
-  "counterparty": "",
-  "expected": [
-   "MERCADONA",
-   "Mercadona"
-  ]
- },
- {
-  "description": "REINTEGRO EN CAJERO ENDESA ENERGIA SA",
-  "counterparty": "",
-  "expected": [
-   "REINTEGRO EFECTIU",
-   "Reintegro Efectiu"
-  ]
- },
- {
-  "description": "COMISION DE 4B REF: 123456",
-  "counterparty": "",
-  "expected": [
-   "COMISSIO BANCARIA",
-   "Comissio Bancaria"
-  ]
- },
- {
-  "description": "COMISION DE MERCADONA",
-  "counterparty": "",
-  "expected": [
-   "COMISSIO BANCARIA",
-   "Comissio Bancaria"
-  ]
- },
- {
-  "description": "COMPRA TARJ. AMAZON EU SARL",
-  "counterparty": "",
-  "expected": [
-   "AMAZON EU SARL",
-   "Amazon EU SARL"
-  ]
- },
- {
-  "description": "TRANSFERENCIA RECIBIDA DE CAL MARÇAL 21:45",
-  "counterparty": "",
-  "expected": [
-   "CAL MARCAL",
-   "Cal Marcal"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN 4B TERMINAL",
-  "counterparty": "",
-  "expected": [
-   "4B",
-   "4B"
-  ]
- },
- {
-  "description": "REINTEGRO EN CAJERO JOAN GARCIA TERMINAL REF: 123456",
-  "counterparty": "",
-  "expected": [
-   "REINTEGRO EFECTIU",
-   "Reintegro Efectiu"
-  ]
- },
- {
-  "description": "4B",
-  "counterparty": "",
-  "expected": [
-   "4B",
-   "4B"
-  ]
- },
- {
-  "description": "NOMINA MES ENDESA ENERGIA SA",
-  "counterparty": "",
-  "expected": [
-   "ENDESA ENERGIA SA",
-   "Endesa Energia SA"
-  ]
- },
- {
-  "description": "NOMINA MES FARMACIA NÚRIA",
-  "counterparty": "",
-  "expected": [
-   "FARMACIA NURIA",
-   "Farmacia Nuria"
-  ]
- },
- {
-  "description": "COMPRA EN JOAN GARCIA 21:45",
-  "counterparty": "",
-  "expected": [
-   "JOAN GARCIA",
-   "Joan Garcia"
-  ]
- },
- {
-  "description": "TRASPASO A ENDESA ENERGIA SA ESP",
-  "counterparty": "",
-  "expected": [
-   "TRASPAS ENTRE COMPTES",
-   "Traspas Entre Comptes"
-  ]
- },
- {
-  "description": "ADEUDO POR DOMICILIACION DE AIGÜES DE BARCELONA REF: 123456 12345678A",
-  "counterparty": "",
-  "expected": [
-   "AIGUES DE BARCELONA",
-   "Aigues de Barcelona"
-  ]
- },
- {
-  "description": "TRANSFERENCIA RECIBIDA DE COMUNITAT DE PROPIETARIS REF: 123456",
-  "counterparty": "",
-  "expected": [
-   "COMUNITAT DE PROPIETARIS",
-   "Comunitat de Propietaris"
-  ]
- },
- {
-  "description": "COMISION DE AMAZON EU SARL",
-  "counterparty": "",
-  "expected": [
-   "COMISSIO BANCARIA",
-   "Comissio Bancaria"
-  ]
- },
- {
-  "description": "NETFLIX.COM REF: 123456",
-  "counterparty": "",
-  "expected": [
-   "NETFLIX.COM",
-   "Netflix.com"
-  ]
- },
- {
-  "description": "AIGÜES DE BARCELONA",
-  "counterparty": "",
-  "expected": [
-   "AIGUES DE BARCELONA",
-   "Aigues de Barcelona"
-  ]
- },
- {
-  "description": "ADEUDO POR DOMICILIACION DE JOAN GARCIA REF: 123456, BARCELONA",
-  "counterparty": "",
-  "expected": [
-   "JOAN GARCIA",
-   "Joan Garcia"
-  ]
- },
- {
-  "description": "TRASPASO A 4B",
-  "counterparty": "",
-  "expected": [
-   "TRASPAS ENTRE COMPTES",
-   "Traspas Entre Comptes"
-  ]
- },
- {
-  "description": "JOAN GARCIA ---",
-  "counterparty": "",
-  "expected": [
-   "JOAN GARCIA",
-   "Joan Garcia"
-  ]
- },
- {
-  "description": "BIZUM DE FARMACIA NÚRIA",
-  "counterparty": "",
-  "expected": [
-   "FARMACIA NURIA",
-   "Farmacia Nuria"
-  ]
- },
- {
-  "description": "TRANSFERENCIA RECIBIDA DE COMUNITAT DE PROPIETARIS REF: 123456 ESP",
-  "counterparty": "",
-  "expected": [
-   "COMUNITAT DE PROPIETARIS",
-   "Comunitat de Propietaris"
-  ]
- },
- {
-  "description": "ADEUDO POR DOMICILIACION DE AIGÜES DE BARCELONA 12345678A TERMINAL",
-  "counterparty": "",
-  "expected": [
-   "AIGUES DE BARCELONA",
-   "Aigues de Barcelona"
-  ]
- },
- {
-  "description": "REINTEGRO EN CAJERO AMAZON EU SARL ES9121000418450200051332 12/03/2026",
-  "counterparty": "",
-  "expected": [
-   "REINTEGRO EFECTIU",
-   "Reintegro Efectiu"
-  ]
- },
- {
-  "description": "REINTEGRO EN CAJERO MERCADONA 12/03/2026",
-  "counterparty": "",
-  "expected": [
-   "REINTEGRO EFECTIU",
-   "Reintegro Efectiu"
-  ]
- },
- {
-  "description": "REINTEGRO EN CAJERO CAL MARÇAL",
-  "counterparty": "",
-  "expected": [
-   "REINTEGRO EFECTIU",
-   "Reintegro Efectiu"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN ENDESA ENERGIA SA ---",
-  "counterparty": "",
-  "expected": [
-   "ENDESA ENERGIA SA",
-   "Endesa Energia SA"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN BAR CAN PEPE MANDATO: ABC99 12345678A",
-  "counterparty": "",
-  "expected": [
-   "BAR CAN PEPE",
-   "Bar Can Pepe"
-  ]
- },
- {
-  "description": "RECIBO DE 4B 12/03/2026",
-  "counterparty": "",
-  "expected": [
-   "4B",
-   "4B"
-  ]
- },
- {
-  "description": "TRANSFERENCIA RECIBIDA DE AIGÜES DE BARCELONA",
-  "counterparty": "",
-  "expected": [
-   "AIGUES DE BARCELONA",
-   "Aigues de Barcelona"
-  ]
- },
- {
-  "description": "RECIBO DE NETFLIX.COM",
-  "counterparty": "",
-  "expected": [
-   "NETFLIX.COM",
-   "Netflix.com"
-  ]
- },
- {
-  "description": "COMPRA TARJ. CAL MARÇAL ES9121000418450200051332 21:45",
-  "counterparty": "",
-  "expected": [
-   "CAL MARCAL",
-   "Cal Marcal"
-  ]
- },
- {
-  "description": "ENDESA ENERGIA SA ESP, BARCELONA",
-  "counterparty": "",
-  "expected": [
-   "ENDESA ENERGIA SA ESP BARCELONA",
-   "Endesa Energia SA ESP Barcelona"
-  ]
- },
- {
-  "description": "TRANSFERENCIA RECIBIDA DE MERCADONA 5402XXXXXXXX1234 MANDATO: ABC99",
-  "counterparty": "",
-  "expected": [
-   "MERCADONA",
-   "Mercadona"
-  ]
- },
- {
-  "description": "TRASPASO A AMAZON EU SARL 12345678A",
-  "counterparty": "",
-  "expected": [
-   "TRASPAS ENTRE COMPTES",
-   "Traspas Entre Comptes"
-  ]
- },
- {
-  "description": "TRASPASO A FARMACIA NÚRIA",
-  "counterparty": "",
-  "expected": [
-   "TRASPAS ENTRE COMPTES",
-   "Traspas Entre Comptes"
-  ]
- },
- {
-  "description": "TRASPASO A COMUNITAT DE PROPIETARIS",
-  "counterparty": "",
-  "expected": [
-   "TRASPAS ENTRE COMPTES",
-   "Traspas Entre Comptes"
-  ]
- },
- {
-  "description": "TRANSFERENCIA RECIBIDA DE AMAZON EU SARL, BARCELONA",
-  "counterparty": "",
-  "expected": [
-   "AMAZON EU SARL",
-   "Amazon EU SARL"
-  ]
- },
- {
-  "description": "REINTEGRO EN CAJERO JOAN GARCIA 12345678A",
-  "counterparty": "",
-  "expected": [
-   "REINTEGRO EFECTIU",
-   "Reintegro Efectiu"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN BAR CAN PEPE",
-  "counterparty": "",
-  "expected": [
-   "BAR CAN PEPE",
-   "Bar Can Pepe"
-  ]
- },
- {
-  "description": "PAGO MOVIL EN JOAN GARCIA",
-  "counterparty": "",
-  "expected": [
-   "JOAN GARCIA",
-   "Joan Garcia"
-  ]
- },
- {
-  "description": "AIGÜES DE BARCELONA",
-  "counterparty": "",
-  "expected": [
-   "AIGUES DE BARCELONA",
-   "Aigues de Barcelona"
-  ]
- },
- {
-  "description": "ADEUDO POR DOMICILIACION DE ENDESA ENERGIA SA 21:45",
-  "counterparty": "",
-  "expected": [
-   "ENDESA ENERGIA SA",
-   "Endesa Energia SA"
-  ]
- },
- {
-  "description": "JOAN GARCIA",
-  "counterparty": "",
-  "expected": [
-   "JOAN GARCIA",
-   "Joan Garcia"
-  ]
- },
- {
-  "description": "TRASPASO A AIGÜES DE BARCELONA",
-  "counterparty": "",
-  "expected": [
-   "TRASPAS ENTRE COMPTES",
-   "Traspas Entre Comptes"
-  ]
- }
+  {
+    "description": "COMPRA TARJ. 5402XXXXXXXX1234 MERCADONA BARCELONA, BARCELONA",
+    "counterparty": "",
+    "expected": ["MERCADONA BARCELONA", "Mercadona Barcelona"]
+  },
+  {
+    "description": "COMPRA CON TARJETA DE CREDITO EN CARREFOUR SABADELL ES",
+    "counterparty": "",
+    "expected": ["CARREFOUR SABADELL", "Carrefour Sabadell"]
+  },
+  {
+    "description": "ADEUDO POR DOMICILIACION DE ENDESA ENERGIA SA REF: 123456789012",
+    "counterparty": "",
+    "expected": ["ENDESA ENERGIA SA", "Endesa Energia SA"]
+  },
+  {
+    "description": "TRANSFERENCIA RECIBIDA DE JOAN GARCIA MANDATO: XYZ99",
+    "counterparty": "",
+    "expected": ["JOAN GARCIA", "Joan Garcia"]
+  },
+  {
+    "description": "BIZUM DE MARIA LOPEZ CONCEPTO: sopar",
+    "counterparty": "",
+    "expected": ["MARIA LOPEZ", "Maria Lopez"]
+  },
+  {
+    "description": "NOMINA MES OCTUBRE EMPRESA EXEMPLE SL",
+    "counterparty": "",
+    "expected": ["EMPRESA EXEMPLE SL", "Empresa Exemple SL"]
+  },
+  {
+    "description": "REINTEGRO EN CAJERO 4B OFICINA 1234",
+    "counterparty": "",
+    "expected": ["REINTEGRO EFECTIU", "Reintegro Efectiu"]
+  },
+  {
+    "description": "COMISION DE MANTENIMIENTO 12/03/2026",
+    "counterparty": "",
+    "expected": ["COMISSIO BANCARIA", "Comissio Bancaria"]
+  },
+  {
+    "description": "TRASPASO A CUENTA ES9121000418450200051332",
+    "counterparty": "",
+    "expected": ["TRASPAS ENTRE COMPTES", "Traspas Entre Comptes"]
+  },
+  {
+    "description": "PAGO MOVIL EN BAR CAN PEPE 21:45",
+    "counterparty": "",
+    "expected": ["BAR CAN PEPE", "Bar Can Pepe"]
+  },
+  {
+    "description": "COMPRA EN AMAZON EU SARL 15-03",
+    "counterparty": "",
+    "expected": ["AMAZON EU SARL", "Amazon EU SARL"]
+  },
+  {
+    "description": "ADEUDO VODAFONE ESPANA SAU",
+    "counterparty": "",
+    "expected": ["VODAFONE ESPANA SAU", "Vodafone Espana SAU"]
+  },
+  {
+    "description": "PAGO EN COMUNITAT DE PROPIETARIS C/ MAJOR 4",
+    "counterparty": "",
+    "expected": ["COMUNITAT DE PROPIETARIS C MAJOR", "Comunitat de Propietaris C Major"]
+  },
+  {
+    "description": "Ajuntament de Calella · IBI 2026",
+    "counterparty": "",
+    "expected": ["AJUNTAMENT DE CALELLA IBI", "Ajuntament de Calella IBI"]
+  },
+  {
+    "description": "COMPRA TARJETA NETFLIX.COM 4B",
+    "counterparty": "",
+    "expected": ["NETFLIX.COM 4B", "Netflix.com 4B"]
+  },
+  {
+    "description": "",
+    "counterparty": "",
+    "expected": ["", ""]
+  },
+  {
+    "description": "   ",
+    "counterparty": "",
+    "expected": ["", ""]
+  },
+  {
+    "description": "MERCADONA",
+    "counterparty": "",
+    "expected": ["MERCADONA", "Mercadona"]
+  },
+  {
+    "description": "COMPRA TARJ. QUALSEVOL COSA",
+    "counterparty": "Bar Pepe S.L.",
+    "expected": ["BAR PEPE S.L", "Bar Pepe S.L"]
+  },
+  {
+    "description": "REINTEGRO EN CAJERO",
+    "counterparty": "Aigues de Barcelona",
+    "expected": ["AIGUES DE BARCELONA", "Aigues de Barcelona"]
+  },
+  {
+    "description": "COMISION DE AMAZON EU SARL",
+    "counterparty": "",
+    "expected": ["COMISSIO BANCARIA", "Comissio Bancaria"]
+  },
+  {
+    "description": "BAR CAN PEPE 21:45",
+    "counterparty": "",
+    "expected": ["BAR CAN PEPE", "Bar Can Pepe"]
+  },
+  {
+    "description": "TRANSFERENCIA RECIBIDA DE COMUNITAT DE PROPIETARIS MANDATO: ABC99",
+    "counterparty": "",
+    "expected": ["COMUNITAT DE PROPIETARIS", "Comunitat de Propietaris"]
+  },
+  {
+    "description": "TRASPASO A FARMACIA NÚRIA",
+    "counterparty": "",
+    "expected": ["TRASPAS ENTRE COMPTES", "Traspas Entre Comptes"]
+  },
+  {
+    "description": "BAR CAN PEPE 5402XXXXXXXX1234 ESP",
+    "counterparty": "",
+    "expected": ["BAR CAN PEPE", "Bar Can Pepe"]
+  },
+  {
+    "description": "REINTEGRO EN CAJERO MERCADONA ES9121000418450200051332",
+    "counterparty": "",
+    "expected": ["REINTEGRO EFECTIU", "Reintegro Efectiu"]
+  },
+  {
+    "description": "BIZUM DE ENDESA ENERGIA SA TERMINAL REF: 123456",
+    "counterparty": "",
+    "expected": ["ENDESA ENERGIA SA", "Endesa Energia SA"]
+  },
+  {
+    "description": "BIZUM DE JOAN GARCIA",
+    "counterparty": "",
+    "expected": ["JOAN GARCIA", "Joan Garcia"]
+  },
+  {
+    "description": "NOMINA MES JOAN GARCIA, BARCELONA 12345678A",
+    "counterparty": "",
+    "expected": ["JOAN GARCIA", "Joan Garcia"]
+  },
+  {
+    "description": "RECIBO DE MERCADONA MANDATO: ABC99",
+    "counterparty": "",
+    "expected": ["MERCADONA", "Mercadona"]
+  },
+  {
+    "description": "COMISION DE JOAN GARCIA",
+    "counterparty": "",
+    "expected": ["COMISSIO BANCARIA", "Comissio Bancaria"]
+  },
+  {
+    "description": "TRANSFERENCIA RECIBIDA DE NETFLIX.COM",
+    "counterparty": "",
+    "expected": ["NETFLIX.COM", "Netflix.com"]
+  },
+  {
+    "description": "TRASPASO A MERCADONA",
+    "counterparty": "",
+    "expected": ["TRASPAS ENTRE COMPTES", "Traspas Entre Comptes"]
+  },
+  {
+    "description": "REINTEGRO EN CAJERO JOAN GARCIA 5402XXXXXXXX1234 ES9121000418450200051332",
+    "counterparty": "",
+    "expected": ["REINTEGRO EFECTIU", "Reintegro Efectiu"]
+  },
+  {
+    "description": "TRASPASO A 4B 12345678A",
+    "counterparty": "",
+    "expected": ["TRASPAS ENTRE COMPTES", "Traspas Entre Comptes"]
+  },
+  {
+    "description": "ADEUDO POR DOMICILIACION DE 4B 5402XXXXXXXX1234 21:45",
+    "counterparty": "",
+    "expected": ["4B", "4B"]
+  },
+  {
+    "description": "RECIBO DE 4B REF: 123456, BARCELONA",
+    "counterparty": "",
+    "expected": ["4B", "4B"]
+  },
+  {
+    "description": "COMPRA EN 4B",
+    "counterparty": "",
+    "expected": ["4B", "4B"]
+  },
+  {
+    "description": "NETFLIX.COM ---",
+    "counterparty": "",
+    "expected": ["NETFLIX.COM", "Netflix.com"]
+  },
+  {
+    "description": "RECIBO DE 4B",
+    "counterparty": "",
+    "expected": ["4B", "4B"]
+  },
+  {
+    "description": "NOMINA MES BAR CAN PEPE MANDATO: ABC99",
+    "counterparty": "",
+    "expected": ["BAR CAN PEPE", "Bar Can Pepe"]
+  },
+  {
+    "description": "PAGO MOVIL EN COMUNITAT DE PROPIETARIS 21:45 MANDATO: ABC99",
+    "counterparty": "",
+    "expected": ["COMUNITAT DE PROPIETARIS", "Comunitat de Propietaris"]
+  },
+  {
+    "description": "ADEUDO POR DOMICILIACION DE BAR CAN PEPE",
+    "counterparty": "",
+    "expected": ["BAR CAN PEPE", "Bar Can Pepe"]
+  },
+  {
+    "description": "COMPRA TARJ. 4B ES9121000418450200051332 12345678A",
+    "counterparty": "",
+    "expected": ["4B", "4B"]
+  },
+  {
+    "description": "PAGO MOVIL EN FARMACIA NÚRIA",
+    "counterparty": "",
+    "expected": ["FARMACIA NURIA", "Farmacia Nuria"]
+  },
+  {
+    "description": "NOMINA MES ENDESA ENERGIA SA",
+    "counterparty": "",
+    "expected": ["ENDESA ENERGIA SA", "Endesa Energia SA"]
+  },
+  {
+    "description": "COMPRA EN 4B REF: 123456 MANDATO: ABC99",
+    "counterparty": "",
+    "expected": ["4B", "4B"]
+  },
+  {
+    "description": "PAGO MOVIL EN MERCADONA",
+    "counterparty": "",
+    "expected": ["MERCADONA", "Mercadona"]
+  },
+  {
+    "description": "NOMINA MES NETFLIX.COM, BARCELONA TERMINAL",
+    "counterparty": "",
+    "expected": ["NETFLIX.COM", "Netflix.com"]
+  },
+  {
+    "description": "PAGO MOVIL EN AMAZON EU SARL",
+    "counterparty": "",
+    "expected": ["AMAZON EU SARL", "Amazon EU SARL"]
+  },
+  {
+    "description": "CAL MARÇAL",
+    "counterparty": "",
+    "expected": ["CAL MARCAL", "Cal Marcal"]
+  },
+  {
+    "description": "COMPRA EN NETFLIX.COM ESP",
+    "counterparty": "",
+    "expected": ["NETFLIX.COM", "Netflix.com"]
+  },
+  {
+    "description": "REINTEGRO EN CAJERO COMUNITAT DE PROPIETARIS ES9121000418450200051332",
+    "counterparty": "",
+    "expected": ["REINTEGRO EFECTIU", "Reintegro Efectiu"]
+  },
+  {
+    "description": "COMPRA TARJ. MERCADONA 12345678A 12345678A",
+    "counterparty": "",
+    "expected": ["MERCADONA", "Mercadona"]
+  },
+  {
+    "description": "NOMINA MES 4B ESP, BARCELONA",
+    "counterparty": "",
+    "expected": ["4B", "4B"]
+  },
+  {
+    "description": "PAGO MOVIL EN AIGÜES DE BARCELONA",
+    "counterparty": "",
+    "expected": ["AIGUES DE BARCELONA", "Aigues de Barcelona"]
+  },
+  {
+    "description": "TRASPASO A AIGÜES DE BARCELONA 5402XXXXXXXX1234",
+    "counterparty": "",
+    "expected": ["TRASPAS ENTRE COMPTES", "Traspas Entre Comptes"]
+  },
+  {
+    "description": "COMPRA EN JOAN GARCIA MANDATO: ABC99 ESP",
+    "counterparty": "",
+    "expected": ["JOAN GARCIA", "Joan Garcia"]
+  },
+  {
+    "description": "COMISION DE JOAN GARCIA 12/03/2026 ---",
+    "counterparty": "",
+    "expected": ["COMISSIO BANCARIA", "Comissio Bancaria"]
+  },
+  {
+    "description": "ADEUDO POR DOMICILIACION DE FARMACIA NÚRIA",
+    "counterparty": "",
+    "expected": ["FARMACIA NURIA", "Farmacia Nuria"]
+  },
+  {
+    "description": "RECIBO DE AMAZON EU SARL",
+    "counterparty": "",
+    "expected": ["AMAZON EU SARL", "Amazon EU SARL"]
+  },
+  {
+    "description": "COMPRA EN NETFLIX.COM, BARCELONA",
+    "counterparty": "",
+    "expected": ["NETFLIX.COM", "Netflix.com"]
+  },
+  {
+    "description": "PAGO MOVIL EN FARMACIA NÚRIA REF: 123456 12345678A",
+    "counterparty": "",
+    "expected": ["FARMACIA NURIA", "Farmacia Nuria"]
+  },
+  {
+    "description": "COMPRA EN FARMACIA NÚRIA 5402XXXXXXXX1234",
+    "counterparty": "",
+    "expected": ["FARMACIA NURIA", "Farmacia Nuria"]
+  },
+  {
+    "description": "COMPRA EN NETFLIX.COM",
+    "counterparty": "",
+    "expected": ["NETFLIX.COM", "Netflix.com"]
+  },
+  {
+    "description": "ADEUDO POR DOMICILIACION DE NETFLIX.COM 21:45",
+    "counterparty": "",
+    "expected": ["NETFLIX.COM", "Netflix.com"]
+  },
+  {
+    "description": "ADEUDO POR DOMICILIACION DE NETFLIX.COM ESP 12345678A",
+    "counterparty": "",
+    "expected": ["NETFLIX.COM", "Netflix.com"]
+  },
+  {
+    "description": "COMPRA EN JOAN GARCIA REF: 123456",
+    "counterparty": "",
+    "expected": ["JOAN GARCIA", "Joan Garcia"]
+  },
+  {
+    "description": "COMPRA TARJ. AMAZON EU SARL 21:45 ES9121000418450200051332",
+    "counterparty": "",
+    "expected": ["AMAZON EU SARL", "Amazon EU SARL"]
+  },
+  {
+    "description": "RECIBO DE FARMACIA NÚRIA ESP",
+    "counterparty": "",
+    "expected": ["FARMACIA NURIA", "Farmacia Nuria"]
+  },
+  {
+    "description": "COMPRA TARJ. CAL MARÇAL",
+    "counterparty": "",
+    "expected": ["CAL MARCAL", "Cal Marcal"]
+  },
+  {
+    "description": "NOMINA MES FARMACIA NÚRIA",
+    "counterparty": "",
+    "expected": ["FARMACIA NURIA", "Farmacia Nuria"]
+  },
+  {
+    "description": "TRANSFERENCIA RECIBIDA DE CAL MARÇAL",
+    "counterparty": "",
+    "expected": ["CAL MARCAL", "Cal Marcal"]
+  },
+  {
+    "description": "PAGO MOVIL EN 4B ES9121000418450200051332",
+    "counterparty": "",
+    "expected": ["4B", "4B"]
+  },
+  {
+    "description": "BIZUM DE AMAZON EU SARL 12345678A",
+    "counterparty": "",
+    "expected": ["AMAZON EU SARL", "Amazon EU SARL"]
+  },
+  {
+    "description": "PAGO MOVIL EN FARMACIA NÚRIA",
+    "counterparty": "",
+    "expected": ["FARMACIA NURIA", "Farmacia Nuria"]
+  },
+  {
+    "description": "NOMINA MES COMUNITAT DE PROPIETARIS",
+    "counterparty": "",
+    "expected": ["COMUNITAT DE PROPIETARIS", "Comunitat de Propietaris"]
+  },
+  {
+    "description": "COMPRA EN JOAN GARCIA 12345678A ---",
+    "counterparty": "",
+    "expected": ["JOAN GARCIA", "Joan Garcia"]
+  },
+  {
+    "description": "REINTEGRO EN CAJERO AMAZON EU SARL REF: 123456 12345678A",
+    "counterparty": "",
+    "expected": ["REINTEGRO EFECTIU", "Reintegro Efectiu"]
+  },
+  {
+    "description": "COMPRA TARJ. MERCADONA",
+    "counterparty": "",
+    "expected": ["MERCADONA", "Mercadona"]
+  },
+  {
+    "description": "TRASPASO A BAR CAN PEPE",
+    "counterparty": "",
+    "expected": ["TRASPAS ENTRE COMPTES", "Traspas Entre Comptes"]
+  },
+  {
+    "description": "COMISION DE JOAN GARCIA ES9121000418450200051332, BARCELONA",
+    "counterparty": "",
+    "expected": ["COMISSIO BANCARIA", "Comissio Bancaria"]
+  },
+  {
+    "description": "PAGO MOVIL EN COMUNITAT DE PROPIETARIS MANDATO: ABC99",
+    "counterparty": "",
+    "expected": ["COMUNITAT DE PROPIETARIS", "Comunitat de Propietaris"]
+  },
+  {
+    "description": "TRASPASO A CAL MARÇAL TERMINAL 12345678A",
+    "counterparty": "",
+    "expected": ["TRASPAS ENTRE COMPTES", "Traspas Entre Comptes"]
+  },
+  {
+    "description": "COMPRA EN CAL MARÇAL",
+    "counterparty": "",
+    "expected": ["CAL MARCAL", "Cal Marcal"]
+  },
+  {
+    "description": "TRANSFERENCIA RECIBIDA DE COMUNITAT DE PROPIETARIS TERMINAL",
+    "counterparty": "",
+    "expected": ["COMUNITAT DE PROPIETARIS", "Comunitat de Propietaris"]
+  },
+  {
+    "description": "COMISION DE JOAN GARCIA ESP",
+    "counterparty": "",
+    "expected": ["COMISSIO BANCARIA", "Comissio Bancaria"]
+  },
+  {
+    "description": "PAGO MOVIL EN 4B 12/03/2026 21:45",
+    "counterparty": "",
+    "expected": ["4B", "4B"]
+  },
+  {
+    "description": "FARMACIA NÚRIA ---",
+    "counterparty": "",
+    "expected": ["FARMACIA NURIA", "Farmacia Nuria"]
+  },
+  {
+    "description": "BAR CAN PEPE",
+    "counterparty": "",
+    "expected": ["BAR CAN PEPE", "Bar Can Pepe"]
+  },
+  {
+    "description": "PAGO MOVIL EN NETFLIX.COM --- 21:45",
+    "counterparty": "",
+    "expected": ["NETFLIX.COM", "Netflix.com"]
+  },
+  {
+    "description": "TRANSFERENCIA RECIBIDA DE FARMACIA NÚRIA",
+    "counterparty": "",
+    "expected": ["FARMACIA NURIA", "Farmacia Nuria"]
+  },
+  {
+    "description": "PAGO MOVIL EN CAL MARÇAL ESP",
+    "counterparty": "",
+    "expected": ["CAL MARCAL", "Cal Marcal"]
+  },
+  {
+    "description": "ADEUDO POR DOMICILIACION DE AMAZON EU SARL",
+    "counterparty": "",
+    "expected": ["AMAZON EU SARL", "Amazon EU SARL"]
+  },
+  {
+    "description": "BIZUM DE MERCADONA MANDATO: ABC99",
+    "counterparty": "",
+    "expected": ["MERCADONA", "Mercadona"]
+  },
+  {
+    "description": "REINTEGRO EN CAJERO ENDESA ENERGIA SA",
+    "counterparty": "",
+    "expected": ["REINTEGRO EFECTIU", "Reintegro Efectiu"]
+  },
+  {
+    "description": "COMISION DE 4B REF: 123456",
+    "counterparty": "",
+    "expected": ["COMISSIO BANCARIA", "Comissio Bancaria"]
+  },
+  {
+    "description": "COMISION DE MERCADONA",
+    "counterparty": "",
+    "expected": ["COMISSIO BANCARIA", "Comissio Bancaria"]
+  },
+  {
+    "description": "COMPRA TARJ. AMAZON EU SARL",
+    "counterparty": "",
+    "expected": ["AMAZON EU SARL", "Amazon EU SARL"]
+  },
+  {
+    "description": "TRANSFERENCIA RECIBIDA DE CAL MARÇAL 21:45",
+    "counterparty": "",
+    "expected": ["CAL MARCAL", "Cal Marcal"]
+  },
+  {
+    "description": "PAGO MOVIL EN 4B TERMINAL",
+    "counterparty": "",
+    "expected": ["4B", "4B"]
+  },
+  {
+    "description": "REINTEGRO EN CAJERO JOAN GARCIA TERMINAL REF: 123456",
+    "counterparty": "",
+    "expected": ["REINTEGRO EFECTIU", "Reintegro Efectiu"]
+  },
+  {
+    "description": "4B",
+    "counterparty": "",
+    "expected": ["4B", "4B"]
+  },
+  {
+    "description": "NOMINA MES ENDESA ENERGIA SA",
+    "counterparty": "",
+    "expected": ["ENDESA ENERGIA SA", "Endesa Energia SA"]
+  },
+  {
+    "description": "NOMINA MES FARMACIA NÚRIA",
+    "counterparty": "",
+    "expected": ["FARMACIA NURIA", "Farmacia Nuria"]
+  },
+  {
+    "description": "COMPRA EN JOAN GARCIA 21:45",
+    "counterparty": "",
+    "expected": ["JOAN GARCIA", "Joan Garcia"]
+  },
+  {
+    "description": "TRASPASO A ENDESA ENERGIA SA ESP",
+    "counterparty": "",
+    "expected": ["TRASPAS ENTRE COMPTES", "Traspas Entre Comptes"]
+  },
+  {
+    "description": "ADEUDO POR DOMICILIACION DE AIGÜES DE BARCELONA REF: 123456 12345678A",
+    "counterparty": "",
+    "expected": ["AIGUES DE BARCELONA", "Aigues de Barcelona"]
+  },
+  {
+    "description": "TRANSFERENCIA RECIBIDA DE COMUNITAT DE PROPIETARIS REF: 123456",
+    "counterparty": "",
+    "expected": ["COMUNITAT DE PROPIETARIS", "Comunitat de Propietaris"]
+  },
+  {
+    "description": "COMISION DE AMAZON EU SARL",
+    "counterparty": "",
+    "expected": ["COMISSIO BANCARIA", "Comissio Bancaria"]
+  },
+  {
+    "description": "NETFLIX.COM REF: 123456",
+    "counterparty": "",
+    "expected": ["NETFLIX.COM", "Netflix.com"]
+  },
+  {
+    "description": "AIGÜES DE BARCELONA",
+    "counterparty": "",
+    "expected": ["AIGUES DE BARCELONA", "Aigues de Barcelona"]
+  },
+  {
+    "description": "ADEUDO POR DOMICILIACION DE JOAN GARCIA REF: 123456, BARCELONA",
+    "counterparty": "",
+    "expected": ["JOAN GARCIA", "Joan Garcia"]
+  },
+  {
+    "description": "TRASPASO A 4B",
+    "counterparty": "",
+    "expected": ["TRASPAS ENTRE COMPTES", "Traspas Entre Comptes"]
+  },
+  {
+    "description": "JOAN GARCIA ---",
+    "counterparty": "",
+    "expected": ["JOAN GARCIA", "Joan Garcia"]
+  },
+  {
+    "description": "BIZUM DE FARMACIA NÚRIA",
+    "counterparty": "",
+    "expected": ["FARMACIA NURIA", "Farmacia Nuria"]
+  },
+  {
+    "description": "TRANSFERENCIA RECIBIDA DE COMUNITAT DE PROPIETARIS REF: 123456 ESP",
+    "counterparty": "",
+    "expected": ["COMUNITAT DE PROPIETARIS", "Comunitat de Propietaris"]
+  },
+  {
+    "description": "ADEUDO POR DOMICILIACION DE AIGÜES DE BARCELONA 12345678A TERMINAL",
+    "counterparty": "",
+    "expected": ["AIGUES DE BARCELONA", "Aigues de Barcelona"]
+  },
+  {
+    "description": "REINTEGRO EN CAJERO AMAZON EU SARL ES9121000418450200051332 12/03/2026",
+    "counterparty": "",
+    "expected": ["REINTEGRO EFECTIU", "Reintegro Efectiu"]
+  },
+  {
+    "description": "REINTEGRO EN CAJERO MERCADONA 12/03/2026",
+    "counterparty": "",
+    "expected": ["REINTEGRO EFECTIU", "Reintegro Efectiu"]
+  },
+  {
+    "description": "REINTEGRO EN CAJERO CAL MARÇAL",
+    "counterparty": "",
+    "expected": ["REINTEGRO EFECTIU", "Reintegro Efectiu"]
+  },
+  {
+    "description": "PAGO MOVIL EN ENDESA ENERGIA SA ---",
+    "counterparty": "",
+    "expected": ["ENDESA ENERGIA SA", "Endesa Energia SA"]
+  },
+  {
+    "description": "PAGO MOVIL EN BAR CAN PEPE MANDATO: ABC99 12345678A",
+    "counterparty": "",
+    "expected": ["BAR CAN PEPE", "Bar Can Pepe"]
+  },
+  {
+    "description": "RECIBO DE 4B 12/03/2026",
+    "counterparty": "",
+    "expected": ["4B", "4B"]
+  },
+  {
+    "description": "TRANSFERENCIA RECIBIDA DE AIGÜES DE BARCELONA",
+    "counterparty": "",
+    "expected": ["AIGUES DE BARCELONA", "Aigues de Barcelona"]
+  },
+  {
+    "description": "RECIBO DE NETFLIX.COM",
+    "counterparty": "",
+    "expected": ["NETFLIX.COM", "Netflix.com"]
+  },
+  {
+    "description": "COMPRA TARJ. CAL MARÇAL ES9121000418450200051332 21:45",
+    "counterparty": "",
+    "expected": ["CAL MARCAL", "Cal Marcal"]
+  },
+  {
+    "description": "ENDESA ENERGIA SA ESP, BARCELONA",
+    "counterparty": "",
+    "expected": ["ENDESA ENERGIA SA ESP BARCELONA", "Endesa Energia SA ESP Barcelona"]
+  },
+  {
+    "description": "TRANSFERENCIA RECIBIDA DE MERCADONA 5402XXXXXXXX1234 MANDATO: ABC99",
+    "counterparty": "",
+    "expected": ["MERCADONA", "Mercadona"]
+  },
+  {
+    "description": "TRASPASO A AMAZON EU SARL 12345678A",
+    "counterparty": "",
+    "expected": ["TRASPAS ENTRE COMPTES", "Traspas Entre Comptes"]
+  },
+  {
+    "description": "TRASPASO A FARMACIA NÚRIA",
+    "counterparty": "",
+    "expected": ["TRASPAS ENTRE COMPTES", "Traspas Entre Comptes"]
+  },
+  {
+    "description": "TRASPASO A COMUNITAT DE PROPIETARIS",
+    "counterparty": "",
+    "expected": ["TRASPAS ENTRE COMPTES", "Traspas Entre Comptes"]
+  },
+  {
+    "description": "TRANSFERENCIA RECIBIDA DE AMAZON EU SARL, BARCELONA",
+    "counterparty": "",
+    "expected": ["AMAZON EU SARL", "Amazon EU SARL"]
+  },
+  {
+    "description": "REINTEGRO EN CAJERO JOAN GARCIA 12345678A",
+    "counterparty": "",
+    "expected": ["REINTEGRO EFECTIU", "Reintegro Efectiu"]
+  },
+  {
+    "description": "PAGO MOVIL EN BAR CAN PEPE",
+    "counterparty": "",
+    "expected": ["BAR CAN PEPE", "Bar Can Pepe"]
+  },
+  {
+    "description": "PAGO MOVIL EN JOAN GARCIA",
+    "counterparty": "",
+    "expected": ["JOAN GARCIA", "Joan Garcia"]
+  },
+  {
+    "description": "AIGÜES DE BARCELONA",
+    "counterparty": "",
+    "expected": ["AIGUES DE BARCELONA", "Aigues de Barcelona"]
+  },
+  {
+    "description": "ADEUDO POR DOMICILIACION DE ENDESA ENERGIA SA 21:45",
+    "counterparty": "",
+    "expected": ["ENDESA ENERGIA SA", "Endesa Energia SA"]
+  },
+  {
+    "description": "JOAN GARCIA",
+    "counterparty": "",
+    "expected": ["JOAN GARCIA", "Joan Garcia"]
+  },
+  {
+    "description": "TRASPASO A AIGÜES DE BARCELONA",
+    "counterparty": "",
+    "expected": ["TRASPAS ENTRE COMPTES", "Traspas Entre Comptes"]
+  }
 ]
