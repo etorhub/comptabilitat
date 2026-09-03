@@ -631,3 +631,19 @@ tr.reassignant td {
 .selector-espai {
   width: 100%;
 }
+
+/* --- Paginacio ------------------------------------------------------------ */
+
+.paginacio {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.25rem;
+  flex-wrap: wrap;
+}
+
+.passos {
+  display: flex;
+  gap: 0.5rem;
+}
