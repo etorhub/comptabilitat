@@ -19,17 +19,27 @@ import { registerRoutes } from "./routes/index.ts";
 
 validateConfig();
 
+// Les migracions s'apliquen abans d'acceptar cap peticio, com feia
+// l'entrypoint de Python amb Alembic. Vegeu `db/migrate.ts` per al cas del
+// primer arrencada sobre una base de dades que ja existeix.
+if (process.env.SKIP_MIGRATIONS !== "true") {
+  const { aplicaMigracions } = await import("./db/migrate.ts");
+  await aplicaMigracions();
+}
+
 const app = new Hono();
 
 if (config.debug) {
   app.use("*", logger());
 }
 
-// Fitxers estatics: HTMX, els fulls d'estil, el favicon. En produccio els
-// serveix nginx, pero aixi `bun run dev` funciona tot sol.
+// Fitxers estatics: HTMX, ECharts, el full d'estil i el favicon. Els serveix
+// l'aplicacio mateixa, de manera que no cal cap servidor web al davant: amb el
+// canvi de pila, l'nginx que servia la interficie de React ja no hi es.
 app.use("/app.css", serveStatic({ path: "./public/app.css" }));
 app.use("/htmx.min.js", serveStatic({ path: "./public/htmx.min.js" }));
 app.use("/echarts.min.js", serveStatic({ path: "./public/echarts.min.js" }));
+app.use("/grafics.js", serveStatic({ path: "./public/grafics.js" }));
 app.use("/favicon.svg", serveStatic({ path: "./public/favicon.svg" }));
 
 app.get("/salut", (c) => c.json({ status: "ok", environment: config.environment }));

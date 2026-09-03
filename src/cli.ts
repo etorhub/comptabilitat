@@ -18,6 +18,8 @@ import {
   users,
 } from "./db/schema/index.ts";
 import { hashPassword, purgeExpiredSessions } from "./lib/auth.ts";
+import { omplePerAProves } from "./services/demo.ts";
+import { seedLedgers } from "./services/seed.ts";
 
 function arg(nom: string): string | undefined {
   const i = process.argv.indexOf(`--${nom}`);
@@ -103,7 +105,31 @@ async function netejaSessions(): Promise<void> {
   console.log(`${n} sessions caducades esborrades.`);
 }
 
+/** Crea els tres espais i el seu pla de categories, si no hi son. */
+async function inicia(): Promise<void> {
+  const creats = await seedLedgers();
+  console.log(
+    creats.length > 0
+      ? `Espais creats: ${creats.map((e) => e.code).join(", ")}.`
+      : "Els espais ja hi eren; s'ha comprovat el pla de categories.",
+  );
+}
+
+/** Divuit mesos de moviments d'exemple. No fa res si ja hi ha dades. */
+async function demo(): Promise<void> {
+  if (process.env.ENVIRONMENT === "production" && !process.argv.includes("--force")) {
+    throw new Error("Aixo es produccio. Si de debò ho vols, torna-ho a provar amb --force.");
+  }
+  const resum = await omplePerAProves(
+    arg("email") ?? "demo@exemple.cat",
+    arg("password") ?? "comptabilitat",
+  );
+  console.log(JSON.stringify(resum, null, 2));
+}
+
 const ordres: Record<string, () => Promise<void>> = {
+  init: inicia,
+  demo,
   "crea-usuari": creaUsuari,
   "dona-acces": donaAcces,
   "neteja-sessions": netejaSessions,

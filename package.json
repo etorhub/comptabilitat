@@ -15,7 +15,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:check": "drizzle-kit check",
-    "jobs": "bun run src/workers/cli.ts"
+    "jobs": "bun run src/workers/cli.ts",
+    "cli": "bun run src/cli.ts"
   },
   "dependencies": {
     "croner": "^10.0.1",
