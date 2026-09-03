@@ -813,3 +813,33 @@ tr.exclos {
 .proposta small {
   flex-basis: 100%;
 }
+
+/* --- Xifres grosses -------------------------------------------------------- */
+
+.xifres {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.xifra {
+  background: var(--superficie);
+  border: 1px solid var(--vora);
+  border-radius: 0.75rem;
+  padding: 0.9rem 1.1rem;
+  min-width: 11rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.xifra-etiqueta {
+  font-size: 0.78rem;
+  color: var(--text-suau);
+}
+
+.xifra-valor {
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+}
