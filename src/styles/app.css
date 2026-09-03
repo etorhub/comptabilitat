@@ -647,3 +647,62 @@ tr.reassignant td {
   display: flex;
   gap: 0.5rem;
 }
+
+/* --- Regles --------------------------------------------------------------- */
+
+.condicions {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  font-size: 0.82rem;
+  color: var(--text-suau);
+}
+
+.condicions li::before {
+  content: "· ";
+}
+
+tr.inactiva {
+  opacity: 0.6;
+}
+
+.condicions-camp {
+  border: 1px solid var(--vora);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem 1rem;
+  margin: 0 0 0.9rem;
+}
+
+.condicions-camp legend {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0 0.35rem;
+}
+
+.fila-condicio {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.fila-condicio input[name="value"] {
+  flex: 1 1 12rem;
+}
+
+.camp-estret {
+  max-width: 8rem;
+}
+
+.form-accions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+.etiquetes {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
