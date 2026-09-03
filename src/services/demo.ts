@@ -262,6 +262,13 @@ export async function omplePerAProves(
     await afegeix(calella, dia, new Decimal("400.00"), "TRANSFERENCIA RECIBIDA DE TU");
   }
 
+  // Els dos moviments d'abans no s'aparellen, pero si que tenen categoria:
+  // son un traspas entre comptes propis a banda i banda.
+  const TRASPASSOS_ENTRE_ESPAIS: [string, string][] = [
+    ["TRASPASO A CALELLA", "traspassos-traspas-entre-comptes-propis"],
+    ["TRANSFERENCIA RECIBIDA DE TU", "traspassos-traspas-entre-comptes-propis"],
+  ];
+
   // --- Saldos ---
   for (const [codi, compte] of comptes) {
     await db.insert(balances).values({
@@ -289,6 +296,7 @@ export async function omplePerAProves(
     ...DESPESES.map(([concepte, , , slug]) => [concepte, slug] as [string, string]),
     ...RECURRENTS.map(([concepte, , , , slug]) => [concepte, slug] as [string, string]),
     [NOMINA, "ingressos-del-treball-nomina"],
+    ...TRASPASSOS_ENTRE_ESPAIS,
   ];
 
   for (const compte of comptes.values()) {

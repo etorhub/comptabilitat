@@ -331,18 +331,21 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
   }
 
   // Nomes els que son d'aquest espai: aixi no s'hi pot colar un identificador.
+  const demanats = [...new Set(parsed.data.moviment)];
   const meus = await db
     .select({ id: transactions.id, merchantId: transactions.merchantId })
     .from(transactions)
     .where(
       and(
         eq(transactions.ledgerId, espai.id),
-        inArray(transactions.id, parsed.data.moviment),
+        inArray(transactions.id, demanats),
       ),
     );
 
-  if (meus.length === 0) {
-    return fragment(c, toast("Cap dels moviments triats es d'aquest espai"), 404);
+  // **Tot o res.** Si algun identificador no es d'aquest espai, no s'aplica
+  // a cap: una peticio a mitges deixaria l'usuari sense saber que ha canviat.
+  if (meus.length !== demanats.length) {
+    return fragment(c, toast("No s'ha trobat"), 404);
   }
 
   await db
