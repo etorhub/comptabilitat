@@ -375,41 +375,36 @@ export function Fila({
     </td>
 
     <td>
-      ${
-        potEditar
-          ? html`<button
-            type="button"
-            class="concepte"
-            title="Canvia com es veu aquest concepte"
-            hx-get="${base}/fragment/concepte"
-            hx-target="#moviment-${moviment.id}"
-            hx-swap="outerHTML"
-          >
-            ${moviment.description}
-          </button>`
-          : html`<span>${moviment.description}</span>`
-      }
-      ${
-        moviment.isMasked
-          ? html`<span class="etiqueta etiqueta-suau" title="El concepte del banc esta amagat"
-            >alies</span
-          >`
-          : ""
-      }
-      ${
-        moviment.transferGroupId
-          ? html`<span class="etiqueta etiqueta-suau" title="Traspas entre comptes propis"
-            >traspas</span
-          >`
-          : ""
-      }
+      <div class="concepte-linia">
+        ${
+          potEditar
+            ? html`<button
+              type="button"
+              class="concepte"
+              title="Canvia com es veu aquest concepte"
+              hx-get="${base}/fragment/concepte"
+              hx-target="#moviment-${moviment.id}"
+              hx-swap="outerHTML"
+            >
+              ${moviment.description}
+            </button>`
+            : html`<span>${moviment.description}</span>`
+        }
+        ${
+          moviment.transferGroupId
+            ? html`<span class="etiqueta etiqueta-suau" title="Traspas entre comptes propis"
+              >traspas</span
+            >`
+            : ""
+        }
+        ${EtiquetesDelMoviment({
+          codi,
+          moviment,
+          potEditar,
+          etiquetesConegudes,
+        })}
+      </div>
       ${moviment.notes ? html`<small class="text-suau nota">${moviment.notes}</small>` : ""}
-      ${EtiquetesDelMoviment({
-        codi,
-        moviment,
-        potEditar,
-        etiquetesConegudes,
-      })}
     </td>
 
     <td>
@@ -425,7 +420,7 @@ export function Fila({
 }
 
 /**
- * Xapes d'etiquetes sota el concepte.
+ * Xapes d'etiquetes en linia amb el concepte.
  *
  * Cada formulari d'alta es propi de la fila i **no** comparteix camps amb la
  * barra de bloc: si no, HTMX enviaria tot i el darrer camp taparia el primer.
@@ -490,7 +485,7 @@ function EtiquetesDelMoviment({
 
   if (xapes.length === 0 && !potEditar) return html`` as Html;
 
-  return html`<div class="etiquetes-moviment">${xapes}${alta}</div>` as Html;
+  return html`<span class="etiquetes-moviment">${xapes}${alta}</span>` as Html;
 }
 
 /** La fila convertida en un camp per posar-hi un alias. */

@@ -1050,12 +1050,18 @@ tr.exclos {
 
 /* --- Etiquetes de moviments ----------------------------------------------- */
 
-.etiquetes-moviment {
+.concepte-linia {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  gap: 0.35rem;
+}
+
+.etiquetes-moviment {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 0.25rem;
-  margin-top: 0.35rem;
 }
 
 .etiqueta-dada {
