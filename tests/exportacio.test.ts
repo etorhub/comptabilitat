@@ -11,7 +11,6 @@ import { describe, expect, test } from "bun:test";
 import {
   informeAPdf,
   movimentsACsv,
-  movimentsAXlsx,
   resumAXlsx,
 } from "../src/services/export.ts";
 import type { MovimentVista } from "../src/services/transactions.ts";
@@ -89,23 +88,6 @@ describe("CSV", () => {
 });
 
 describe("XLSX", () => {
-  test("es un fitxer d'Excel de debò", async () => {
-    const bytes = await movimentsAXlsx([normal]);
-    // La signatura d'un ZIP: els .xlsx en son.
-    expect(bytes[0]).toBe(0x50);
-    expect(bytes[1]).toBe(0x4b);
-    expect(bytes.byteLength).toBeGreaterThan(1000);
-  });
-
-  test("no hi deixa el concepte del banc d'un moviment amagat", async () => {
-    const bytes = await movimentsAXlsx([amagat]);
-    const text = new TextDecoder("latin1").decode(bytes);
-    // El text va comprimit, pero les cadenes compartides sovint no; de tota
-    // manera el que compta es que la vista ja no el duia.
-    expect(amagat.description).toBe("Despesa personal");
-    expect(text.includes("CLINICA DISCRETA")).toBe(false);
-  });
-
   test("el resum porta els dos fulls", async () => {
     const bytes = await resumAXlsx(
       [{ periode: "2026-01", ingressos: "100.00", despeses: "50.00", net: "50.00" }],

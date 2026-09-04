@@ -2,13 +2,17 @@
  * Pagina de moviments.
  */
 
-import { html } from "hono/html";
+import { html, raw } from "hono/html";
 
 import type { Html } from "../../lib/html.ts";
 import type { GrupCategories } from "../../services/categories.ts";
 import type { ItemRevisio, PaginaMoviments } from "../../services/transactions.ts";
 import { BarraFiltres, CuaRevisio, Taula } from "./transactions.fragment.tsx";
-import { transactionFiltersToQuery, type TransactionFilters } from "./transactions.schema.ts";
+import {
+  teFiltresActius,
+  transactionFiltersToQuery,
+  type TransactionFilters,
+} from "./transactions.schema.ts";
 
 export interface TransactionsPageProps {
   codi: string;
@@ -23,27 +27,29 @@ export function TransactionsPage(props: TransactionsPageProps): Html {
   const { codi, pagina, grups, comptes, filters, potEditar } = props;
   // El que et descarregues es el que estas veient: els mateixos filtres.
   const consulta = transactionFiltersToQuery(filters);
+  const cercaOberta = teFiltresActius(filters);
 
   return html`
-    <header class="capçalera">
-      <h1>Moviments</h1>
-      <p class="text-suau">
-        Els traspassos entre comptes d'aquest espai no hi surten si no els
-        demanes: no son ni ingres ni despesa.
-      </p>
-    </header>
+    <div class="moviments-pagina">
+      <input
+        type="checkbox"
+        id="cerca-oberta"
+        class="toggle-cerca visualment-ocult"
+        ${cercaOberta ? raw("checked") : ""}
+      />
+      <header class="capçalera capçalera-fila">
+        <h1>Moviments</h1>
+        <div class="capçalera-accions">
+          <a class="boto boto-discret" href="/e/${codi}/moviments/moviments.csv${consulta}">
+            Descarrega en CSV
+          </a>
+          <label for="cerca-oberta" class="boto boto-discret">Cerca</label>
+        </div>
+      </header>
 
-    <p class="descarregues-linia">
-      <a class="boto boto-discret" href="/e/${codi}/moviments/moviments.csv${consulta}">
-        Descarrega en CSV
-      </a>
-      <a class="boto boto-discret" href="/e/${codi}/moviments/moviments.xlsx${consulta}">
-        Descarrega en Excel
-      </a>
-    </p>
-
-    ${BarraFiltres({ codi, filters, comptes, grups })}
-    ${Taula({ codi, pagina, grups, filters, potEditar })}
+      ${BarraFiltres({ codi, filters, comptes, grups })}
+      ${Taula({ codi, pagina, grups, filters, potEditar })}
+    </div>
   ` as Html;
 }
 

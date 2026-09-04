@@ -90,29 +90,6 @@ function capçalera(full: ExcelJS.Worksheet, columnes: [string, number][]): void
   fila1.alignment = { vertical: "middle" };
 }
 
-export async function movimentsAXlsx(
-  moviments: MovimentVista[],
-): Promise<Uint8Array<ArrayBuffer>> {
-  const llibre = new ExcelJS.Workbook();
-  llibre.creator = "Comptabilitat";
-  const full = llibre.addWorksheet("Moviments");
-
-  capçalera(full, COLUMNES);
-
-  for (const moviment of moviments) {
-    const valors = fila(moviment);
-    full.addRow([...valors.slice(0, 6), Number(moviment.amount), ...valors.slice(7)]);
-  }
-
-  full.getColumn(7).numFmt = '#,##0.00 "€"';
-  full.getColumn(1).numFmt = "yyyy-mm-dd";
-  full.views = [{ state: "frozen", ySplit: 1 }];
-  full.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: COLUMNES.length } };
-
-  const buffer = await llibre.xlsx.writeBuffer();
-  return new Uint8Array(buffer as ArrayBuffer);
-}
-
 export async function resumAXlsx(
   mensual: PuntMensual[],
   categories: TrosCategoria[],

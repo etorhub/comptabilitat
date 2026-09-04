@@ -260,7 +260,8 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 button:focus-visible,
-a:focus-visible {
+a:focus-visible,
+label.boto:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
   outline-offset: 1px;
 }
@@ -436,6 +437,30 @@ table.dades tbody tr:hover {
 .capçalera p {
   margin: 0;
   max-width: 60ch;
+}
+
+.capçalera-fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.capçalera-fila h1 {
+  margin: 0;
+}
+
+.capçalera-accions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Cercador plegable: la casella va abans de la capçalera i dels filtres. */
+.toggle-cerca:not(:checked) ~ .filtres {
+  display: none;
 }
 
 .targeta {
@@ -760,12 +785,21 @@ tr.inactiva {
   color: var(--positiu);
 }
 
+/* A la taula de moviments els imports son mes suaus. */
+.taula-moviments .negatiu {
+  color: var(--text);
+}
+
+.taula-moviments .positiu {
+  color: var(--accent);
+}
+
 tr.exclos {
   opacity: 0.55;
 }
 
 .barra-bloc {
-  display: flex;
+  display: none;
   align-items: flex-end;
   gap: 0.75rem;
   flex-wrap: wrap;
@@ -774,6 +808,53 @@ tr.exclos {
   border: 1px solid var(--vora);
   border-radius: 0.5rem;
   background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+#taula-moviments:has(input[name="moviment"]:checked) .barra-bloc {
+  display: flex;
+}
+
+.categoria-compacta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cel-categoria {
+  white-space: nowrap;
+}
+
+.cel-categoria .camp {
+  display: inline-block;
+  margin: 0;
+  min-width: 10rem;
+  vertical-align: middle;
+}
+
+.cel-categoria .camp-etiqueta {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.boto-icona {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem;
+  border: none;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--text-suau);
+  cursor: pointer;
+}
+
+.boto-icona:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .visualment-ocult {
