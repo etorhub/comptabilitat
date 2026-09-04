@@ -97,12 +97,18 @@ export function GraficComercos(dades: TrosComerc[]): Html {
 }
 
 export function GraficPrevisio(previsio: Previsio): Html {
+  const diesRebut = [...new Set(previsio.esdeveniments.map((e) => e.dia))];
   return Grafic({
     tipus: "previsio",
     id: "grafic-previsio",
     titol: "Saldo previst",
-    descripcio: `Projeccio del saldo a ${previsio.horitzoDies} dies, en banda optimista, esperada i pessimista`,
-    dades: { punts: previsio.punts, llindar: previsio.llindar },
+    descripcio: `Projeccio del saldo a ${previsio.horitzoDies} dies, en banda optimista, esperada i pessimista, amb la tendencia de conjunt`,
+    dades: {
+      punts: previsio.punts,
+      llindar: previsio.llindar,
+      primerDescobert: previsio.primerDescobert,
+      diesRebut,
+    },
     alçada: 320,
   });
 }

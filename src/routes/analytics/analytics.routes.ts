@@ -155,5 +155,5 @@ analyticsRoutes.get("/previsio/fragment/grafic", async (c) => {
 
   pushUrl(c, `/e/${espai.code}/previsio${horitzo === 90 ? "" : `?horitzo=${horitzo}`}`);
 
-  return fragment(c, ContingutPrevisio({ previsio }));
+  return fragment(c, ContingutPrevisio({ codi: espai.code, previsio }));
 });

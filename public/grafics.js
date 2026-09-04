@@ -183,6 +183,61 @@
         splitLine: { lineStyle: { color: c.vora } },
         axisLabel: { color: c.suau, formatter: euros },
       };
+
+      var markPoint = null;
+      if (dades.primerDescobert) {
+        var puntDescobert = dades.punts.find(function (p) {
+          return p.dia === dades.primerDescobert;
+        });
+        if (puntDescobert) {
+          markPoint = {
+            silent: true,
+            symbol: "pin",
+            symbolSize: 42,
+            itemStyle: { color: c.negatiu },
+            label: { formatter: "Descobert", color: "#fff", fontSize: 10 },
+            data: [
+              {
+                name: "Descobert",
+                coord: [puntDescobert.dia, Number(puntDescobert.esperat)],
+              },
+            ],
+          };
+        }
+      }
+
+      var diesRebut = dades.diesRebut || [];
+      var perDia = {};
+      dades.punts.forEach(function (p) {
+        perDia[p.dia] = p;
+      });
+      var puntsRebut = diesRebut
+        .map(function (dia) {
+          var p = perDia[dia];
+          return p ? [dia, Number(p.esperat)] : null;
+        })
+        .filter(Boolean);
+
+      var serieEsperat = {
+        name: "Esperat",
+        type: "line",
+        smooth: true,
+        showSymbol: false,
+        lineStyle: { color: c.accent, width: 2 },
+        areaStyle: { color: c.accent, opacity: 0.1 },
+        data: dades.punts.map(function (p) {
+          return Number(p.esperat);
+        }),
+        markLine: {
+          silent: true,
+          symbol: "none",
+          lineStyle: { color: c.negatiu, type: "dashed" },
+          label: { formatter: "Llindar", color: c.negatiu },
+          data: [{ yAxis: Number(dades.llindar) }],
+        },
+      };
+      if (markPoint) serieEsperat.markPoint = markPoint;
+
       opcions.series = [
         {
           name: "Optimista",
@@ -194,24 +249,7 @@
             return Number(p.optimista);
           }),
         },
-        {
-          name: "Esperat",
-          type: "line",
-          smooth: true,
-          showSymbol: false,
-          lineStyle: { color: c.accent, width: 2 },
-          areaStyle: { color: c.accent, opacity: 0.1 },
-          data: dades.punts.map(function (p) {
-            return Number(p.esperat);
-          }),
-          markLine: {
-            silent: true,
-            symbol: "none",
-            lineStyle: { color: c.negatiu, type: "dashed" },
-            label: { formatter: "Llindar", color: c.negatiu },
-            data: [{ yAxis: Number(dades.llindar) }],
-          },
-        },
+        serieEsperat,
         {
           name: "Pessimista",
           type: "line",
@@ -222,7 +260,29 @@
             return Number(p.pessimista);
           }),
         },
+        {
+          name: "Tendència",
+          type: "line",
+          smooth: false,
+          showSymbol: false,
+          lineStyle: { color: c.suau, width: 1.5 },
+          data: dades.punts.map(function (p) {
+            return Number(p.tendencia);
+          }),
+        },
       ];
+
+      if (puntsRebut.length > 0) {
+        opcions.series.push({
+          name: "Rebuts",
+          type: "scatter",
+          symbolSize: 9,
+          itemStyle: { color: c.accent, borderColor: c.superficie, borderWidth: 1 },
+          data: puntsRebut,
+          z: 5,
+        });
+      }
+
       return opcions;
     },
 

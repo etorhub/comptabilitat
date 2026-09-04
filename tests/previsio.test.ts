@@ -199,6 +199,20 @@ describe("la projeccio", () => {
     expect(previsio.primerDescobert).toBeNull();
   });
 
+  test("la tendencia coincideix amb l'esperat si no hi ha dents de serra", async () => {
+    for (let i = 0; i < 9; i += 1) {
+      await moviment(`d${i}`, addDays(todayLocal(), -i * 10), "-100.00");
+    }
+
+    const previsio = await construeixPrevisio(espai, 30);
+    const primer = previsio.punts[0];
+    const ultim = previsio.punts[30];
+
+    expect(Number(primer?.tendencia)).toBeCloseTo(Number(primer?.esperat), 1);
+    expect(Number(ultim?.tendencia)).toBeCloseTo(Number(ultim?.esperat), 1);
+    expect(money(ultim?.tendencia).lt(money(primer?.tendencia))).toBe(true);
+  });
+
   test("un comerç anual declarat apareix als esdeveniments previstos", async () => {
     const [comerc] = await db
       .insert(merchants)

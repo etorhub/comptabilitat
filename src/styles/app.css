@@ -969,6 +969,21 @@ tr.exclos {
   gap: 1.25rem;
 }
 
+.previsio-cap {
+  margin-bottom: 1.25rem;
+  align-items: start;
+}
+
+.previsio-xifres {
+  flex-direction: column;
+  margin-bottom: 0;
+}
+
+.previsio-xifres .xifra {
+  min-width: 0;
+  width: 100%;
+}
+
 @media (max-width: 60rem) {
   .dues-columnes {
     grid-template-columns: 1fr;
