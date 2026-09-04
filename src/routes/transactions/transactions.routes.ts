@@ -13,6 +13,7 @@ import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { accounts, categories, roleAtLeast, transactions } from "../../db/schema/index.ts";
 import {
+  NotFoundError,
   clearToast,
   fragment,
   idDeLaRuta,
@@ -22,7 +23,6 @@ import {
   toastOnly,
   withOob,
 } from "../../lib/http.ts";
-import { currentUser } from "../../middleware/session.ts";
 import { currentRole, currentWorkspace, requireEditor } from "../../middleware/workspace.ts";
 import { opcionsCategories } from "../../services/categories.ts";
 import {
@@ -32,28 +32,36 @@ import {
 } from "../../services/categoritzacio.ts";
 import { comptaPerRevisar } from "../../services/comptadors.ts";
 import {
+  afegeixEtiqueta,
+  afegeixEtiquetaEnBloc,
+  etiquetesEspai,
+  treuEtiqueta,
+} from "../../services/tags.ts";
+import {
   filaMoviment,
   llistaMoviments,
   movimentDeLespai,
   safataRevisio,
-  type MovimentVista,
 } from "../../services/transactions.ts";
 import { Fila, FilaConcepte, RevisioFeta, Taula } from "./transactions.fragment.tsx";
 import { ReviewPage, TransactionsPage } from "./transactions.page.tsx";
 import {
   bulkCategorizeSchema,
+  bulkTagSchema,
   categorizeSchema,
   maskSchema,
   PER_PAGINA,
+  tagAddRowSchema,
+  tagMutationSchema,
   transactionFiltersSchema,
   transactionFiltersToQuery,
 } from "./transactions.schema.ts";
 
 export const transactionsRoutes = new Hono();
 
-async function dades(ledgerId: number, query: Record<string, string>) {
+async function dades(ledgerId: number, query: Record<string, string | string[]>) {
   const filters = transactionFiltersSchema.parse(query);
-  const [pagina, grups, comptes] = await Promise.all([
+  const [pagina, grups, comptes, etiquetesConegudes] = await Promise.all([
     llistaMoviments(ledgerId, {
       accountId: filters.compte,
       dataDes: filters.des,
@@ -61,6 +69,8 @@ async function dades(ledgerId: number, query: Record<string, string>) {
       categoryIds: filters.categoria === null ? [] : [filters.categoria],
       merchantId: null,
       cerca: filters.cerca,
+      etiqueta: filters.etiqueta,
+      tipusOperacio: filters.tipus,
       nomesRevisio: filters.revisio,
       nomesSenseClassificar: filters.sense_classificar,
       incloTraspassos: filters.traspassos,
@@ -73,8 +83,18 @@ async function dades(ledgerId: number, query: Record<string, string>) {
       .from(accounts)
       .where(eq(accounts.ledgerId, ledgerId))
       .orderBy(accounts.name),
+    etiquetesEspai(ledgerId),
   ]);
-  return { filters, pagina, grups, comptes };
+  return { filters, pagina, grups, comptes, etiquetesConegudes };
+}
+
+/** Query string amb `tipus` repetit (checkboxes multiples). */
+function queryDePeticio(c: {
+  req: { query: () => Record<string, string>; queries: (k: string) => string[] | undefined };
+}) {
+  const q = c.req.query();
+  const tipus = c.req.queries("tipus") ?? [];
+  return tipus.length > 0 ? { ...q, tipus } : q;
 }
 
 /** La categoria ha de ser d'aquest espai. */
@@ -92,7 +112,10 @@ async function categoriaValida(categoryId: number | null, ledgerId: number): Pro
 
 transactionsRoutes.get("/", async (c) => {
   const espai = currentWorkspace(c);
-  const { filters, pagina, grups, comptes } = await dades(espai.id, c.req.query());
+  const { filters, pagina, grups, comptes, etiquetesConegudes } = await dades(
+    espai.id,
+    queryDePeticio(c),
+  );
 
   return page(
     c,
@@ -106,6 +129,7 @@ transactionsRoutes.get("/", async (c) => {
         comptes,
         filters,
         potEditar: roleAtLeast(currentRole(c), "editor"),
+        etiquetesConegudes,
       }),
     ),
   );
@@ -115,7 +139,10 @@ transactionsRoutes.get("/", async (c) => {
 
 transactionsRoutes.get("/fragment/taula", async (c) => {
   const espai = currentWorkspace(c);
-  const { filters, pagina, grups } = await dades(espai.id, c.req.query());
+  const { filters, pagina, grups, etiquetesConegudes } = await dades(
+    espai.id,
+    queryDePeticio(c),
+  );
 
   pushUrl(c, `/e/${espai.code}/moviments${transactionFiltersToQuery(filters)}`);
 
@@ -127,6 +154,7 @@ transactionsRoutes.get("/fragment/taula", async (c) => {
       grups,
       filters,
       potEditar: roleAtLeast(currentRole(c), "editor"),
+      etiquetesConegudes,
     }),
   );
 });
@@ -138,7 +166,10 @@ transactionsRoutes.get("/:id/fragment/fila", async (c) => {
     idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix"),
     espai.id,
   );
-  const grups = await opcionsCategories(espai.id);
+  const [grups, etiquetesConegudes] = await Promise.all([
+    opcionsCategories(espai.id),
+    etiquetesEspai(espai.id),
+  ]);
 
   return fragment(
     c,
@@ -148,6 +179,7 @@ transactionsRoutes.get("/:id/fragment/fila", async (c) => {
         moviment,
         grups,
         potEditar: roleAtLeast(currentRole(c), "editor"),
+        etiquetesConegudes,
       }),
       clearToast(),
     ),
@@ -161,7 +193,10 @@ transactionsRoutes.get("/:id/fragment/categoria", requireEditor, async (c) => {
     idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix"),
     espai.id,
   );
-  const grups = await opcionsCategories(espai.id);
+  const [grups, etiquetesConegudes] = await Promise.all([
+    opcionsCategories(espai.id),
+    etiquetesEspai(espai.id),
+  ]);
 
   return fragment(
     c,
@@ -171,6 +206,7 @@ transactionsRoutes.get("/:id/fragment/categoria", requireEditor, async (c) => {
       grups,
       potEditar: true,
       editantCategoria: true,
+      etiquetesConegudes,
     }),
   );
 });
@@ -195,16 +231,17 @@ async function respostaFila(
   id: number,
   missatge?: { text: string; to: "success" | "info" },
 ) {
-  const [moviment, grups, perRevisar] = await Promise.all([
+  const [moviment, grups, perRevisar, etiquetesConegudes] = await Promise.all([
     movimentDeLespai(id, espaiId),
     opcionsCategories(espaiId),
     comptaPerRevisar(espaiId),
+    etiquetesEspai(espaiId),
   ]);
 
   return fragment(
     c,
     await withOob(
-      Fila({ codi, moviment, grups, potEditar: true }),
+      Fila({ codi, moviment, grups, potEditar: true, etiquetesConegudes }),
       ComptadorRevisio(perRevisar, true),
       missatge ? toast(missatge.text, missatge.to) : clearToast(),
     ),
@@ -215,12 +252,11 @@ async function respostaFila(
  * Canvi de categoria d'un moviment.
  *
  * Es una decisio d'una persona: queda amb `category_source = 'user'` i cap
- * regla ni cap comerç no la tornara a tocar. Per defecte tambe es recorda per
- * a tot el comerç d'aquest espai.
+ * comerç no la tornara a tocar. Per defecte tambe es recorda per a tot el
+ * comerç d'aquest espai.
  */
 transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const user = currentUser(c);
   const id = idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix");
   const parsed = categorizeSchema.safeParse(await c.req.parseBody());
 
@@ -231,10 +267,8 @@ transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
 
   const fila = await filaMoviment(id, espai.id);
 
-  const { recordats } = await categoritzaMoviment(id, fila, espai.id, parsed.data.category_id, {
+  const { recordats } = await categoritzaMoviment(id, fila, parsed.data.category_id, {
     recordaComerc: parsed.data.recorda_comerc,
-    creaRegla: parsed.data.crea_regla,
-    usuariId: user.id,
   });
 
   return respostaFila(
@@ -324,7 +358,10 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
     { recordaComerc: parsed.data.recorda_comerc },
   );
 
-  const { filters, pagina, grups } = await dades(espai.id, c.req.query());
+  const { filters, pagina, grups, etiquetesConegudes } = await dades(
+    espai.id,
+    queryDePeticio(c),
+  );
   const perRevisar = await comptaPerRevisar(espai.id);
 
   // Els filtres venen a l'adreça del `hx-post`, de manera que la taula torna
@@ -335,7 +372,14 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
   return fragment(
     c,
     await withOob(
-      Taula({ codi: espai.code, pagina, grups, filters, potEditar: true }),
+      Taula({
+        codi: espai.code,
+        pagina,
+        grups,
+        filters,
+        potEditar: true,
+        etiquetesConegudes,
+      }),
       ComptadorRevisio(perRevisar, true),
       toast(
         `S'ha posat la categoria a ${aplicats} ${aplicats === 1 ? "moviment" : "moviments"}`,
@@ -345,7 +389,100 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
   );
 });
 
-export type { MovimentVista };
+/**
+ * Etiqueta en bloc els moviments triats.
+ *
+ * Mateixa garantia que la categoria en bloc: tot o res, i nomes ids de
+ * l'espai.
+ */
+transactionsRoutes.post("/bloc/etiquetes", requireEditor, async (c) => {
+  const espai = currentWorkspace(c);
+  const cos = await c.req.parseBody({ all: true });
+  const parsed = bulkTagSchema.safeParse(cos);
+
+  if (!parsed.success) {
+    const missatge =
+      parsed.error.issues[0]?.message === "No hi ha cap moviment triat"
+        ? "No hi ha cap moviment triat"
+        : "L'etiqueta no es valida";
+    return toastOnly(c, missatge, 422);
+  }
+
+  try {
+    await afegeixEtiquetaEnBloc(parsed.data.moviment, espai.id, parsed.data.etiqueta_bloc);
+  } catch (err) {
+    if (err instanceof NotFoundError) return toastOnly(c, "No s'ha trobat", 404);
+    throw err;
+  }
+
+  const { filters, pagina, grups, etiquetesConegudes } = await dades(
+    espai.id,
+    queryDePeticio(c),
+  );
+  pushUrl(c, `/e/${espai.code}/moviments${transactionFiltersToQuery(filters)}`);
+
+  return fragment(
+    c,
+    await withOob(
+      Taula({
+        codi: espai.code,
+        pagina,
+        grups,
+        filters,
+        potEditar: true,
+        etiquetesConegudes,
+      }),
+      toast(
+        `S'ha posat l'etiqueta a ${parsed.data.moviment.length} ${
+          parsed.data.moviment.length === 1 ? "moviment" : "moviments"
+        }`,
+        "success",
+      ),
+    ),
+  );
+});
+
+/** Afegeix una etiqueta a un moviment des de la fila. */
+transactionsRoutes.post("/:id/etiquetes", requireEditor, async (c) => {
+  const espai = currentWorkspace(c);
+  const id = idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix");
+  // Assegura que el moviment es de l'espai abans de validar el cos.
+  await movimentDeLespai(id, espai.id);
+  const parsed = tagAddRowSchema.safeParse(await c.req.parseBody());
+
+  if (!parsed.success) {
+    const [grups, etiquetesConegudes, moviment] = await Promise.all([
+      opcionsCategories(espai.id),
+      etiquetesEspai(espai.id),
+      movimentDeLespai(id, espai.id),
+    ]);
+    return fragment(
+      c,
+      await withOob(
+        Fila({ codi: espai.code, moviment, grups, potEditar: true, etiquetesConegudes }),
+        toast(parsed.error.issues[0]?.message ?? "L'etiqueta no es valida"),
+      ),
+      422,
+    );
+  }
+
+  await afegeixEtiqueta(id, espai.id, parsed.data.nova_etiqueta);
+  return respostaFila(c, espai.id, espai.code, id);
+});
+
+/** Treu una etiqueta d'un moviment. */
+transactionsRoutes.post("/:id/etiquetes/treure", requireEditor, async (c) => {
+  const espai = currentWorkspace(c);
+  const id = idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix");
+  const parsed = tagMutationSchema.safeParse(await c.req.parseBody());
+
+  if (!parsed.success) {
+    return toastOnly(c, "L'etiqueta no es valida", 422);
+  }
+
+  await treuEtiqueta(id, espai.id, parsed.data.etiqueta);
+  return respostaFila(c, espai.id, espai.code, id);
+});
 
 // --- Safata de revisio -------------------------------------------------------
 
@@ -389,7 +526,7 @@ transactionsRoutes.post("/:id/revisa", requireEditor, async (c) => {
 
   // El mateix que canviar-la des de la llista, i a mes tanca la proposta del
   // model dient si l'encertava.
-  await confirmaDeLaRevisio(id, fila, espai.id, parsed.data.category_id, {
+  await confirmaDeLaRevisio(id, fila, parsed.data.category_id, {
     recordaComerc: parsed.data.recorda_comerc,
   });
 

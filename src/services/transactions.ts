@@ -23,10 +23,15 @@ import {
   isNotNull,
   isNull,
   lte,
+  not,
   or,
+  sql,
   sum,
   type SQL,
 } from "drizzle-orm";
+
+import { parsejaConcepte, type TipusOperacio } from "./concepte.ts";
+import { teEtiqueta } from "./tags.ts";
 
 import { db } from "../db/client.ts";
 import {
@@ -55,8 +60,23 @@ export interface MovimentVista {
   amount: MoneyString;
   currency: string;
   status: TransactionStatus;
-  /** El text que es pot ensenyar: l'alias si n'hi ha, si no el del banc. */
+  /**
+   * El text que es pot ensenyar: l'alias si n'hi ha; si no, el concepte del
+   * banc ja parsejat (sense targeta ni comissio).
+   */
   description: string;
+  /**
+   * Text bancari sense PAN/targeta/comissio, per al `title` del boto.
+   * Null quan hi ha alias (la dada del banc no s'ensenya).
+   */
+  descriptionHint: string | null;
+  /** Darrers 4 digits de la targeta, o null. Mai amb alias. */
+  darrers4: string | null;
+  /**
+   * Tipus d'operacio deduit del concepte. Null quan hi ha alias (no ensenyem
+   * metadades del banc).
+   */
+  tipusOperacio: TipusOperacio | null;
   counterparty: string;
   merchantId: number | null;
   merchantName: string | null;
@@ -138,10 +158,44 @@ interface FilaCrua {
  * Converteix una fila en el que es pot ensenyar, aplicant l'emmascarament.
  *
  * **Es l'unica porta.** Si un moviment esta emmascarat, aqui es on el
- * concepte del banc, la contrapart i el comerç desapareixen.
+ * concepte del banc, la contrapart i el comerç desapareixen. Si no, el
+ * concepte es parseja nomes per mostrar (sense tocar la BD).
  */
 export function vistaMoviment(fila: FilaCrua): MovimentVista {
   const emmascarat = fila.displayDescription !== null && fila.displayDescription !== "";
+
+  if (emmascarat) {
+    return {
+      id: fila.id,
+      accountId: fila.accountId,
+      accountName: fila.accountName,
+      bookingDate: fila.bookingDate,
+      valueDate: fila.valueDate,
+      amount: fila.amount,
+      currency: fila.currency,
+      status: fila.status,
+      description: fila.displayDescription ?? "",
+      descriptionHint: null,
+      darrers4: null,
+      tipusOperacio: null,
+      counterparty: "",
+      merchantId: fila.merchantId,
+      merchantName: null,
+      categoryId: fila.categoryId,
+      categoryName: fila.categoryName,
+      categorySource: fila.categorySource,
+      categoryConfidence: fila.categoryConfidence,
+      needsReview: fila.needsReview,
+      transferGroupId: fila.transferGroupId,
+      notes: fila.notes,
+      tags: fila.tags,
+      isExcluded: fila.isExcluded,
+      isMasked: true,
+    };
+  }
+
+  const parsejat = parsejaConcepte(fila.description);
+  const hint = parsejat.originalNetejat !== parsejat.titol ? parsejat.originalNetejat : null;
 
   return {
     id: fila.id,
@@ -152,10 +206,13 @@ export function vistaMoviment(fila: FilaCrua): MovimentVista {
     amount: fila.amount,
     currency: fila.currency,
     status: fila.status,
-    description: emmascarat ? (fila.displayDescription ?? "") : fila.description,
-    counterparty: emmascarat ? "" : fila.counterparty,
+    description: parsejat.titol,
+    descriptionHint: hint,
+    darrers4: parsejat.darrers4,
+    tipusOperacio: parsejat.tipus,
+    counterparty: fila.counterparty,
     merchantId: fila.merchantId,
-    merchantName: emmascarat ? null : fila.merchantName,
+    merchantName: fila.merchantName,
     categoryId: fila.categoryId,
     categoryName: fila.categoryName,
     categorySource: fila.categorySource,
@@ -165,7 +222,7 @@ export function vistaMoviment(fila: FilaCrua): MovimentVista {
     notes: fila.notes,
     tags: fila.tags,
     isExcluded: fila.isExcluded,
-    isMasked: emmascarat,
+    isMasked: false,
   };
 }
 
@@ -176,11 +233,59 @@ export interface FiltresMoviments {
   categoryIds: number[];
   merchantId: number | null;
   cerca: string;
+  /** Filtre per etiqueta (insensible a majuscules). Null = sense filtre. */
+  etiqueta: string | null;
+  /** Tipus d'operacio (OR). Buit = tots. */
+  tipusOperacio: TipusOperacio[];
   nomesRevisio: boolean;
   nomesSenseClassificar: boolean;
   incloTraspassos: boolean;
   limit: number;
   offset: number;
+}
+
+/** Predicat SQL alineat amb `detectaTipusOperacio` (sobre el concepte cru). */
+function predicatTipus(tipus: TipusOperacio): SQL {
+  const desc = transactions.description;
+  switch (tipus) {
+    case "targeta":
+      return sql`(
+        ${desc} ~* '^(COMPRA|PAGO[[:space:]]+(MOVIL|CON[[:space:]]+MOVIL|TARJETA|EN)[[:space:]])'
+        OR ${desc} ~* '\\yTARJ'
+      )`;
+    case "transferencia":
+      return sql`(
+        ${desc} ILIKE 'TRANSFERENCIA%'
+        OR ${desc} ILIKE 'TRANSF %'
+        OR ${desc} ILIKE 'TRANSF.%'
+      )`;
+    case "bizum":
+      return sql`(
+        ${desc} ILIKE 'BIZUM%'
+        OR ${desc} ILIKE 'ENVIO BIZUM%'
+      )`;
+    case "rebut":
+      return sql`(
+        ${desc} ILIKE 'RECIBO%'
+        OR ${desc} ILIKE 'ADEUDO%'
+      )`;
+    case "altres":
+      return not(
+        or(
+          predicatTipus("targeta"),
+          predicatTipus("transferencia"),
+          predicatTipus("bizum"),
+          predicatTipus("rebut"),
+        )!,
+      );
+  }
+}
+
+function clausulaTipus(tipus: TipusOperacio[]): SQL | undefined {
+  if (tipus.length === 0) return undefined;
+  // Si hi ha tots els tipus, no cal filtrar.
+  if (tipus.length === 5) return undefined;
+  return or(...tipus.map(predicatTipus));
 }
 
 /**
@@ -217,6 +322,8 @@ function condicions(ledgerId: number, f: FiltresMoviments): SQL | undefined {
   if (f.categoryIds.length > 0) parts.push(inArray(transactions.categoryId, f.categoryIds));
   if (f.merchantId !== null) parts.push(eq(transactions.merchantId, f.merchantId));
   if (f.cerca.trim()) parts.push(clausulaCerca(`%${f.cerca.trim()}%`));
+  if (f.etiqueta) parts.push(teEtiqueta(f.etiqueta));
+  parts.push(clausulaTipus(f.tipusOperacio));
   if (f.nomesRevisio) parts.push(eq(transactions.needsReview, true));
   if (f.nomesSenseClassificar) parts.push(isNull(transactions.categoryId));
   // Els traspassos entre comptes propis no son ni ingres ni despesa: per

@@ -93,6 +93,11 @@ export function Fila({
           : ""
       }
       ${
+        serie.isDeclared
+          ? html`<span class="etiqueta" title="Marcat a ma des de Comerços">declarat</span>`
+          : ""
+      }
+      ${
         serie.status === "ended"
           ? html`<span class="etiqueta etiqueta-suau">acabada</span>`
           : ""

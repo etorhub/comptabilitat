@@ -37,7 +37,6 @@ services:
         condition: service_healthy
     # La comprovacio de salut es la de la imatge: GET /salut.
     networks: [interna, externa]
-    secrets: [eb_private_key]
 
   worker:
     build:
@@ -49,8 +48,10 @@ services:
     depends_on:
       app:
         condition: service_healthy
+    # La imatge comprova /salut, que el planificador no serveix.
+    healthcheck:
+      disable: true
     networks: [interna, externa]
-    secrets: [eb_private_key]
 
   # Per defecte no s'arrenca: reutilitza el cloudflared que ja tinguis al NAS.
   # Per usar el tunel integrat: `docker compose --profile tunnel up -d`.
@@ -99,13 +100,10 @@ services:
         condition: service_healthy
     networks: [interna]
 
-# La clau privada d'Enable Banking, muntada a /run/secrets/eb_private_key (que
-# es on la busca `EB_PRIVATE_KEY_PATH` per defecte). Es millor que posar-la en
-# una variable d'entorn: un secret no surt a `docker inspect` ni a l'entorn de
-# tot el que corri dins del contenidor.
-secrets:
-  eb_private_key:
-    file: ./deploy/secrets/eb_private_key.pem
+# Enable Banking: Portainer clona el git sense `deploy/secrets/` (gitignorat),
+# aixi que no es pot muntar el PEM com a secret de Docker. El desplegament
+# injecta `EB_PRIVATE_KEY_B64` a les variables de l'stack (vegeu
+# deploy/scripts/portainer-deploy.py). El client la llegeix abans del fitxer.
 
 networks:
   # Sense sortida a internet: nomes trafic entre contenidors.

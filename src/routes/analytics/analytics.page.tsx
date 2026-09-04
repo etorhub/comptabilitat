@@ -5,7 +5,7 @@
 import { html } from "hono/html";
 
 import type { Html } from "../../lib/html.ts";
-import { formatMoney } from "../../lib/money.ts";
+import { formatMoney, money } from "../../lib/money.ts";
 import { formatDate } from "../../lib/time.ts";
 import type { PuntSaldo } from "../../services/balances.ts";
 import type { Previsio } from "../../services/forecast.ts";
@@ -38,6 +38,8 @@ export interface DashboardPageProps {
   perRevisar: number;
   senseClassificar: number;
   avisosActius: number;
+  /** L'enllaç d'avisos nomes te sentit per a administradors de la instal·lacio. */
+  potVeureAvisos: boolean;
   mensual: PuntMensual[];
   categories: TrosCategoria[];
   saldos: PuntSaldo[];
@@ -54,6 +56,7 @@ export function DashboardPage(props: DashboardPageProps): Html {
     perRevisar,
     senseClassificar,
     avisosActius,
+    potVeureAvisos,
     mensual,
     categories,
     saldos,
@@ -85,7 +88,7 @@ export function DashboardPage(props: DashboardPageProps): Html {
       ${Xifra({
         etiqueta: "Avisos",
         valor: String(avisosActius),
-        href: `/e/${codi}/avisos`,
+        href: potVeureAvisos ? `/e/${codi}/avisos` : undefined,
       })}
     </div>
 
@@ -209,60 +212,79 @@ export interface ForecastPageProps {
 }
 
 export function ForecastPage({ codi, previsio }: ForecastPageProps): Html {
-  return html`
-    <header class="capçalera">
-      <h1>Previsio</h1>
-      <p class="text-suau">
-        Al saldo d'avui s'hi sumen els rebuts previstos i s'hi resta la despesa
-        variable dels ultims mesos. Va en tres linies perque la despesa variable
-        no es previsible amb una sola xifra.
-      </p>
-    </header>
-
-    ${
-      previsio.primerDescobert !== null
-        ? html`<p class="avis-fort" role="alert">
-          Amb aquest ritme, el saldo baixaria a
-          <strong>${formatMoney(previsio.primerDescobertImport)}</strong> el
-          <strong>${formatDate(previsio.primerDescobert)}</strong>, per sota del
-          llindar de ${formatMoney(previsio.llindar)}.
-        </p>`
-        : ""
-    }
-
-    <form
-      class="filtres"
-      hx-get="/e/${codi}/previsio/fragment/grafic"
-      hx-target="#previsio-contingut"
-      hx-swap="outerHTML"
-      hx-trigger="change"
-    >
-      <label class="camp camp-linia camp-estret">
-        <span class="camp-etiqueta">Horitzo</span>
-        <select name="horitzo">
-          ${[30, 60, 90, 180].map(
-            (d) =>
-              html`<option value="${d}" ${d === previsio.horitzoDies ? "selected" : ""}>
-                ${d} dies
-              </option>`,
-          )}
-        </select>
-      </label>
-    </form>
-
-    ${ContingutPrevisio({ previsio })}
-  ` as Html;
+  return ContingutPrevisio({ codi, previsio });
 }
 
-export function ContingutPrevisio({ previsio }: { previsio: Previsio }): Html {
+export function ContingutPrevisio({
+  codi,
+  previsio,
+}: {
+  codi: string;
+  previsio: Previsio;
+}): Html {
+  const ultim = previsio.punts[previsio.punts.length - 1];
+  const saldoFinal = ultim?.esperat ?? previsio.saldoInicial;
+  const diferencia = money(saldoFinal).minus(money(previsio.saldoInicial));
+  const diferenciaText = `${diferencia.isPositive() ? "+" : ""}${formatMoney(diferencia)}`;
+
   return html`<div id="previsio-contingut">
-    <div class="xifres">
-      ${Xifra({ etiqueta: "Saldo d'avui", valor: formatMoney(previsio.saldoInicial) })}
-      ${Xifra({
-        etiqueta: "Despesa variable",
-        valor: `${formatMoney(previsio.despesaDiaria)}/dia`,
-      })}
-      ${Xifra({ etiqueta: "Llindar de descobert", valor: formatMoney(previsio.llindar) })}
+    <div class="dues-columnes previsio-cap">
+      <div>
+        <header class="capçalera">
+          <h1>Previsio</h1>
+          <p class="text-suau">
+            Al saldo d'avui s'hi sumen els rebuts previstos i s'hi resta la despesa
+            variable dels ultims mesos. Va en tres linies perque la despesa variable
+            no es previsible amb una sola xifra.
+          </p>
+        </header>
+
+        ${
+          previsio.primerDescobert !== null
+            ? html`<p class="avis-fort" role="alert">
+              Amb aquest ritme, el saldo baixaria a
+              <strong>${formatMoney(previsio.primerDescobertImport)}</strong> el
+              <strong>${formatDate(previsio.primerDescobert)}</strong>, per sota del
+              llindar de ${formatMoney(previsio.llindar)}.
+            </p>`
+            : ""
+        }
+
+        <form
+          class="filtres"
+          hx-get="/e/${codi}/previsio/fragment/grafic"
+          hx-target="#previsio-contingut"
+          hx-swap="outerHTML"
+          hx-trigger="change"
+        >
+          <label class="camp camp-linia camp-estret">
+            <span class="camp-etiqueta">Horitzo</span>
+            <select name="horitzo">
+              ${[30, 60, 90, 180].map(
+                (d) =>
+                  html`<option value="${d}" ${d === previsio.horitzoDies ? "selected" : ""}>
+                    ${d} dies
+                  </option>`,
+              )}
+            </select>
+          </label>
+        </form>
+      </div>
+
+      <div class="xifres previsio-xifres">
+        ${Xifra({ etiqueta: "Saldo d'avui", valor: formatMoney(previsio.saldoInicial) })}
+        ${Xifra({
+          etiqueta: "Despesa variable",
+          valor: `${formatMoney(previsio.despesaDiaria)}/dia`,
+        })}
+        ${Xifra({ etiqueta: "Llindar de descobert", valor: formatMoney(previsio.llindar) })}
+        ${Xifra({
+          etiqueta: `D'aqui a ${previsio.horitzoDies} dies`,
+          valor: formatMoney(saldoFinal),
+          to: diferencia.isNegative() ? "negatiu" : diferencia.isPositive() ? "positiu" : "",
+          detall: diferencia.isZero() ? "igual que avui" : `${diferenciaText} respecte d'avui`,
+        })}
+      </div>
     </div>
 
     ${GraficPrevisio(previsio)}

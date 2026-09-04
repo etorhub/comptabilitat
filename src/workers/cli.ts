@@ -7,11 +7,13 @@
  *   bun run src/workers/cli.ts analyze
  *   bun run src/workers/cli.ts notify [--urgents]
  *   bun run src/workers/cli.ts maintenance
+ *   bun run src/workers/cli.ts reassign-normalization [--espai 1]
  *
  * Equival al `python -m app.cli sync|classify|analyze|notify` d'abans.
  */
 
 import { closeDb } from "../db/client.ts";
+import { reassignaNormalitzacio } from "../services/merchants.ts";
 import { feinaAnalisi } from "./jobs/analyze.ts";
 import { feinaClassificacio } from "./jobs/classify.ts";
 import { feinaModelLocal } from "./jobs/llm.ts";
@@ -36,6 +38,11 @@ const feines: Record<string, () => Promise<string>> = {
   analyze: feinaAnalisi,
   notify: () => (process.argv.includes("--urgents") ? feinaAvisosUrgents() : feinaAvisos()),
   maintenance: feinaManteniment,
+  "reassign-normalization": async () => {
+    const espai = enter("espai");
+    const r = await reassignaNormalitzacio(espai ?? undefined);
+    return `${r.canviats} de ${r.revisats} moviments reassignats`;
+  },
 };
 
 const ordre = process.argv[2];

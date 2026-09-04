@@ -17,7 +17,7 @@ export interface WorkspacePageProps {
 export function WorkspacePage({ espai, membres, potConfigurar }: WorkspacePageProps): Html {
   return html`
     <header class="capçalera">
-      <h1>Configuracio</h1>
+      <h1>Espai</h1>
       <p class="text-suau">
         El que hi ha aqui val nomes per a aquest espai: el llindar de descobert i
         els destinataris dels avisos no en toquen cap altre.

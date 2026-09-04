@@ -26,7 +26,9 @@ import {
   comprovaDescoberts,
   construeixPrevisio,
   despesaDiariaVariable,
+  esdevenimentsPrevistos,
 } from "../src/services/forecast.ts";
+import { declaraComercRecurrent } from "../src/services/recurring.ts";
 import { ingressosIDespeses, serieMensual } from "../src/services/reports.ts";
 import { seedCategories } from "../src/services/seed.ts";
 import { addDays, todayLocal } from "../src/lib/time.ts";
@@ -195,6 +197,74 @@ describe("la projeccio", () => {
     expect(Number(previsio.punts[0]?.esperat)).toBeCloseTo(1000, 1);
     expect(Number(previsio.punts[30]?.esperat)).toBeCloseTo(1000, 1);
     expect(previsio.primerDescobert).toBeNull();
+  });
+
+  test("la tendencia coincideix amb l'esperat si no hi ha dents de serra", async () => {
+    for (let i = 0; i < 9; i += 1) {
+      await moviment(`d${i}`, addDays(todayLocal(), -i * 10), "-100.00");
+    }
+
+    const previsio = await construeixPrevisio(espai, 30);
+    const primer = previsio.punts[0];
+    const ultim = previsio.punts[30];
+
+    expect(Number(primer?.tendencia)).toBeCloseTo(Number(primer?.esperat), 1);
+    expect(Number(ultim?.tendencia)).toBeCloseTo(Number(ultim?.esperat), 1);
+    expect(money(ultim?.tendencia).lt(money(primer?.tendencia))).toBe(true);
+  });
+
+  test("un comerç anual declarat apareix als esdeveniments previstos", async () => {
+    const [comerc] = await db
+      .insert(merchants)
+      .values({
+        ledgerId: espai.id,
+        normalizedName: "ASSEGURANCA CASA",
+        displayName: "Assegurança casa",
+        defaultCategoryId: null,
+        categorySource: "none",
+        isConfirmed: false,
+        transactionCount: 1,
+        lastSeenAt: addDays(todayLocal(), -20),
+      })
+      .returning();
+
+    await db.insert(transactions).values({
+      accountId,
+      ledgerId: espai.id,
+      dedupKey: "asseg-anual",
+      source: "manual",
+      bookingDate: addDays(todayLocal(), -20),
+      amount: "-450.00",
+      currency: "EUR",
+      status: "booked",
+      description: "Assegurança",
+      normalizedDescription: "ASSEGURANCA CASA",
+      counterparty: "",
+      bankTransactionCode: "",
+      merchantId: comerc?.id ?? 0,
+      categoryId: null,
+      categorySource: "none",
+      needsReview: false,
+      notes: "",
+      tags: [],
+      isExcluded: false,
+      raw: {},
+    });
+
+    await declaraComercRecurrent(comerc?.id ?? 0, espai.id, {
+      recurrent: true,
+      cadence: "annual",
+    });
+
+    const horitzo = addDays(todayLocal(), 400);
+    const esdeveniments = await esdevenimentsPrevistos(espai.id, horitzo);
+    expect(esdeveniments.some((e) => e.amount === "-450.00")).toBe(true);
+
+    const previsio = await construeixPrevisio(espai, 400);
+    const ambRebut = previsio.punts.find((p) =>
+      money(p.esperat).lt(money(previsio.punts[0]?.esperat ?? "0")),
+    );
+    expect(ambRebut).toBeDefined();
   });
 });
 

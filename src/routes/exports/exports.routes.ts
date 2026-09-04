@@ -49,6 +49,8 @@ async function movimentsPerExportar(ledgerId: number, query: Record<string, stri
     categoryIds: filters.categoria === null ? [] : [filters.categoria],
     merchantId: null,
     cerca: filters.cerca,
+    etiqueta: null,
+    tipusOperacio: [],
     nomesRevisio: false,
     nomesSenseClassificar: false,
     incloTraspassos: filters.traspassos,

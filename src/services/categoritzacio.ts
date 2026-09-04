@@ -13,7 +13,6 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db, type Transactor } from "../db/client.ts";
 import { llmSuggestions, merchants, transactions } from "../db/schema/index.ts";
 import { NotFoundError } from "../lib/http.ts";
-import { construeixReglaApresa } from "./classification.ts";
 import { recordaEleccioComerc } from "./merchants.ts";
 
 /** El que vol dir «ho ha decidit una persona». */
@@ -26,10 +25,6 @@ export const DECISIO_HUMANA = {
 export interface OpcionsCategoritzar {
   /** Recorda-ho per a tot el comerç d'aquest espai. */
   recordaComerc?: boolean;
-  /** I, a mes, crea'n una regla apresa. */
-  creaRegla?: boolean;
-  /** Qui ho ha decidit, per a la regla. */
-  usuariId?: number;
 }
 
 export interface ResultatCategoritzar {
@@ -45,8 +40,7 @@ export interface ResultatCategoritzar {
  */
 export async function categoritzaMoviment(
   movimentId: number,
-  fila: { merchantId: number | null; normalizedDescription: string; counterparty: string },
-  ledgerId: number,
+  fila: { merchantId: number | null },
   categoryId: number | null,
   opcions: OpcionsCategoritzar = {},
 ): Promise<ResultatCategoritzar> {
@@ -59,18 +53,6 @@ export async function categoritzaMoviment(
     let recordats = 0;
     if (opcions.recordaComerc === true && fila.merchantId !== null) {
       recordats = await recordaComercDeLaFila(tx, fila.merchantId, categoryId);
-    }
-
-    if (opcions.creaRegla === true && opcions.usuariId !== undefined) {
-      await construeixReglaApresa(
-        {
-          ledgerId,
-          normalizedDescription: fila.normalizedDescription,
-          counterparty: fila.counterparty,
-        },
-        categoryId,
-        opcions.usuariId,
-      );
     }
 
     return { recordats };
@@ -132,12 +114,11 @@ export async function categoritzaEnBloc(
  */
 export async function confirmaDeLaRevisio(
   movimentId: number,
-  fila: { merchantId: number | null; normalizedDescription: string; counterparty: string },
-  ledgerId: number,
+  fila: { merchantId: number | null },
   categoryId: number,
   opcions: OpcionsCategoritzar = {},
 ): Promise<ResultatCategoritzar> {
-  const resultat = await categoritzaMoviment(movimentId, fila, ledgerId, categoryId, opcions);
+  const resultat = await categoritzaMoviment(movimentId, fila, categoryId, opcions);
   await tancaLaPropostaDelModel(fila.merchantId, categoryId);
   return resultat;
 }

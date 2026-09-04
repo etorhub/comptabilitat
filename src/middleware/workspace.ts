@@ -111,7 +111,7 @@ export function requireRole(minim: LedgerRole): MiddlewareHandler {
   };
 }
 
-/** Pot classificar, anotar i crear regles. */
+/** Pot classificar i anotar. */
 export const requireEditor = requireRole("editor");
 /** Pot configurar l'espai: comptes, destinataris d'avisos, usuaris. */
 export const requireWorkspaceAdmin = requireRole("admin");

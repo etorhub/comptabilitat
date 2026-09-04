@@ -12,6 +12,7 @@ import { db } from "../../db/client.ts";
 import { alerts } from "../../db/schema/index.ts";
 import { fragment, page, pushUrl } from "../../lib/http.ts";
 import { addDays, todayLocal } from "../../lib/time.ts";
+import { currentUser } from "../../middleware/session.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
 import { saldoEspai, serieSaldos } from "../../services/balances.ts";
 import { construeixPrevisio } from "../../services/forecast.ts";
@@ -86,6 +87,7 @@ analyticsRoutes.get("/", async (c) => {
         perRevisar,
         senseClassificar,
         avisosActius: nAvisos,
+        potVeureAvisos: currentUser(c).isAdmin,
         mensual,
         categories,
         saldos,
@@ -153,5 +155,5 @@ analyticsRoutes.get("/previsio/fragment/grafic", async (c) => {
 
   pushUrl(c, `/e/${espai.code}/previsio${horitzo === 90 ? "" : `?horitzo=${horitzo}`}`);
 
-  return fragment(c, ContingutPrevisio({ previsio }));
+  return fragment(c, ContingutPrevisio({ codi: espai.code, previsio }));
 });

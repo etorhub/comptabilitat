@@ -21,7 +21,11 @@ import {
   recurringSeries,
   transactions,
 } from "../src/db/schema/index.ts";
-import { detectaRecurrents } from "../src/services/recurring.ts";
+import {
+  detectaRecurrents,
+  declaraComercRecurrent,
+  comprovaRebutsQueFalten,
+} from "../src/services/recurring.ts";
 import { llistaSeries, resumSubscripcions } from "../src/services/recurring-list.ts";
 import { seedCategories } from "../src/services/seed.ts";
 import { addDays, todayLocal } from "../src/lib/time.ts";
@@ -303,5 +307,81 @@ describe("les aparicions", () => {
       .from(recurringOccurrences)
       .where(eq(recurringOccurrences.seriesId, serie?.id ?? 0));
     expect(aparicions).toHaveLength(3);
+  });
+});
+
+describe("comerços declarats com a recurrents", () => {
+  test("una o dues aparicions irregulars si creen serie", async () => {
+    const m = await comerc("ASSEGURANCA");
+    const avui = todayLocal();
+    await moviment("a1", addDays(avui, -200), "-450.00", m);
+
+    await declaraComercRecurrent(m, ledgerId, { recurrent: true, cadence: "annual" });
+
+    const series = await llistaSeries(ledgerId, false, false);
+    expect(series).toHaveLength(1);
+    expect(series[0]?.cadence).toBe("annual");
+    expect(series[0]?.intervalDays).toBe(365);
+    expect(series[0]?.isDeclared).toBe(true);
+    expect(series[0]?.includeInForecast).toBe(true);
+  });
+
+  test("el detector no sobreescriu la cadencia declarada", async () => {
+    const m = await comerc("LLOGUER");
+    const avui = todayLocal();
+    // Intervals que el detector interpretaria com a mensuals.
+    for (const [i, dies] of [90, 60, 30].entries()) {
+      await moviment(`ll${i}`, addDays(avui, -dies), "-800.00", m);
+    }
+
+    await declaraComercRecurrent(m, ledgerId, { recurrent: true, cadence: "quarterly" });
+    await detectaRecurrents(ledgerId);
+
+    const [serie] = await llistaSeries(ledgerId, false, false);
+    expect(serie?.cadence).toBe("quarterly");
+    expect(serie?.intervalDays).toBe(91);
+  });
+
+  test("desmarcar acaba la serie; el detector la pot tornar a crear si encaixa", async () => {
+    const m = await comerc("NETEJA");
+    const avui = todayLocal();
+    for (const [i, dies] of [90, 60, 30].entries()) {
+      await moviment(`n${i}`, addDays(avui, -dies), "-40.00", m);
+    }
+
+    await declaraComercRecurrent(m, ledgerId, { recurrent: true, cadence: "monthly" });
+    await declaraComercRecurrent(m, ledgerId, { recurrent: false, cadence: null });
+
+    const [acabada] = await db
+      .select()
+      .from(recurringSeries)
+      .where(eq(recurringSeries.ledgerId, ledgerId));
+    expect(acabada?.status).toBe("ended");
+
+    const stats = await detectaRecurrents(ledgerId);
+    expect(stats.actualitzades).toBe(1);
+
+    const [reactivada] = await llistaSeries(ledgerId, false, false);
+    expect(reactivada?.status).toBe("active");
+    expect(reactivada?.isDeclared).toBe(false);
+  });
+
+  test("comprovaRebutsQueFalten no acaba una serie d'un comerç declarat", async () => {
+    const m = await comerc("GIMNAS DECLARAT");
+    await moviment("g1", addDays(todayLocal(), -120), "-35.00", m);
+    await declaraComercRecurrent(m, ledgerId, { recurrent: true, cadence: "monthly" });
+
+    await db
+      .update(recurringSeries)
+      .set({ nextExpectedDate: addDays(todayLocal(), -50), intervalDays: 30 })
+      .where(eq(recurringSeries.ledgerId, ledgerId));
+
+    await comprovaRebutsQueFalten(ledgerId);
+
+    const [serie] = await db
+      .select()
+      .from(recurringSeries)
+      .where(eq(recurringSeries.ledgerId, ledgerId));
+    expect(serie?.status).toBe("active");
   });
 });

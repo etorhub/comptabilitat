@@ -9,6 +9,7 @@ import { html, raw } from "hono/html";
 
 import { Casella, Tria } from "../../components/form.tsx";
 import { Paginacio, TaulaDades } from "../../components/vista.tsx";
+import type { Cadence } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
 import type { GrupCategories } from "../../services/categories.ts";
 import type { ComercVista, PaginaComercos } from "../../services/merchants.ts";
@@ -19,6 +20,16 @@ const dataCurta = new Intl.DateTimeFormat("ca-ES", {
   month: "short",
   year: "numeric",
 });
+
+const CADENCIES: Record<Cadence, string> = {
+  weekly: "setmanal",
+  biweekly: "quinzenal",
+  monthly: "mensual",
+  bimonthly: "bimensual",
+  quarterly: "trimestral",
+  semiannual: "semestral",
+  annual: "anual",
+};
 
 export interface TaulaProps {
   codi: string;
@@ -33,6 +44,7 @@ export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): 
     ${TaulaDades({
       columnes: html`<th>Comerç</th>
         <th>Categoria per defecte</th>
+        <th>Recurrent</th>
         <th class="dreta">Moviments</th>
         <th>Vist per ultim cop</th>` as Html,
       files: pagina.items.map((comerc) => Fila({ codi, comerc, grups, potEditar })),
@@ -96,6 +108,7 @@ export interface FilaProps {
 
 export function Fila({ codi, comerc, grups, potEditar }: FilaProps): Html {
   const base = `/e/${codi}/comercos/${comerc.id}`;
+  const cadencia = comerc.recurrentCadence ?? "monthly";
 
   return html`<tr id="comerc-${comerc.id}">
     <td>
@@ -103,6 +116,11 @@ export function Fila({ codi, comerc, grups, potEditar }: FilaProps): Html {
       ${
         comerc.isConfirmed
           ? html`<span class="etiqueta" title="Ho ha confirmat una persona">confirmat</span>`
+          : ""
+      }
+      ${
+        comerc.isRecurrent
+          ? html`<span class="etiqueta" title="Entra a la previsio de saldo">recurrent</span>`
           : ""
       }
       <br />
@@ -124,6 +142,46 @@ export function Fila({ codi, comerc, grups, potEditar }: FilaProps): Html {
               atributs: `hx-post="${base}/categoria" hx-target="#comerc-${comerc.id}" hx-swap="outerHTML" hx-trigger="change" hx-disabled-elt="this"`,
             })
           : (comerc.categoryName ?? html`<span class="text-suau">sense classificar</span>`)
+      }
+    </td>
+    <td>
+      ${
+        potEditar
+          ? html`<div class="recurrent-comerc" id="recurrent-comerc-${comerc.id}">
+            <label class="casella">
+              <input
+                type="checkbox"
+                name="is_recurrent"
+                value="1"
+                ${comerc.isRecurrent ? raw("checked") : ""}
+                aria-label="Marca ${comerc.displayName} com a recurrent"
+                hx-post="${base}/recurrent"
+                hx-target="#comerc-${comerc.id}"
+                hx-swap="outerHTML"
+                hx-include="#recurrent-comerc-${comerc.id}"
+              />
+            </label>
+            <select
+              name="recurrent_cadence"
+              aria-label="Cadencia de ${comerc.displayName}"
+              ${comerc.isRecurrent ? "" : raw("disabled")}
+              hx-post="${base}/recurrent"
+              hx-target="#comerc-${comerc.id}"
+              hx-swap="outerHTML"
+              hx-include="#recurrent-comerc-${comerc.id}"
+              hx-trigger="change"
+            >
+              ${Object.entries(CADENCIES).map(
+                ([valor, etiqueta]) =>
+                  html`<option value="${valor}" ${cadencia === valor ? raw("selected") : ""}>
+                    ${etiqueta}
+                  </option>`,
+              )}
+            </select>
+          </div>`
+          : comerc.isRecurrent
+            ? html`${CADENCIES[cadencia]}`
+            : html`<span class="text-suau">—</span>`
       }
     </td>
     <td class="dreta">${String(comerc.transactionCount)}</td>

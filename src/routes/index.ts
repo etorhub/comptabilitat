@@ -22,7 +22,7 @@ import { exportsRoutes } from "./exports/exports.routes.ts";
 import { homeRoutes } from "./home/home.routes.ts";
 import { merchantsRoutes } from "./merchants/merchants.routes.ts";
 import { recurringRoutes } from "./recurring/recurring.routes.ts";
-import { rulesRoutes } from "./rules/rules.routes.ts";
+import { tagsRoutes } from "./tags/tags.routes.ts";
 import { transactionsRoutes } from "./transactions/transactions.routes.ts";
 import { usersRoutes } from "./users/users.routes.ts";
 import { workspacesRoutes } from "./workspaces/workspaces.routes.ts";
@@ -68,13 +68,23 @@ export function registerRoutes(app: Hono): void {
   espai.use("*", requireUser);
   espai.use("*", workspaceMiddleware);
 
-  espai.route("/avisos", alertsRoutes);
-  espai.route("/categories", categoriesRoutes);
-  espai.route("/comercos", merchantsRoutes);
-  espai.route("/regles", rulesRoutes);
+  // Configuracio de l'espai: nomes administradors de la instal·lacio.
+  // La guarda va a cada sub-programa, no a `espai` sencer: un `use("*")`
+  // aqui tancaria Panell, Moviments i la resta.
+  const ambAdmin = (rutes: Hono) => {
+    const sub = new Hono();
+    sub.use("*", requireAdmin);
+    sub.route("/", rutes);
+    return sub;
+  };
+
+  espai.route("/avisos", ambAdmin(alertsRoutes));
+  espai.route("/categories", ambAdmin(categoriesRoutes));
+  espai.route("/etiquetes", ambAdmin(tagsRoutes));
+  espai.route("/comercos", ambAdmin(merchantsRoutes));
+  espai.route("/configuracio", ambAdmin(workspacesRoutes));
   espai.route("/moviments", transactionsRoutes);
   espai.route("/recurrents", recurringRoutes);
-  espai.route("/configuracio", workspacesRoutes);
   // Les descarregues pengen de Moviments i d'Informes, que son d'on surten.
   espai.route("/moviments", exportsRoutes);
   espai.route("/informes", exportsRoutes);

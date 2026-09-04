@@ -20,7 +20,7 @@ import {
   type Ledger,
 } from "../db/schema/index.ts";
 import { config } from "../lib/config.ts";
-import { Decimal, money, toMoneyString, type MoneyString } from "../lib/money.ts";
+import { Decimal, money, toMoneyString, ZERO, type MoneyString } from "../lib/money.ts";
 import { addDays, daysBetween, todayLocal } from "../lib/time.ts";
 import { creaAvis } from "./alerts.ts";
 import { saldoEspai } from "./balances.ts";
@@ -44,6 +44,8 @@ export interface PuntPrevisio {
   esperat: MoneyString;
   optimista: MoneyString;
   pessimista: MoneyString;
+  /** Recta de minims quadrats sobre `esperat`: la tendencia de conjunt. */
+  tendencia: MoneyString;
 }
 
 export interface Previsio {
@@ -163,7 +165,7 @@ export async function construeixPrevisio(
   const derivaPessimista = diariaDec.times(new Decimal(1).plus(BAND_SPREAD));
   const llindar = money(espai.overdraftThreshold);
 
-  const punts: PuntPrevisio[] = [];
+  const puntsSenseTendencia: Omit<PuntPrevisio, "tendencia">[] = [];
   let corrent = money(saldo);
   let primerDescobert: string | null = null;
   let primerDescobertImport: MoneyString | null = null;
@@ -174,7 +176,7 @@ export async function construeixPrevisio(
 
     const esperat = corrent.minus(diariaDec.times(offset)).toDecimalPlaces(2);
 
-    punts.push({
+    puntsSenseTendencia.push({
       dia,
       esperat: toMoneyString(esperat),
       optimista: toMoneyString(corrent.minus(derivaOptimista.times(offset))),
@@ -186,6 +188,12 @@ export async function construeixPrevisio(
       primerDescobertImport = toMoneyString(esperat);
     }
   }
+
+  const tendencias = rectaMinimsQuadrats(puntsSenseTendencia.map((p) => money(p.esperat)));
+  const punts: PuntPrevisio[] = puntsSenseTendencia.map((p, i) => ({
+    ...p,
+    tendencia: toMoneyString(tendencias[i] ?? ZERO),
+  }));
 
   return {
     ledgerId: espai.id,
@@ -200,6 +208,46 @@ export async function construeixPrevisio(
     primerDescobert,
     primerDescobertImport,
   };
+}
+
+/**
+ * Recta de minims quadrats sobre una serie diaria.
+ *
+ * Amb x = 0..n-1. Serveix per veure si el saldo, en global, puja o baixa
+ * sense els dents de serra dels rebuts.
+ */
+export function rectaMinimsQuadrats(valors: Decimal[]): Decimal[] {
+  const n = valors.length;
+  if (n === 0) return [];
+  if (n === 1) return [valors[0] ?? ZERO];
+
+  let sumX = ZERO;
+  let sumY = ZERO;
+  let sumXY = ZERO;
+  let sumXX = ZERO;
+
+  for (let i = 0; i < n; i += 1) {
+    const x = new Decimal(i);
+    const y = valors[i] ?? ZERO;
+    sumX = sumX.plus(x);
+    sumY = sumY.plus(y);
+    sumXY = sumXY.plus(x.times(y));
+    sumXX = sumXX.plus(x.times(x));
+  }
+
+  const nDec = new Decimal(n);
+  const denominador = nDec.times(sumXX).minus(sumX.times(sumX));
+  // Cap serie diaria real te denominador zero (x = 0..n-1 amb n >= 2),
+  // pero si arribés, la tendencia es el valor mitja.
+  if (denominador.isZero()) {
+    const mitjana = sumY.dividedBy(nDec);
+    return valors.map(() => mitjana.toDecimalPlaces(2));
+  }
+
+  const pendent = nDec.times(sumXY).minus(sumX.times(sumY)).dividedBy(denominador);
+  const origen = sumY.minus(pendent.times(sumX)).dividedBy(nDec);
+
+  return valors.map((_, i) => origen.plus(pendent.times(i)).toDecimalPlaces(2));
 }
 
 /** Setmana ISO d'una data, per deduplicar l'avis un cop per setmana. */

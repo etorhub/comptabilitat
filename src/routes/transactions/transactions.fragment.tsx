@@ -19,6 +19,7 @@ import type {
   PaginaMoviments,
 } from "../../services/transactions.ts";
 import {
+  ETIQUETES_TIPUS,
   PER_PAGINA,
   transactionFiltersToQuery,
   type TransactionFilters,
@@ -35,15 +36,51 @@ const ORIGEN: Record<CategorySource, { text: string; titol: string }> = {
 
 const dataCurta = new Intl.DateTimeFormat("ca-ES", { day: "2-digit", month: "short" });
 
+/** Xip Mastercard amb els darrers 4 digits. Fora del boto d'alias. */
+function XipTargeta({ darrers4 }: { darrers4: string | null }): Html {
+  if (!darrers4) return html`` as Html;
+  return html`<span
+    class="xip-targeta"
+    aria-label="Targeta acabada en ${darrers4}"
+    title="Targeta acabada en ${darrers4}"
+  >
+    <svg
+      class="xip-targeta-icona"
+      viewBox="0 0 38 24"
+      width="22"
+      height="14"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle cx="12" cy="12" r="10" fill="#eb001b" />
+      <circle cx="26" cy="12" r="10" fill="#f79e1b" />
+      <path
+        d="M19 5.2a10 10 0 0 0 0 13.6 10 10 0 0 0 0-13.6z"
+        fill="#ff5f00"
+      />
+    </svg>
+    <span class="xip-targeta-digits">*${darrers4}</span>
+  </span>` as Html;
+}
+
 export interface TaulaProps {
   codi: string;
   pagina: PaginaMoviments;
   grups: GrupCategories[];
   filters: TransactionFilters;
   potEditar: boolean;
+  /** Etiquetes ja usades a l'espai, per al datalist d'alta. */
+  etiquetesConegudes?: string[];
 }
 
-export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): Html {
+export function Taula({
+  codi,
+  pagina,
+  grups,
+  filters,
+  potEditar,
+  etiquetesConegudes = [],
+}: TaulaProps): Html {
   // `taula-carregant` no es decoracio: es el ganxo que fa que
   // l'`hx-indicator` de la barra de bloc enfosqueixi les files mentre la
   // peticio corre. El full d'estil el tenia i ningu no el posava.
@@ -67,7 +104,9 @@ export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): 
         <th>Comerç</th>
         <th>Categoria</th>
         <th class="dreta">Import</th>` as Html,
-      files: pagina.items.map((moviment) => Fila({ codi, moviment, grups, potEditar })),
+      files: pagina.items.map((moviment) =>
+        Fila({ codi, moviment, grups, potEditar, etiquetesConegudes }),
+      ),
       buit: "Cap moviment encaixa amb aquests filtres.",
       peu: Paginacio({
         pagina,
@@ -123,7 +162,38 @@ function BarraBloc({
     >
       ${Filador()} Aplica-la als triats
     </button>
+
+    <label class="camp camp-linia camp-estret">
+      <span class="camp-etiqueta">Etiqueta</span>
+      <input
+        type="text"
+        name="etiqueta_bloc"
+        id="bloc-etiqueta"
+        list="etiquetes-espai"
+        maxlength="40"
+        autocomplete="off"
+        placeholder="casament…"
+      />
+    </label>
+    <button
+      type="button"
+      class="boto boto-discret"
+      hx-post="/e/${codi}/moviments/bloc/etiquetes${consulta}"
+      hx-target="#taula-moviments"
+      hx-swap="outerHTML"
+      hx-include="#bloc-etiqueta, #taula-moviments input[name='moviment']:checked"
+      hx-indicator="#taula-moviments"
+    >
+      Posa l'etiqueta als triats
+    </button>
   </div>` as Html;
+}
+
+function DatalistEtiquetes(etiquetes: string[]): Html {
+  if (etiquetes.length === 0) return html`` as Html;
+  return html`<datalist id="etiquetes-espai">
+    ${etiquetes.map((t) => html`<option value="${t}"></option>`)}
+  </datalist>` as Html;
 }
 
 function Passos({
@@ -137,17 +207,8 @@ function Passos({
 }): Html {
   const ultima = Math.max(0, Math.ceil(total / PER_PAGINA) - 1);
   const enllac = (p: number) => {
-    const params = new URLSearchParams();
-    if (filters.cerca) params.set("cerca", filters.cerca);
-    if (filters.des) params.set("des", filters.des);
-    if (filters.fins) params.set("fins", filters.fins);
-    if (filters.compte !== null) params.set("compte", String(filters.compte));
-    if (filters.categoria !== null) params.set("categoria", String(filters.categoria));
-    if (filters.sense_classificar) params.set("sense_classificar", "1");
-    if (filters.revisio) params.set("revisio", "1");
-    if (filters.traspassos) params.set("traspassos", "1");
-    if (p > 0) params.set("pagina", String(p));
-    return `/e/${codi}/moviments/fragment/taula?${params.toString()}`;
+    const q = transactionFiltersToQuery({ ...filters, pagina: p });
+    return `/e/${codi}/moviments/fragment/taula${q}`;
   };
 
   return html`<span class="passos">
@@ -181,6 +242,7 @@ export interface FilaProps {
   potEditar: boolean;
   /** Mostra el desplegable encara que ja hi hagi categoria (edicio inline). */
   editantCategoria?: boolean;
+  etiquetesConegudes?: string[];
 }
 
 const iconaLlapis = html`<svg
@@ -283,6 +345,7 @@ export function Fila({
   grups,
   potEditar,
   editantCategoria = false,
+  etiquetesConegudes = [],
 }: FilaProps): Html {
   const base = `/e/${codi}/moviments/${moviment.id}`;
   const negatiu = moviment.amount.startsWith("-");
@@ -316,34 +379,40 @@ export function Fila({
     </td>
 
     <td>
-      ${
-        potEditar
-          ? html`<button
-            type="button"
-            class="concepte"
-            title="Canvia com es veu aquest concepte"
-            hx-get="${base}/fragment/concepte"
-            hx-target="#moviment-${moviment.id}"
-            hx-swap="outerHTML"
-          >
-            ${moviment.description}
-          </button>`
-          : html`<span>${moviment.description}</span>`
-      }
-      ${
-        moviment.isMasked
-          ? html`<span class="etiqueta etiqueta-suau" title="El concepte del banc esta amagat"
-            >alies</span
-          >`
-          : ""
-      }
-      ${
-        moviment.transferGroupId
-          ? html`<span class="etiqueta etiqueta-suau" title="Traspas entre comptes propis"
-            >traspas</span
-          >`
-          : ""
-      }
+      <div class="concepte-linia">
+        ${
+          potEditar
+            ? html`<button
+              type="button"
+              class="concepte"
+              title="${moviment.descriptionHint ?? "Canvia com es veu aquest concepte"}"
+              hx-get="${base}/fragment/concepte"
+              hx-target="#moviment-${moviment.id}"
+              hx-swap="outerHTML"
+            >
+              ${moviment.description}
+            </button>`
+            : html`<span>${moviment.description}</span>`
+        }
+        ${XipTargeta({ darrers4: moviment.darrers4 })}
+        ${
+          moviment.transferGroupId
+            ? html`<span class="etiqueta etiqueta-suau" title="Traspas entre comptes propis"
+              >traspas</span
+            >`
+            : moviment.tipusOperacio === "transferencia"
+              ? html`<span class="etiqueta etiqueta-suau" title="Transferencia bancaria"
+                >transferència</span
+              >`
+              : ""
+        }
+        ${EtiquetesDelMoviment({
+          codi,
+          moviment,
+          potEditar,
+          etiquetesConegudes,
+        })}
+      </div>
       ${moviment.notes ? html`<small class="text-suau nota">${moviment.notes}</small>` : ""}
     </td>
 
@@ -357,6 +426,75 @@ export function Fila({
 
     <td class="dreta ${negatiu ? "negatiu" : "positiu"}">${formatMoney(moviment.amount)}</td>
   </tr>` as Html;
+}
+
+/**
+ * Xapes d'etiquetes en linia amb el concepte.
+ *
+ * Cada formulari d'alta es propi de la fila i **no** comparteix camps amb la
+ * barra de bloc: si no, HTMX enviaria tot i el darrer camp taparia el primer.
+ */
+function EtiquetesDelMoviment({
+  codi,
+  moviment,
+  potEditar,
+}: {
+  codi: string;
+  moviment: MovimentVista;
+  potEditar: boolean;
+  etiquetesConegudes: string[];
+}): Html {
+  const base = `/e/${codi}/moviments/${moviment.id}`;
+  const xapes = moviment.tags.map((t) => {
+    const href = `/e/${codi}/etiquetes/${encodeURIComponent(t)}`;
+    if (!potEditar) {
+      return html`<a class="etiqueta etiqueta-dada" href="${href}">${t}</a>`;
+    }
+    return html`<form
+      class="xapa-etiqueta"
+      hx-post="${base}/etiquetes/treure"
+      hx-target="#moviment-${moviment.id}"
+      hx-swap="outerHTML"
+    >
+      <a class="etiqueta etiqueta-dada" href="${href}">${t}</a>
+      <input type="hidden" name="etiqueta" value="${t}" />
+      <button
+        type="submit"
+        class="boto-xapa"
+        aria-label="Treu l'etiqueta ${t}"
+        title="Treu l'etiqueta"
+      >
+        ×
+      </button>
+    </form>`;
+  });
+
+  const alta = potEditar
+    ? html`<form
+        class="alta-etiqueta"
+        hx-post="${base}/etiquetes"
+        hx-target="#moviment-${moviment.id}"
+        hx-swap="outerHTML"
+      >
+        <label class="visualment-ocult" for="nova-etiqueta-${moviment.id}">
+          Afegeix una etiqueta
+        </label>
+        <input
+          type="text"
+          name="nova_etiqueta"
+          id="nova-etiqueta-${moviment.id}"
+          list="etiquetes-espai"
+          maxlength="40"
+          autocomplete="off"
+          placeholder="+"
+          aria-label="Afegeix una etiqueta a ${moviment.description}"
+        />
+      </form>`
+    : "";
+
+  if (xapes.length === 0 && !potEditar) return html`` as Html;
+
+  return html`<span class="etiquetes-moviment">${xapes}${alta}</span>` as Html;
 }
 
 /** La fila convertida en un camp per posar-hi un alias. */
@@ -383,6 +521,7 @@ export function FilaConcepte({
             value="${moviment.isMasked ? moviment.description : ""}"
             maxlength="200"
             placeholder="${moviment.description}"
+            title="${moviment.descriptionHint ?? ""}"
             autofocus
           />
           <small class="camp-ajuda">
@@ -411,15 +550,22 @@ export interface BarraFiltresProps {
   filters: TransactionFilters;
   comptes: { valor: number; text: string }[];
   grups: GrupCategories[];
+  etiquetesConegudes?: string[];
 }
 
-export function BarraFiltres({ codi, filters, comptes, grups }: BarraFiltresProps): Html {
+export function BarraFiltres({
+  codi,
+  filters,
+  comptes,
+  grups,
+  etiquetesConegudes = [],
+}: BarraFiltresProps): Html {
   return html`<form
     class="filtres superficie targeta"
     hx-get="/e/${codi}/moviments/fragment/taula"
     hx-target="#taula-moviments"
     hx-swap="outerHTML"
-    hx-trigger="change, keyup changed delay:300ms from:input[name='cerca']"
+    hx-trigger="change, keyup changed delay:300ms from:input[name='cerca'], keyup changed delay:300ms from:input[name='etiqueta']"
   >
     <label class="camp camp-linia">
       <span class="camp-etiqueta">Cerca</span>
@@ -462,6 +608,26 @@ export function BarraFiltres({ codi, filters, comptes, grups }: BarraFiltresProp
       buit: "— totes —",
     })}
 
+    <label class="camp camp-linia camp-estret">
+      <span class="camp-etiqueta">Etiqueta</span>
+      <input
+        type="text"
+        name="etiqueta"
+        value="${filters.etiqueta ?? ""}"
+        maxlength="40"
+        list="etiquetes-espai"
+        autocomplete="off"
+        placeholder="casament…"
+      />
+    </label>
+
+    <fieldset class="filtre-tipus">
+      <legend class="camp-etiqueta">Tipus</legend>
+      ${ETIQUETES_TIPUS.map(({ valor, text }) =>
+        Casella({ nom: "tipus", valor, etiqueta: text, marcat: filters.tipus.includes(valor) }),
+      )}
+    </fieldset>
+
     ${Casella({
       nom: "sense_classificar",
       valor: "1",
@@ -482,6 +648,8 @@ export function BarraFiltres({ codi, filters, comptes, grups }: BarraFiltresProp
       etiqueta: "Inclou els traspassos",
       marcat: filters.traspassos,
     })}
+
+    ${DatalistEtiquetes(etiquetesConegudes)}
   </form>` as Html;
 }
 
@@ -531,7 +699,13 @@ export function TargetaRevisio({
       <time datetime="${moviment.bookingDate}" class="text-suau">
         ${dataCurta.format(new Date(`${moviment.bookingDate}T00:00:00`))}
       </time>
-      <strong>${moviment.description}</strong>
+      <strong title="${moviment.descriptionHint ?? ""}">${moviment.description}</strong>
+      ${XipTargeta({ darrers4: moviment.darrers4 })}
+      ${
+        !moviment.transferGroupId && moviment.tipusOperacio === "transferencia"
+          ? html`<span class="etiqueta etiqueta-suau">transferència</span>`
+          : ""
+      }
       <span class="${negatiu ? "negatiu" : "positiu"}">${formatMoney(moviment.amount)}</span>
     </div>
 

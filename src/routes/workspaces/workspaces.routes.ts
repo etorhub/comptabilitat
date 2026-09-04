@@ -1,8 +1,9 @@
 /**
  * Configuracio de l'espai.
  *
- * Nomes els administradors **d'aquest espai** el poden configurar; qualsevol
- * membre en pot veure la pantalla.
+ * Nomes els administradors de la instal·lacio hi arriben (guarda a
+ * `routes/index.ts`). Dins, nomes els administradors **d'aquest espai** el
+ * poden canviar; la resta d'admins de la instal·lacio amb acces el veuen.
  */
 
 import { asc, eq } from "drizzle-orm";
@@ -46,7 +47,7 @@ workspacesRoutes.get("/", async (c) => {
     c,
     await workspacePage(
       c,
-      "Configuracio",
+      "Espai",
       WorkspacePage({
         espai,
         membres: await membres(espai.id),

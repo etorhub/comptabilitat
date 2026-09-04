@@ -86,7 +86,15 @@ La contrasenya es genera automàticament si no en passes una de tercer argument.
 
 ## Actualitzacions
 
-Per actualitzar després d'un `git push`:
+L'stack es crea des del git (`docker-compose.yml` a l'arrel, branca `master`).
+A Portainer: **GitOps updates → Polling → 5m**. Després d'un merge a `master`,
+Portainer clona, reconstrueix i arrenquen els contenidors nous. Les migracions
+les aplica `app` en arrencar.
+
+La clau d'Enable Banking va a la variable d'stack `EB_PRIVATE_KEY_B64` (el PEM
+no és al repositori). `deploy/scripts/portainer-deploy.py` l'hi posa.
+
+Si el polling no està actiu, actualitza a mà:
 
 **Stacks → comptabilitat → Pull and redeploy**
 

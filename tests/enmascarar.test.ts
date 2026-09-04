@@ -42,6 +42,8 @@ const CAP_FILTRE = {
   categoryIds: [],
   merchantId: null,
   cerca: "",
+  etiqueta: null,
+  tipusOperacio: [],
   nomesRevisio: false,
   nomesSenseClassificar: false,
   incloTraspassos: true,
@@ -182,11 +184,34 @@ describe("un moviment emmascarat", () => {
     expect(serialitzat).not.toContain("aixo no ha de sortir mai");
   });
 
+  test("un moviment amb PAN no el deixa a la vista", async () => {
+    await db
+      .update(transactions)
+      .set({
+        description:
+          "COMPRA WWW.AMAZON*QE6I19905, LUXEMBOURG, TARJETA 5489010385484017 , COMISION 0,00",
+      })
+      .where(eq(transactions.id, idNormal));
+
+    const moviment = await movimentDeLespai(idNormal, ledgerId);
+    const serialitzat = JSON.stringify(moviment);
+    expect(moviment.description).toBe("Amazon");
+    expect(moviment.darrers4).toBe("4017");
+    expect(serialitzat).not.toContain("5489010385484017");
+  });
+
   test("un moviment normal si que els ensenya", async () => {
     const moviment = await movimentDeLespai(idNormal, ledgerId);
-    expect(moviment.description).toBe("COMPRA TARJ. CLINICA DISCRETA");
+    expect(moviment.description).toBe("Clinica Discreta");
+    expect(moviment.darrers4).toBeNull();
     expect(moviment.merchantName).toBe("Clinica Discreta");
     expect(moviment.isMasked).toBe(false);
+  });
+
+  test("un moviment amagat no porta xip de targeta", async () => {
+    const moviment = await movimentDeLespai(idAmagat, ledgerId);
+    expect(moviment.darrers4).toBeNull();
+    expect(moviment.descriptionHint).toBeNull();
   });
 });
 
@@ -233,7 +258,7 @@ describe("treure l'alies", () => {
 
     const moviment = await movimentDeLespai(idAmagat, ledgerId);
     expect(moviment.isMasked).toBe(false);
-    expect(moviment.description).toBe("COMPRA TARJ. CLINICA DISCRETA");
+    expect(moviment.description).toBe("Clinica Discreta");
     expect(moviment.merchantName).toBe("Clinica Discreta");
   });
 });

@@ -51,8 +51,10 @@ function marcat(pagina: string): string[] {
 
 describe("aria-current a la barra lateral", () => {
   test("marca la pagina que s'esta mirant, i nomes una", async () => {
-    expect(marcat(await barra("/e/personal/regles"))).toEqual(["/e/personal/regles"]);
+    expect(marcat(await barra("/e/personal/moviments"))).toEqual(["/e/personal/moviments"]);
+    // I els del grup de configuracio, que el master va moure a part.
     expect(marcat(await barra("/e/personal/comercos"))).toEqual(["/e/personal/comercos"]);
+    expect(marcat(await barra("/e/personal/categories"))).toEqual(["/e/personal/categories"]);
   });
 
   test("guanya el cami mes llarg, no el primer que encaixa", async () => {
