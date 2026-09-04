@@ -34,6 +34,8 @@ function moviment(id: number): MovimentVista {
     currency: "EUR",
     status: "booked",
     description: `Compra ${id}`,
+    descriptionHint: null,
+    darrers4: null,
     counterparty: "",
     merchantId: null,
     merchantName: null,
@@ -140,5 +142,33 @@ describe("la taula de moviments", () => {
     expect(marcatge).not.toContain('name="moviment"');
     expect(marcatge).not.toContain('name="category_id"');
     expect(marcatge).not.toContain('name="nova_etiqueta"');
+  });
+
+  test("el xip de targeta mostra els darrers 4 i mai el PAN", async () => {
+    const ambTargeta: MovimentVista = {
+      ...moviment(9),
+      description: "Amazon",
+      descriptionHint: "COMPRA WWW.AMAZON, LUXEMBOURG",
+      darrers4: "4017",
+    };
+    const marcatge = String(
+      await Taula({
+        codi: "personal",
+        pagina: {
+          items: [ambTargeta],
+          total: 1,
+          offset: 0,
+          limit: 50,
+          totalImport: "-30.00",
+        },
+        grups,
+        filters: transactionFiltersSchema.parse({}),
+        potEditar: true,
+      }),
+    );
+    expect(marcatge).toContain('class="xip-targeta"');
+    expect(marcatge).toContain("*4017");
+    expect(marcatge).toContain("Targeta acabada en 4017");
+    expect(marcatge).not.toContain("5489010385484017");
   });
 });

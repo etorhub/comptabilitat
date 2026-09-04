@@ -24,7 +24,9 @@ const normal: MovimentVista = {
   amount: "-45.20",
   currency: "EUR",
   status: "booked",
-  description: "COMPRA TARJ. CLINICA DISCRETA",
+  description: "Clinica Discreta",
+  descriptionHint: "COMPRA TARJ. CLINICA DISCRETA",
+  darrers4: null,
   counterparty: "Clinica Discreta SL",
   merchantId: 3,
   merchantName: "Clinica Discreta",
@@ -45,6 +47,8 @@ const amagat: MovimentVista = {
   ...normal,
   id: 2,
   description: "Despesa personal",
+  descriptionHint: null,
+  darrers4: null,
   counterparty: "",
   merchantName: null,
   isMasked: true,
@@ -71,6 +75,18 @@ describe("CSV", () => {
     expect(csv).toContain("Despesa personal");
     expect(csv).not.toContain("CLINICA DISCRETA");
     expect(csv).not.toContain("Clinica Discreta");
+  });
+
+  test("el PAN no surt al CSV quan el concepte ja esta parsejat", () => {
+    const ambPan: MovimentVista = {
+      ...normal,
+      description: "Amazon",
+      descriptionHint: "COMPRA WWW.AMAZON, LUXEMBOURG",
+      darrers4: "4017",
+    };
+    const csv = textCsv(movimentsACsv([ambPan]));
+    expect(csv).toContain("Amazon");
+    expect(csv).not.toContain("5489010385484017");
   });
 
   test("les cometes i els punts i coma del text no trenquen les columnes", () => {

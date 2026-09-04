@@ -28,6 +28,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 
+import { parsejaConcepte } from "./concepte.ts";
 import { teEtiqueta } from "./tags.ts";
 
 import { db } from "../db/client.ts";
@@ -57,8 +58,18 @@ export interface MovimentVista {
   amount: MoneyString;
   currency: string;
   status: TransactionStatus;
-  /** El text que es pot ensenyar: l'alias si n'hi ha, si no el del banc. */
+  /**
+   * El text que es pot ensenyar: l'alias si n'hi ha; si no, el concepte del
+   * banc ja parsejat (sense targeta ni comissio).
+   */
   description: string;
+  /**
+   * Text bancari sense PAN/targeta/comissio, per al `title` del boto.
+   * Null quan hi ha alias (la dada del banc no s'ensenya).
+   */
+  descriptionHint: string | null;
+  /** Darrers 4 digits de la targeta, o null. Mai amb alias. */
+  darrers4: string | null;
   counterparty: string;
   merchantId: number | null;
   merchantName: string | null;
@@ -140,10 +151,44 @@ interface FilaCrua {
  * Converteix una fila en el que es pot ensenyar, aplicant l'emmascarament.
  *
  * **Es l'unica porta.** Si un moviment esta emmascarat, aqui es on el
- * concepte del banc, la contrapart i el comerç desapareixen.
+ * concepte del banc, la contrapart i el comerç desapareixen. Si no, el
+ * concepte es parseja nomes per mostrar (sense tocar la BD).
  */
 export function vistaMoviment(fila: FilaCrua): MovimentVista {
   const emmascarat = fila.displayDescription !== null && fila.displayDescription !== "";
+
+  if (emmascarat) {
+    return {
+      id: fila.id,
+      accountId: fila.accountId,
+      accountName: fila.accountName,
+      bookingDate: fila.bookingDate,
+      valueDate: fila.valueDate,
+      amount: fila.amount,
+      currency: fila.currency,
+      status: fila.status,
+      description: fila.displayDescription ?? "",
+      descriptionHint: null,
+      darrers4: null,
+      counterparty: "",
+      merchantId: fila.merchantId,
+      merchantName: null,
+      categoryId: fila.categoryId,
+      categoryName: fila.categoryName,
+      categorySource: fila.categorySource,
+      categoryConfidence: fila.categoryConfidence,
+      needsReview: fila.needsReview,
+      transferGroupId: fila.transferGroupId,
+      notes: fila.notes,
+      tags: fila.tags,
+      isExcluded: fila.isExcluded,
+      isMasked: true,
+    };
+  }
+
+  const parsejat = parsejaConcepte(fila.description);
+  const hint =
+    parsejat.originalNetejat !== parsejat.titol ? parsejat.originalNetejat : null;
 
   return {
     id: fila.id,
@@ -154,10 +199,12 @@ export function vistaMoviment(fila: FilaCrua): MovimentVista {
     amount: fila.amount,
     currency: fila.currency,
     status: fila.status,
-    description: emmascarat ? (fila.displayDescription ?? "") : fila.description,
-    counterparty: emmascarat ? "" : fila.counterparty,
+    description: parsejat.titol,
+    descriptionHint: hint,
+    darrers4: parsejat.darrers4,
+    counterparty: fila.counterparty,
     merchantId: fila.merchantId,
-    merchantName: emmascarat ? null : fila.merchantName,
+    merchantName: fila.merchantName,
     categoryId: fila.categoryId,
     categoryName: fila.categoryName,
     categorySource: fila.categorySource,
@@ -167,7 +214,7 @@ export function vistaMoviment(fila: FilaCrua): MovimentVista {
     notes: fila.notes,
     tags: fila.tags,
     isExcluded: fila.isExcluded,
-    isMasked: emmascarat,
+    isMasked: false,
   };
 }
 

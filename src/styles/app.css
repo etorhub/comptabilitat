@@ -1057,6 +1057,35 @@ tr.exclos {
   gap: 0.35rem;
 }
 
+.xip-targeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-suau);
+  background: color-mix(in srgb, var(--text-suau) 12%, transparent);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem 0.1rem 0.3rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.xip-targeta-icona {
+  display: block;
+  flex-shrink: 0;
+}
+
+.xip-targeta-digits {
+  letter-spacing: 0.02em;
+}
+
+.item-cap .xip-targeta {
+  margin-inline: 0.15rem;
+}
+
 .etiquetes-moviment {
   display: inline-flex;
   flex-wrap: wrap;

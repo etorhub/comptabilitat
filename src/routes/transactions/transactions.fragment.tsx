@@ -34,6 +34,33 @@ const ORIGEN: Record<CategorySource, { text: string; titol: string }> = {
 
 const dataCurta = new Intl.DateTimeFormat("ca-ES", { day: "2-digit", month: "short" });
 
+/** Xip Mastercard amb els darrers 4 digits. Fora del boto d'alias. */
+function XipTargeta({ darrers4 }: { darrers4: string | null }): Html {
+  if (!darrers4) return html`` as Html;
+  return html`<span
+    class="xip-targeta"
+    aria-label="Targeta acabada en ${darrers4}"
+    title="Targeta acabada en ${darrers4}"
+  >
+    <svg
+      class="xip-targeta-icona"
+      viewBox="0 0 38 24"
+      width="22"
+      height="14"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle cx="12" cy="12" r="10" fill="#eb001b" />
+      <circle cx="26" cy="12" r="10" fill="#f79e1b" />
+      <path
+        d="M19 5.2a10 10 0 0 0 0 13.6 10 10 0 0 0 0-13.6z"
+        fill="#ff5f00"
+      />
+    </svg>
+    <span class="xip-targeta-digits">*${darrers4}</span>
+  </span>` as Html;
+}
+
 export interface TaulaProps {
   codi: string;
   pagina: PaginaMoviments;
@@ -381,7 +408,7 @@ export function Fila({
             ? html`<button
               type="button"
               class="concepte"
-              title="Canvia com es veu aquest concepte"
+              title="${moviment.descriptionHint ?? "Canvia com es veu aquest concepte"}"
               hx-get="${base}/fragment/concepte"
               hx-target="#moviment-${moviment.id}"
               hx-swap="outerHTML"
@@ -390,6 +417,7 @@ export function Fila({
             </button>`
             : html`<span>${moviment.description}</span>`
         }
+        ${XipTargeta({ darrers4: moviment.darrers4 })}
         ${
           moviment.transferGroupId
             ? html`<span class="etiqueta etiqueta-suau" title="Traspas entre comptes propis"
@@ -512,6 +540,7 @@ export function FilaConcepte({
             value="${moviment.isMasked ? moviment.description : ""}"
             maxlength="200"
             placeholder="${moviment.description}"
+            title="${moviment.descriptionHint ?? ""}"
             autofocus
           />
           <small class="camp-ajuda">
@@ -686,7 +715,8 @@ export function TargetaRevisio({
       <time datetime="${moviment.bookingDate}" class="text-suau">
         ${dataCurta.format(new Date(`${moviment.bookingDate}T00:00:00`))}
       </time>
-      <strong>${moviment.description}</strong>
+      <strong title="${moviment.descriptionHint ?? ""}">${moviment.description}</strong>
+      ${XipTargeta({ darrers4: moviment.darrers4 })}
       <span class="${negatiu ? "negatiu" : "positiu"}">${formatMoney(moviment.amount)}</span>
     </div>
 
