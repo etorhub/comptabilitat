@@ -10,7 +10,7 @@
  *      que la categoria que hi hagi posat una persona es conserva.
  */
 
-import { and, eq, gte, inArray } from "drizzle-orm";
+import { and, eq, gte, inArray, lt } from "drizzle-orm";
 
 import { db } from "../db/client.ts";
 import {
@@ -21,6 +21,7 @@ import {
   transactions,
   type Account,
   type BankConnection,
+  type SyncRun,
   type SyncTrigger,
 } from "../db/schema/index.ts";
 import { config, ebRedirectUrl } from "../lib/config.ts";
@@ -238,7 +239,7 @@ async function baixaMoviments(
   client: EnableBankingClient,
   compte: Account,
   dataDes: string,
-): Promise<{ items: MovimentAnalitzat[]; usada: string }> {
+): Promise<{ items: MovimentAnalitzat[]; usada: string; truncat: boolean }> {
   const finestres = [dataDes];
   for (const mesos of FALLBACK_WINDOWS_MONTHS) {
     const candidata = dataInicialFaMesos(mesos);
@@ -250,13 +251,16 @@ async function baixaMoviments(
   for (const candidata of finestres) {
     try {
       const items: MovimentAnalitzat[] = [];
-      for await (const cru of client.iterTransactions(compte.ebAccountUid, {
-        dateFrom: candidata,
-      })) {
-        const analitzat = parseTransaction(cru);
+      // Es recorre a ma per poder llegir el valor de retorn del generador,
+      // que diu si la llista s'ha quedat curta.
+      const pagines = client.iterTransactions(compte.ebAccountUid, { dateFrom: candidata });
+      let pas = await pagines.next();
+      while (pas.done !== true) {
+        const analitzat = parseTransaction(pas.value);
         if (analitzat !== null) items.push(analitzat);
+        pas = await pagines.next();
       }
-      return { items, usada: candidata };
+      return { items, usada: candidata, truncat: pas.value };
     } catch (error) {
       if (error instanceof DateRangeError) {
         console.warn(
@@ -304,6 +308,8 @@ function calActualitzar(
 async function desaMoviments(
   compte: Account,
   items: MovimentAnalitzat[],
+  /** Si el banc no ho ha donat tot, no es pot deduir res del que hi falta. */
+  llistaIncompleta = false,
 ): Promise<ResultatCompte> {
   const resultat: ResultatCompte = {
     accountId: compte.id,
@@ -483,10 +489,13 @@ async function desaMoviments(
     resultat.inserits += 1;
   }
 
-  // Els pendents que el banc ja no reporta han desaparegut.
-  const caducats = pendents.filter(
-    (p) => !vistes.has(p.dedupKey) && p.bookingDate >= inicíFinestra,
-  );
+  // Els pendents que el banc ja no reporta han desaparegut. Aixo nomes es pot
+  // deduir si el banc ho ha donat **tot**: amb una llista escapçada, «no hi
+  // es» vol dir «no ha arribat», i esborrariem moviments vius amb les seves
+  // notes, les etiquetes i la categoria que hi hagues posat algu.
+  const caducats = llistaIncompleta
+    ? []
+    : pendents.filter((p) => !vistes.has(p.dedupKey) && p.bookingDate >= inicíFinestra);
   if (caducats.length > 0) {
     await db.delete(transactions).where(
       inArray(
@@ -566,8 +575,23 @@ export async function sincronitzaConnexio(
   connexio: BankConnection,
   opcions: { trigger?: SyncTrigger; daysBack?: number | null } = {},
 ): Promise<ResultatSync> {
-  const trigger = opcions.trigger ?? "scheduled";
+  const execucio = await obreImportacio(connexio, opcions.trigger ?? "scheduled");
+  return portaLaImportacio(connexio, execucio, opcions);
+}
 
+/**
+ * Obre la fila de `sync_runs` i prou.
+ *
+ * Va a part perque qui llança la importacio en segon pla pugui tenir la fila
+ * **abans** de contestar. Si no, no hi ha manera de dibuixar l'estat sense
+ * endevinar quan hi sera: aixo abans es resolia amb una espera de 150 ms i una
+ * creuada de dits, i si la inserció trigava mes, el fragment sortia sense el
+ * `hx-trigger` i el sondeig no arrencava mai.
+ */
+export async function obreImportacio(
+  connexio: BankConnection,
+  trigger: SyncTrigger,
+): Promise<SyncRun | undefined> {
   const [execucio] = await db
     .insert(syncRuns)
     .values({
@@ -582,7 +606,15 @@ export async function sincronitzaConnexio(
       error: "",
     })
     .returning();
+  return execucio;
+}
 
+/** La importacio de debo, sobre una fila de `sync_runs` que ja existeix. */
+export async function portaLaImportacio(
+  connexio: BankConnection,
+  execucio: SyncRun | undefined,
+  opcions: { daysBack?: number | null } = {},
+): Promise<ResultatSync> {
   const resultat: ResultatSync = {
     connectionId: connexio.id,
     comptes: 0,
@@ -624,8 +656,8 @@ export async function sincronitzaConnexio(
               ? addDays(compte.lastBookedDate, -config.ebResyncOverlapDays)
               : dataInicialFaMesos(config.ebInitialHistoryMonths);
 
-        const { items } = await baixaMoviments(client, compte, dataDes);
-        const parcial = await desaMoviments(compte, items);
+        const { items, truncat } = await baixaMoviments(client, compte, dataDes);
+        const parcial = await desaMoviments(compte, items, truncat);
         await desaSaldos(client, compte);
 
         resultat.comptes += 1;
@@ -738,4 +770,79 @@ export async function comprovaConsentiments(): Promise<number> {
   }
 
   return creats;
+}
+
+/** Passades aquestes hores, una importacio «en marxa» no ho esta pas. */
+const HORES_FINS_A_DONAR_PER_MORTA = 2;
+
+/**
+ * Tanca les importacions que van quedar penjades.
+ *
+ * La importacio corre en segon pla dins del proces del servidor. Si el
+ * contenidor es reinicia enmig, la fila de `sync_runs` es queda en `running`
+ * per sempre —no hi ha ningu que la pugui acabar— i la pagina de connexions es
+ * queda **sondejant cada dos segons, per sempre i per a tothom qui la miri**,
+ * perque el fragment nomes s'atura quan l'estat es terminal.
+ *
+ * Tambe serveix de porta: mentre n'hi hagi una de viva, no se'n comença cap
+ * altra de la mateixa connexio.
+ */
+export async function tancaImportacionsPenjades(): Promise<number> {
+  const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
+
+  const tancades = await db
+    .update(syncRuns)
+    .set({
+      status: "failed",
+      finishedAt: new Date(),
+      error: "La importacio es va quedar a mitges (el servidor es va aturar).",
+    })
+    .where(and(eq(syncRuns.status, "running"), lt(syncRuns.startedAt, limit)))
+    .returning({ id: syncRuns.id });
+
+  if (tancades.length > 0) {
+    console.warn(`[sync] ${tancades.length} importacions penjades donades per fallides`);
+  }
+  return tancades.length;
+}
+
+/** Si ja n'hi ha una de viva per a aquesta connexio, no se'n comença cap altra. */
+export async function jaSincronitza(connexioId: number): Promise<boolean> {
+  const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
+  const [viva] = await db
+    .select({ id: syncRuns.id })
+    .from(syncRuns)
+    .where(
+      and(
+        eq(syncRuns.connectionId, connexioId),
+        eq(syncRuns.status, "running"),
+        gte(syncRuns.startedAt, limit),
+      ),
+    )
+    .limit(1);
+  return viva !== undefined;
+}
+
+/**
+ * Tanca ara mateix les importacions obertes d'aquest proces.
+ *
+ * La crida l'aturada endreçada del servidor: si s'atura mentre n'hi ha una en
+ * marxa, val mes deixar-la marcada com a fallida que no pas en `running`, on
+ * es quedaria fent sondejar la pagina fins que passes el manteniment.
+ */
+export async function tancaImportacionsObertes(): Promise<number> {
+  const tancades = await db
+    .update(syncRuns)
+    .set({
+      status: "failed",
+      finishedAt: new Date(),
+      error: "El servidor s'ha aturat enmig de la importacio.",
+    })
+    .where(eq(syncRuns.status, "running"))
+    .returning({ id: syncRuns.id });
+
+  if (tancades.length > 0) {
+    console.info(`[sync] ${tancades.length} importacions marcades com a interrompudes`);
+  }
+  return tancades.length;
 }

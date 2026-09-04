@@ -74,6 +74,38 @@ app.onError((err, c) => {
   return c.html(ErrorPage(missatge));
 });
 
+/**
+ * Aturada endreçada.
+ *
+ * El planificador ja en tenia; el servidor, no, i aixo es nota: la importacio
+ * del banc corre en segon pla dins d'aquest proces, i un `docker compose stop`
+ * el mata enmig. La fila de `sync_runs` es queda en `running` per sempre, i el
+ * fragment de la pagina de connexions nomes s'atura quan l'estat es terminal:
+ * es queda sondejant cada dos segons, per a tothom qui la miri.
+ *
+ * Aqui es tanca la piscina i es marquen les importacions que hi hagi obertes.
+ * El que se n'escapi —una mort sobtada, un OOM— el recull la feina de
+ * manteniment amb `tancaImportacionsPenjades()`.
+ */
+function aturaEndreçadament(senyal: string): void {
+  console.info(`[servidor] ${senyal}: aturant-se…`);
+  void (async () => {
+    try {
+      const { tancaImportacionsObertes } = await import("./services/sync.ts");
+      await tancaImportacionsObertes();
+    } catch (error) {
+      console.error("[servidor] no s'han pogut tancar les importacions:", error);
+    } finally {
+      const { closeDb } = await import("./db/client.ts");
+      await closeDb().catch(() => undefined);
+      process.exit(0);
+    }
+  })();
+}
+
+process.on("SIGTERM", () => aturaEndreçadament("SIGTERM"));
+process.on("SIGINT", () => aturaEndreçadament("SIGINT"));
+
 export default {
   port: config.port,
   fetch: app.fetch,

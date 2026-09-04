@@ -48,7 +48,9 @@ import { ultimSaldo } from "../../services/balances.ts";
 import {
   acabaAutoritzacio,
   comencaAutoritzacio,
-  sincronitzaConnexio,
+  jaSincronitza,
+  obreImportacio,
+  portaLaImportacio,
 } from "../../services/sync.ts";
 import { EstatSync, FilaCompte, Llista, type ConnexioVista } from "./connections.fragment.tsx";
 import { ConnectionsPage } from "./connections.page.tsx";
@@ -227,19 +229,25 @@ connectionsRoutes.post("/:id/sincronitza", async (c) => {
     return toastOnly(c, "Aquesta connexio no esta activa", 422);
   }
 
-  // Arrenca en segon pla i contesta de seguida: la primera importacio pot
-  // trigar mes del que aguanta cap intermediari.
-  void sincronitzaConnexio(connexio, {
-    trigger: "manual",
+  // Sota PSD2 el banc limita les consultes sense l'usuari present, i dues
+  // importacions alhora de la mateixa connexio se les gasten per duplicat.
+  // Si ja n'hi ha una de viva, s'ensenya aquella.
+  if (await jaSincronitza(id)) {
+    return fragment(c, EstatSync({ connexioId: id, execucio: await ultimaExecucio(id) }));
+  }
+
+  // La fila es crea **abans** de contestar, de manera que el fragment ja pot
+  // dur el sondeig; la feina de debo va en segon pla, perque la primera
+  // importacio pot trigar mes del que aguanta cap intermediari.
+  const execucio = await obreImportacio(connexio, "manual");
+
+  void portaLaImportacio(connexio, execucio, {
     daysBack: parsed.success ? parsed.data.days_back : null,
   }).catch((error: unknown) => {
     console.error("[sync] la importacio ha fallat:", error);
   });
 
-  // Un moment perque la fila de `sync_runs` ja hi sigui.
-  await Bun.sleep(150);
-
-  return fragment(c, EstatSync({ connexioId: id, execucio: await ultimaExecucio(id) }));
+  return fragment(c, EstatSync({ connexioId: id, execucio: execucio ?? null }));
 });
 
 /** L'estat d'una importacio. El fragment s'atura sol quan la feina acaba. */
