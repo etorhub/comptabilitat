@@ -972,16 +972,19 @@ tr.exclos {
 .previsio-cap {
   margin-bottom: 1.25rem;
   align-items: start;
+  grid-template-columns: minmax(16rem, 1fr) minmax(0, 2fr);
 }
 
 .previsio-xifres {
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   margin-bottom: 0;
 }
 
 .previsio-xifres .xifra {
-  min-width: 0;
-  width: 100%;
+  min-width: 9rem;
+  flex: 1 1 9rem;
+  width: auto;
 }
 
 @media (max-width: 60rem) {
