@@ -7,6 +7,7 @@
  */
 
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { serveStatic } from "hono/bun";
 import { logger } from "hono/logger";
 
@@ -36,11 +37,21 @@ if (config.debug) {
 // Fitxers estatics: HTMX, ECharts, el full d'estil i el favicon. Els serveix
 // l'aplicacio mateixa, de manera que no cal cap servidor web al davant: amb el
 // canvi de pila, l'nginx que servia la interficie de React ja no hi es.
-app.use("/app.css", serveStatic({ path: "./public/app.css" }));
-app.use("/htmx.min.js", serveStatic({ path: "./public/htmx.min.js" }));
-app.use("/echarts.min.js", serveStatic({ path: "./public/echarts.min.js" }));
-app.use("/grafics.js", serveStatic({ path: "./public/grafics.js" }));
-app.use("/favicon.svg", serveStatic({ path: "./public/favicon.svg" }));
+//
+// `immutable` d'un any: el navegador no els torna a demanar. Les plantilles
+// hi afegeixen `?v=<resum>` (vegeu `lib/estatics.ts`) perquè un desplegament
+// no deixi bytes vells a la memòria cau.
+const cacheEstatic = (_path: string, c: Context) => {
+  c.header("Cache-Control", "public, max-age=31536000, immutable");
+};
+app.use("/app.css", serveStatic({ path: "./public/app.css", onFound: cacheEstatic }));
+app.use("/htmx.min.js", serveStatic({ path: "./public/htmx.min.js", onFound: cacheEstatic }));
+app.use(
+  "/echarts.min.js",
+  serveStatic({ path: "./public/echarts.min.js", onFound: cacheEstatic }),
+);
+app.use("/grafics.js", serveStatic({ path: "./public/grafics.js", onFound: cacheEstatic }));
+app.use("/favicon.svg", serveStatic({ path: "./public/favicon.svg", onFound: cacheEstatic }));
 
 app.get("/salut", (c) => c.json({ status: "ok", environment: config.environment }));
 
