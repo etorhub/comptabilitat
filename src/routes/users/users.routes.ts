@@ -13,7 +13,11 @@ import { zodErrors } from "../../components/form.tsx";
 import { Layout } from "../../components/layout.tsx";
 import { db } from "../../db/client.ts";
 import { ledgers, userLedgerPermissions, users } from "../../db/schema/index.ts";
-import { destroyAllSessions, hashPassword } from "../../lib/auth.ts";
+import {
+  destroyAllSessions,
+  destroyOtherSessions,
+  hashPassword,
+} from "../../lib/auth.ts";
 import {
   AppError,
   fragment,
@@ -27,7 +31,12 @@ import { currentUser } from "../../middleware/session.ts";
 import { myWorkspaces } from "../../middleware/workspace.ts";
 import { FormAlta, Llista, Targeta, type UsuariVista } from "./users.fragment.tsx";
 import { UsersPage } from "./users.page.tsx";
-import { grantSchema, userCreateSchema } from "./users.schema.ts";
+import {
+  grantSchema,
+  passwordResetSchema,
+  userCreateSchema,
+  userUpdateSchema,
+} from "./users.schema.ts";
 
 export const usersRoutes = new Hono();
 
@@ -151,6 +160,114 @@ usersRoutes.post("/", async (c) => {
       FormAlta({}),
       Llista({ usuaris, espais, jo: jo.id, oob: true }),
       toast(`Usuari ${parsed.data.email} creat`, "success"),
+    ),
+  );
+});
+
+/**
+ * Desa el nom i si es administrador de la instal·lacio.
+ *
+ * No et pots treure a tu mateix l'admin: quedaries sense ningu que pugui
+ * gestionar usuaris ni bancs.
+ */
+usersRoutes.post("/:id", async (c) => {
+  const id = idDeLaRuta(c.req.param("id"));
+  const jo = currentUser(c);
+  const cos = await c.req.parseBody();
+  const parsed = userUpdateSchema.safeParse(cos);
+
+  if (!parsed.success) {
+    const [vista, espais] = await Promise.all([vistaUsuari(id), espaisActius()]);
+    return fragment(
+      c,
+      await withOob(
+        Targeta({
+          usuari: { ...vista, fullName: String(cos.full_name ?? vista.fullName) },
+          espais,
+          jo: jo.id,
+          editErrors: zodErrors(parsed.error),
+        }),
+        toast("Revisa el formulari"),
+      ),
+      422,
+    );
+  }
+
+  const [usuari] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  if (!usuari) throw new NotFoundError("Aquest usuari no existeix");
+
+  if (id === jo.id && !parsed.data.is_admin) {
+    throw new AppError("No et pots treure a tu mateix l'admin", 422);
+  }
+
+  await db
+    .update(users)
+    .set({ fullName: parsed.data.full_name, isAdmin: parsed.data.is_admin })
+    .where(eq(users.id, id));
+
+  const [vista, espais] = await Promise.all([vistaUsuari(id), espaisActius()]);
+
+  return fragment(
+    c,
+    await withOob(
+      Targeta({ usuari: vista, espais, jo: jo.id }),
+      toast("Usuari actualitzat", "success"),
+    ),
+  );
+});
+
+/**
+ * Reinicia la contrasenya d'un usuari (la posa l'administrador).
+ *
+ * Li tanca les sessions: si no, continuaria dins amb la contrasenya vella fins
+ * que caduquessin. Si et reinicies la teva, es conserva la sessio actual per
+ * no invalidar el CSRF ja dibuixat a la pagina.
+ */
+usersRoutes.post("/:id/contrasenya", async (c) => {
+  const id = idDeLaRuta(c.req.param("id"));
+  const jo = currentUser(c);
+  const cos = await c.req.parseBody();
+  const parsed = passwordResetSchema.safeParse(cos);
+
+  if (!parsed.success) {
+    const [vista, espais] = await Promise.all([vistaUsuari(id), espaisActius()]);
+    return fragment(
+      c,
+      await withOob(
+        Targeta({
+          usuari: vista,
+          espais,
+          jo: jo.id,
+          passwordErrors: zodErrors(parsed.error),
+        }),
+        toast("Revisa el formulari"),
+      ),
+      422,
+    );
+  }
+
+  const [usuari] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  if (!usuari) throw new NotFoundError("Aquest usuari no existeix");
+
+  await db
+    .update(users)
+    .set({ passwordHash: await hashPassword(parsed.data.password) })
+    .where(eq(users.id, id));
+
+  if (id === jo.id) {
+    const tokenHash = c.get("sessionTokenHash");
+    if (tokenHash !== null) await destroyOtherSessions(id, tokenHash);
+  } else {
+    await destroyAllSessions(id);
+  }
+
+  const [vista, espais] = await Promise.all([vistaUsuari(id), espaisActius()]);
+
+  return fragment(
+    c,
+    await withOob(
+      Targeta({ usuari: vista, espais, jo: jo.id }),
+      toast("Contrasenya reiniciada i sessions tancades", "success"),
     ),
   );
 });

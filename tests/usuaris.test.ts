@@ -235,3 +235,113 @@ describe("desactivar un usuari", () => {
     expect(encara?.isActive).toBe(true);
   });
 });
+
+describe("editar un usuari", () => {
+  test("canvia el nom i el rol d'instal·lacio", async () => {
+    const [pau] = await db.select().from(users).where(eq(users.email, "pau@exemple.cat"));
+    const admin = await entra("arrel@exemple.cat");
+
+    const res = await app.request(`/usuaris/${pau?.id}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: admin.cookie,
+        "X-CSRF-Token": admin.csrf,
+        "HX-Request": "true",
+      },
+      body: new URLSearchParams({ full_name: "Pau Actualitzat", is_admin: "on" }).toString(),
+    });
+    expect(res.status).toBe(200);
+
+    const [actualitzat] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, pau?.id ?? 0));
+    expect(actualitzat?.fullName).toBe("Pau Actualitzat");
+    expect(actualitzat?.isAdmin).toBe(true);
+  });
+
+  test("un administrador no es pot treure a ell mateix l'admin", async () => {
+    const [arrel] = await db.select().from(users).where(eq(users.email, "arrel@exemple.cat"));
+    const admin = await entra("arrel@exemple.cat");
+
+    const res = await app.request(`/usuaris/${arrel?.id}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: admin.cookie,
+        "X-CSRF-Token": admin.csrf,
+        "HX-Request": "true",
+      },
+      body: new URLSearchParams({ full_name: "Arrel" }).toString(),
+    });
+    expect(res.status).toBe(422);
+
+    const [encara] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, arrel?.id ?? 0));
+    expect(encara?.isAdmin).toBe(true);
+  });
+});
+
+describe("reiniciar la contrasenya", () => {
+  test("li tanca les sessions i deixa entrar amb la nova", async () => {
+    const [pau] = await db.select().from(users).where(eq(users.email, "pau@exemple.cat"));
+    const sessio = await entra("pau@exemple.cat");
+    const admin = await entra("arrel@exemple.cat");
+
+    const nova = "contrasenya-nova-llarga";
+    const res = await app.request(`/usuaris/${pau?.id}/contrasenya`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: admin.cookie,
+        "X-CSRF-Token": admin.csrf,
+        "HX-Request": "true",
+      },
+      body: new URLSearchParams({ password: nova }).toString(),
+    });
+    expect(res.status).toBe(200);
+
+    // La sessio antiga ja no val.
+    expect(
+      (await app.request("/contrasenya", { headers: { Cookie: sessio.cookie } })).status,
+    ).toBe(303);
+
+    // I pot entrar amb la nova.
+    const get = await app.request("/entrada");
+    const htmlEntrada = await get.text();
+    const seed = (get.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+    const camp = /name="_csrf" value="([^"]+)"/.exec(htmlEntrada)?.[1] ?? "";
+    const login = await app.request("/entrada", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seed },
+      body: new URLSearchParams({
+        _csrf: camp,
+        email: "pau@exemple.cat",
+        password: nova,
+      }).toString(),
+    });
+    expect(login.status).toBe(303);
+  });
+
+  test("una massa curta torna errors al formulari", async () => {
+    const [pau] = await db.select().from(users).where(eq(users.email, "pau@exemple.cat"));
+    const admin = await entra("arrel@exemple.cat");
+
+    const res = await app.request(`/usuaris/${pau?.id}/contrasenya`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: admin.cookie,
+        "X-CSRF-Token": admin.csrf,
+        "HX-Request": "true",
+      },
+      body: new URLSearchParams({ password: "curta" }).toString(),
+    });
+    expect(res.status).toBe(422);
+    const cos = await res.text();
+    expect(cos).toContain("camp-error");
+  });
+});

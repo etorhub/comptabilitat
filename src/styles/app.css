@@ -700,6 +700,16 @@ tr.inactiva {
   margin-top: 0.9rem;
 }
 
+.form-edicio {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--vora);
+}
+
+.form-edicio .menu-titol {
+  margin-bottom: 0.5rem;
+}
+
 .etiquetes {
   display: flex;
   gap: 0.25rem;

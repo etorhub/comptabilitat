@@ -20,13 +20,14 @@ export const userCreateSchema = z.object({
     .transform((v) => v !== undefined),
 });
 
+/**
+ * Nom i rol d'instal·lacio. L'estat actiu/desactivat es gestiona a
+ * `POST /:id/estat`, no aqui: una casella que no ve al cos voldria dir
+ * «desmarca't» i esborraria tothom a cada desa.
+ */
 export const userUpdateSchema = z.object({
   full_name: z.string().trim().max(255).default(""),
   is_admin: z
-    .union([z.literal("on"), z.literal("1"), z.literal("true")])
-    .optional()
-    .transform((v) => v !== undefined),
-  is_active: z
     .union([z.literal("on"), z.literal("1"), z.literal("true")])
     .optional()
     .transform((v) => v !== undefined),
