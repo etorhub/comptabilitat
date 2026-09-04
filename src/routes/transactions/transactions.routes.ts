@@ -154,6 +154,27 @@ transactionsRoutes.get("/:id/fragment/fila", async (c) => {
   );
 });
 
+/** La fila amb el desplegable de categoria obert per editar-la. */
+transactionsRoutes.get("/:id/fragment/categoria", requireEditor, async (c) => {
+  const espai = currentWorkspace(c);
+  const moviment = await movimentDeLespai(
+    idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix"),
+    espai.id,
+  );
+  const grups = await opcionsCategories(espai.id);
+
+  return fragment(
+    c,
+    Fila({
+      codi: espai.code,
+      moviment,
+      grups,
+      potEditar: true,
+      editantCategoria: true,
+    }),
+  );
+});
+
 /** La fila convertida en el camp de l'alias. */
 transactionsRoutes.get("/:id/fragment/concepte", requireEditor, async (c) => {
   const espai = currentWorkspace(c);

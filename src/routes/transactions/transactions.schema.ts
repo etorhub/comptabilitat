@@ -38,6 +38,20 @@ export const transactionFiltersSchema = z.object({
 
 export type TransactionFilters = z.infer<typeof transactionFiltersSchema>;
 
+/** Hi ha cap filtre de cerca actiu (la pagina no compta). */
+export function teFiltresActius(f: TransactionFilters): boolean {
+  return Boolean(
+    f.cerca ||
+    f.des ||
+    f.fins ||
+    f.compte !== null ||
+    f.categoria !== null ||
+    f.sense_classificar ||
+    f.revisio ||
+    f.traspassos,
+  );
+}
+
 export function transactionFiltersToQuery(f: TransactionFilters): string {
   const p = new URLSearchParams();
   if (f.cerca) p.set("cerca", f.cerca);

@@ -52,7 +52,15 @@ export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): 
       classe: "taula-moviments",
       abans: potEditar ? BarraBloc({ codi, grups, filters }) : "",
       columnes: html`${
-        potEditar ? html`<th class="tria"><span class="visualment-ocult">Tria</span></th>` : ""
+        potEditar
+          ? html`<th class="tria">
+            <input
+              type="checkbox"
+              aria-label="Tria'ls tots"
+              onclick="document.querySelectorAll('#taula-moviments input[name=moviment]').forEach(function(c){c.checked=this.checked}.bind(this))"
+            />
+          </th>`
+          : ""
       }
         <th>Data</th>
         <th>Concepte</th>
@@ -73,6 +81,9 @@ export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): 
 /**
  * La barra de la seleccio en bloc.
  *
+ * Nomes es veu quan hi ha alguna casella marcada (`:has` al CSS). La casella
+ * «tria'ls tots» viu al capçal de la taula, sempre visible.
+ *
  * A l'aplicacio de React la seleccio era una llista a la memoria del
  * navegador, i sobrevivia als canvis de filtre i de pagina: es podien marcar
  * files, paginar i aplicar la categoria a moviments que ja no es veien. Aqui
@@ -92,15 +103,6 @@ function BarraBloc({
   // pagina sense filtrar i la barra d'adreces diria una altra cosa.
   const consulta = transactionFiltersToQuery(filters);
   return html`<div class="barra-bloc">
-    <label class="casella">
-      <input
-        type="checkbox"
-        aria-label="Tria'ls tots"
-        onclick="document.querySelectorAll('#taula-moviments input[name=moviment]').forEach(function(c){c.checked=this.checked}.bind(this))"
-      />
-      <span>Tria'ls tots</span>
-    </label>
-
     ${Tria({
       nom: "category_id",
       id: "bloc-categoria",
@@ -177,14 +179,118 @@ export interface FilaProps {
   moviment: MovimentVista;
   grups: GrupCategories[];
   potEditar: boolean;
+  /** Mostra el desplegable encara que ja hi hagi categoria (edicio inline). */
+  editantCategoria?: boolean;
 }
 
-export function Fila({ codi, moviment, grups, potEditar }: FilaProps): Html {
+const iconaLlapis = html`<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="14"
+  height="14"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+>
+  <path d="M12 20h9" />
+  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+</svg>`;
+
+function CelCategoria({
+  codi,
+  moviment,
+  grups,
+  potEditar,
+  editantCategoria = false,
+}: FilaProps): Html {
   const base = `/e/${codi}/moviments/${moviment.id}`;
   const origen = ORIGEN[moviment.categorySource];
+  const mostraSelect = potEditar && (editantCategoria || moviment.categoryId === null);
+
+  if (!potEditar) {
+    return html`
+      ${moviment.categoryName ?? html`<span class="text-suau">—</span>`}
+      <span class="origen etiqueta etiqueta-suau" title="${origen.titol}">${origen.text}</span>
+      ${
+        moviment.needsReview
+          ? html`<span class="etiqueta" title="Cal que algu ho confirmi">per revisar</span>`
+          : ""
+      }
+    ` as Html;
+  }
+
+  if (mostraSelect) {
+    return html`
+      ${Tria({
+        nom: "category_id",
+        id: `categoria-${moviment.id}`,
+        etiqueta: `Categoria de ${moviment.description}`,
+        valor: moviment.categoryId,
+        grups,
+        buit: "— sense classificar —",
+        atributs: `hx-post="${base}/categoria" hx-target="#moviment-${moviment.id}" hx-swap="outerHTML" hx-trigger="change"`,
+      })}
+      ${
+        editantCategoria
+          ? html`<button
+            type="button"
+            class="boto boto-discret"
+            hx-get="${base}/fragment/fila"
+            hx-target="#moviment-${moviment.id}"
+            hx-swap="outerHTML"
+          >
+            Cancel·la
+          </button>`
+          : ""
+      }
+      ${
+        moviment.needsReview
+          ? html`<span class="etiqueta" title="Cal que algu ho confirmi">per revisar</span>`
+          : ""
+      }
+    ` as Html;
+  }
+
+  return html`
+    <span class="categoria-compacta">
+      <span>${moviment.categoryName}</span>
+      <button
+        type="button"
+        class="boto-icona"
+        aria-label="Edita la categoria"
+        title="Edita la categoria"
+        hx-get="${base}/fragment/categoria"
+        hx-target="#moviment-${moviment.id}"
+        hx-swap="outerHTML"
+      >
+        ${iconaLlapis}
+      </button>
+    </span>
+    ${
+      moviment.needsReview
+        ? html`<span class="etiqueta" title="Cal que algu ho confirmi">per revisar</span>`
+        : ""
+    }
+  ` as Html;
+}
+
+export function Fila({
+  codi,
+  moviment,
+  grups,
+  potEditar,
+  editantCategoria = false,
+}: FilaProps): Html {
+  const base = `/e/${codi}/moviments/${moviment.id}`;
   const negatiu = moviment.amount.startsWith("-");
 
-  return html`<tr id="moviment-${moviment.id}" class="${moviment.isExcluded ? "exclos" : ""}">
+  return html`<tr
+    id="moviment-${moviment.id}"
+    class="${moviment.isExcluded ? "exclos" : ""}${editantCategoria ? " editant-categoria" : ""}"
+  >
     ${
       potEditar
         ? html`<td class="tria">
@@ -245,26 +351,8 @@ export function Fila({ codi, moviment, grups, potEditar }: FilaProps): Html {
       ${moviment.merchantName ?? html`<span class="text-suau">—</span>`}
     </td>
 
-    <td>
-      ${
-        potEditar
-          ? Tria({
-              nom: "category_id",
-              id: `categoria-${moviment.id}`,
-              etiqueta: `Categoria de ${moviment.description}`,
-              valor: moviment.categoryId,
-              grups,
-              buit: "— sense classificar —",
-              atributs: `hx-post="${base}/categoria" hx-target="#moviment-${moviment.id}" hx-swap="outerHTML" hx-trigger="change"`,
-            })
-          : (moviment.categoryName ?? html`<span class="text-suau">—</span>`)
-      }
-      <span class="origen etiqueta etiqueta-suau" title="${origen.titol}">${origen.text}</span>
-      ${
-        moviment.needsReview
-          ? html`<span class="etiqueta" title="Cal que algu ho confirmi">per revisar</span>`
-          : ""
-      }
+    <td class="cel-categoria">
+      ${CelCategoria({ codi, moviment, grups, potEditar, editantCategoria })}
     </td>
 
     <td class="dreta ${negatiu ? "negatiu" : "positiu"}">${formatMoney(moviment.amount)}</td>

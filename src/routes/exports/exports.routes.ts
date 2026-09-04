@@ -1,5 +1,5 @@
 /**
- * Descarregues: CSV, XLSX i PDF.
+ * Descarregues: CSV, XLSX (informes) i PDF.
  *
  * Son enllaços normals (`<a href>`), no peticions d'HTMX: el navegador ja sap
  * descarregar un fitxer, i la galeta de sessio hi viatja igual. A l'aplicacio
@@ -15,12 +15,7 @@ import { Hono } from "hono";
 import { AppError, page } from "../../lib/http.ts";
 import { addDays, todayLocal } from "../../lib/time.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
-import {
-  informeAPdf,
-  movimentsACsv,
-  movimentsAXlsx,
-  resumAXlsx,
-} from "../../services/export.ts";
+import { informeAPdf, movimentsACsv, resumAXlsx } from "../../services/export.ts";
 import {
   ingressosIDespeses,
   repartimentCategories,
@@ -79,20 +74,6 @@ exportsRoutes.get("/moviments.csv", async (c) => {
     movimentsACsv(moviments),
     200,
     capçaleres(nomFitxer(espai.code, "csv"), "text/csv; charset=utf-8"),
-  );
-});
-
-exportsRoutes.get("/moviments.xlsx", async (c) => {
-  const espai = currentWorkspace(c);
-  const moviments = await movimentsPerExportar(espai.id, c.req.query());
-
-  return c.body(
-    await movimentsAXlsx(moviments),
-    200,
-    capçaleres(
-      nomFitxer(espai.code, "xlsx"),
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    ),
   );
 });
 

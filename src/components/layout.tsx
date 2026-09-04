@@ -16,6 +16,7 @@ import type { Html } from "../lib/html.ts";
 
 import type { Ledger, LedgerRole, User } from "../db/schema/index.ts";
 import { CSRF_HEADER } from "../lib/csrf.ts";
+import { hrefEstatic } from "../lib/estatics.ts";
 
 export interface LayoutProps {
   titol: string;
@@ -85,16 +86,16 @@ export function Layout(props: LayoutProps): Html {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="color-scheme" content="light dark" />
         <title>${titol} · Comptabilitat</title>
-        <link rel="icon" href="/favicon.svg" />
-        <link rel="stylesheet" href="/app.css" />
-        <script src="/htmx.min.js" defer></script>
+        <link rel="icon" href="${hrefEstatic("favicon.svg")}" />
+        <link rel="stylesheet" href="${hrefEstatic("app.css")}" />
+        <script src="${hrefEstatic("htmx.min.js")}" defer></script>
         <!--
           Els grafics son una illa: ECharts i un fitxer que llegeix les dades
           que el servidor ha escrit a la pagina. Sense empaquetador i sense
           cap estat de client.
         -->
-        <script src="/echarts.min.js" defer></script>
-        <script src="/grafics.js" defer></script>
+        <script src="${hrefEstatic("echarts.min.js")}" defer></script>
+        <script src="${hrefEstatic("grafics.js")}" defer></script>
       </head>
       <!--
         El testimoni CSRF surt aqui i enlloc mes. Va lligat a la sessio, de

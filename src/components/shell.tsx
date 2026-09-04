@@ -7,6 +7,7 @@
  */
 
 import { html } from "hono/html";
+import { hrefEstatic } from "../lib/estatics.ts";
 import type { Html } from "../lib/html.ts";
 
 export interface ShellProps {
@@ -22,9 +23,9 @@ export function Shell(props: ShellProps): Html {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="color-scheme" content="light dark" />
         <title>${props.titol} · Comptabilitat</title>
-        <link rel="icon" href="/favicon.svg" />
-        <link rel="stylesheet" href="/app.css" />
-        <script src="/htmx.min.js" defer></script>
+        <link rel="icon" href="${hrefEstatic("favicon.svg")}" />
+        <link rel="stylesheet" href="${hrefEstatic("app.css")}" />
+        <script src="${hrefEstatic("htmx.min.js")}" defer></script>
       </head>
       <body class="cos-centrat">
         <main class="targeta-centrada">${props.children}</main>
