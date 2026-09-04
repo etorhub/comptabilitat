@@ -30,6 +30,7 @@ import {
 import { accounts } from "./banking.ts";
 import { domainEnum, money, timestamps, tz } from "./columns.ts";
 import type {
+  Cadence,
   CategoryKind,
   CategorySource,
   RuleSource,
@@ -98,6 +99,13 @@ export const merchants = pgTable(
     categorySource: domainEnum<CategorySource>("category_source").notNull(),
     /** Confirmat per una persona: el model ja no el torna a preguntar. */
     isConfirmed: boolean("is_confirmed").notNull(),
+    /**
+     * Marcat a ma com a recurrent: crea o manté una serie per a la previsio
+     * sense esperar les tres aparicions regulars del detector.
+     */
+    isRecurrent: boolean("is_recurrent").default(false).notNull(),
+    /** Cadencia declarada quan `is_recurrent`; el detector no la sobreescriu. */
+    recurrentCadence: domainEnum<Cadence>("recurrent_cadence"),
     transactionCount: integer("transaction_count").notNull(),
     /** Es una data, no una marca de temps, tot i el nom. */
     lastSeenAt: date("last_seen_at"),

@@ -13,7 +13,13 @@
 import { and, asc, count, desc, eq, ilike, inArray, isNull, ne, or, type SQL } from "drizzle-orm";
 
 import { db, type Db } from "../db/client.ts";
-import { categories, merchants, transactions, type Merchant } from "../db/schema/index.ts";
+import {
+  categories,
+  merchants,
+  transactions,
+  type Cadence,
+  type Merchant,
+} from "../db/schema/index.ts";
 import { AppError, NotFoundError } from "../lib/http.ts";
 import { classificaMoviment } from "./classification.ts";
 import { normalizeDescription } from "./normalization.ts";
@@ -42,6 +48,9 @@ export interface ComercVista {
   /** El nom de la categoria, per no fer una consulta per fila. */
   categoryName: string | null;
   isConfirmed: boolean;
+  /** Marcat a ma per entrar a la previsio sense esperar el detector. */
+  isRecurrent: boolean;
+  recurrentCadence: Cadence | null;
   transactionCount: number;
   lastSeenAt: string | null;
 }
@@ -89,6 +98,8 @@ export async function llistaComercos(
       defaultCategoryId: merchants.defaultCategoryId,
       categoryName: categories.name,
       isConfirmed: merchants.isConfirmed,
+      isRecurrent: merchants.isRecurrent,
+      recurrentCadence: merchants.recurrentCadence,
       transactionCount: merchants.transactionCount,
       lastSeenAt: merchants.lastSeenAt,
     })
@@ -128,6 +139,8 @@ export async function vistaComerc(id: number, ledgerId: number): Promise<ComercV
       defaultCategoryId: merchants.defaultCategoryId,
       categoryName: categories.name,
       isConfirmed: merchants.isConfirmed,
+      isRecurrent: merchants.isRecurrent,
+      recurrentCadence: merchants.recurrentCadence,
       transactionCount: merchants.transactionCount,
       lastSeenAt: merchants.lastSeenAt,
     })
