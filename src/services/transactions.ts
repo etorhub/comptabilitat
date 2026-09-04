@@ -28,6 +28,8 @@ import {
   type SQL,
 } from "drizzle-orm";
 
+import { teEtiqueta } from "./tags.ts";
+
 import { db } from "../db/client.ts";
 import {
   accounts,
@@ -176,6 +178,8 @@ export interface FiltresMoviments {
   categoryIds: number[];
   merchantId: number | null;
   cerca: string;
+  /** Filtre per etiqueta (insensible a majuscules). Null = sense filtre. */
+  etiqueta: string | null;
   nomesRevisio: boolean;
   nomesSenseClassificar: boolean;
   incloTraspassos: boolean;
@@ -217,6 +221,7 @@ function condicions(ledgerId: number, f: FiltresMoviments): SQL | undefined {
   if (f.categoryIds.length > 0) parts.push(inArray(transactions.categoryId, f.categoryIds));
   if (f.merchantId !== null) parts.push(eq(transactions.merchantId, f.merchantId));
   if (f.cerca.trim()) parts.push(clausulaCerca(`%${f.cerca.trim()}%`));
+  if (f.etiqueta) parts.push(teEtiqueta(f.etiqueta));
   if (f.nomesRevisio) parts.push(eq(transactions.needsReview, true));
   if (f.nomesSenseClassificar) parts.push(isNull(transactions.categoryId));
   // Els traspassos entre comptes propis no son ni ingres ni despesa: per

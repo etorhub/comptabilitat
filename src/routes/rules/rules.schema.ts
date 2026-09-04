@@ -9,6 +9,7 @@
 import { z } from "zod/v4";
 
 import { ruleFieldSchema, ruleOperatorSchema } from "../../db/schema/index.ts";
+import { parsejaLlistaEtiquetes } from "../../services/tags.ts";
 
 export const conditionSchema = z.object({
   field: ruleFieldSchema,
@@ -35,6 +36,7 @@ export const ruleCreateSchema = z
     name: z.string().trim().min(1, "Cal un nom").max(160, "El nom es massa llarg"),
     priority: z.coerce.number().int().min(0).max(10_000).default(100),
     set_category_id: idOpcional,
+    set_tags: z.string().optional().default(""),
     apply_now: z
       .union([z.literal("on"), z.literal("1"), z.literal("true")])
       .optional()
@@ -76,10 +78,22 @@ export const ruleCreateSchema = z
       });
     }
 
+    const etiquetes: string[] = [];
+    try {
+      etiquetes.push(...parsejaLlistaEtiquetes(dades.set_tags));
+    } catch (err) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["set_tags"],
+        message: err instanceof Error ? err.message : "Les etiquetes no son valides",
+      });
+    }
+
     return {
       name: dades.name,
       priority: dades.priority,
       setCategoryId: dades.set_category_id,
+      setTags: etiquetes,
       applyNow: dades.apply_now,
       conditions: condicions,
     };

@@ -40,9 +40,18 @@ export interface TaulaProps {
   grups: GrupCategories[];
   filters: TransactionFilters;
   potEditar: boolean;
+  /** Etiquetes ja usades a l'espai, per al datalist d'alta. */
+  etiquetesConegudes?: string[];
 }
 
-export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): Html {
+export function Taula({
+  codi,
+  pagina,
+  grups,
+  filters,
+  potEditar,
+  etiquetesConegudes = [],
+}: TaulaProps): Html {
   const desde = pagina.total === 0 ? 0 : pagina.offset + 1;
   const fins = Math.min(pagina.offset + pagina.limit, pagina.total);
 
@@ -76,7 +85,9 @@ export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): 
                   </tr>
                 </thead>
                 <tbody>
-                  ${pagina.items.map((moviment) => Fila({ codi, moviment, grups, potEditar }))}
+                  ${pagina.items.map((moviment) =>
+                    Fila({ codi, moviment, grups, potEditar, etiquetesConegudes }),
+                  )}
                 </tbody>
               </table>
             </div>
@@ -137,7 +148,38 @@ function BarraBloc({
     >
       Aplica-la als triats
     </button>
+
+    <label class="camp camp-linia camp-estret">
+      <span class="camp-etiqueta">Etiqueta</span>
+      <input
+        type="text"
+        name="etiqueta_bloc"
+        id="bloc-etiqueta"
+        list="etiquetes-espai"
+        maxlength="40"
+        autocomplete="off"
+        placeholder="casament…"
+      />
+    </label>
+    <button
+      type="button"
+      class="boto boto-discret"
+      hx-post="/e/${codi}/moviments/bloc/etiquetes${consulta}"
+      hx-target="#taula-moviments"
+      hx-swap="outerHTML"
+      hx-include="#bloc-etiqueta, #taula-moviments input[name='moviment']:checked"
+      hx-indicator="#taula-moviments"
+    >
+      Posa l'etiqueta als triats
+    </button>
   </div>` as Html;
+}
+
+function DatalistEtiquetes(etiquetes: string[]): Html {
+  if (etiquetes.length === 0) return html`` as Html;
+  return html`<datalist id="etiquetes-espai">
+    ${etiquetes.map((t) => html`<option value="${t}"></option>`)}
+  </datalist>` as Html;
 }
 
 function Passos({
@@ -157,6 +199,7 @@ function Passos({
     if (filters.fins) params.set("fins", filters.fins);
     if (filters.compte !== null) params.set("compte", String(filters.compte));
     if (filters.categoria !== null) params.set("categoria", String(filters.categoria));
+    if (filters.etiqueta) params.set("etiqueta", filters.etiqueta);
     if (filters.sense_classificar) params.set("sense_classificar", "1");
     if (filters.revisio) params.set("revisio", "1");
     if (filters.traspassos) params.set("traspassos", "1");
@@ -195,6 +238,7 @@ export interface FilaProps {
   potEditar: boolean;
   /** Mostra el desplegable encara que ja hi hagi categoria (edicio inline). */
   editantCategoria?: boolean;
+  etiquetesConegudes?: string[];
 }
 
 const iconaLlapis = html`<svg
@@ -297,6 +341,7 @@ export function Fila({
   grups,
   potEditar,
   editantCategoria = false,
+  etiquetesConegudes = [],
 }: FilaProps): Html {
   const base = `/e/${codi}/moviments/${moviment.id}`;
   const negatiu = moviment.amount.startsWith("-");
@@ -359,6 +404,12 @@ export function Fila({
           : ""
       }
       ${moviment.notes ? html`<small class="text-suau nota">${moviment.notes}</small>` : ""}
+      ${EtiquetesDelMoviment({
+        codi,
+        moviment,
+        potEditar,
+        etiquetesConegudes,
+      })}
     </td>
 
     <td>
@@ -371,6 +422,75 @@ export function Fila({
 
     <td class="dreta ${negatiu ? "negatiu" : "positiu"}">${formatMoney(moviment.amount)}</td>
   </tr>` as Html;
+}
+
+/**
+ * Xapes d'etiquetes sota el concepte.
+ *
+ * Cada formulari d'alta es propi de la fila i **no** comparteix camps amb la
+ * barra de bloc: si no, HTMX enviaria tot i el darrer camp taparia el primer.
+ */
+function EtiquetesDelMoviment({
+  codi,
+  moviment,
+  potEditar,
+}: {
+  codi: string;
+  moviment: MovimentVista;
+  potEditar: boolean;
+  etiquetesConegudes: string[];
+}): Html {
+  const base = `/e/${codi}/moviments/${moviment.id}`;
+  const xapes = moviment.tags.map((t) => {
+    const href = `/e/${codi}/etiquetes/${encodeURIComponent(t)}`;
+    if (!potEditar) {
+      return html`<a class="etiqueta etiqueta-dada" href="${href}">${t}</a>`;
+    }
+    return html`<form
+      class="xapa-etiqueta"
+      hx-post="${base}/etiquetes/treure"
+      hx-target="#moviment-${moviment.id}"
+      hx-swap="outerHTML"
+    >
+      <a class="etiqueta etiqueta-dada" href="${href}">${t}</a>
+      <input type="hidden" name="etiqueta" value="${t}" />
+      <button
+        type="submit"
+        class="boto-xapa"
+        aria-label="Treu l'etiqueta ${t}"
+        title="Treu l'etiqueta"
+      >
+        ×
+      </button>
+    </form>`;
+  });
+
+  const alta = potEditar
+    ? html`<form
+        class="alta-etiqueta"
+        hx-post="${base}/etiquetes"
+        hx-target="#moviment-${moviment.id}"
+        hx-swap="outerHTML"
+      >
+        <label class="visualment-ocult" for="nova-etiqueta-${moviment.id}">
+          Afegeix una etiqueta
+        </label>
+        <input
+          type="text"
+          name="nova_etiqueta"
+          id="nova-etiqueta-${moviment.id}"
+          list="etiquetes-espai"
+          maxlength="40"
+          autocomplete="off"
+          placeholder="+"
+          aria-label="Afegeix una etiqueta a ${moviment.description}"
+        />
+      </form>`
+    : "";
+
+  if (xapes.length === 0 && !potEditar) return html`` as Html;
+
+  return html`<div class="etiquetes-moviment">${xapes}${alta}</div>` as Html;
 }
 
 /** La fila convertida en un camp per posar-hi un alias. */
@@ -425,15 +545,22 @@ export interface BarraFiltresProps {
   filters: TransactionFilters;
   comptes: { valor: number; text: string }[];
   grups: GrupCategories[];
+  etiquetesConegudes?: string[];
 }
 
-export function BarraFiltres({ codi, filters, comptes, grups }: BarraFiltresProps): Html {
+export function BarraFiltres({
+  codi,
+  filters,
+  comptes,
+  grups,
+  etiquetesConegudes = [],
+}: BarraFiltresProps): Html {
   return html`<form
     class="filtres superficie targeta"
     hx-get="/e/${codi}/moviments/fragment/taula"
     hx-target="#taula-moviments"
     hx-swap="outerHTML"
-    hx-trigger="change, keyup changed delay:300ms from:input[name='cerca']"
+    hx-trigger="change, keyup changed delay:300ms from:input[name='cerca'], keyup changed delay:300ms from:input[name='etiqueta']"
   >
     <label class="camp camp-linia">
       <span class="camp-etiqueta">Cerca</span>
@@ -476,6 +603,19 @@ export function BarraFiltres({ codi, filters, comptes, grups }: BarraFiltresProp
       buit: "— totes —",
     })}
 
+    <label class="camp camp-linia camp-estret">
+      <span class="camp-etiqueta">Etiqueta</span>
+      <input
+        type="text"
+        name="etiqueta"
+        value="${filters.etiqueta ?? ""}"
+        maxlength="40"
+        list="etiquetes-espai"
+        autocomplete="off"
+        placeholder="casament…"
+      />
+    </label>
+
     <label class="casella">
       <input
         type="checkbox"
@@ -500,6 +640,8 @@ export function BarraFiltres({ codi, filters, comptes, grups }: BarraFiltresProp
       />
       <span>Inclou els traspassos</span>
     </label>
+
+    ${DatalistEtiquetes(etiquetesConegudes)}
   </form>` as Html;
 }
 

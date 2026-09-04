@@ -42,6 +42,7 @@ const CAP_FILTRE = {
   categoryIds: [],
   merchantId: null,
   cerca: "",
+  etiqueta: null,
   nomesRevisio: false,
   nomesSenseClassificar: false,
   incloTraspassos: true,

@@ -176,6 +176,19 @@ describe("qui no te acces a un espai", () => {
     const [avis] = await db.select().from(alerts).where(eq(alerts.id, idAvisCalella));
     expect(avis?.status).toBe("new");
   });
+
+  test("no veu les etiquetes d'un espai aliè", async () => {
+    const { cookie } = await entra("pau@exemple.cat");
+    const senseAcces = await app.request("/e/calella/etiquetes", {
+      headers: { Cookie: cookie },
+    });
+    const inexistent = await app.request("/e/inventat/etiquetes", {
+      headers: { Cookie: cookie },
+    });
+    expect(senseAcces.status).toBe(404);
+    expect(senseAcces.status).toBe(inexistent.status);
+    expect(await senseAcces.text()).toBe(await inexistent.text());
+  });
 });
 
 describe("ser administrador de la instal·lacio", () => {

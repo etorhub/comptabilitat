@@ -201,6 +201,20 @@ export function FormAlta({ codi, grups, errors, valors }: FormAltaProps): Html {
       })}
     </div>
 
+    <label class="camp">
+      <span class="camp-etiqueta">Etiquetes</span>
+      <input
+        type="text"
+        name="set_tags"
+        value="${valors?.set_tags ?? ""}"
+        maxlength="200"
+        placeholder="casament, projecteX"
+        ${errors?.set_tags ? raw('aria-invalid="true"') : ""}
+      />
+      <small class="camp-ajuda">Separades per comes. Opcional.</small>
+      ${errors?.set_tags ? html`<p class="camp-error">${errors.set_tags[0]}</p>` : ""}
+    </label>
+
     <fieldset class="condicions-camp">
       <legend>Condicions (s'han de complir totes)</legend>
       <div id="files-condicions">${FilaCondicio()}</div>

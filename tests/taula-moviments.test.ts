@@ -98,9 +98,25 @@ describe("la taula de moviments", () => {
     for (const camps of campsPerFormulari(marcatge)) {
       expect(camps.filter((c) => c === "category_id").length).toBeLessThanOrEqual(1);
     }
-    // I, de fet, aqui no hi ha d'haver cap formulari: la seleccio en bloc va
-    // amb `hx-include`, que diu exactament que s'envia.
-    expect(marcatge).not.toContain("<form");
+  });
+
+  test("el camp d'etiqueta de fila no comparteix formulari amb la barra", async () => {
+    const marcatge = await taula(true, 3);
+    for (const camps of campsPerFormulari(marcatge)) {
+      const teFila = camps.includes("nova_etiqueta");
+      const teBarra = camps.includes("etiqueta_bloc") || camps.includes("category_id");
+      // Un formulari de fila nomes te nova_etiqueta (+ etiqueta al treure).
+      // La barra no te formulari: va amb hx-include.
+      if (teFila) {
+        expect(camps).not.toContain("category_id");
+        expect(camps).not.toContain("etiqueta_bloc");
+      }
+      if (teBarra && camps.includes("category_id")) {
+        expect(camps).not.toContain("nova_etiqueta");
+      }
+    }
+    expect(marcatge).toContain('name="nova_etiqueta"');
+    expect(marcatge).toContain('name="etiqueta_bloc"');
   });
 
   test("cada tria de categoria te el seu propi identificador", async () => {
@@ -114,11 +130,15 @@ describe("la taula de moviments", () => {
     expect(marcatge).toContain(
       `hx-include="#bloc-categoria, #taula-moviments input[name='moviment']:checked"`,
     );
+    expect(marcatge).toContain(
+      `hx-include="#bloc-etiqueta, #taula-moviments input[name='moviment']:checked"`,
+    );
   });
 
   test("qui nomes mira no veu ni caselles ni tries", async () => {
     const marcatge = await taula(false, 3);
     expect(marcatge).not.toContain('name="moviment"');
     expect(marcatge).not.toContain('name="category_id"');
+    expect(marcatge).not.toContain('name="nova_etiqueta"');
   });
 });
