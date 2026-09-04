@@ -13,11 +13,7 @@ import { zodErrors } from "../../components/form.tsx";
 import { Layout } from "../../components/layout.tsx";
 import { db } from "../../db/client.ts";
 import { ledgers, userLedgerPermissions, users } from "../../db/schema/index.ts";
-import {
-  destroyAllSessions,
-  destroyOtherSessions,
-  hashPassword,
-} from "../../lib/auth.ts";
+import { destroyAllSessions, destroyOtherSessions, hashPassword } from "../../lib/auth.ts";
 import {
   AppError,
   NotFoundError,
@@ -166,7 +162,7 @@ usersRoutes.post("/", async (c) => {
  * gestionar usuaris ni bancs.
  */
 usersRoutes.post("/:id", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquest usuari no existeix");
   const jo = currentUser(c);
   const cos = await c.req.parseBody();
   const parsed = userUpdateSchema.safeParse(cos);
@@ -219,7 +215,7 @@ usersRoutes.post("/:id", async (c) => {
  * no invalidar el CSRF ja dibuixat a la pagina.
  */
 usersRoutes.post("/:id/contrasenya", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquest usuari no existeix");
   const jo = currentUser(c);
   const cos = await c.req.parseBody();
   const parsed = passwordResetSchema.safeParse(cos);
