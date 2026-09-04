@@ -4,7 +4,7 @@
 
 import { html, raw } from "hono/html";
 
-import { Camp, ErrorGeneral, type FieldErrors } from "../../components/form.tsx";
+import { Camp, Casella, ErrorGeneral, type FieldErrors } from "../../components/form.tsx";
 import {
   LEDGER_ROLES,
   type Ledger,
@@ -37,17 +37,26 @@ export function Llista({ usuaris, espais, jo, oob = false }: LlistaProps): Html 
   </div>` as Html;
 }
 
+export interface TargetaProps {
+  usuari: UsuariVista;
+  espais: Ledger[];
+  jo: number;
+  /** Errors del formulari de nom / administrador. */
+  editErrors?: FieldErrors | undefined;
+  /** Errors del formulari de reiniciar la contrasenya. */
+  passwordErrors?: FieldErrors | undefined;
+}
+
 export function Targeta({
   usuari,
   espais,
   jo,
-}: {
-  usuari: UsuariVista;
-  espais: Ledger[];
-  jo: number;
-}): Html {
+  editErrors,
+  passwordErrors,
+}: TargetaProps): Html {
   const base = `/usuaris/${usuari.id}`;
   const soc = usuari.id === jo;
+  const idPrefix = `u${usuari.id}`;
 
   return html`<section id="usuari-${usuari.id}" class="superficie targeta">
     <div class="item-cap">
@@ -65,6 +74,34 @@ export function Targeta({
       Ser administrador de la instal·lacio <strong>no</strong> dona acces a cap
       espai: es concedeix un per un aqui sota.
     </p>
+
+    <form
+      hx-post="${base}"
+      hx-target="#usuari-${usuari.id}"
+      hx-swap="outerHTML"
+      class="form-edicio"
+    >
+      ${ErrorGeneral(editErrors)}
+      <div class="form-linia">
+        ${Camp({
+          nom: "full_name",
+          id: `${idPrefix}-full_name`,
+          etiqueta: "Nom",
+          valor: usuari.fullName,
+          errors: editErrors,
+          autocomplete: "off",
+        })}
+      </div>
+      ${Casella({
+        nom: "is_admin",
+        etiqueta: "Administrador de la instal·lacio (bancs i usuaris)",
+        marcat: usuari.isAdmin,
+        atributs: soc ? 'title="No et pots treure a tu mateix l\'admin"' : "",
+      })}
+      <div class="form-accions">
+        <button type="submit" class="boto boto-discret">Desa</button>
+      </div>
+    </form>
 
     <div class="desplaçable">
       <table class="dades">
@@ -103,6 +140,31 @@ export function Targeta({
         </tbody>
       </table>
     </div>
+
+    <form
+      hx-post="${base}/contrasenya"
+      hx-target="#usuari-${usuari.id}"
+      hx-swap="outerHTML"
+      class="form-edicio"
+    >
+      <h3 class="menu-titol">Reinicia la contrasenya</h3>
+      ${ErrorGeneral(passwordErrors)}
+      <div class="form-linia">
+        ${Camp({
+          nom: "password",
+          id: `${idPrefix}-password`,
+          etiqueta: "Contrasenya nova",
+          tipus: "password",
+          errors: passwordErrors,
+          requerit: true,
+          autocomplete: "new-password",
+          ajuda: "Com a minim 10 carácters. Li tanca totes les sessions obertes.",
+        })}
+      </div>
+      <div class="form-accions">
+        <button type="submit" class="boto boto-discret">Reinicia</button>
+      </div>
+    </form>
 
     <div class="form-accions">
       <form hx-post="${base}/estat" hx-target="#usuari-${usuari.id}" hx-swap="outerHTML">
