@@ -26,6 +26,14 @@ export interface LayoutProps {
   espais: (Ledger & { role: LedgerRole })[];
   /** Espai actiu, si la pagina n'esta dins. */
   espai?: Ledger | undefined;
+  /**
+   * L'adreça que s'esta mirant (`c.req.path`), per marcar-la al menu.
+   *
+   * El full d'estil ja donava un fons a `.menu a[aria-current="page"]` i cap
+   * plantilla no l'ha escrit mai: la barra lateral no deia on eres, ni de
+   * color ni a un lector de pantalla.
+   */
+  ruta?: string;
   /** Comptadors de la barra lateral. Son objectius fora de banda. */
   perRevisar?: number;
   avisosNous?: number;
@@ -60,7 +68,16 @@ document.body.addEventListener("htmx:afterSettle", function () {
 `);
 
 export function Layout(props: LayoutProps): Html {
-  const { titol, user, csrfToken, espais, espai, perRevisar = 0, avisosNous = 0 } = props;
+  const {
+    titol,
+    user,
+    csrfToken,
+    espais,
+    espai,
+    perRevisar = 0,
+    avisosNous = 0,
+    ruta = "",
+  } = props;
 
   return html`<!doctype html>
     <html lang="ca">
@@ -88,7 +105,7 @@ export function Layout(props: LayoutProps): Html {
         <a class="salta" href="#contingut">Ves al contingut</a>
 
         <div class="disposicio">
-          ${Sidebar({ user, espais, espai, perRevisar, avisosNous })}
+          ${Sidebar({ user, espais, espai, perRevisar, avisosNous, ruta })}
 
           <main id="contingut" class="principal">${props.children}</main>
         </div>
@@ -109,9 +126,22 @@ interface SidebarProps {
   espai?: Ledger | undefined;
   perRevisar: number;
   avisosNous: number;
+  ruta: string;
 }
 
-function Sidebar({ user, espais, espai, perRevisar, avisosNous }: SidebarProps) {
+/**
+ * Quin enllaç del menu es la pagina d'ara.
+ *
+ * Guanya **el mes llarg** que encaixi, i no el primer: `/e/x` es el començament
+ * de tots els altres, i `/e/x/moviments` ho es de `/e/x/moviments/revisio`.
+ * Amb el primer que encaixes, «Panell» sortiria marcat a tot arreu.
+ */
+function enllacActiu(rutes: string[], ruta: string): string | undefined {
+  const camins = rutes.filter((href) => ruta === href || ruta.startsWith(`${href}/`));
+  return camins.toSorted((a, b) => b.length - a.length)[0];
+}
+
+function Sidebar({ user, espais, espai, perRevisar, avisosNous, ruta }: SidebarProps) {
   const codi = espai?.code;
 
   const enllacos: { href: string; text: string; comptador?: Html }[] = codi
@@ -141,6 +171,18 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous }: SidebarProps) 
       ]
     : [];
 
+  const actiu = enllacActiu(
+    [
+      ...enllacos.map((e) => e.href),
+      ...configuracio.map((e) => e.href),
+      ...(user.isAdmin ? ["/connexions", "/usuaris"] : []),
+    ],
+    ruta,
+  );
+  // L'espai va dins: sense aixo, cada enllaç que no es l'actual acabaria
+  // amb un `<a href="…" >`.
+  const marca = (href: string) => (href === actiu ? raw(' aria-current="page"') : "");
+
   return html`<nav class="barra" aria-label="Navegacio principal">
     <div class="barra-cap">
       <span class="marca">Comptabilitat</span>
@@ -169,7 +211,7 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous }: SidebarProps) 
     <ul class="menu">
       ${enllacos.map(
         (enllac) => html`<li>
-          <a href="${enllac.href}">
+          <a href="${enllac.href}"${marca(enllac.href)}>
             <span>${enllac.text}</span>
             ${enllac.comptador ?? ""}
           </a>
@@ -184,7 +226,7 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous }: SidebarProps) 
           <ul class="menu">
             ${configuracio.map(
               (enllac) => html`<li>
-                <a href="${enllac.href}">
+                <a href="${enllac.href}"${marca(enllac.href)}>
                   <span>${enllac.text}</span>
                   ${enllac.comptador ?? ""}
                 </a>
@@ -200,8 +242,10 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous }: SidebarProps) 
         ? html`<div class="menu-seccio">
           <h2 class="menu-titol">Administracio</h2>
           <ul class="menu">
-            <li><a href="/connexions">Connexions bancaries</a></li>
-            <li><a href="/usuaris">Usuaris</a></li>
+            <li>
+              <a href="/connexions"${marca("/connexions")}>Connexions bancaries</a>
+            </li>
+            <li><a href="/usuaris"${marca("/usuaris")}>Usuaris</a></li>
           </ul>
         </div>`
         : ""

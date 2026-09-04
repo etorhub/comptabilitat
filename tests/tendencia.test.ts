@@ -16,7 +16,11 @@ describe("rectaMinimsQuadrats", () => {
     expect(recta).toHaveLength(31);
     expect(Number(recta[0])).toBeCloseTo(1000, 1);
     expect(Number(recta[30])).toBeCloseTo(700, 1);
-    expect(recta[30]!.lt(recta[0]!)).toBe(true);
+    const primer = recta[0];
+    const ultim = recta[30];
+    expect(primer).toBeDefined();
+    expect(ultim).toBeDefined();
+    expect(ultim?.lt(primer ?? money(0))).toBe(true);
   });
 
   test("una serie plana es queda plana", () => {
@@ -37,6 +41,10 @@ describe("rectaMinimsQuadrats", () => {
       money(750),
     ];
     const recta = rectaMinimsQuadrats(valors);
-    expect(recta[recta.length - 1]!.lt(recta[0]!)).toBe(true);
+    const primer = recta[0];
+    const ultim = recta.at(-1);
+    expect(primer).toBeDefined();
+    expect(ultim).toBeDefined();
+    expect(ultim?.lt(primer ?? money(0))).toBe(true);
   });
 });

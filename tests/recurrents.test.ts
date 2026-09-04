@@ -21,7 +21,11 @@ import {
   recurringSeries,
   transactions,
 } from "../src/db/schema/index.ts";
-import { detectaRecurrents, declaraComercRecurrent, comprovaRebutsQueFalten } from "../src/services/recurring.ts";
+import {
+  detectaRecurrents,
+  declaraComercRecurrent,
+  comprovaRebutsQueFalten,
+} from "../src/services/recurring.ts";
 import { llistaSeries, resumSubscripcions } from "../src/services/recurring-list.ts";
 import { seedCategories } from "../src/services/seed.ts";
 import { addDays, todayLocal } from "../src/lib/time.ts";

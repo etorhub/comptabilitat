@@ -25,15 +25,7 @@ export interface TransactionsPageProps {
 }
 
 export function TransactionsPage(props: TransactionsPageProps): Html {
-  const {
-    codi,
-    pagina,
-    grups,
-    comptes,
-    filters,
-    potEditar,
-    etiquetesConegudes = [],
-  } = props;
+  const { codi, pagina, grups, comptes, filters, potEditar, etiquetesConegudes = [] } = props;
   // El que et descarregues es el que estas veient: els mateixos filtres.
   const consulta = transactionFiltersToQuery(filters);
   const cercaOberta = teFiltresActius(filters);

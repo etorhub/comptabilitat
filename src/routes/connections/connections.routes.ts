@@ -17,7 +17,7 @@
  * sola maquina i el banc nomes deixa unes quantes crides al dia.
  */
 
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 
 import { Layout } from "../../components/layout.tsx";
@@ -27,14 +27,14 @@ import {
   bankConnections,
   ledgers,
   syncRuns,
-  transactions,
   type SyncRun,
 } from "../../db/schema/index.ts";
 import { config } from "../../lib/config.ts";
 import {
   AppError,
-  fragment,
   NotFoundError,
+  fragment,
+  idDeLaRuta,
   page,
   redirect,
   toast,
@@ -44,15 +44,10 @@ import {
 import { daysBetween, todayLocal } from "../../lib/time.ts";
 import { currentUser } from "../../middleware/session.ts";
 import { myWorkspaces } from "../../middleware/workspace.ts";
+import { mouCompteDEspai, type ResumMoviment } from "../../services/accounts.ts";
 import { ultimSaldo } from "../../services/balances.ts";
-import { classificaPendents } from "../../services/classification.ts";
-import { obteOCreaComerc } from "../../services/merchants.ts";
-import { normalizeDescription } from "../../services/normalization.ts";
-import {
-  acabaAutoritzacio,
-  comencaAutoritzacio,
-  sincronitzaConnexio,
-} from "../../services/sync.ts";
+import { acabaAutoritzacio, comencaAutoritzacio } from "../../services/consent.ts";
+import { jaSincronitza, obreImportacio, portaLaImportacio } from "../../services/sync.ts";
 import { EstatSync, FilaCompte, Llista, type ConnexioVista } from "./connections.fragment.tsx";
 import { ConnectionsPage } from "./connections.page.tsx";
 import {
@@ -63,12 +58,6 @@ import {
 } from "./connections.schema.ts";
 
 export const connectionsRoutes = new Hono();
-
-function idDeLaRuta(valor: string | undefined): number {
-  const id = Number.parseInt(valor ?? "", 10);
-  if (Number.isNaN(id)) throw new NotFoundError("Aquesta connexio no existeix");
-  return id;
-}
 
 /** L'IBAN nomes surt emmascarat. */
 function ibanEmmascarat(iban: string): string {
@@ -144,6 +133,7 @@ connectionsRoutes.get("/", async (c) => {
       titol: "Connexions",
       user,
       csrfToken: c.get("csrfToken") ?? "",
+      ruta: c.req.path,
       espais: meus,
       children: ConnectionsPage({ connexions, espais, retorn }),
     }),
@@ -216,7 +206,7 @@ async function ultimaExecucio(connexioId: number): Promise<SyncRun | null> {
 }
 
 connectionsRoutes.post("/:id/sincronitza", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquesta connexio no existeix");
   const parsed = syncSchema.safeParse(await c.req.parseBody());
 
   const [connexio] = await db
@@ -230,24 +220,30 @@ connectionsRoutes.post("/:id/sincronitza", async (c) => {
     return toastOnly(c, "Aquesta connexio no esta activa", 422);
   }
 
-  // Arrenca en segon pla i contesta de seguida: la primera importacio pot
-  // trigar mes del que aguanta cap intermediari.
-  void sincronitzaConnexio(connexio, {
-    trigger: "manual",
+  // Sota PSD2 el banc limita les consultes sense l'usuari present, i dues
+  // importacions alhora de la mateixa connexio se les gasten per duplicat.
+  // Si ja n'hi ha una de viva, s'ensenya aquella.
+  if (await jaSincronitza(id)) {
+    return fragment(c, EstatSync({ connexioId: id, execucio: await ultimaExecucio(id) }));
+  }
+
+  // La fila es crea **abans** de contestar, de manera que el fragment ja pot
+  // dur el sondeig; la feina de debo va en segon pla, perque la primera
+  // importacio pot trigar mes del que aguanta cap intermediari.
+  const execucio = await obreImportacio(connexio, "manual");
+
+  void portaLaImportacio(connexio, execucio, {
     daysBack: parsed.success ? parsed.data.days_back : null,
   }).catch((error: unknown) => {
     console.error("[sync] la importacio ha fallat:", error);
   });
 
-  // Un moment perque la fila de `sync_runs` ja hi sigui.
-  await Bun.sleep(150);
-
-  return fragment(c, EstatSync({ connexioId: id, execucio: await ultimaExecucio(id) }));
+  return fragment(c, EstatSync({ connexioId: id, execucio: execucio ?? null }));
 });
 
 /** L'estat d'una importacio. El fragment s'atura sol quan la feina acaba. */
 connectionsRoutes.get("/:id/fragment/sync", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquesta connexio no existeix");
   return fragment(c, EstatSync({ connexioId: id, execucio: await ultimaExecucio(id) }));
 });
 
@@ -256,87 +252,15 @@ connectionsRoutes.get("/:id/fragment/sync", async (c) => {
 /**
  * Assigna un compte a un espai.
  *
- * Moure'l **no es una operacio per fer sovint**: les categories i els comerços
- * son de cada espai, de manera que les classificacions anteriors deixen de
- * ser valides. S'esborren, es tornen a crear els comerços dins de l'espai nou
- * i s'hi aplica la memoria de comerços; el que no encaixi queda a la safata
- * de revisio.
+ * La feina la fa `mouCompteDEspai()`: es prou delicada —toca l'historial
+ * sencer del compte— per no viure dins d'un gestor de ruta.
  */
 connectionsRoutes.post("/comptes/:id/espai", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquesta connexio no existeix");
   const parsed = assignSchema.safeParse(await c.req.parseBody());
   if (!parsed.success) throw new AppError("Peticio no valida", 422);
 
-  const [compte] = await db.select().from(accounts).where(eq(accounts.id, id)).limit(1);
-  if (!compte) throw new NotFoundError("Aquest compte no existeix");
-
-  const nouEspai = parsed.data.ledger_id;
-
-  if (nouEspai !== null) {
-    const [espai] = await db
-      .select({ id: ledgers.id })
-      .from(ledgers)
-      .where(eq(ledgers.id, nouEspai))
-      .limit(1);
-    if (!espai) throw new NotFoundError("Aquest espai no existeix");
-  }
-
-  if (nouEspai !== compte.ledgerId) {
-    await db.update(accounts).set({ ledgerId: nouEspai }).where(eq(accounts.id, id));
-
-    // Els moviments segueixen el compte, i perden tot el que era de l'espai
-    // vell: categoria, comerç, regla aplicada i aparellament de traspassos.
-    await db
-      .update(transactions)
-      .set({
-        ledgerId: nouEspai,
-        merchantId: null,
-        categoryId: null,
-        categorySource: "none",
-        categoryConfidence: null,
-        appliedRuleId: null,
-        transferGroupId: null,
-        needsReview: true,
-      })
-      .where(eq(transactions.accountId, id));
-
-    if (nouEspai !== null) {
-      // Es tornen a crear els comerços dins de l'espai nou.
-      const seus = await db
-        .select({
-          id: transactions.id,
-          description: transactions.description,
-          counterparty: transactions.counterparty,
-          bookingDate: transactions.bookingDate,
-        })
-        .from(transactions)
-        .where(and(eq(transactions.accountId, id), isNull(transactions.merchantId)));
-
-      for (const moviment of seus) {
-        const [normalitzat, mostrar] = normalizeDescription(
-          moviment.description,
-          moviment.counterparty,
-        );
-        if (!normalitzat) continue;
-
-        const comerc = await obteOCreaComerc(
-          nouEspai,
-          normalitzat,
-          mostrar,
-          moviment.bookingDate,
-        );
-        await db
-          .update(transactions)
-          .set({
-            normalizedDescription: normalitzat.slice(0, 200),
-            merchantId: comerc?.id ?? null,
-          })
-          .where(eq(transactions.id, moviment.id));
-      }
-
-      await classificaPendents(nouEspai);
-    }
-  }
+  const resum = await mouCompteDEspai(id, parsed.data.ledger_id);
 
   const [espais, connexions] = await Promise.all([espaisActius(), llistaConnexions()]);
   const vista = connexions
@@ -349,14 +273,23 @@ connectionsRoutes.post("/comptes/:id/espai", async (c) => {
     c,
     await withOob(
       FilaCompte({ compte: vista, espais }),
-      toast(
-        nouEspai === null
-          ? "El compte ja no pertany a cap espai"
-          : "Compte mogut i moviments tornats a classificar",
-        "success",
-      ),
+      toast(missatgeDelTrasllat(parsed.data.ledger_id, resum), "success"),
     ),
   );
 });
+
+/** Que ha passat, dit en una linia. */
+function missatgeDelTrasllat(nouEspai: number | null, resum: ResumMoviment): string {
+  if (nouEspai === null) return "El compte ja no pertany a cap espai";
+
+  const trossos = [`${resum.moguts} moviments moguts`];
+  if (resum.conservades > 0) {
+    trossos.push(`${resum.conservades} amb la categoria que hi havies posat`);
+  }
+  if (resum.traspassosDesfets > 0) {
+    trossos.push(`${resum.traspassosDesfets} traspassos desfets a l'espai anterior`);
+  }
+  return trossos.join(", ");
+}
 
 export { Llista };

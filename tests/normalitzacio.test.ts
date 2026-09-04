@@ -58,9 +58,9 @@ describe("el que fa, explicat", () => {
       "COMPRA Spotify P45ED4AF0B, Stockholm, TARJETA 5489010385484017 , COMISION 0,00",
     );
     expect(clau).toBe("SPOTIFY");
-    expect(
-      normalizeDescription("PAGO MOVIL EN BAR CAN PEPE, COMISION 0,00")[0],
-    ).toBe("BAR CAN PEPE");
+    expect(normalizeDescription("PAGO MOVIL EN BAR CAN PEPE, COMISION 0,00")[0]).toBe(
+      "BAR CAN PEPE",
+    );
   });
 
   test("un prefix d'operacio sense resta no es un comerç", () => {

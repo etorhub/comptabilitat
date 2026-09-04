@@ -7,7 +7,8 @@
 
 import { html, raw } from "hono/html";
 
-import { Tria } from "../../components/form.tsx";
+import { Casella, Tria } from "../../components/form.tsx";
+import { Paginacio, TaulaDades } from "../../components/vista.tsx";
 import type { Cadence } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
 import type { GrupCategories } from "../../services/categories.ts";
@@ -39,45 +40,19 @@ export interface TaulaProps {
 }
 
 export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): Html {
-  const desde = pagina.offset + 1;
-  const fins = Math.min(pagina.offset + pagina.limit, pagina.total);
-
   return html`<div id="taula-comercos">
-    ${
-      pagina.items.length === 0
-        ? html`<p class="buit text-suau">
-          ${
-            filters.cerca
-              ? html`No hi ha cap comerç que encaixi amb «${filters.cerca}».`
-              : "Encara no hi ha cap comerç. N'apareixeran a mesura que s'importin moviments."
-          }
-        </p>`
-        : html`
-          <div class="desplaçable">
-            <table class="dades">
-              <thead>
-                <tr>
-                  <th>Comerç</th>
-                  <th>Categoria per defecte</th>
-                  <th>Recurrent</th>
-                  <th class="dreta">Moviments</th>
-                  <th>Vist per ultim cop</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${pagina.items.map((comerc) => Fila({ codi, comerc, grups, potEditar }))}
-              </tbody>
-            </table>
-          </div>
-
-          <nav class="paginacio" aria-label="Paginacio">
-            <span class="text-suau">
-              ${String(desde)}–${String(fins)} de ${String(pagina.total)}
-            </span>
-            ${Passos({ codi, filters, total: pagina.total })}
-          </nav>
-        `
-    }
+    ${TaulaDades({
+      columnes: html`<th>Comerç</th>
+        <th>Categoria per defecte</th>
+        <th>Recurrent</th>
+        <th class="dreta">Moviments</th>
+        <th>Vist per ultim cop</th>` as Html,
+      files: pagina.items.map((comerc) => Fila({ codi, comerc, grups, potEditar })),
+      buit: filters.cerca
+        ? (html`No hi ha cap comerç que encaixi amb «${filters.cerca}».` as Html)
+        : "Encara no hi ha cap comerç. N'apareixeran a mesura que s'importin moviments.",
+      peu: Paginacio({ pagina, passos: Passos({ codi, filters, total: pagina.total }) }),
+    })}
   </div>` as Html;
 }
 
@@ -161,7 +136,10 @@ export function Fila({ codi, comerc, grups, potEditar }: FilaProps): Html {
               valor: comerc.defaultCategoryId,
               grups,
               buit: "— sense classificar —",
-              atributs: `hx-post="${base}/categoria" hx-target="#comerc-${comerc.id}" hx-swap="outerHTML" hx-trigger="change"`,
+              // Assignar-la reescriu la categoria de tots els moviments del
+              // comerç: mentre corre, el select no s'ha de poder tornar a
+              // tocar.
+              atributs: `hx-post="${base}/categoria" hx-target="#comerc-${comerc.id}" hx-swap="outerHTML" hx-trigger="change" hx-disabled-elt="this"`,
             })
           : (comerc.categoryName ?? html`<span class="text-suau">sense classificar</span>`)
       }
@@ -241,24 +219,18 @@ export function BarraFiltres({ codi, filters }: BarraFiltresProps): Html {
       />
     </label>
 
-    <label class="casella">
-      <input
-        type="checkbox"
-        name="sense_classificar"
-        value="1"
-        ${filters.sense_classificar ? raw("checked") : ""}
-      />
-      <span>Nomes els que no tenen categoria</span>
-    </label>
+    ${Casella({
+      nom: "sense_classificar",
+      valor: "1",
+      etiqueta: "Nomes els que no tenen categoria",
+      marcat: filters.sense_classificar,
+    })}
 
-    <label class="casella">
-      <input
-        type="checkbox"
-        name="sense_confirmar"
-        value="1"
-        ${filters.sense_confirmar ? raw("checked") : ""}
-      />
-      <span>Nomes els que no ha confirmat ningu</span>
-    </label>
+    ${Casella({
+      nom: "sense_confirmar",
+      valor: "1",
+      etiqueta: "Nomes els que no ha confirmat ningu",
+      marcat: filters.sense_confirmar,
+    })}
   </form>` as Html;
 }

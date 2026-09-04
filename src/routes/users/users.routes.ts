@@ -13,15 +13,12 @@ import { zodErrors } from "../../components/form.tsx";
 import { Layout } from "../../components/layout.tsx";
 import { db } from "../../db/client.ts";
 import { ledgers, userLedgerPermissions, users } from "../../db/schema/index.ts";
-import {
-  destroyAllSessions,
-  destroyOtherSessions,
-  hashPassword,
-} from "../../lib/auth.ts";
+import { destroyAllSessions, destroyOtherSessions, hashPassword } from "../../lib/auth.ts";
 import {
   AppError,
-  fragment,
   NotFoundError,
+  fragment,
+  idDeLaRuta,
   page,
   toast,
   toastOnly,
@@ -39,12 +36,6 @@ import {
 } from "./users.schema.ts";
 
 export const usersRoutes = new Hono();
-
-function idDeLaRuta(valor: string | undefined): number {
-  const id = Number.parseInt(valor ?? "", 10);
-  if (Number.isNaN(id)) throw new NotFoundError("Aquest usuari no existeix");
-  return id;
-}
 
 /** Tots els usuaris amb els espais on tenen acces. */
 async function llistaUsuaris(): Promise<UsuariVista[]> {
@@ -95,6 +86,7 @@ usersRoutes.get("/", async (c) => {
       titol: "Usuaris",
       user: jo,
       csrfToken: c.get("csrfToken") ?? "",
+      ruta: c.req.path,
       espais: meus,
       children: UsersPage({ usuaris, espais, jo: jo.id }),
     }),
@@ -171,7 +163,7 @@ usersRoutes.post("/", async (c) => {
  * gestionar usuaris ni bancs.
  */
 usersRoutes.post("/:id", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquest usuari no existeix");
   const jo = currentUser(c);
   const cos = await c.req.parseBody();
   const parsed = userUpdateSchema.safeParse(cos);
@@ -224,7 +216,7 @@ usersRoutes.post("/:id", async (c) => {
  * no invalidar el CSRF ja dibuixat a la pagina.
  */
 usersRoutes.post("/:id/contrasenya", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquest usuari no existeix");
   const jo = currentUser(c);
   const cos = await c.req.parseBody();
   const parsed = passwordResetSchema.safeParse(cos);
@@ -279,7 +271,7 @@ usersRoutes.post("/:id/contrasenya", async (c) => {
  * veure l'espai.
  */
 usersRoutes.post("/:id/acces", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquest usuari no existeix");
   const parsed = grantSchema.safeParse(await c.req.parseBody());
   if (!parsed.success) return toastOnly(c, "Peticio no valida", 422);
 
@@ -338,7 +330,7 @@ usersRoutes.post("/:id/acces", async (c) => {
  * caduquessin soles, que poden ser dues setmanes.
  */
 usersRoutes.post("/:id/estat", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquest usuari no existeix");
   const jo = currentUser(c);
 
   if (id === jo.id) {

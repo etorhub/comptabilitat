@@ -344,6 +344,27 @@ describe("corregir una categoria", () => {
   });
 });
 
+describe("l'identificador de l'adreça", () => {
+  test("una cosa que no es un numero dona 404, no 500", async () => {
+    const res = await envia("/e/personal/moviments/no-soc-un-numero/categoria", {
+      category_id: "1",
+    });
+    expect(res.status).toBe(404);
+  });
+
+  test("i un numero amb cua enganxada, tambe", async () => {
+    // `Number.parseInt("12abc")` retorna 12: abans aixo era una adreça valida
+    // que anava a parar al moviment 12.
+    const id = await moviment();
+    const res = await envia(`/e/personal/moviments/${id}abc/categoria`, {
+      category_id: String((await categoria(personalId)).id),
+    });
+    expect(res.status).toBe(404);
+    // I el moviment 12 no s'ha tocat.
+    expect((await llegeix(id)).categorySource).toBe("none");
+  });
+});
+
 describe("quan una peticio falla", () => {
   /**
    * Un cos que nomes duu el `#toast` es queda buit quan HTMX en treu els
@@ -361,10 +382,11 @@ describe("quan una peticio falla", () => {
 
     expect(res.status).toBe(422);
     expect(res.headers.get("HX-Reswap")).toBe("none");
-    // I el cos nomes duu el `#toast`, fora de banda.
+    // I el cos nomes duu el `#toast`, fora de banda. Es canvia el contingut
+    // del contenidor i no el contenidor: si no, el `#toast` de recanvi es
+    // quedaria sense `aria-live` i deixaria de ser una regio viva.
     const cos = await res.text();
-    expect(cos).toContain('id="toast"');
-    expect(cos).toContain('hx-swap-oob="true"');
+    expect(cos).toContain('hx-swap-oob="innerHTML:#toast"');
   });
 
   test("tambe quan no es troba res", async () => {

@@ -26,11 +26,7 @@ const memoria = new Map<string, Entrada>();
  * un servidor d'estàtics genèric.
  */
 export type FitxerEstatic =
-  | "app.css"
-  | "htmx.min.js"
-  | "echarts.min.js"
-  | "grafics.js"
-  | "favicon.svg";
+  "app.css" | "htmx.min.js" | "echarts.min.js" | "grafics.js" | "favicon.svg";
 
 function resumDe(nom: FitxerEstatic): string {
   const cami = join(PUBLIC, nom);

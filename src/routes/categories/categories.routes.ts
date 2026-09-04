@@ -10,7 +10,15 @@ import { Hono } from "hono";
 
 import { zodErrors } from "../../components/form.tsx";
 import { workspacePage } from "../../components/workspace-page.ts";
-import { clearToast, ConflictError, fragment, page, toast, withOob } from "../../lib/http.ts";
+import {
+  ConflictError,
+  clearToast,
+  fragment,
+  idDeLaRuta,
+  page,
+  toast,
+  withOob,
+} from "../../lib/http.ts";
 import { roleAtLeast } from "../../db/schema/index.ts";
 import { currentRole, currentWorkspace, requireEditor } from "../../middleware/workspace.ts";
 import {
@@ -39,12 +47,6 @@ import {
 } from "./categories.schema.ts";
 
 export const categoriesRoutes = new Hono();
-
-function idDeLaRuta(valor: string | undefined): number {
-  const id = Number.parseInt(valor ?? "", 10);
-  if (Number.isNaN(id)) throw new ConflictError("Identificador no valid");
-  return id;
-}
 
 /** La vista d'una categoria, tal com la vol la fila de la taula. */
 async function vistaDe(id: number, ledgerId: number) {
@@ -86,7 +88,7 @@ categoriesRoutes.get("/", async (c) => {
 /** Una fila sola: serveix per cancel·lar una edicio o una reassignacio. */
 categoriesRoutes.get("/:id/fragment/fila", async (c) => {
   const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquesta categoria no existeix");
   await categoriaDeLespai(id, espai.id);
 
   const trobada = await vistaDe(id, espai.id);
@@ -109,7 +111,7 @@ categoriesRoutes.get("/:id/fragment/fila", async (c) => {
 /** La fila convertida en camp de text. */
 categoriesRoutes.get("/:id/fragment/edicio", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquesta categoria no existeix");
   await categoriaDeLespai(id, espai.id);
 
   const trobada = await vistaDe(id, espai.id);
@@ -175,7 +177,7 @@ categoriesRoutes.post("/", requireEditor, async (c) => {
 
 categoriesRoutes.patch("/:id", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquesta categoria no existeix");
   const cos = await c.req.parseBody();
   const parsed = categoryUpdateSchema.safeParse(cos);
 
@@ -213,7 +215,7 @@ categoriesRoutes.patch("/:id", requireEditor, async (c) => {
 
 categoriesRoutes.post("/:id/subscripcio", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquesta categoria no existeix");
   const cos = await c.req.parseBody();
   // Una casella que no ve al cos vol dir «desmarcada».
   const marcada = cos.is_subscription !== undefined;
@@ -246,7 +248,7 @@ categoriesRoutes.post("/:id/subscripcio", requireEditor, async (c) => {
  */
 categoriesRoutes.delete("/:id", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquesta categoria no existeix");
   const parsed = categoryDeleteSchema.safeParse({
     ...(await c.req.parseBody().catch(() => ({}))),
     ...c.req.query(),

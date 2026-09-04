@@ -99,16 +99,6 @@ export function redirect(c: Context, url: string) {
   return c.redirect(url, 303);
 }
 
-/**
- * Demana a la pagina que recarregui del tot. Per als canvis que toquen tantes
- * coses que enumerar-les seria pitjor que tornar-hi (per exemple, moure un
- * compte d'espai).
- */
-export function refresh(c: Context) {
-  c.header("HX-Refresh", "true");
-  return c.body(null, 204);
-}
-
 // --- Avisos (`#toast`) -----------------------------------------------------
 
 export type ToastTone = "error" | "success" | "info";
@@ -125,13 +115,22 @@ const TONES: Record<ToastTone, { classe: string; etiqueta: string }> = {
  * Es l'unica manera de dir alguna cosa a qui fa servir l'aplicacio quan una
  * peticio falla. Cap ruta no s'inventa el seu propi lloc per als errors.
  *
- * `role="alert"` i `aria-live` fan que un lector de pantalla ho digui sense
- * que calgui moure-hi el focus.
+ * **Es canvia el contingut del `#toast`, no el `#toast`.** Una regio viva
+ * l'ha d'anunciar el navegador quan hi entra text, i per aixo ha d'existir
+ * *abans*: si es substitueix el node sencer, el que arriba es un node nou
+ * que encara no era cap regio viva quan es va omplir. Amb
+ * `hx-swap-oob="true"` era exactament aixo el que passava —i, a mes, el
+ * `#toast` de recanvi no duia `aria-live`, de manera que a partir del primer
+ * avis la regio ja no hi era per a ningu. El `innerHTML:#toast` deixa el
+ * contenidor de `components/layout.tsx` quiet per sempre.
+ *
+ * El to tria el paper: un error interromp el que s'estigui llegint
+ * (`role="alert"`), i una confirmacio espera el seu torn (`role="status"`).
  */
 export function toast(missatge: string, tone: ToastTone = "error", detall?: string) {
   const { classe, etiqueta } = TONES[tone];
-  return html`<div id="toast" hx-swap-oob="true">
-    <div class="toast ${classe}" role="alert" aria-live="assertive">
+  return html`<div hx-swap-oob="innerHTML:#toast">
+    <div class="toast ${classe}" role="${tone === "error" ? "alert" : "status"}">
       <div class="toast-cos">
         <strong>${etiqueta}</strong>
         <span>${missatge}</span>
@@ -151,7 +150,7 @@ export function toast(missatge: string, tone: ToastTone = "error", detall?: stri
 
 /** El `#toast` buit que va a totes les respostes correctes, per netejar l'anterior. */
 export function clearToast() {
-  return html`<div id="toast" hx-swap-oob="true"></div>`;
+  return html`<div hx-swap-oob="innerHTML:#toast"></div>`;
 }
 
 /**
@@ -232,14 +231,18 @@ export function jsonScript(id: string, data: unknown) {
   </script>`;
 }
 
-/** Llegeix un enter d'un paràmetre de consulta, amb limits. */
-export function intParam(
-  value: string | undefined,
-  fallback: number,
-  min: number,
-  max: number,
-): number {
-  const parsed = Number.parseInt(value ?? "", 10);
-  if (Number.isNaN(parsed)) return fallback;
-  return Math.min(Math.max(parsed, min), max);
+/**
+ * L'identificador que ve de l'adreça.
+ *
+ * Nomes digits: un `Number.parseInt("12abc")` retorna 12, i aixi
+ * `/moviments/12qualsevolcosa` era una adreça valida.
+ *
+ * El missatge el posa cada recurs, pero **el codi es sempre 404**: qui
+ * demana un identificador que no es un numero no ha de saber si existeix.
+ */
+export function idDeLaRuta(valor: string | undefined, queNoExisteix: string): number {
+  if (valor === undefined || !/^\d+$/.test(valor)) throw new NotFoundError(queNoExisteix);
+  const id = Number.parseInt(valor, 10);
+  if (!Number.isSafeInteger(id) || id <= 0) throw new NotFoundError(queNoExisteix);
+  return id;
 }

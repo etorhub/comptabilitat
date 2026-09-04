@@ -11,9 +11,7 @@ import { parsejaConcepte } from "../src/services/concepte.ts";
 
 describe("parsejaConcepte", () => {
   test("compra amb TARJ. emmascarada", () => {
-    const r = parsejaConcepte(
-      "COMPRA INTERNET EN APP ESTACIONAME, LLANÑA ES, TARJ. :*484017",
-    );
+    const r = parsejaConcepte("COMPRA INTERNET EN APP ESTACIONAME, LLANÑA ES, TARJ. :*484017");
     expect(r.titol).toBe("App Estacioname");
     expect(r.darrers4).toBe("4017");
     expect(r.originalNetejat).not.toMatch(/\d{13,19}/);
@@ -21,17 +19,13 @@ describe("parsejaConcepte", () => {
   });
 
   test("pagament mobil amb cua de lloc", () => {
-    const r = parsejaConcepte(
-      "PAGO MOVIL EN IMAKO SUSHI, CALELLA PALAFES, TARJ. :*900522",
-    );
+    const r = parsejaConcepte("PAGO MOVIL EN IMAKO SUSHI, CALELLA PALAFES, TARJ. :*900522");
     expect(r.titol).toBe("Imako Sushi");
     expect(r.darrers4).toBe("0522");
   });
 
   test("farmacia amb TARJ.", () => {
-    const r = parsejaConcepte(
-      "COMPRA INTERNET EN FARMACIA LUIS M, SEVILLA ES, TARJ. :*900522",
-    );
+    const r = parsejaConcepte("COMPRA INTERNET EN FARMACIA LUIS M, SEVILLA ES, TARJ. :*900522");
     expect(r.titol).toBe("Farmacia Luis M");
     expect(r.darrers4).toBe("0522");
   });
@@ -48,18 +42,14 @@ describe("parsejaConcepte", () => {
   });
 
   test("transferencia conserva accents i casing", () => {
-    const r = parsejaConcepte(
-      "TRANSFERENCIA A FAVOR DE María Lourdes Cortés Braña",
-    );
+    const r = parsejaConcepte("TRANSFERENCIA A FAVOR DE María Lourdes Cortés Braña");
     expect(r.titol).toBe("María Lourdes Cortés Braña");
     expect(r.darrers4).toBeNull();
     expect(r.tipus).toBe("transferencia");
   });
 
   test("transferencia immediata treu el prefix sencer", () => {
-    const r = parsejaConcepte(
-      "TRANSFERENCIA IMMEDIATA A FAVOR DE María Lourdes Cortés Braña",
-    );
+    const r = parsejaConcepte("TRANSFERENCIA IMMEDIATA A FAVOR DE María Lourdes Cortés Braña");
     expect(r.titol).toBe("María Lourdes Cortés Braña");
     expect(r.tipus).toBe("transferencia");
     expect(r.titol).not.toMatch(/FAVOR/i);
@@ -77,9 +67,7 @@ describe("parsejaConcepte", () => {
   });
 
   test("compra es tipus targeta", () => {
-    const r = parsejaConcepte(
-      "COMPRA INTERNET EN APP ESTACIONAME, LLANÑA ES, TARJ. :*484017",
-    );
+    const r = parsejaConcepte("COMPRA INTERNET EN APP ESTACIONAME, LLANÑA ES, TARJ. :*484017");
     expect(r.tipus).toBe("targeta");
   });
 

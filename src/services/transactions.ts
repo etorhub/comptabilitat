@@ -195,8 +195,7 @@ export function vistaMoviment(fila: FilaCrua): MovimentVista {
   }
 
   const parsejat = parsejaConcepte(fila.description);
-  const hint =
-    parsejat.originalNetejat !== parsejat.titol ? parsejat.originalNetejat : null;
+  const hint = parsejat.originalNetejat !== parsejat.titol ? parsejat.originalNetejat : null;
 
   return {
     id: fila.id,
@@ -247,38 +246,42 @@ export interface FiltresMoviments {
 
 /** Predicat SQL alineat amb `detectaTipusOperacio` (sobre el concepte cru). */
 function predicatTipus(tipus: TipusOperacio): SQL {
-  const desc = transactions.description;
+  const concepte = transactions.description;
   switch (tipus) {
     case "targeta":
       return sql`(
-        ${desc} ~* '^(COMPRA|PAGO[[:space:]]+(MOVIL|CON[[:space:]]+MOVIL|TARJETA|EN)[[:space:]])'
-        OR ${desc} ~* '\\yTARJ'
+        ${concepte} ~* '^(COMPRA|PAGO[[:space:]]+(MOVIL|CON[[:space:]]+MOVIL|TARJETA|EN)[[:space:]])'
+        OR ${concepte} ~* '\\yTARJ'
       )`;
     case "transferencia":
       return sql`(
-        ${desc} ILIKE 'TRANSFERENCIA%'
-        OR ${desc} ILIKE 'TRANSF %'
-        OR ${desc} ILIKE 'TRANSF.%'
+        ${concepte} ILIKE 'TRANSFERENCIA%'
+        OR ${concepte} ILIKE 'TRANSF %'
+        OR ${concepte} ILIKE 'TRANSF.%'
       )`;
     case "bizum":
       return sql`(
-        ${desc} ILIKE 'BIZUM%'
-        OR ${desc} ILIKE 'ENVIO BIZUM%'
+        ${concepte} ILIKE 'BIZUM%'
+        OR ${concepte} ILIKE 'ENVIO BIZUM%'
       )`;
     case "rebut":
       return sql`(
-        ${desc} ILIKE 'RECIBO%'
-        OR ${desc} ILIKE 'ADEUDO%'
+        ${concepte} ILIKE 'RECIBO%'
+        OR ${concepte} ILIKE 'ADEUDO%'
       )`;
-    case "altres":
-      return not(
-        or(
-          predicatTipus("targeta"),
-          predicatTipus("transferencia"),
-          predicatTipus("bizum"),
-          predicatTipus("rebut"),
-        )!,
+    case "altres": {
+      // `or()` es tipa com a opcional perque accepta zero arguments; aqui n'hi
+      // van quatre de fixos, aixi que no pot ser indefinit. Es comprova en
+      // lloc d'afirmar-ho amb un `!`.
+      const algun = or(
+        predicatTipus("targeta"),
+        predicatTipus("transferencia"),
+        predicatTipus("bizum"),
+        predicatTipus("rebut"),
       );
+      if (algun === undefined) throw new Error("predicatTipus: cap predicat");
+      return not(algun);
+    }
   }
 }
 

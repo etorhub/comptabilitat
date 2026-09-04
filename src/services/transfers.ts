@@ -12,8 +12,9 @@
  * Traduccio de `backend/app/services/transfers.py`.
  */
 
-import { and, asc, eq, gte, isNull } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 
+import { movimentsComptables } from "./filtres.ts";
 import { db } from "../db/client.ts";
 import { transactions } from "../db/schema/index.ts";
 import { money } from "../lib/money.ts";
@@ -44,14 +45,10 @@ export async function detectaTraspassos(ledgerId: number, lookbackDays = 120): P
       categorySource: transactions.categorySource,
     })
     .from(transactions)
-    .where(
-      and(
-        eq(transactions.ledgerId, ledgerId),
-        gte(transactions.bookingDate, des),
-        isNull(transactions.transferGroupId),
-        eq(transactions.status, "booked"),
-      ),
-    )
+    // El mateix filtre que fan servir els informes. L'`is_excluded` d'aqui no
+    // es un detall: aparellar un moviment exclos escriuria el grup **a l'altra
+    // cama** i la trauria dels informes sense que ningu ho hagues demanat.
+    .where(movimentsComptables({ espais: ledgerId, des }))
     .orderBy(asc(transactions.bookingDate), asc(transactions.id));
 
   const sortides = candidats.filter((c) => money(c.amount).isNegative());
@@ -70,20 +67,29 @@ export async function detectaTraspassos(ledgerId: number, lookbackDays = 120): P
 
     const grup = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
 
-    for (const item of [sortida, contrapart]) {
-      const canvis: Record<string, unknown> = { transferGroupId: grup };
+    // **Les dues cames, o cap.** Si nomes se n'etiqueta una, els informes
+    // deixen fora la sortida i continuen comptant l'entrada: el mes surt
+    // malament per l'import sencer i sembla correcte. I ja no es repara sol,
+    // perque la cama orfe te `transfer_group_id` i aquesta consulta nomes mira
+    // les que el tenen buit.
+    await db.transaction(async (tx) => {
+      for (const item of [sortida, contrapart]) {
+        // Tipat amb la taula: aixi una errada al nom d'un camp no compila, en
+        // lloc d'escriure's en silenci.
+        const canvis: Partial<typeof transactions.$inferInsert> = { transferGroupId: grup };
 
-      // La categoria d'un traspas no la tria ningu cada vegada, pero si una
-      // persona n'hi ha posat una, es respecta.
-      if (categoria !== null && item.categorySource !== "user") {
-        canvis.categoryId = categoria.id;
-        canvis.categorySource = "rule";
-        canvis.categoryConfidence = 1;
-        canvis.needsReview = false;
+        // La categoria d'un traspas no la tria ningu cada vegada, pero si una
+        // persona n'hi ha posat una, es respecta.
+        if (categoria !== null && item.categorySource !== "user") {
+          canvis.categoryId = categoria.id;
+          canvis.categorySource = "rule";
+          canvis.categoryConfidence = 1;
+          canvis.needsReview = false;
+        }
+
+        await tx.update(transactions).set(canvis).where(eq(transactions.id, item.id));
       }
-
-      await db.update(transactions).set(canvis).where(eq(transactions.id, item.id));
-    }
+    });
 
     gastades.add(sortida.id);
     gastades.add(contrapart.id);

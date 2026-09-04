@@ -7,8 +7,9 @@
 
 import { html, raw } from "hono/html";
 
-import { Tria } from "../../components/form.tsx";
+import { Casella, Tria } from "../../components/form.tsx";
 import type { CategorySource } from "../../db/schema/index.ts";
+import { Filador, Paginacio, TaulaDades } from "../../components/vista.tsx";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
 import type { GrupCategories } from "../../services/categories.ts";
@@ -80,55 +81,39 @@ export function Taula({
   potEditar,
   etiquetesConegudes = [],
 }: TaulaProps): Html {
-  const desde = pagina.total === 0 ? 0 : pagina.offset + 1;
-  const fins = Math.min(pagina.offset + pagina.limit, pagina.total);
-
-  return html`<div id="taula-moviments">
-    ${
-      pagina.items.length === 0
-        ? html`<p class="buit text-suau">Cap moviment encaixa amb aquests filtres.</p>`
-        : html`
-          ${potEditar ? BarraBloc({ codi, grups, filters }) : ""}
-
-            <div class="desplaçable">
-              <table class="dades taula-moviments">
-                <thead>
-                  <tr>
-                    ${
-                      potEditar
-                        ? html`<th class="tria">
-                          <input
-                            type="checkbox"
-                            aria-label="Tria'ls tots"
-                            onclick="document.querySelectorAll('#taula-moviments input[name=moviment]').forEach(function(c){c.checked=this.checked}.bind(this))"
-                          />
-                        </th>`
-                        : ""
-                    }
-                    <th>Data</th>
-                    <th>Concepte</th>
-                    <th>Comerç</th>
-                    <th>Categoria</th>
-                    <th class="dreta">Import</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${pagina.items.map((moviment) =>
-                    Fila({ codi, moviment, grups, potEditar, etiquetesConegudes }),
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-          <nav class="paginacio" aria-label="Paginacio">
-            <span class="text-suau">
-              ${String(desde)}–${String(fins)} de ${String(pagina.total)} ·
-              suma ${formatMoney(pagina.totalImport)}
-            </span>
-            ${Passos({ codi, filters, total: pagina.total })}
-          </nav>
-        `
-    }
+  // `taula-carregant` no es decoracio: es el ganxo que fa que
+  // l'`hx-indicator` de la barra de bloc enfosqueixi les files mentre la
+  // peticio corre. El full d'estil el tenia i ningu no el posava.
+  return html`<div id="taula-moviments" class="taula-carregant">
+    ${TaulaDades({
+      classe: "taula-moviments",
+      abans: potEditar ? BarraBloc({ codi, grups, filters }) : "",
+      columnes: html`${
+        potEditar
+          ? html`<th class="tria">
+            <input
+              type="checkbox"
+              aria-label="Tria'ls tots"
+              onclick="document.querySelectorAll('#taula-moviments input[name=moviment]').forEach(function(c){c.checked=this.checked}.bind(this))"
+            />
+          </th>`
+          : ""
+      }
+        <th>Data</th>
+        <th>Concepte</th>
+        <th>Comerç</th>
+        <th>Categoria</th>
+        <th class="dreta">Import</th>` as Html,
+      files: pagina.items.map((moviment) =>
+        Fila({ codi, moviment, grups, potEditar, etiquetesConegudes }),
+      ),
+      buit: "Cap moviment encaixa amb aquests filtres.",
+      peu: Paginacio({
+        pagina,
+        passos: Passos({ codi, filters, total: pagina.total }),
+        resum: html` · suma ${formatMoney(pagina.totalImport)}` as Html,
+      }),
+    })}
   </div>` as Html;
 }
 
@@ -172,9 +157,10 @@ function BarraBloc({
       hx-target="#taula-moviments"
       hx-swap="outerHTML"
       hx-include="#bloc-categoria, #taula-moviments input[name='moviment']:checked"
-      hx-indicator="#taula-moviments"
+      hx-indicator="#taula-moviments, this"
+      hx-disabled-elt="this"
     >
-      Aplica-la als triats
+      ${Filador()} Aplica-la als triats
     </button>
 
     <label class="camp camp-linia camp-estret">
@@ -637,43 +623,31 @@ export function BarraFiltres({
 
     <fieldset class="filtre-tipus">
       <legend class="camp-etiqueta">Tipus</legend>
-      ${ETIQUETES_TIPUS.map(
-        ({ valor, text }) => html`<label class="casella">
-          <input
-            type="checkbox"
-            name="tipus"
-            value="${valor}"
-            ${filters.tipus.includes(valor) ? raw("checked") : ""}
-          />
-          <span>${text}</span>
-        </label>`,
+      ${ETIQUETES_TIPUS.map(({ valor, text }) =>
+        Casella({ nom: "tipus", valor, etiqueta: text, marcat: filters.tipus.includes(valor) }),
       )}
     </fieldset>
 
-    <label class="casella">
-      <input
-        type="checkbox"
-        name="sense_classificar"
-        value="1"
-        ${filters.sense_classificar ? raw("checked") : ""}
-      />
-      <span>Nomes sense classificar</span>
-    </label>
+    ${Casella({
+      nom: "sense_classificar",
+      valor: "1",
+      etiqueta: "Nomes sense classificar",
+      marcat: filters.sense_classificar,
+    })}
 
-    <label class="casella">
-      <input type="checkbox" name="revisio" value="1" ${filters.revisio ? raw("checked") : ""} />
-      <span>Nomes per revisar</span>
-    </label>
+    ${Casella({
+      nom: "revisio",
+      valor: "1",
+      etiqueta: "Nomes per revisar",
+      marcat: filters.revisio,
+    })}
 
-    <label class="casella">
-      <input
-        type="checkbox"
-        name="traspassos"
-        value="1"
-        ${filters.traspassos ? raw("checked") : ""}
-      />
-      <span>Inclou els traspassos</span>
-    </label>
+    ${Casella({
+      nom: "traspassos",
+      valor: "1",
+      etiqueta: "Inclou els traspassos",
+      marcat: filters.traspassos,
+    })}
 
     ${DatalistEtiquetes(etiquetesConegudes)}
   </form>` as Html;

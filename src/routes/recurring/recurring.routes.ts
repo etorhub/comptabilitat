@@ -8,7 +8,7 @@ import { Hono } from "hono";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { recurringSeries, roleAtLeast } from "../../db/schema/index.ts";
-import { clearToast, fragment, NotFoundError, page, pushUrl, withOob } from "../../lib/http.ts";
+import { clearToast, fragment, idDeLaRuta, page, pushUrl, withOob } from "../../lib/http.ts";
 import { currentRole, currentWorkspace, requireEditor } from "../../middleware/workspace.ts";
 import {
   llistaSeries,
@@ -21,12 +21,6 @@ import { RecurringPage } from "./recurring.page.tsx";
 import { recurringFiltersSchema, recurringFiltersToQuery } from "./recurring.schema.ts";
 
 export const recurringRoutes = new Hono();
-
-function idDeLaRuta(valor: string | undefined): number {
-  const id = Number.parseInt(valor ?? "", 10);
-  if (Number.isNaN(id)) throw new NotFoundError("Aquesta serie no existeix");
-  return id;
-}
 
 // --- Pagina ----------------------------------------------------------------
 
@@ -86,7 +80,7 @@ recurringRoutes.get("/fragment/taula", async (c) => {
  */
 recurringRoutes.post("/:id/previsio", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquesta serie no existeix");
   const serie = await serieDeLespai(id, espai.id);
   const cos = await c.req.parseBody();
 

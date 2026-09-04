@@ -11,7 +11,7 @@
 
 import { eq } from "drizzle-orm";
 
-import { db, type Db } from "../db/client.ts";
+import { db, type Transactor } from "../db/client.ts";
 import { alerts, type Alert, type AlertSeverity, type AlertType } from "../db/schema/index.ts";
 
 export interface AvisNou {
@@ -25,7 +25,10 @@ export interface AvisNou {
 }
 
 /** Crea l'avis, o retorna `null` si ja n'hi havia un d'igual. */
-export async function creaAvis(avis: AvisNou, connexio: Db = db): Promise<Alert | null> {
+export async function creaAvis(
+  avis: AvisNou,
+  connexio: Transactor = db,
+): Promise<Alert | null> {
   const [existent] = await connexio
     .select({ id: alerts.id })
     .from(alerts)

@@ -6,11 +6,13 @@
  * llista d'avisos que puguin acabar diferint.
  */
 
-import { html, raw } from "hono/html";
+import { html } from "hono/html";
 
 import type { Alert, AlertSeverity } from "../../db/schema/index.ts";
+import { Casella } from "../../components/form.tsx";
+import { EstatBuit } from "../../components/vista.tsx";
 import type { Html } from "../../lib/html.ts";
-import type { AlertFilters } from "./alerts.schema.ts";
+import { alertFiltersToQuery, type AlertFilters } from "./alerts.schema.ts";
 
 const GRAVETAT: Record<AlertSeverity, { etiqueta: string; classe: string }> = {
   critical: { etiqueta: "Urgent", classe: "avis-critic" },
@@ -35,15 +37,13 @@ export function LlistaAvisos({ codi, avisos, filters }: LlistaAvisosProps): Html
   return html`<div id="llista-avisos">
     ${
       avisos.length === 0
-        ? html`<p class="buit text-suau">
-          ${
+        ? EstatBuit(
             filters.descartats
               ? "Aqui no hi ha cap avis."
-              : "Cap avis pendent. Quan n'hi hagi, sortiran aqui."
-          }
-        </p>`
+              : "Cap avis pendent. Quan n'hi hagi, sortiran aqui.",
+          )
         : html`<ul class="avisos">
-          ${avisos.map((avis) => TargetaAvis({ codi, avis }))}
+          ${avisos.map((avis) => TargetaAvis({ codi, avis, filters }))}
         </ul>`
     }
   </div>` as Html;
@@ -52,9 +52,19 @@ export function LlistaAvisos({ codi, avisos, filters }: LlistaAvisosProps): Html
 interface TargetaAvisProps {
   codi: string;
   avis: Alert;
+  /**
+   * Els filtres de la llista on viu la targeta.
+   *
+   * Descartar-ne un torna la llista sencera, i sense aixo tornaria la llista
+   * *per defecte*: qui estigues mirant els descartats els veuria desapareixer
+   * tots de cop. Van a l'adreça i no a un `hx-include` perque el boto no es
+   * dins de cap formulari.
+   */
+  filters?: AlertFilters;
 }
 
-export function TargetaAvis({ codi, avis }: TargetaAvisProps): Html {
+export function TargetaAvis({ codi, avis, filters }: TargetaAvisProps): Html {
+  const consulta = filters === undefined ? "" : alertFiltersToQuery(filters);
   const gravetat = GRAVETAT[avis.severity];
   const descartat = avis.status === "dismissed";
 
@@ -82,7 +92,7 @@ export function TargetaAvis({ codi, avis }: TargetaAvisProps): Html {
                 ? html`<button
                   type="button"
                   class="boto boto-discret"
-                  hx-post="/e/${codi}/avisos/${avis.id}/llegit"
+                  hx-post="/e/${codi}/avisos/${avis.id}/llegit${consulta}"
                   hx-target="#avis-${avis.id}"
                   hx-swap="outerHTML"
                 >
@@ -93,8 +103,8 @@ export function TargetaAvis({ codi, avis }: TargetaAvisProps): Html {
             <button
               type="button"
               class="boto boto-discret"
-              hx-post="/e/${codi}/avisos/${avis.id}/descarta"
-              hx-target="#avis-${avis.id}"
+              hx-post="/e/${codi}/avisos/${avis.id}/descarta${consulta}"
+              hx-target="#llista-avisos"
               hx-swap="outerHTML"
             >
               Descarta
@@ -135,14 +145,11 @@ export function BarraFiltres({ codi, filters }: BarraFiltresProps): Html {
     hx-swap="outerHTML"
     hx-trigger="change"
   >
-    <label class="casella">
-      <input
-        type="checkbox"
-        name="descartats"
-        value="1"
-        ${filters.descartats ? raw("checked") : ""}
-      />
-      <span>Inclou els descartats</span>
-    </label>
+    ${Casella({
+      nom: "descartats",
+      valor: "1",
+      etiqueta: "Inclou els descartats",
+      marcat: filters.descartats,
+    })}
   </form>` as Html;
 }

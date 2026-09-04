@@ -26,7 +26,9 @@ const tipusSchema = z
   .transform((v): TipusOperacio[] => {
     const bruts = v === undefined ? [] : Array.isArray(v) ? v : [v];
     const valids = new Set<TipusOperacio>(TIPUS_OPERACIO);
-    return [...new Set(bruts.filter((x): x is TipusOperacio => valids.has(x as TipusOperacio)))];
+    return [
+      ...new Set(bruts.filter((x): x is TipusOperacio => valids.has(x as TipusOperacio))),
+    ];
   });
 
 export const transactionFiltersSchema = z.object({
@@ -70,15 +72,15 @@ export const ETIQUETES_TIPUS: { valor: TipusOperacio; text: string }[] = [
 export function teFiltresActius(f: TransactionFilters): boolean {
   return Boolean(
     f.cerca ||
-      f.des ||
-      f.fins ||
-      f.compte !== null ||
-      f.categoria !== null ||
-      f.etiqueta ||
-      f.tipus.length > 0 ||
-      f.sense_classificar ||
-      f.revisio ||
-      f.traspassos,
+    f.des ||
+    f.fins ||
+    f.compte !== null ||
+    f.categoria !== null ||
+    f.etiqueta ||
+    f.tipus.length > 0 ||
+    f.sense_classificar ||
+    f.revisio ||
+    f.traspassos,
   );
 }
 

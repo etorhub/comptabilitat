@@ -154,7 +154,9 @@ describe("la configuracio de l'espai nomes per a administradors", () => {
 
   test("no veu la seccio Configuracio a la barra", async () => {
     const { cookie } = await entra("pau@exemple.cat");
-    const html = await (await app.request("/e/personal", { headers: { Cookie: cookie } })).text();
+    const html = await (
+      await app.request("/e/personal", { headers: { Cookie: cookie } })
+    ).text();
     const barra = html.slice(0, html.indexOf('id="contingut"'));
 
     expect(barra).not.toContain(">Configuracio</h2>");
@@ -178,7 +180,9 @@ describe("la configuracio de l'espai nomes per a administradors", () => {
       expect({ cami, estat: res.status }).toEqual({ cami, estat: 200 });
     }
 
-    const html = await (await app.request("/e/personal", { headers: { Cookie: cookie } })).text();
+    const html = await (
+      await app.request("/e/personal", { headers: { Cookie: cookie } })
+    ).text();
     const idxConfig = html.indexOf(">Configuracio</h2>");
     const idxAdmin = html.indexOf(">Administracio</h2>");
     expect(idxConfig).toBeGreaterThan(-1);

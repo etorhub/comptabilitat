@@ -13,6 +13,7 @@
 
 import { and, asc, eq, gte, inArray, isNotNull, isNull } from "drizzle-orm";
 
+import { movimentsComptables } from "./filtres.ts";
 import { db } from "../db/client.ts";
 import {
   CADENCE_DAYS,
@@ -169,16 +170,9 @@ export async function detectaRecurrents(ledgerId: number): Promise<Estadistiques
       })
       .from(transactions)
       .leftJoin(merchants, eq(merchants.id, transactions.merchantId))
-      .where(
-        and(
-          eq(transactions.ledgerId, ledgerId),
-          gte(transactions.bookingDate, des),
-          eq(transactions.status, "booked"),
-          // Els traspassos entre comptes propis no son rebuts.
-          isNull(transactions.transferGroupId),
-          eq(transactions.isExcluded, false),
-        ),
-      )
+      // Els traspassos entre comptes propis no son rebuts, i un moviment
+      // exclos a ma tampoc: `movimentsComptables` ja ho diu.
+      .where(movimentsComptables({ espais: ledgerId, des }))
       .orderBy(asc(transactions.bookingDate)),
     db
       .select({
@@ -250,8 +244,7 @@ async function avaluaGrup(
 
     cadencia = trobada;
     intervalArrodonit = Math.round(intervalMedia);
-    confianca =
-      Math.round(Math.min(1, regular * Math.min(1, items.length / 6)) * 100) / 100;
+    confianca = Math.round(Math.min(1, regular * Math.min(1, items.length / 6)) * 100) / 100;
   }
 
   const importEsperat = medianaImports(items.map((i) => i.amount)).toDecimalPlaces(2);

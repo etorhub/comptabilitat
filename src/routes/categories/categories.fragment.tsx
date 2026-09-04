@@ -12,6 +12,7 @@ import { html, raw } from "hono/html";
 
 import { Tria } from "../../components/form.tsx";
 import type { CategoryKind } from "../../db/schema/index.ts";
+import { TaulaDades } from "../../components/vista.tsx";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
 import type {
@@ -47,25 +48,19 @@ export function Arbre({ codi, arbre, potEditar, oob = false }: ArbreProps): Html
       if (nodes.length === 0) return "";
       return html`<section class="superficie targeta">
         <h2>${NOMS_KIND[kind]}</h2>
-        <div class="desplaçable">
-          <table class="dades">
-            <thead>
-              <tr>
-                <th>Categoria</th>
-                <th>Subscripcio</th>
-                <th class="dreta">Moviments</th>
-                <th class="dreta">Total</th>
-                ${potEditar ? html`<th></th>` : ""}
-              </tr>
-            </thead>
-            <tbody>
-              ${nodes.flatMap((pare) => [
-                Fila({ codi, categoria: pare, potEditar, filla: false }),
-                ...pare.filles.map((f) => Fila({ codi, categoria: f, potEditar, filla: true })),
-              ])}
-            </tbody>
-          </table>
-        </div>
+        ${TaulaDades({
+          columnes: html`<th>Categoria</th>
+            <th>Subscripcio</th>
+            <th class="dreta">Moviments</th>
+            <th class="dreta">Total</th>
+            ${potEditar ? html`<th></th>` : ""}` as Html,
+          files: nodes.flatMap((pare) => [
+            Fila({ codi, categoria: pare, potEditar, filla: false }),
+            ...pare.filles.map((f) => Fila({ codi, categoria: f, potEditar, filla: true })),
+          ]),
+          // Inabastable: la seccio no es dibuixa si el grup es buit.
+          buit: "Aquest grup no te cap categoria.",
+        })}
       </section>`;
     })}
   </div>` as Html;

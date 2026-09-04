@@ -115,10 +115,7 @@ export async function llistaEtiquetes(ledgerId: number): Promise<ResumEtiqueta[]
 }
 
 /** Resum d'una etiqueta (insensible a majuscules), o zeros si no n'hi ha. */
-export async function resumEtiqueta(
-  ledgerId: number,
-  nom: string,
-): Promise<ResumEtiqueta> {
+export async function resumEtiqueta(ledgerId: number, nom: string): Promise<ResumEtiqueta> {
   const net = normalitzaEtiqueta(nom);
   const totes = await llistaEtiquetes(ledgerId);
   const trobada = totes.find((e) => mateixaEtiqueta(e.nom, net));

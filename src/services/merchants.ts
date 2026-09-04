@@ -10,9 +10,21 @@
  * `classification.remember_merchant_choice`.
  */
 
-import { and, asc, count, desc, eq, ilike, inArray, isNull, ne, or, type SQL } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  ne,
+  or,
+  type SQL,
+} from "drizzle-orm";
 
-import { db, type Db } from "../db/client.ts";
+import { db, type Transactor } from "../db/client.ts";
 import {
   categories,
   merchants,
@@ -158,42 +170,53 @@ export async function vistaComerc(id: number, ledgerId: number): Promise<ComercV
  * Els moviments que ja tenen categoria posada **per una persona**
  * (`category_source = 'user'`) no es toquen mai: aquella decisio mana per
  * sobre de tot. Retorna quants moviments s'han canviat.
+ *
+ * Les dues escriptures van juntes. Si nomes passes la primera, el comerç diu
+ * «confirmat, categoria X» i els seus moviments continuen amb la d'abans; i
+ * aixo no s'adoba sol, perque `classificaPendents` nomes recull els moviments
+ * sense categoria o marcats per revisar, i aquests no en son cap dels dos.
+ *
+ * `connexio.transaction()` val tant per a la piscina com per a una transaccio
+ * que ja estigui oberta: dins d'una altra, Postgres hi posa un punt de
+ * seguretat i prou.
  */
 export async function recordaEleccioComerc(
   comerc: Merchant,
   categoryId: number | null,
   aplicaAlsExistents = true,
-  connexio: Db = db,
+  connexio: Transactor = db,
 ): Promise<number> {
-  await connexio
-    .update(merchants)
-    .set({
-      defaultCategoryId: categoryId,
-      categorySource: "user",
-      isConfirmed: true,
-    })
-    .where(eq(merchants.id, comerc.id));
+  return connexio.transaction(async (tx) => {
+    await tx
+      .update(merchants)
+      .set({
+        defaultCategoryId: categoryId,
+        categorySource: "user",
+        isConfirmed: true,
+      })
+      .where(eq(merchants.id, comerc.id));
 
-  if (!aplicaAlsExistents) return 0;
+    if (!aplicaAlsExistents) return 0;
 
-  const canviats = await connexio
-    .update(transactions)
-    .set({
-      categoryId,
-      categorySource: "merchant",
-      categoryConfidence: 1,
-      needsReview: false,
-    })
-    .where(
-      and(
-        eq(transactions.merchantId, comerc.id),
-        // La decisio d'una persona no la sobreescriu res.
-        ne(transactions.categorySource, "user"),
-      ),
-    )
-    .returning({ id: transactions.id });
+    const canviats = await tx
+      .update(transactions)
+      .set({
+        categoryId,
+        categorySource: "merchant",
+        categoryConfidence: 1,
+        needsReview: false,
+      })
+      .where(
+        and(
+          eq(transactions.merchantId, comerc.id),
+          // La decisio d'una persona no la sobreescriu res.
+          ne(transactions.categorySource, "user"),
+        ),
+      )
+      .returning({ id: transactions.id });
 
-  return canviats.length;
+    return canviats.length;
+  });
 }
 
 /** Canvia el nom que es veu d'un comerç. */
@@ -248,7 +271,7 @@ export async function obteOCreaComerc(
   normalizedName: string,
   display = "",
   seenOn: string | null = null,
-  connexio: Db = db,
+  connexio: Transactor = db,
   incrementaComptador = true,
 ): Promise<Merchant | null> {
   const nom = (normalizedName || "").trim();
@@ -308,7 +331,7 @@ export async function obteOCreaComerc(
 /** Recompta `transaction_count` a partir dels moviments reals. */
 export async function recompteComercos(
   merchantIds: number[],
-  connexio: Db = db,
+  connexio: Transactor = db,
 ): Promise<void> {
   const ids = [...new Set(merchantIds.filter((id) => id > 0))];
   if (ids.length === 0) return;
@@ -341,7 +364,7 @@ export interface ResultatReassignacio {
  */
 export async function reassignaNormalitzacio(
   ledgerId?: number,
-  connexio: Db = db,
+  connexio: Transactor = db,
 ): Promise<ResultatReassignacio> {
   const files = await connexio
     .select({

@@ -177,7 +177,7 @@ describe("filtre per tipus d'operacio", () => {
       ...baseFiltre,
       tipusOperacio: ["targeta", "bizum"],
     });
-    const descs = pagina.items.map((i) => i.description).sort();
+    const descs = pagina.items.map((i) => i.description).toSorted();
     expect(descs).toEqual(["Joan", "Mercadona"]);
   });
 
@@ -261,10 +261,9 @@ describe("ruta de moviments amb filtre tipus", () => {
     const pagina = await app.request("/e/personal/moviments?tipus=transferencia", {
       headers: { Cookie: cookie },
     });
-    const frag = await app.request(
-      "/e/personal/moviments/fragment/taula?tipus=transferencia",
-      { headers: { Cookie: cookie } },
-    );
+    const frag = await app.request("/e/personal/moviments/fragment/taula?tipus=transferencia", {
+      headers: { Cookie: cookie },
+    });
     expect(pagina.status).toBe(200);
     expect(frag.status).toBe(200);
 

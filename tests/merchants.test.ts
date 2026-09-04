@@ -692,6 +692,8 @@ describe("POST /comercos/:id/recurrent", () => {
     });
     expect(res.status).toBe(422);
     const html = await res.text();
-    expect(html).toContain('id="toast"');
+    // Es canvia el contingut del `#toast`, no el contenidor: aixi la regio
+    // viva de `components/layout.tsx` no es perd al primer avis.
+    expect(html).toContain('hx-swap-oob="innerHTML:#toast"');
   });
 });
