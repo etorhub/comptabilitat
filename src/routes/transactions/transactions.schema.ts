@@ -4,6 +4,8 @@
 
 import { z } from "zod/v4";
 
+import { TIPUS_OPERACIO, type TipusOperacio } from "../../services/concepte.ts";
+
 export const PER_PAGINA = 50;
 
 const data = z
@@ -17,6 +19,15 @@ const casella = z
   .union([z.literal("1"), z.literal("on"), z.literal("true")])
   .optional()
   .transform((v) => v !== undefined);
+
+const tipusSchema = z
+  .union([z.string(), z.array(z.string())])
+  .optional()
+  .transform((v): TipusOperacio[] => {
+    const bruts = v === undefined ? [] : Array.isArray(v) ? v : [v];
+    const valids = new Set<TipusOperacio>(TIPUS_OPERACIO);
+    return [...new Set(bruts.filter((x): x is TipusOperacio => valids.has(x as TipusOperacio)))];
+  });
 
 export const transactionFiltersSchema = z.object({
   cerca: z.string().trim().max(200).default(""),
@@ -37,6 +48,7 @@ export const transactionFiltersSchema = z.object({
     .optional()
     .or(z.literal(""))
     .transform((v) => (v ? v : null)),
+  tipus: tipusSchema,
   sense_classificar: casella,
   revisio: casella,
   traspassos: casella,
@@ -44,6 +56,15 @@ export const transactionFiltersSchema = z.object({
 });
 
 export type TransactionFilters = z.infer<typeof transactionFiltersSchema>;
+
+/** Etiquetes catalanes per a la barra de filtres. */
+export const ETIQUETES_TIPUS: { valor: TipusOperacio; text: string }[] = [
+  { valor: "targeta", text: "Targeta" },
+  { valor: "transferencia", text: "Transferència" },
+  { valor: "bizum", text: "Bizum" },
+  { valor: "rebut", text: "Rebut" },
+  { valor: "altres", text: "Altres" },
+];
 
 /** Hi ha cap filtre de cerca actiu (la pagina no compta). */
 export function teFiltresActius(f: TransactionFilters): boolean {
@@ -54,6 +75,7 @@ export function teFiltresActius(f: TransactionFilters): boolean {
       f.compte !== null ||
       f.categoria !== null ||
       f.etiqueta ||
+      f.tipus.length > 0 ||
       f.sense_classificar ||
       f.revisio ||
       f.traspassos,
@@ -68,6 +90,7 @@ export function transactionFiltersToQuery(f: TransactionFilters): string {
   if (f.compte !== null) p.set("compte", String(f.compte));
   if (f.categoria !== null) p.set("categoria", String(f.categoria));
   if (f.etiqueta) p.set("etiqueta", f.etiqueta);
+  for (const t of f.tipus) p.append("tipus", t);
   if (f.sense_classificar) p.set("sense_classificar", "1");
   if (f.revisio) p.set("revisio", "1");
   if (f.traspassos) p.set("traspassos", "1");

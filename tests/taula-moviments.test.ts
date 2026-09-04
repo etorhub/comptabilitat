@@ -36,6 +36,7 @@ function moviment(id: number): MovimentVista {
     description: `Compra ${id}`,
     descriptionHint: null,
     darrers4: null,
+    tipusOperacio: "altres",
     counterparty: "",
     merchantId: null,
     merchantName: null,
@@ -150,6 +151,7 @@ describe("la taula de moviments", () => {
       description: "Amazon",
       descriptionHint: "COMPRA WWW.AMAZON, LUXEMBOURG",
       darrers4: "4017",
+      tipusOperacio: "targeta",
     };
     const marcatge = String(
       await Taula({
@@ -170,5 +172,31 @@ describe("la taula de moviments", () => {
     expect(marcatge).toContain("*4017");
     expect(marcatge).toContain("Targeta acabada en 4017");
     expect(marcatge).not.toContain("5489010385484017");
+  });
+
+  test("una transferencia mostra l'etiqueta sense ser traspas propi", async () => {
+    const transferencia: MovimentVista = {
+      ...moviment(10),
+      description: "María Lourdes Cortés Braña",
+      tipusOperacio: "transferencia",
+      transferGroupId: null,
+    };
+    const marcatge = String(
+      await Taula({
+        codi: "personal",
+        pagina: {
+          items: [transferencia],
+          total: 1,
+          offset: 0,
+          limit: 50,
+          totalImport: "-30.00",
+        },
+        grups,
+        filters: transactionFiltersSchema.parse({}),
+        potEditar: false,
+      }),
+    );
+    expect(marcatge).toContain("transferència");
+    expect(marcatge).not.toContain(">traspas<");
   });
 });

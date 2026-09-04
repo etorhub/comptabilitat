@@ -25,7 +25,7 @@ const PREFIX_PATTERNS: RegExp[] = [
   /^ADEUDO\s+(?:POR\s+)?DOMICILIACION(?:\s+DE)?\s*/,
   /^ADEUDO\b\s*/,
   /^RECIBO\b(?:\s+(?:DE\s+)?)?/,
-  /^TRANSFERENCIA\b(?:\s+(?:RECIBIDA\s+)?(?:DE|A|A\s+FAVOR\s+DE|EMITIDA\s+A)?)?\s*/,
+  /^TRANSFERENCIA\b(?:\s+(?:IMMEDIATA|URGENTE|ORDINARIA))*(?:\s+(?:RECIBIDA\s+)?(?:DE|A|A\s+FAVOR\s+DE|EMITIDA\s+A)?)?\s*/,
   /^TRANSF\.?\b(?:\s+(?:DE|A)?)?\s*/,
   /^BIZUM\b(?:\s+(?:DE|A|RECIBIDO\s+DE|ENVIADO\s+A)?)?\s*/,
   /^ENVIO\s+BIZUM\b(?:\s+A?)?\s*/,

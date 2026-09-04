@@ -23,12 +23,14 @@ import {
   isNotNull,
   isNull,
   lte,
+  not,
   or,
+  sql,
   sum,
   type SQL,
 } from "drizzle-orm";
 
-import { parsejaConcepte } from "./concepte.ts";
+import { parsejaConcepte, type TipusOperacio } from "./concepte.ts";
 import { teEtiqueta } from "./tags.ts";
 
 import { db } from "../db/client.ts";
@@ -70,6 +72,11 @@ export interface MovimentVista {
   descriptionHint: string | null;
   /** Darrers 4 digits de la targeta, o null. Mai amb alias. */
   darrers4: string | null;
+  /**
+   * Tipus d'operacio deduit del concepte. Null quan hi ha alias (no ensenyem
+   * metadades del banc).
+   */
+  tipusOperacio: TipusOperacio | null;
   counterparty: string;
   merchantId: number | null;
   merchantName: string | null;
@@ -170,6 +177,7 @@ export function vistaMoviment(fila: FilaCrua): MovimentVista {
       description: fila.displayDescription ?? "",
       descriptionHint: null,
       darrers4: null,
+      tipusOperacio: null,
       counterparty: "",
       merchantId: fila.merchantId,
       merchantName: null,
@@ -202,6 +210,7 @@ export function vistaMoviment(fila: FilaCrua): MovimentVista {
     description: parsejat.titol,
     descriptionHint: hint,
     darrers4: parsejat.darrers4,
+    tipusOperacio: parsejat.tipus,
     counterparty: fila.counterparty,
     merchantId: fila.merchantId,
     merchantName: fila.merchantName,
@@ -227,11 +236,57 @@ export interface FiltresMoviments {
   cerca: string;
   /** Filtre per etiqueta (insensible a majuscules). Null = sense filtre. */
   etiqueta: string | null;
+  /** Tipus d'operacio (OR). Buit = tots. */
+  tipusOperacio: TipusOperacio[];
   nomesRevisio: boolean;
   nomesSenseClassificar: boolean;
   incloTraspassos: boolean;
   limit: number;
   offset: number;
+}
+
+/** Predicat SQL alineat amb `detectaTipusOperacio` (sobre el concepte cru). */
+function predicatTipus(tipus: TipusOperacio): SQL {
+  const desc = transactions.description;
+  switch (tipus) {
+    case "targeta":
+      return sql`(
+        ${desc} ~* '^(COMPRA|PAGO[[:space:]]+(MOVIL|CON[[:space:]]+MOVIL|TARJETA|EN)[[:space:]])'
+        OR ${desc} ~* '\\yTARJ'
+      )`;
+    case "transferencia":
+      return sql`(
+        ${desc} ILIKE 'TRANSFERENCIA%'
+        OR ${desc} ILIKE 'TRANSF %'
+        OR ${desc} ILIKE 'TRANSF.%'
+      )`;
+    case "bizum":
+      return sql`(
+        ${desc} ILIKE 'BIZUM%'
+        OR ${desc} ILIKE 'ENVIO BIZUM%'
+      )`;
+    case "rebut":
+      return sql`(
+        ${desc} ILIKE 'RECIBO%'
+        OR ${desc} ILIKE 'ADEUDO%'
+      )`;
+    case "altres":
+      return not(
+        or(
+          predicatTipus("targeta"),
+          predicatTipus("transferencia"),
+          predicatTipus("bizum"),
+          predicatTipus("rebut"),
+        )!,
+      );
+  }
+}
+
+function clausulaTipus(tipus: TipusOperacio[]): SQL | undefined {
+  if (tipus.length === 0) return undefined;
+  // Si hi ha tots els tipus, no cal filtrar.
+  if (tipus.length === 5) return undefined;
+  return or(...tipus.map(predicatTipus));
 }
 
 /**
@@ -269,6 +324,7 @@ function condicions(ledgerId: number, f: FiltresMoviments): SQL | undefined {
   if (f.merchantId !== null) parts.push(eq(transactions.merchantId, f.merchantId));
   if (f.cerca.trim()) parts.push(clausulaCerca(`%${f.cerca.trim()}%`));
   if (f.etiqueta) parts.push(teEtiqueta(f.etiqueta));
+  parts.push(clausulaTipus(f.tipusOperacio));
   if (f.nomesRevisio) parts.push(eq(transactions.needsReview, true));
   if (f.nomesSenseClassificar) parts.push(isNull(transactions.categoryId));
   // Els traspassos entre comptes propis no son ni ingres ni despesa: per

@@ -43,6 +43,7 @@ const CAP_FILTRE = {
   merchantId: null,
   cerca: "",
   etiqueta: null,
+  tipusOperacio: [],
   nomesRevisio: false,
   nomesSenseClassificar: false,
   incloTraspassos: true,

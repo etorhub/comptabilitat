@@ -27,6 +27,7 @@ const normal: MovimentVista = {
   description: "Clinica Discreta",
   descriptionHint: "COMPRA TARJ. CLINICA DISCRETA",
   darrers4: null,
+  tipusOperacio: "targeta",
   counterparty: "Clinica Discreta SL",
   merchantId: 3,
   merchantName: "Clinica Discreta",
@@ -51,6 +52,7 @@ const amagat: MovimentVista = {
   darrers4: null,
   counterparty: "",
   merchantName: null,
+  tipusOperacio: null,
   isMasked: true,
 };
 

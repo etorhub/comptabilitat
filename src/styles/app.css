@@ -527,6 +527,22 @@ table.dades tbody tr:hover {
   margin-bottom: 1rem;
 }
 
+.filtre-tipus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--vora);
+  border-radius: 0.5rem;
+  min-width: 0;
+}
+
+.filtre-tipus legend {
+  padding: 0 0.25rem;
+}
+
 /* --- Etiquetes ------------------------------------------------------------ */
 
 .etiqueta {

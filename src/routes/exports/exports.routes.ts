@@ -54,6 +54,7 @@ async function movimentsPerExportar(ledgerId: number, query: Record<string, stri
     merchantId: null,
     cerca: filters.cerca,
     etiqueta: null,
+    tipusOperacio: [],
     nomesRevisio: false,
     nomesSenseClassificar: false,
     incloTraspassos: filters.traspassos,

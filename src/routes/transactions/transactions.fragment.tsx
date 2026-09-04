@@ -18,6 +18,7 @@ import type {
   PaginaMoviments,
 } from "../../services/transactions.ts";
 import {
+  ETIQUETES_TIPUS,
   PER_PAGINA,
   transactionFiltersToQuery,
   type TransactionFilters,
@@ -220,18 +221,8 @@ function Passos({
 }): Html {
   const ultima = Math.max(0, Math.ceil(total / PER_PAGINA) - 1);
   const enllac = (p: number) => {
-    const params = new URLSearchParams();
-    if (filters.cerca) params.set("cerca", filters.cerca);
-    if (filters.des) params.set("des", filters.des);
-    if (filters.fins) params.set("fins", filters.fins);
-    if (filters.compte !== null) params.set("compte", String(filters.compte));
-    if (filters.categoria !== null) params.set("categoria", String(filters.categoria));
-    if (filters.etiqueta) params.set("etiqueta", filters.etiqueta);
-    if (filters.sense_classificar) params.set("sense_classificar", "1");
-    if (filters.revisio) params.set("revisio", "1");
-    if (filters.traspassos) params.set("traspassos", "1");
-    if (p > 0) params.set("pagina", String(p));
-    return `/e/${codi}/moviments/fragment/taula?${params.toString()}`;
+    const q = transactionFiltersToQuery({ ...filters, pagina: p });
+    return `/e/${codi}/moviments/fragment/taula${q}`;
   };
 
   return html`<span class="passos">
@@ -423,7 +414,11 @@ export function Fila({
             ? html`<span class="etiqueta etiqueta-suau" title="Traspas entre comptes propis"
               >traspas</span
             >`
-            : ""
+            : moviment.tipusOperacio === "transferencia"
+              ? html`<span class="etiqueta etiqueta-suau" title="Transferencia bancaria"
+                >transferència</span
+              >`
+              : ""
         }
         ${EtiquetesDelMoviment({
           codi,
@@ -640,6 +635,21 @@ export function BarraFiltres({
       />
     </label>
 
+    <fieldset class="filtre-tipus">
+      <legend class="camp-etiqueta">Tipus</legend>
+      ${ETIQUETES_TIPUS.map(
+        ({ valor, text }) => html`<label class="casella">
+          <input
+            type="checkbox"
+            name="tipus"
+            value="${valor}"
+            ${filters.tipus.includes(valor) ? raw("checked") : ""}
+          />
+          <span>${text}</span>
+        </label>`,
+      )}
+    </fieldset>
+
     <label class="casella">
       <input
         type="checkbox"
@@ -717,6 +727,11 @@ export function TargetaRevisio({
       </time>
       <strong title="${moviment.descriptionHint ?? ""}">${moviment.description}</strong>
       ${XipTargeta({ darrers4: moviment.darrers4 })}
+      ${
+        !moviment.transferGroupId && moviment.tipusOperacio === "transferencia"
+          ? html`<span class="etiqueta etiqueta-suau">transferència</span>`
+          : ""
+      }
       <span class="${negatiu ? "negatiu" : "positiu"}">${formatMoney(moviment.amount)}</span>
     </div>
 

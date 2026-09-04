@@ -8,6 +8,17 @@
 
 import { stripAccents } from "./normalization.ts";
 
+/** Tipus d'operacio deduit del prefix del concepte bancari. */
+export type TipusOperacio = "targeta" | "transferencia" | "bizum" | "rebut" | "altres";
+
+export const TIPUS_OPERACIO = [
+  "targeta",
+  "transferencia",
+  "bizum",
+  "rebut",
+  "altres",
+] as const satisfies readonly TipusOperacio[];
+
 export interface ConcepteParsejat {
   /** Text net per a la columna Concepte. */
   titol: string;
@@ -15,6 +26,8 @@ export interface ConcepteParsejat {
   darrers4: string | null;
   /** Text bancari sense PAN/targeta/comissio: per al `title` del boto. */
   originalNetejat: string;
+  /** Tipus d'operacio per a l'etiqueta i el filtre. */
+  tipus: TipusOperacio;
 }
 
 /** Prefixos d'operacio que no formen part del concepte llegible. */
@@ -30,8 +43,8 @@ const PREFIXOS: RegExp[] = [
   /^ADEUDO\s+(?:POR\s+)?DOMICILIACION(?:\s+DE)?\s*/i,
   /^ADEUDO\s+/i,
   /^RECIBO\s+(?:DE\s+)?/i,
-  // Les alternatives llargues abans de DE/A: si no, «A» menja «A FAVOR DE».
-  /^TRANSFERENCIA\s+(?:RECIBIDA\s+DE|A\s+FAVOR\s+DE|EMITIDA\s+A|RECIBIDA|DE|A)\s*/i,
+  // IMMEDIATA/URGENTE abans de la direccio; alternatives llargues abans de DE/A.
+  /^TRANSFERENCIA\s+(?:(?:IMMEDIATA|URGENTE|ORDINARIA)\s+)*(?:RECIBIDA\s+DE|A\s+FAVOR\s+DE|EMITIDA\s+A|RECIBIDA|DE|A)\s*/i,
   /^TRANSF\.?\s+(?:DE|A)\s*/i,
   /^BIZUM\s+(?:RECIBIDO\s+DE|ENVIADO\s+A|DE|A)\s*/i,
   /^ENVIO\s+BIZUM\s+A?\s*/i,
@@ -48,6 +61,22 @@ const PREFIXOS: RegExp[] = [
   /^CARGO\s+(?:DE\s+)?/i,
 ];
 
+/** Detecta el tipus abans de treure el prefix (sobre el text cru). */
+export function detectaTipusOperacio(text: string): TipusOperacio {
+  const t = text.trim();
+  if (!t) return "altres";
+
+  if (
+    /^(?:COMPRA|PAGO\s+(?:MOVIL|CON\s+MOVIL|TARJETA|EN)\b)/i.test(t) ||
+    /\bTARJ(?:ETA)?\.?\b/i.test(t)
+  ) {
+    return "targeta";
+  }
+  if (/^BIZUM\b|^ENVIO\s+BIZUM\b/i.test(t)) return "bizum";
+  if (/^TRANSFERENCIA\b|^TRANSF\b/i.test(t)) return "transferencia";
+  if (/^(?:RECIBO|ADEUDO)\b/i.test(t)) return "rebut";
+  return "altres";
+}
 /**
  * Extreu els darrers 4 digits i treu del text qualsevol mencio de targeta.
  *
@@ -267,9 +296,10 @@ function presenta(text: string): string {
 export function parsejaConcepte(text: string): ConcepteParsejat {
   const cru = text.trim();
   if (!cru) {
-    return { titol: "", darrers4: null, originalNetejat: "" };
+    return { titol: "", darrers4: null, originalNetejat: "", tipus: "altres" };
   }
 
+  const tipus = detectaTipusOperacio(cru);
   const { text: senseTargeta, darrers4 } = treuTargeta(cru);
   const senseComissio = treuComissio(senseTargeta);
   const originalNetejat = netejaEspais(senseComissio);
@@ -284,6 +314,7 @@ export function parsejaConcepte(text: string): ConcepteParsejat {
       titol: titol || originalNetejat,
       darrers4,
       originalNetejat,
+      tipus,
     };
   }
 
@@ -306,5 +337,6 @@ export function parsejaConcepte(text: string): ConcepteParsejat {
     titol: titol || originalNetejat,
     darrers4,
     originalNetejat,
+    tipus,
   };
 }

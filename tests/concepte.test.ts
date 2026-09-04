@@ -53,6 +53,16 @@ describe("parsejaConcepte", () => {
     );
     expect(r.titol).toBe("María Lourdes Cortés Braña");
     expect(r.darrers4).toBeNull();
+    expect(r.tipus).toBe("transferencia");
+  });
+
+  test("transferencia immediata treu el prefix sencer", () => {
+    const r = parsejaConcepte(
+      "TRANSFERENCIA IMMEDIATA A FAVOR DE María Lourdes Cortés Braña",
+    );
+    expect(r.titol).toBe("María Lourdes Cortés Braña");
+    expect(r.tipus).toBe("transferencia");
+    expect(r.titol).not.toMatch(/FAVOR/i);
   });
 
   test("rebut amb concepto: queda el que es huma", () => {
@@ -61,8 +71,21 @@ describe("parsejaConcepte", () => {
     );
     expect(r.titol).toBe("IBI+TM2026-3T · Torre dels Pardals");
     expect(r.darrers4).toBeNull();
+    expect(r.tipus).toBe("rebut");
     expect(r.titol).not.toContain("RCAD");
     expect(r.titol).not.toContain("Q.IBI");
+  });
+
+  test("compra es tipus targeta", () => {
+    const r = parsejaConcepte(
+      "COMPRA INTERNET EN APP ESTACIONAME, LLANÑA ES, TARJ. :*484017",
+    );
+    expect(r.tipus).toBe("targeta");
+  });
+
+  test("bizum es tipus bizum", () => {
+    const r = parsejaConcepte("BIZUM ENVIADO A JOAN GARCIA");
+    expect(r.tipus).toBe("bizum");
   });
 
   test("text desconegut es conserva sense targeta", () => {

@@ -67,7 +67,7 @@ function idDeLaRuta(valor: string | undefined): number {
   return id;
 }
 
-async function dades(ledgerId: number, query: Record<string, string>) {
+async function dades(ledgerId: number, query: Record<string, string | string[]>) {
   const filters = transactionFiltersSchema.parse(query);
   const [pagina, grups, comptes, etiquetesConegudes] = await Promise.all([
     llistaMoviments(ledgerId, {
@@ -78,6 +78,7 @@ async function dades(ledgerId: number, query: Record<string, string>) {
       merchantId: null,
       cerca: filters.cerca,
       etiqueta: filters.etiqueta,
+      tipusOperacio: filters.tipus,
       nomesRevisio: filters.revisio,
       nomesSenseClassificar: filters.sense_classificar,
       incloTraspassos: filters.traspassos,
@@ -93,6 +94,15 @@ async function dades(ledgerId: number, query: Record<string, string>) {
     etiquetesEspai(ledgerId),
   ]);
   return { filters, pagina, grups, comptes, etiquetesConegudes };
+}
+
+/** Query string amb `tipus` repetit (checkboxes multiples). */
+function queryDePeticio(c: {
+  req: { query: () => Record<string, string>; queries: (k: string) => string[] | undefined };
+}) {
+  const q = c.req.query();
+  const tipus = c.req.queries("tipus") ?? [];
+  return tipus.length > 0 ? { ...q, tipus } : q;
 }
 
 /** La categoria ha de ser d'aquest espai. */
@@ -112,7 +122,7 @@ transactionsRoutes.get("/", async (c) => {
   const espai = currentWorkspace(c);
   const { filters, pagina, grups, comptes, etiquetesConegudes } = await dades(
     espai.id,
-    c.req.query(),
+    queryDePeticio(c),
   );
 
   return page(
@@ -137,7 +147,7 @@ transactionsRoutes.get("/", async (c) => {
 
 transactionsRoutes.get("/fragment/taula", async (c) => {
   const espai = currentWorkspace(c);
-  const { filters, pagina, grups, etiquetesConegudes } = await dades(espai.id, c.req.query());
+  const { filters, pagina, grups, etiquetesConegudes } = await dades(espai.id, queryDePeticio(c));
 
   pushUrl(c, `/e/${espai.code}/moviments${transactionFiltersToQuery(filters)}`);
 
@@ -392,7 +402,7 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
     }
   }
 
-  const { filters, pagina, grups, etiquetesConegudes } = await dades(espai.id, c.req.query());
+  const { filters, pagina, grups, etiquetesConegudes } = await dades(espai.id, queryDePeticio(c));
   const perRevisar = await comptaPerRevisar(espai.id);
 
   // Els filtres venen a l'adreça del `hx-post`, de manera que la taula torna
@@ -446,7 +456,7 @@ transactionsRoutes.post("/bloc/etiquetes", requireEditor, async (c) => {
     throw err;
   }
 
-  const { filters, pagina, grups, etiquetesConegudes } = await dades(espai.id, c.req.query());
+  const { filters, pagina, grups, etiquetesConegudes } = await dades(espai.id, queryDePeticio(c));
   pushUrl(c, `/e/${espai.code}/moviments${transactionFiltersToQuery(filters)}`);
 
   return fragment(
