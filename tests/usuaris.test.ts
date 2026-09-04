@@ -118,10 +118,6 @@ describe("la guarda d'administracio no tanca la resta del programa", () => {
     for (const cami of [
       "/e/personal",
       "/e/personal/moviments",
-      "/e/personal/categories",
-      "/e/personal/avisos",
-      "/e/personal/comercos",
-      "/e/personal/regles",
       "/e/personal/recurrents",
       "/e/personal/informes",
       "/e/personal/previsio",
@@ -135,6 +131,70 @@ describe("la guarda d'administracio no tanca la resta del programa", () => {
     const { cookie } = await entra("pau@exemple.cat");
     const res = await app.request("/contrasenya", { headers: { Cookie: cookie } });
     expect(res.status).toBe(200);
+  });
+});
+
+describe("la configuracio de l'espai nomes per a administradors", () => {
+  const caminsConfig = [
+    "/e/personal/configuracio",
+    "/e/personal/categories",
+    "/e/personal/etiquetes",
+    "/e/personal/comercos",
+    "/e/personal/regles",
+    "/e/personal/avisos",
+  ];
+
+  test("qui no ho es rep un 404 a cada ruta", async () => {
+    const { cookie } = await entra("pau@exemple.cat");
+
+    for (const cami of caminsConfig) {
+      const res = await app.request(cami, { headers: { Cookie: cookie } });
+      expect({ cami, estat: res.status }).toEqual({ cami, estat: 404 });
+    }
+  });
+
+  test("no veu la seccio Configuracio a la barra", async () => {
+    const { cookie } = await entra("pau@exemple.cat");
+    const html = await (await app.request("/e/personal", { headers: { Cookie: cookie } })).text();
+    const barra = html.slice(0, html.indexOf('id="contingut"'));
+
+    expect(barra).not.toContain(">Configuracio</h2>");
+    expect(barra).not.toContain(">Administracio</h2>");
+    expect(barra).not.toContain("/e/personal/categories");
+    expect(barra).not.toContain("/e/personal/avisos");
+  });
+
+  test("un administrador amb acces hi entra i veu les seccions", async () => {
+    const [arrel] = await db.select().from(users).where(eq(users.email, "arrel@exemple.cat"));
+    await db.insert(userLedgerPermissions).values({
+      userId: arrel?.id ?? 0,
+      ledgerId: idPersonal,
+      role: "admin",
+    });
+
+    const { cookie } = await entra("arrel@exemple.cat");
+
+    for (const cami of caminsConfig) {
+      const res = await app.request(cami, { headers: { Cookie: cookie } });
+      expect({ cami, estat: res.status }).toEqual({ cami, estat: 200 });
+    }
+
+    const html = await (await app.request("/e/personal", { headers: { Cookie: cookie } })).text();
+    const idxConfig = html.indexOf(">Configuracio</h2>");
+    const idxAdmin = html.indexOf(">Administracio</h2>");
+    expect(idxConfig).toBeGreaterThan(-1);
+    expect(idxAdmin).toBeGreaterThan(-1);
+    expect(idxConfig).toBeLessThan(idxAdmin);
+
+    expect(html).toContain("/e/personal/configuracio");
+    expect(html).toContain(">Espai</span>");
+    expect(html).toContain("/e/personal/categories");
+    expect(html).toContain("/e/personal/etiquetes");
+    expect(html).toContain("/e/personal/comercos");
+    expect(html).toContain("/e/personal/regles");
+    expect(html).toContain("/e/personal/avisos");
+    expect(html).toContain("/connexions");
+    expect(html).toContain("/usuaris");
   });
 });
 

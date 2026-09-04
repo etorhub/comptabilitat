@@ -128,12 +128,17 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous }: SidebarProps) 
         { href: `/e/${codi}/recurrents`, text: "Recurrents" },
         { href: `/e/${codi}/previsio`, text: "Previsio" },
         { href: `/e/${codi}/informes`, text: "Informes" },
+      ]
+    : [];
+
+  const configuracio: { href: string; text: string; comptador?: Html }[] = codi
+    ? [
+        { href: `/e/${codi}/configuracio`, text: "Espai" },
         { href: `/e/${codi}/categories`, text: "Categories" },
         { href: `/e/${codi}/etiquetes`, text: "Etiquetes" },
         { href: `/e/${codi}/comercos`, text: "Comerços" },
         { href: `/e/${codi}/regles`, text: "Regles" },
         { href: `/e/${codi}/avisos`, text: "Avisos", comptador: ComptadorAvisos(avisosNous) },
-        { href: `/e/${codi}/configuracio`, text: "Configuracio" },
       ]
     : [];
 
@@ -172,6 +177,24 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous }: SidebarProps) 
         </li>`,
       )}
     </ul>
+
+    ${
+      user.isAdmin && codi
+        ? html`<div class="menu-seccio">
+          <h2 class="menu-titol">Configuracio</h2>
+          <ul class="menu">
+            ${configuracio.map(
+              (enllac) => html`<li>
+                <a href="${enllac.href}">
+                  <span>${enllac.text}</span>
+                  ${enllac.comptador ?? ""}
+                </a>
+              </li>`,
+            )}
+          </ul>
+        </div>`
+        : ""
+    }
 
     ${
       user.isAdmin

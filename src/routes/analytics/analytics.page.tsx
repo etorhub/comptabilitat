@@ -38,6 +38,8 @@ export interface DashboardPageProps {
   perRevisar: number;
   senseClassificar: number;
   avisosActius: number;
+  /** L'enllaç d'avisos nomes te sentit per a administradors de la instal·lacio. */
+  potVeureAvisos: boolean;
   mensual: PuntMensual[];
   categories: TrosCategoria[];
   saldos: PuntSaldo[];
@@ -54,6 +56,7 @@ export function DashboardPage(props: DashboardPageProps): Html {
     perRevisar,
     senseClassificar,
     avisosActius,
+    potVeureAvisos,
     mensual,
     categories,
     saldos,
@@ -85,7 +88,7 @@ export function DashboardPage(props: DashboardPageProps): Html {
       ${Xifra({
         etiqueta: "Avisos",
         valor: String(avisosActius),
-        href: `/e/${codi}/avisos`,
+        href: potVeureAvisos ? `/e/${codi}/avisos` : undefined,
       })}
     </div>
 

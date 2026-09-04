@@ -69,14 +69,24 @@ export function registerRoutes(app: Hono): void {
   espai.use("*", requireUser);
   espai.use("*", workspaceMiddleware);
 
-  espai.route("/avisos", alertsRoutes);
-  espai.route("/categories", categoriesRoutes);
-  espai.route("/etiquetes", tagsRoutes);
-  espai.route("/comercos", merchantsRoutes);
-  espai.route("/regles", rulesRoutes);
+  // Configuracio de l'espai: nomes administradors de la instal·lacio.
+  // La guarda va a cada sub-programa, no a `espai` sencer: un `use("*")`
+  // aqui tancaria Panell, Moviments i la resta.
+  const ambAdmin = (rutes: Hono) => {
+    const sub = new Hono();
+    sub.use("*", requireAdmin);
+    sub.route("/", rutes);
+    return sub;
+  };
+
+  espai.route("/avisos", ambAdmin(alertsRoutes));
+  espai.route("/categories", ambAdmin(categoriesRoutes));
+  espai.route("/etiquetes", ambAdmin(tagsRoutes));
+  espai.route("/comercos", ambAdmin(merchantsRoutes));
+  espai.route("/regles", ambAdmin(rulesRoutes));
+  espai.route("/configuracio", ambAdmin(workspacesRoutes));
   espai.route("/moviments", transactionsRoutes);
   espai.route("/recurrents", recurringRoutes);
-  espai.route("/configuracio", workspacesRoutes);
   // Les descarregues pengen de Moviments i d'Informes, que son d'on surten.
   espai.route("/moviments", exportsRoutes);
   espai.route("/informes", exportsRoutes);

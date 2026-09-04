@@ -40,6 +40,7 @@ let movimentPersonal = 0;
 let movimentCalella = 0;
 let sessioEditor = { cookie: "", csrf: "" };
 let sessioViewer = { cookie: "", csrf: "" };
+let sessioAdmin = { cookie: "", csrf: "" };
 
 async function entra(email: string): Promise<{ cookie: string; csrf: string }> {
   const getEntrada = await app.request("/entrada");
@@ -125,15 +126,24 @@ beforeEach(async () => {
         isAdmin: false,
         isActive: true,
       },
+      {
+        email: "admin@exemple.cat",
+        fullName: "Admin",
+        passwordHash,
+        isAdmin: true,
+        isActive: true,
+      },
     ])
     .returning();
   const editor = creats.find((u) => u.email === "editor@exemple.cat");
   const viewer = creats.find((u) => u.email === "viewer@exemple.cat");
-  if (!editor || !viewer) throw new Error("usuaris");
+  const admin = creats.find((u) => u.email === "admin@exemple.cat");
+  if (!editor || !viewer || !admin) throw new Error("usuaris");
 
   await db.insert(userLedgerPermissions).values([
     { userId: editor.id, ledgerId: personalId, role: "editor" },
     { userId: viewer.id, ledgerId: personalId, role: "viewer" },
+    { userId: admin.id, ledgerId: personalId, role: "editor" },
   ]);
 
   const [connexio] = await db
@@ -277,6 +287,7 @@ beforeEach(async () => {
 
   sessioEditor = await entra("editor@exemple.cat");
   sessioViewer = await entra("viewer@exemple.cat");
+  sessioAdmin = await entra("admin@exemple.cat");
 });
 
 describe("normalitzaEtiqueta", () => {
@@ -374,10 +385,10 @@ describe("rutes d'etiquetes", () => {
     await afegeixEtiqueta(movimentPersonal, personalId, "casament");
 
     const pagina = await app.request("/e/personal/etiquetes/casament", {
-      headers: { Cookie: sessioEditor.cookie },
+      headers: { Cookie: sessioAdmin.cookie },
     });
     const fragment = await app.request("/e/personal/etiquetes/casament/fragment/taula", {
-      headers: { Cookie: sessioEditor.cookie },
+      headers: { Cookie: sessioAdmin.cookie },
     });
 
     expect(pagina.status).toBe(200);
@@ -392,12 +403,19 @@ describe("rutes d'etiquetes", () => {
   test("l'index mostra la suma", async () => {
     await afegeixEtiqueta(movimentPersonal, personalId, "casament");
     const res = await app.request("/e/personal/etiquetes", {
-      headers: { Cookie: sessioEditor.cookie },
+      headers: { Cookie: sessioAdmin.cookie },
     });
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain("casament");
     expect(html).toContain("100,00");
+  });
+
+  test("qui no es administrador no veu les pagines d'etiquetes", async () => {
+    const res = await app.request("/e/personal/etiquetes", {
+      headers: { Cookie: sessioEditor.cookie },
+    });
+    expect(res.status).toBe(404);
   });
 
   test("un viewer no pot mutar", async () => {
