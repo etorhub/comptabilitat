@@ -58,11 +58,11 @@ async function importa(
   items: Record<string, unknown>[],
   llistaIncompleta = false,
 ): Promise<void> {
-  const { desaMovimentsPerAProves } = await import("../src/services/sync.ts");
+  const { desaMoviments } = await import("../src/services/import.ts");
   const analitzats = items
     .map(parseTransaction)
     .filter((x): x is NonNullable<typeof x> => x !== null);
-  await desaMovimentsPerAProves(compte, analitzats, llistaIncompleta);
+  await desaMoviments(compte, analitzats, llistaIncompleta);
 }
 
 beforeEach(async () => {

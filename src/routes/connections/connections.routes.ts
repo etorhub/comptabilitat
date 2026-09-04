@@ -46,13 +46,8 @@ import { currentUser } from "../../middleware/session.ts";
 import { myWorkspaces } from "../../middleware/workspace.ts";
 import { mouCompteDEspai, type ResumMoviment } from "../../services/accounts.ts";
 import { ultimSaldo } from "../../services/balances.ts";
-import {
-  acabaAutoritzacio,
-  comencaAutoritzacio,
-  jaSincronitza,
-  obreImportacio,
-  portaLaImportacio,
-} from "../../services/sync.ts";
+import { acabaAutoritzacio, comencaAutoritzacio } from "../../services/consent.ts";
+import { jaSincronitza, obreImportacio, portaLaImportacio } from "../../services/sync.ts";
 import { EstatSync, FilaCompte, Llista, type ConnexioVista } from "./connections.fragment.tsx";
 import { ConnectionsPage } from "./connections.page.tsx";
 import {
