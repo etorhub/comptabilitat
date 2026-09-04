@@ -10,11 +10,21 @@
  * `classification.remember_merchant_choice`.
  */
 
-import { and, asc, count, desc, eq, ilike, isNull, ne, or, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, isNull, ne, or, type SQL } from "drizzle-orm";
 
 import { db, type Db } from "../db/client.ts";
 import { categories, merchants, transactions, type Merchant } from "../db/schema/index.ts";
 import { AppError, NotFoundError } from "../lib/http.ts";
+import { classificaMoviment } from "./classification.ts";
+import { normalizeDescription } from "./normalization.ts";
+import { reglesActives } from "./rules.ts";
+
+/** Cubells especials que abans engolien compres amb «COMISION» al final. */
+const CUBELLS_ESPECIALS = new Set([
+  "COMISSIO BANCARIA",
+  "REINTEGRO EFECTIU",
+  "TRASPAS ENTRE COMPTES",
+]);
 
 /** Filtres de la llista de comerços. */
 export interface FiltresComercos {
@@ -217,6 +227,9 @@ export async function assignaCategoria(
  * El comerç d'aquest espai amb aquest nom normalitzat, creant-lo si cal.
  *
  * La fa servir la sincronitzacio, un cop per moviment nou.
+ *
+ * @param incrementaComptador si es fals, nomes obté o crea sense tocar
+ *   `transaction_count` (per a reassignacions en lot que després recompten).
  */
 export async function obteOCreaComerc(
   ledgerId: number,
@@ -224,6 +237,7 @@ export async function obteOCreaComerc(
   display = "",
   seenOn: string | null = null,
   connexio: Db = db,
+  incrementaComptador = true,
 ): Promise<Merchant | null> {
   const nom = (normalizedName || "").trim();
   if (!nom) return null;
@@ -253,6 +267,18 @@ export async function obteOCreaComerc(
   }
   if (!comerc) return null;
 
+  if (!incrementaComptador) {
+    if (seenOn !== null && (comerc.lastSeenAt === null || seenOn > comerc.lastSeenAt)) {
+      const [ambData] = await connexio
+        .update(merchants)
+        .set({ lastSeenAt: seenOn })
+        .where(eq(merchants.id, comerc.id))
+        .returning();
+      return ambData ?? comerc;
+    }
+    return comerc;
+  }
+
   const vistUltim =
     seenOn !== null && (comerc.lastSeenAt === null || seenOn > comerc.lastSeenAt)
       ? seenOn
@@ -265,4 +291,142 @@ export async function obteOCreaComerc(
     .returning();
 
   return actualitzat ?? comerc;
+}
+
+/** Recompta `transaction_count` a partir dels moviments reals. */
+export async function recompteComercos(
+  merchantIds: number[],
+  connexio: Db = db,
+): Promise<void> {
+  const ids = [...new Set(merchantIds.filter((id) => id > 0))];
+  if (ids.length === 0) return;
+
+  const recomptes = await connexio
+    .select({ merchantId: transactions.merchantId, n: count() })
+    .from(transactions)
+    .where(inArray(transactions.merchantId, ids))
+    .groupBy(transactions.merchantId);
+
+  const perId = new Map(recomptes.map((r) => [r.merchantId, Number(r.n)]));
+  for (const id of ids) {
+    await connexio
+      .update(merchants)
+      .set({ transactionCount: perId.get(id) ?? 0 })
+      .where(eq(merchants.id, id));
+  }
+}
+
+export interface ResultatReassignacio {
+  revisats: number;
+  canviats: number;
+}
+
+/**
+ * Torna a normalitzar els moviments i corregeix comerços mal assignats.
+ *
+ * Una passada de manteniment després de canviar la normalitzacio (comissio
+ * accidental, prefix buit). No toca mai `category_source = 'user'`.
+ */
+export async function reassignaNormalitzacio(
+  ledgerId?: number,
+  connexio: Db = db,
+): Promise<ResultatReassignacio> {
+  const files = await connexio
+    .select({
+      id: transactions.id,
+      ledgerId: transactions.ledgerId,
+      description: transactions.description,
+      counterparty: transactions.counterparty,
+      normalizedDescription: transactions.normalizedDescription,
+      merchantId: transactions.merchantId,
+      categoryId: transactions.categoryId,
+      categorySource: transactions.categorySource,
+      amount: transactions.amount,
+      bankTransactionCode: transactions.bankTransactionCode,
+      accountId: transactions.accountId,
+      tags: transactions.tags,
+      bookingDate: transactions.bookingDate,
+    })
+    .from(transactions)
+    .where(ledgerId === undefined ? undefined : eq(transactions.ledgerId, ledgerId));
+
+  let canviats = 0;
+  const tocats = new Set<number>();
+  const reglesPerEspai = new Map<number, Awaited<ReturnType<typeof reglesActives>>>();
+
+  for (const moviment of files) {
+    const [novaClau, mostrar] = normalizeDescription(
+      moviment.description,
+      moviment.counterparty,
+    );
+    const clauNova = novaClau.slice(0, 200);
+    const calCanviarClau = clauNova !== moviment.normalizedDescription;
+
+    let nouMerchantId: number | null = null;
+    if (moviment.ledgerId !== null && clauNova) {
+      const comerc = await obteOCreaComerc(
+        moviment.ledgerId,
+        clauNova,
+        mostrar,
+        moviment.bookingDate,
+        connexio,
+        false,
+      );
+      nouMerchantId = comerc?.id ?? null;
+    }
+
+    if (!calCanviarClau && nouMerchantId === moviment.merchantId) continue;
+
+    canviats += 1;
+    if (moviment.merchantId !== null) tocats.add(moviment.merchantId);
+    if (nouMerchantId !== null) tocats.add(nouMerchantId);
+
+    await connexio
+      .update(transactions)
+      .set({
+        normalizedDescription: clauNova,
+        merchantId: nouMerchantId,
+      })
+      .where(eq(transactions.id, moviment.id));
+
+    if (moviment.categorySource === "user") continue;
+    if (moviment.ledgerId === null) continue;
+
+    // Si venia d'un cubell especial (o la clau ha canviat), torna a classificar.
+    const veniaDelCubell =
+      moviment.categorySource === "merchant" &&
+      CUBELLS_ESPECIALS.has(moviment.normalizedDescription);
+
+    if (!calCanviarClau && !veniaDelCubell && nouMerchantId === moviment.merchantId) {
+      continue;
+    }
+
+    let regles = reglesPerEspai.get(moviment.ledgerId);
+    if (regles === undefined) {
+      regles = await reglesActives(moviment.ledgerId);
+      reglesPerEspai.set(moviment.ledgerId, regles);
+    }
+
+    await classificaMoviment(
+      {
+        id: moviment.id,
+        ledgerId: moviment.ledgerId,
+        description: moviment.description,
+        normalizedDescription: clauNova,
+        counterparty: moviment.counterparty,
+        amount: moviment.amount,
+        bankTransactionCode: moviment.bankTransactionCode,
+        accountId: moviment.accountId,
+        merchantId: nouMerchantId,
+        // Forcem que es torni a decidir: treiem la categoria del cubell.
+        categorySource: "none",
+        tags: moviment.tags,
+      },
+      regles,
+      connexio,
+    );
+  }
+
+  await recompteComercos([...tocats], connexio);
+  return { revisats: files.length, canviats };
 }

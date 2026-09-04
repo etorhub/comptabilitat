@@ -5,12 +5,13 @@
  * digits de la targeta, dates, poblacio i referencies internes. Aixo ho
  * redueix a un nom estable que serveix de clau de la memoria de comerços.
  *
- * Traduccio de `backend/app/services/normalization.py`. **Ha de donar
- * exactament el mateix resultat**: els noms normalitzats que hi ha desats a
- * `merchants.normalized_name` s'hi han de continuar assemblant, o la memoria
- * de comerços deixaria de trobar-se amb ella mateixa i tot es tornaria a
- * preguntar. `tests/normalitzacio.test.ts` compara les dues implementacions
- * sobre un recull de conceptes de debò.
+ * Traduccio de `backend/app/services/normalization.py`. La majoria de casos
+ * han de donar el mateix resultat que el Python (vegeu
+ * `tests/fixtures/normalitzacio.json`), pero **no es dona per bona** la
+ * decisio antiga de tractar `COMISION` / `CAJERO` a qualsevol lloc del
+ * concepte com a cubell especial, ni de reciclar el prefix cru quan no
+ * queda cap token. Aquells moviments s'han de reassignar amb
+ * `reassignaNormalitzacio`.
  */
 
 /** Prefixos que descriuen el tipus d'operacio i no el comerç. */
@@ -18,30 +19,36 @@ const PREFIX_PATTERNS: RegExp[] = [
   /^COMPRA\s+(?:CON\s+)?TARJ(?:ETA)?\.?\s*(?:DE\s+CREDITO|DE\s+DEBITO)?\s*/,
   /^PAGO\s+(?:MOVIL|CON\s+MOVIL|TARJETA|EN)\s*(?:EN\s+)?/,
   /^COMPRA\s+EN\s+/,
-  /^COMPRA\s+/,
+  // `\b\s*` (no `\s+`) perque un concepte que nomes diu «COMPRA» no
+  // s'ha de quedar com a nom de comerç.
+  /^COMPRA\b\s*/,
   /^ADEUDO\s+(?:POR\s+)?DOMICILIACION(?:\s+DE)?\s*/,
-  /^ADEUDO\s+/,
-  /^RECIBO\s+(?:DE\s+)?/,
-  /^TRANSFERENCIA\s+(?:RECIBIDA\s+)?(?:DE|A|A\s+FAVOR\s+DE|EMITIDA\s+A)?\s*/,
-  /^TRANSF\.?\s+(?:DE|A)?\s*/,
-  /^BIZUM\s+(?:DE|A|RECIBIDO\s+DE|ENVIADO\s+A)?\s*/,
-  /^ENVIO\s+BIZUM\s+A?\s*/,
-  /^TRASPASO\s+(?:DE|A)?\s*/,
-  /^INGRESO\s+(?:DE|EN\s+EFECTIVO|POR)?\s*/,
-  /^NOMINA\s+(?:DE|MES)?\s*/,
-  /^PENSION\s+(?:DE)?\s*/,
-  /^REINTEGRO\s+(?:EN\s+)?(?:CAJERO|OFICINA)?\s*/,
-  /^DISPOSICION\s+(?:DE\s+)?EFECTIVO\s*/,
-  /^COMISION\s+(?:DE\s+)?/,
-  /^LIQUIDACION\s+(?:DE\s+)?/,
-  /^PAGO\s+RECIBO\s+/,
-  /^DEVOLUCION\s+(?:DE\s+)?/,
-  /^ABONO\s+(?:DE\s+)?/,
-  /^CARGO\s+(?:DE\s+)?/,
+  /^ADEUDO\b\s*/,
+  /^RECIBO\b(?:\s+(?:DE\s+)?)?/,
+  /^TRANSFERENCIA\b(?:\s+(?:RECIBIDA\s+)?(?:DE|A|A\s+FAVOR\s+DE|EMITIDA\s+A)?)?\s*/,
+  /^TRANSF\.?\b(?:\s+(?:DE|A)?)?\s*/,
+  /^BIZUM\b(?:\s+(?:DE|A|RECIBIDO\s+DE|ENVIADO\s+A)?)?\s*/,
+  /^ENVIO\s+BIZUM\b(?:\s+A?)?\s*/,
+  /^TRASPASO\b(?:\s+(?:DE|A)?)?\s*/,
+  /^INGRESO\b(?:\s+(?:DE|EN\s+EFECTIVO|POR)?)?\s*/,
+  /^NOMINA\b(?:\s+(?:DE|MES)?)?\s*/,
+  /^PENSION\b(?:\s+(?:DE)?)?\s*/,
+  /^REINTEGRO\b(?:\s+(?:EN\s+)?(?:CAJERO|OFICINA)?)?\s*/,
+  /^DISPOSICION\s+(?:DE\s+)?EFECTIVO\b\s*/,
+  /^COMISION\b(?:\s+(?:DE\s+)?)?/,
+  /^LIQUIDACION\b(?:\s+(?:DE\s+)?)?/,
+  /^PAGO\s+RECIBO\b\s*/,
+  /^DEVOLUCION\b(?:\s+(?:DE\s+)?)?/,
+  /^ABONO\b(?:\s+(?:DE\s+)?)?/,
+  /^CARGO\b(?:\s+(?:DE\s+)?)?/,
 ];
 
 /** Soroll que pot apareixer a qualsevol posicio del concepte. */
 const NOISE_PATTERNS: [RegExp, string][] = [
+  // Linia de comissio que el Santander afegeix a les compres (no es el concepte).
+  [/\bCOMISION\s+\d+[.,]\d{2}\b/gi, " "],
+  // Targeta completa al final: «TARJETA 5489010385484017»
+  [/\bTARJETA\s+\d{10,19}\b/gi, " "],
   // Numeros de targeta emmascarats: 5402XXXXXXXX1234, 1234******5678
   [/\b\d{2,6}[X*]{3,}\d{2,6}\b/gi, " "],
   [/\b[X*]{4,}\d{2,6}\b/gi, " "],
@@ -50,6 +57,8 @@ const NOISE_PATTERNS: [RegExp, string][] = [
   [/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, " "],
   // Referencies llargues i identificadors
   [/\b[A-Z]{0,3}\d{8,}\b/g, " "],
+  // Codis mixtos (lletra+digit) tipus «P45ED4AF0B» de Spotify / passarel·les.
+  [/\b(?=[A-Z0-9]*\d)(?=[A-Z0-9]*[A-Z])[A-Z0-9]{8,}\b/g, " "],
   [/\bREF\.?\s*[:-]?\s*\w*/gi, " "],
   [/\bMANDATO\s*[:-]?\s*\w+/gi, " "],
   [/\bCONCEPTO\s*[:-]?/gi, " "],
@@ -71,11 +80,17 @@ const TRUNCATE_PATTERNS: RegExp[] = [
   /\bN\.?\s?ORDEN\b/i,
 ];
 
-/** Operacions que no tenen comerç: es normalitzen a un nom fix i reconeixible. */
+/**
+ * Operacions que no tenen comerç: nom fix i reconeixible.
+ *
+ * Nomes a l'**inici** del concepte. Una compra amb «COMISION 0,00» al final
+ * (Santander) no es una comissio bancaria; «CAJERO» al mig d'una compra
+ * tampoc es un reintegrament.
+ */
 const SPECIAL_PATTERNS: [RegExp, string][] = [
-  [/\b(REINTEGRO|DISPOSICION\s+DE\s+EFECTIVO|CAJERO)\b/, "REINTEGRO EFECTIU"],
-  [/\bCOMISION\b/, "COMISSIO BANCARIA"],
-  [/\bTRASPASO\b/, "TRASPAS ENTRE COMPTES"],
+  [/^(?:REINTEGRO|DISPOSICION\s+DE\s+EFECTIVO)\b/, "REINTEGRO EFECTIU"],
+  [/^COMISION\b/, "COMISSIO BANCARIA"],
+  [/^TRASPASO\b/, "TRASPAS ENTRE COMPTES"],
 ];
 
 /** Preposicions que queden penjades al davant despres de treure el prefix. */
@@ -236,7 +251,7 @@ export function normalizeDescription(description: string, counterparty = ""): [s
 
   let text = stripAccents(source).toUpperCase();
 
-  // Les operacions sense comerç es resolen abans de res.
+  // Les operacions sense comerç es resolen abans de res (nomes a l'inici).
   if (!counterparty.trim()) {
     for (const [pattern, label] of SPECIAL_PATTERNS) {
       if (pattern.test(text)) {
@@ -245,12 +260,14 @@ export function normalizeDescription(description: string, counterparty = ""): [s
     }
   }
 
+  let haTretPrefix = false;
   for (const pattern of PREFIX_PATTERNS) {
     const replaced = text.replace(pattern, "");
     if (replaced !== text) {
       text = replaced;
       // Amb un prefix conegut, el que va despres d'una coma sol ser la poblacio.
       text = text.split(",")[0] ?? "";
+      haTretPrefix = true;
       break;
     }
   }
@@ -279,14 +296,19 @@ export function normalizeDescription(description: string, counterparty = ""): [s
   }
 
   // Els noms molt llargs es retallen: la cua sol ser referencia interna.
-  let normalized = retallaExtrems(tokens.slice(0, 6).join(" ").slice(0, 200), " .");
+  const normalized = retallaExtrems(tokens.slice(0, 6).join(" ").slice(0, 200), " .");
   if (!normalized) {
-    normalized = stripAccents(source)
+    // Si nomes hi havia el prefix d'operacio, no el reciclem com a nom de
+    // comerç: totes les «PAGO MOVIL EN» buides acabarien al mateix lloc.
+    if (haTretPrefix) return ["", ""];
+    // Sense prefix: millor alguna clau que deixar el moviment sense nom.
+    const fallback = stripAccents(source)
       .toUpperCase()
       .split(/\s+/)
       .filter(Boolean)
       .join(" ")
       .slice(0, 200);
+    return [fallback, displayName(fallback)];
   }
 
   return [normalized, displayName(normalized)];

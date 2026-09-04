@@ -24,6 +24,7 @@ import {
   assignaCategoria,
   llistaComercos,
   obteOCreaComerc,
+  reassignaNormalitzacio,
 } from "../src/services/merchants.ts";
 import { seedCategories } from "../src/services/seed.ts";
 
@@ -282,5 +283,121 @@ describe("la llista", () => {
     });
     expect(pagina.items.every((m) => m.defaultCategoryId === null)).toBe(true);
     expect(pagina.items.some((m) => m.normalizedName === "SENSE")).toBe(true);
+  });
+});
+
+describe("reassignar la normalitzacio", () => {
+  test("treu una compra Spotify del cubell COMISSIO BANCARIA", async () => {
+    const [cubell] = await db
+      .insert(merchants)
+      .values({
+        ledgerId,
+        normalizedName: "COMISSIO BANCARIA",
+        displayName: "Comissio Bancaria",
+        defaultCategoryId: null,
+        categorySource: "none",
+        isConfirmed: false,
+        transactionCount: 1,
+        lastSeenAt: null,
+      })
+      .returning();
+
+    await db.insert(transactions).values({
+      accountId,
+      ledgerId,
+      dedupKey: "spotify-mal",
+      source: "enablebanking",
+      bookingDate: "2026-03-01",
+      amount: "-10.99",
+      currency: "EUR",
+      status: "booked",
+      description:
+        "COMPRA Spotify P45ED4AF0B, Stockholm, TARJETA 5489010385484017 , COMISION 0,00",
+      normalizedDescription: "COMISSIO BANCARIA",
+      counterparty: "",
+      bankTransactionCode: "",
+      merchantId: cubell?.id ?? 0,
+      categoryId: null,
+      categorySource: "merchant",
+      needsReview: true,
+      notes: "",
+      tags: [],
+      isExcluded: false,
+      raw: {},
+    });
+
+    const resultat = await reassignaNormalitzacio(ledgerId);
+    expect(resultat.canviats).toBeGreaterThanOrEqual(1);
+
+    const [t] = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.dedupKey, "spotify-mal"));
+    expect(t?.normalizedDescription).toBe("SPOTIFY");
+
+    const [spotify] = await db
+      .select()
+      .from(merchants)
+      .where(and(eq(merchants.ledgerId, ledgerId), eq(merchants.normalizedName, "SPOTIFY")));
+    expect(spotify).toBeDefined();
+    expect(t?.merchantId).toBe(spotify?.id);
+
+    const [cubellDespres] = await db
+      .select()
+      .from(merchants)
+      .where(eq(merchants.id, cubell?.id ?? 0));
+    expect(cubellDespres?.transactionCount).toBe(0);
+    expect(spotify?.transactionCount).toBe(1);
+  });
+
+  test("no toca la categoria que ha posat una persona", async () => {
+    const restaurants = await categoriaPerSlug("restauracio-restaurants");
+    const [cubell] = await db
+      .insert(merchants)
+      .values({
+        ledgerId,
+        normalizedName: "COMISSIO BANCARIA",
+        displayName: "Comissio Bancaria",
+        defaultCategoryId: null,
+        categorySource: "none",
+        isConfirmed: false,
+        transactionCount: 1,
+        lastSeenAt: null,
+      })
+      .returning();
+
+    await db.insert(transactions).values({
+      accountId,
+      ledgerId,
+      dedupKey: "user-spotify",
+      source: "enablebanking",
+      bookingDate: "2026-03-01",
+      amount: "-10.99",
+      currency: "EUR",
+      status: "booked",
+      description:
+        "COMPRA Spotify P45ED4AF0B, Stockholm, TARJETA 5489010385484017 , COMISION 0,00",
+      normalizedDescription: "COMISSIO BANCARIA",
+      counterparty: "",
+      bankTransactionCode: "",
+      merchantId: cubell?.id ?? 0,
+      categoryId: restaurants.id,
+      categorySource: "user",
+      needsReview: false,
+      notes: "",
+      tags: [],
+      isExcluded: false,
+      raw: {},
+    });
+
+    await reassignaNormalitzacio(ledgerId);
+
+    const [t] = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.dedupKey, "user-spotify"));
+    expect(t?.normalizedDescription).toBe("SPOTIFY");
+    expect(t?.categoryId).toBe(restaurants.id);
+    expect(t?.categorySource).toBe("user");
   });
 });

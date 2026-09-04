@@ -51,6 +51,25 @@ describe("el que fa, explicat", () => {
     expect(normalizeDescription("TRASPASO A CUENTA")[0]).toBe("TRASPAS ENTRE COMPTES");
   });
 
+  test("una comissio al final d'una compra no es el comerç", () => {
+    // El Santander afegeix «COMISION 0,00» a moltes compres; abans tot
+    // queia al cubell COMISSIO BANCARIA.
+    const [clau] = normalizeDescription(
+      "COMPRA Spotify P45ED4AF0B, Stockholm, TARJETA 5489010385484017 , COMISION 0,00",
+    );
+    expect(clau).toBe("SPOTIFY");
+    expect(
+      normalizeDescription("PAGO MOVIL EN BAR CAN PEPE, COMISION 0,00")[0],
+    ).toBe("BAR CAN PEPE");
+  });
+
+  test("un prefix d'operacio sense resta no es un comerç", () => {
+    expect(normalizeDescription("PAGO MOVIL EN")[0]).toBe("");
+    expect(normalizeDescription("COMPRA")[0]).toBe("");
+    expect(normalizeDescription("RECIBO")[0]).toBe("");
+    expect(normalizeDescription("TRANSFERENCIA")[0]).toBe("");
+  });
+
   test("la contrapart que dona el banc mana sobre el concepte lliure", () => {
     const [clau] = normalizeDescription("COMPRA TARJ. QUALSEVOL COSA", "Mercadona S.A.");
     // El punt final se'n va, pero el de dins de la sigla es queda: es el que
