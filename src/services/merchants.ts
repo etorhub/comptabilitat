@@ -12,7 +12,7 @@
 
 import { and, asc, count, desc, eq, ilike, isNull, ne, or, type SQL } from "drizzle-orm";
 
-import { db, type Db } from "../db/client.ts";
+import { db, type Transactor } from "../db/client.ts";
 import { categories, merchants, transactions, type Merchant } from "../db/schema/index.ts";
 import { AppError, NotFoundError } from "../lib/http.ts";
 
@@ -141,7 +141,7 @@ export async function recordaEleccioComerc(
   comerc: Merchant,
   categoryId: number | null,
   aplicaAlsExistents = true,
-  connexio: Db = db,
+  connexio: Transactor = db,
 ): Promise<number> {
   await connexio
     .update(merchants)
@@ -223,7 +223,7 @@ export async function obteOCreaComerc(
   normalizedName: string,
   display = "",
   seenOn: string | null = null,
-  connexio: Db = db,
+  connexio: Transactor = db,
 ): Promise<Merchant | null> {
   const nom = (normalizedName || "").trim();
   if (!nom) return null;
