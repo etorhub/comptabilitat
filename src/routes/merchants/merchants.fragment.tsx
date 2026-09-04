@@ -118,7 +118,10 @@ export function Fila({ codi, comerc, grups, potEditar }: FilaProps): Html {
               valor: comerc.defaultCategoryId,
               grups,
               buit: "— sense classificar —",
-              atributs: `hx-post="${base}/categoria" hx-target="#comerc-${comerc.id}" hx-swap="outerHTML" hx-trigger="change"`,
+              // Assignar-la reescriu la categoria de tots els moviments del
+              // comerç: mentre corre, el select no s'ha de poder tornar a
+              // tocar.
+              atributs: `hx-post="${base}/categoria" hx-target="#comerc-${comerc.id}" hx-swap="outerHTML" hx-trigger="change" hx-disabled-elt="this"`,
             })
           : (comerc.categoryName ?? html`<span class="text-suau">sense classificar</span>`)
       }

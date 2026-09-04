@@ -468,10 +468,11 @@ describe("quan una peticio falla", () => {
 
     expect(res.status).toBe(422);
     expect(res.headers.get("HX-Reswap")).toBe("none");
-    // I el cos nomes duu el `#toast`, fora de banda.
+    // I el cos nomes duu el `#toast`, fora de banda. Es canvia el contingut
+    // del contenidor i no el contenidor: si no, el `#toast` de recanvi es
+    // quedaria sense `aria-live` i deixaria de ser una regio viva.
     const cos = await res.text();
-    expect(cos).toContain('id="toast"');
-    expect(cos).toContain('hx-swap-oob="true"');
+    expect(cos).toContain('hx-swap-oob="innerHTML:#toast"');
   });
 
   test("tambe quan no es troba res", async () => {

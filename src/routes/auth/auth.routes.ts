@@ -170,6 +170,7 @@ authRoutes.get("/contrasenya", requireUser, async (c) => {
       titol: "Contrasenya",
       user,
       csrfToken: c.get("csrfToken") ?? "",
+      ruta: c.req.path,
       espais: await myWorkspaces(user.id),
       children: PasswordPage({ children: PasswordForm({}) }),
     }),

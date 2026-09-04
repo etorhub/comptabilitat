@@ -5,7 +5,7 @@
 import { html, raw } from "hono/html";
 
 import { Casella, Tria } from "../../components/form.tsx";
-import { Etiqueta, TaulaDades } from "../../components/vista.tsx";
+import { Etiqueta, Filador, TaulaDades } from "../../components/vista.tsx";
 import { RULE_FIELDS, RULE_OPERATORS, type Rule } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
 import type { GrupCategories } from "../../services/categories.ts";
@@ -90,8 +90,10 @@ export function Fila({
             hx-post="${base}/aplica"
             hx-target="#regla-${regla.id}"
             hx-swap="outerHTML"
+            hx-indicator="this"
+            hx-disabled-elt="this"
           >
-            Torna-la a aplicar
+            ${Filador()} Torna-la a aplicar
           </button>
           <button
             type="button"

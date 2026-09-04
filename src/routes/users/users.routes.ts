@@ -86,6 +86,7 @@ usersRoutes.get("/", async (c) => {
       titol: "Usuaris",
       user: jo,
       csrfToken: c.get("csrfToken") ?? "",
+      ruta: c.req.path,
       espais: meus,
       children: UsersPage({ usuaris, espais, jo: jo.id }),
     }),

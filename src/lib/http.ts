@@ -115,13 +115,22 @@ const TONES: Record<ToastTone, { classe: string; etiqueta: string }> = {
  * Es l'unica manera de dir alguna cosa a qui fa servir l'aplicacio quan una
  * peticio falla. Cap ruta no s'inventa el seu propi lloc per als errors.
  *
- * `role="alert"` i `aria-live` fan que un lector de pantalla ho digui sense
- * que calgui moure-hi el focus.
+ * **Es canvia el contingut del `#toast`, no el `#toast`.** Una regio viva
+ * l'ha d'anunciar el navegador quan hi entra text, i per aixo ha d'existir
+ * *abans*: si es substitueix el node sencer, el que arriba es un node nou
+ * que encara no era cap regio viva quan es va omplir. Amb
+ * `hx-swap-oob="true"` era exactament aixo el que passava —i, a mes, el
+ * `#toast` de recanvi no duia `aria-live`, de manera que a partir del primer
+ * avis la regio ja no hi era per a ningu. El `innerHTML:#toast` deixa el
+ * contenidor de `components/layout.tsx` quiet per sempre.
+ *
+ * El to tria el paper: un error interromp el que s'estigui llegint
+ * (`role="alert"`), i una confirmacio espera el seu torn (`role="status"`).
  */
 export function toast(missatge: string, tone: ToastTone = "error", detall?: string) {
   const { classe, etiqueta } = TONES[tone];
-  return html`<div id="toast" hx-swap-oob="true">
-    <div class="toast ${classe}" role="alert" aria-live="assertive">
+  return html`<div hx-swap-oob="innerHTML:#toast">
+    <div class="toast ${classe}" role="${tone === "error" ? "alert" : "status"}">
       <div class="toast-cos">
         <strong>${etiqueta}</strong>
         <span>${missatge}</span>
@@ -141,7 +150,7 @@ export function toast(missatge: string, tone: ToastTone = "error", detall?: stri
 
 /** El `#toast` buit que va a totes les respostes correctes, per netejar l'anterior. */
 export function clearToast() {
-  return html`<div id="toast" hx-swap-oob="true"></div>`;
+  return html`<div hx-swap-oob="innerHTML:#toast"></div>`;
 }
 
 /**

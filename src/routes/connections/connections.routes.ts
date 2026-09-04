@@ -133,6 +133,7 @@ connectionsRoutes.get("/", async (c) => {
       titol: "Connexions",
       user,
       csrfToken: c.get("csrfToken") ?? "",
+      ruta: c.req.path,
       espais: meus,
       children: ConnectionsPage({ connexions, espais, retorn }),
     }),

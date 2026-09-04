@@ -9,7 +9,7 @@ import { html, raw } from "hono/html";
 
 import { Casella, Tria } from "../../components/form.tsx";
 import type { CategorySource } from "../../db/schema/index.ts";
-import { Paginacio, TaulaDades } from "../../components/vista.tsx";
+import { Filador, Paginacio, TaulaDades } from "../../components/vista.tsx";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
 import type { GrupCategories } from "../../services/categories.ts";
@@ -44,7 +44,10 @@ export interface TaulaProps {
 }
 
 export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): Html {
-  return html`<div id="taula-moviments">
+  // `taula-carregant` no es decoracio: es el ganxo que fa que
+  // l'`hx-indicator` de la barra de bloc enfosqueixi les files mentre la
+  // peticio corre. El full d'estil el tenia i ningu no el posava.
+  return html`<div id="taula-moviments" class="taula-carregant">
     ${TaulaDades({
       classe: "taula-moviments",
       abans: potEditar ? BarraBloc({ codi, grups, filters }) : "",
@@ -113,9 +116,10 @@ function BarraBloc({
       hx-target="#taula-moviments"
       hx-swap="outerHTML"
       hx-include="#bloc-categoria, #taula-moviments input[name='moviment']:checked"
-      hx-indicator="#taula-moviments"
+      hx-indicator="#taula-moviments, this"
+      hx-disabled-elt="this"
     >
-      Aplica-la als triats
+      ${Filador()} Aplica-la als triats
     </button>
   </div>` as Html;
 }

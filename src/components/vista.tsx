@@ -116,3 +116,23 @@ export function Etiqueta(text: string, opcions: { suau?: boolean; titol?: string
     >${text}</span
   >` as Html;
 }
+
+/**
+ * El filador que surt mentre una peticio corre.
+ *
+ * Es dibuixa sempre i el fa visible HTMX, que posa `.htmx-request` a
+ * l'element que digui l'`hx-indicator` mentre dura la peticio; el full
+ * d'estil ja el treu i el torna amb una transicio.
+ *
+ * Les dues classes que el dibuixen —`.filador` i `.htmx-indicator`, amb el
+ * seu `prefers-reduced-motion`— eren al full d'estil des del primer dia i no
+ * les feia servir **cap** plantilla: classificar cinquanta moviments de cop
+ * o moure un compte de tres-cents no donaven cap senyal de res, i les
+ * accions es podien tornar a prémer mentre la primera encara corria.
+ *
+ * `aria-hidden`: qui no hi veu no en treu res, d'una roda que gira. Qui ho
+ * necessita saber ho sabra pel boto, que queda desactivat.
+ */
+export function Filador(): Html {
+  return html`<span class="filador htmx-indicator" aria-hidden="true"></span>` as Html;
+}
