@@ -22,7 +22,7 @@ import {
 import {
   clearToast,
   fragment,
-  NotFoundError,
+  idDeLaRuta,
   page,
   pushUrl,
   toast,
@@ -54,12 +54,6 @@ import {
 } from "./transactions.schema.ts";
 
 export const transactionsRoutes = new Hono();
-
-function idDeLaRuta(valor: string | undefined): number {
-  const id = Number.parseInt(valor ?? "", 10);
-  if (Number.isNaN(id)) throw new NotFoundError("Aquest moviment no existeix");
-  return id;
-}
 
 async function dades(ledgerId: number, query: Record<string, string>) {
   const filters = transactionFiltersSchema.parse(query);
@@ -144,7 +138,10 @@ transactionsRoutes.get("/fragment/taula", async (c) => {
 /** Una fila sola, per cancel·lar una edicio. */
 transactionsRoutes.get("/:id/fragment/fila", async (c) => {
   const espai = currentWorkspace(c);
-  const moviment = await movimentDeLespai(idDeLaRuta(c.req.param("id")), espai.id);
+  const moviment = await movimentDeLespai(
+    idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix"),
+    espai.id,
+  );
   const grups = await opcionsCategories(espai.id);
 
   return fragment(
@@ -164,7 +161,10 @@ transactionsRoutes.get("/:id/fragment/fila", async (c) => {
 /** La fila convertida en el camp de l'alias. */
 transactionsRoutes.get("/:id/fragment/concepte", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const moviment = await movimentDeLespai(idDeLaRuta(c.req.param("id")), espai.id);
+  const moviment = await movimentDeLespai(
+    idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix"),
+    espai.id,
+  );
   return fragment(c, FilaConcepte({ codi: espai.code, moviment }));
 });
 
@@ -204,7 +204,7 @@ async function respostaFila(
 transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
   const user = currentUser(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix");
   const parsed = categorizeSchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success) return toastOnly(c, "La categoria no es valida", 422);
@@ -265,7 +265,7 @@ transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
  */
 transactionsRoutes.post("/:id/concepte", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix");
   const parsed = maskSchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success) {
@@ -416,7 +416,7 @@ transactionsRoutes.get("/revisio", async (c) => {
  */
 transactionsRoutes.post("/:id/revisa", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix");
   const parsed = categorizeSchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success || parsed.data.category_id === null) {

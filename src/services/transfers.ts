@@ -12,8 +12,9 @@
  * Traduccio de `backend/app/services/transfers.py`.
  */
 
-import { and, asc, eq, gte, isNull } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 
+import { movimentsComptables } from "./filtres.ts";
 import { db } from "../db/client.ts";
 import { transactions } from "../db/schema/index.ts";
 import { money } from "../lib/money.ts";
@@ -44,18 +45,10 @@ export async function detectaTraspassos(ledgerId: number, lookbackDays = 120): P
       categorySource: transactions.categorySource,
     })
     .from(transactions)
-    .where(
-      and(
-        eq(transactions.ledgerId, ledgerId),
-        gte(transactions.bookingDate, des),
-        isNull(transactions.transferGroupId),
-        eq(transactions.status, "booked"),
-        // Un moviment exclos a ma no pot entrar en cap parella: aparellar-lo
-        // escriuria el grup **a l'altra cama** i la trauria dels informes
-        // sense que ningu ho hagues demanat.
-        eq(transactions.isExcluded, false),
-      ),
-    )
+    // El mateix filtre que fan servir els informes. L'`is_excluded` d'aqui no
+    // es un detall: aparellar un moviment exclos escriuria el grup **a l'altra
+    // cama** i la trauria dels informes sense que ningu ho hagues demanat.
+    .where(movimentsComptables({ espais: ledgerId, des }))
     .orderBy(asc(transactions.bookingDate), asc(transactions.id));
 
   const sortides = candidats.filter((c) => money(c.amount).isNegative());

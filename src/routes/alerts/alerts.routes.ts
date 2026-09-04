@@ -21,7 +21,15 @@ import { ComptadorAvisos } from "../../components/layout.tsx";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { alerts } from "../../db/schema/index.ts";
-import { clearToast, fragment, NotFoundError, page, pushUrl, withOob } from "../../lib/http.ts";
+import {
+  NotFoundError,
+  clearToast,
+  fragment,
+  idDeLaRuta,
+  page,
+  pushUrl,
+  withOob,
+} from "../../lib/http.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
 import { comptaAvisosNous } from "../../services/comptadors.ts";
 import { AvisDescartat, LlistaAvisos, TargetaAvis } from "./alerts.fragment.tsx";
@@ -90,8 +98,7 @@ alertsRoutes.get("/fragment/llista", async (c) => {
 
 alertsRoutes.post("/:id/llegit", async (c) => {
   const espai = currentWorkspace(c);
-  const id = Number.parseInt(c.req.param("id"), 10);
-  if (Number.isNaN(id)) throw new NotFoundError("Aquest avis no existeix");
+  const id = idDeLaRuta(c.req.param("id"), "Aquest avis no existeix");
 
   const avis = await avisDeLespai(id, espai.id);
 
@@ -117,8 +124,7 @@ alertsRoutes.post("/:id/llegit", async (c) => {
 
 alertsRoutes.post("/:id/descarta", async (c) => {
   const espai = currentWorkspace(c);
-  const id = Number.parseInt(c.req.param("id"), 10);
-  if (Number.isNaN(id)) throw new NotFoundError("Aquest avis no existeix");
+  const id = idDeLaRuta(c.req.param("id"), "Aquest avis no existeix");
 
   await avisDeLespai(id, espai.id);
   await db.update(alerts).set({ status: "dismissed" }).where(eq(alerts.id, id));

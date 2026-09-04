@@ -9,8 +9,9 @@
  * Traduccio de `backend/app/services/forecast.py`.
  */
 
-import { and, eq, gte, inArray, isNull, lt } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
+import { movimentsComptables } from "./filtres.ts";
 import { db } from "../db/client.ts";
 import {
   recurringOccurrences,
@@ -82,16 +83,7 @@ export async function despesaDiariaVariable(ledgerId: number): Promise<MoneyStri
   const files = await db
     .select({ id: transactions.id, amount: transactions.amount })
     .from(transactions)
-    .where(
-      and(
-        eq(transactions.ledgerId, ledgerId),
-        gte(transactions.bookingDate, des),
-        lt(transactions.amount, "0"),
-        eq(transactions.status, "booked"),
-        isNull(transactions.transferGroupId),
-        eq(transactions.isExcluded, false),
-      ),
-    );
+    .where(movimentsComptables({ espais: ledgerId, des, nomesDespeses: true }));
 
   const imports = files
     .filter((f) => !recurrents.has(f.id))

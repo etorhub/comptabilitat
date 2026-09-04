@@ -16,8 +16,9 @@ import { ledgers, userLedgerPermissions, users } from "../../db/schema/index.ts"
 import { destroyAllSessions, hashPassword } from "../../lib/auth.ts";
 import {
   AppError,
-  fragment,
   NotFoundError,
+  fragment,
+  idDeLaRuta,
   page,
   toast,
   toastOnly,
@@ -30,12 +31,6 @@ import { UsersPage } from "./users.page.tsx";
 import { grantSchema, userCreateSchema } from "./users.schema.ts";
 
 export const usersRoutes = new Hono();
-
-function idDeLaRuta(valor: string | undefined): number {
-  const id = Number.parseInt(valor ?? "", 10);
-  if (Number.isNaN(id)) throw new NotFoundError("Aquest usuari no existeix");
-  return id;
-}
 
 /** Tots els usuaris amb els espais on tenen acces. */
 async function llistaUsuaris(): Promise<UsuariVista[]> {
@@ -162,7 +157,7 @@ usersRoutes.post("/", async (c) => {
  * veure l'espai.
  */
 usersRoutes.post("/:id/acces", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquest usuari no existeix");
   const parsed = grantSchema.safeParse(await c.req.parseBody());
   if (!parsed.success) return toastOnly(c, "Peticio no valida", 422);
 
@@ -221,7 +216,7 @@ usersRoutes.post("/:id/acces", async (c) => {
  * caduquessin soles, que poden ser dues setmanes.
  */
 usersRoutes.post("/:id/estat", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquest usuari no existeix");
   const jo = currentUser(c);
 
   if (id === jo.id) {

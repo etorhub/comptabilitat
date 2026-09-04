@@ -11,9 +11,10 @@ import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { categories, roleAtLeast, rules } from "../../db/schema/index.ts";
 import {
+  NotFoundError,
   clearToast,
   fragment,
-  NotFoundError,
+  idDeLaRuta,
   page,
   toast,
   toastOnly,
@@ -29,12 +30,6 @@ import { RulesPage } from "./rules.page.tsx";
 import { ruleCreateSchema } from "./rules.schema.ts";
 
 export const rulesRoutes = new Hono();
-
-function idDeLaRuta(valor: string | undefined): number {
-  const id = Number.parseInt(valor ?? "", 10);
-  if (Number.isNaN(id)) throw new NotFoundError("Aquesta regla no existeix");
-  return id;
-}
 
 /** Les regles de l'espai amb el nom de la categoria que assignen. */
 async function llistaRegles(ledgerId: number): Promise<ReglaVista[]> {
@@ -190,7 +185,7 @@ function LlistaOob({ codi, regles }: { codi: string; regles: ReglaVista[] }) {
 
 rulesRoutes.post("/:id/aplica", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquesta regla no existeix");
   const regla = await reglaDeLespai(id, espai.id);
 
   const aplicats = await aplicaReglaAlsExistents(regla);
@@ -216,7 +211,7 @@ rulesRoutes.post("/:id/aplica", requireEditor, async (c) => {
 
 rulesRoutes.post("/:id/activa", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquesta regla no existeix");
   const regla = await reglaDeLespai(id, espai.id);
 
   await db.update(rules).set({ isActive: !regla.isActive }).where(eq(rules.id, id));
@@ -232,7 +227,7 @@ rulesRoutes.post("/:id/activa", requireEditor, async (c) => {
 
 rulesRoutes.delete("/:id", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquesta regla no existeix");
   await reglaDeLespai(id, espai.id);
 
   await db.delete(rules).where(eq(rules.id, id));

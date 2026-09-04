@@ -9,7 +9,7 @@ import { roleAtLeast } from "../../db/schema/index.ts";
 import {
   clearToast,
   fragment,
-  NotFoundError,
+  idDeLaRuta,
   page,
   pushUrl,
   toast,
@@ -31,12 +31,6 @@ import {
 } from "./merchants.schema.ts";
 
 export const merchantsRoutes = new Hono();
-
-function idDeLaRuta(valor: string | undefined): number {
-  const id = Number.parseInt(valor ?? "", 10);
-  if (Number.isNaN(id)) throw new NotFoundError("Aquest comerç no existeix");
-  return id;
-}
 
 async function dades(ledgerId: number, query: Record<string, string>) {
   const filters = merchantFiltersSchema.parse(query);
@@ -104,7 +98,7 @@ merchantsRoutes.get("/fragment/taula", async (c) => {
  */
 merchantsRoutes.post("/:id/categoria", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquest comerç no existeix");
   const parsed = merchantCategorySchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success) {

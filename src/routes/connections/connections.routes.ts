@@ -32,8 +32,9 @@ import {
 import { config } from "../../lib/config.ts";
 import {
   AppError,
-  fragment,
   NotFoundError,
+  fragment,
+  idDeLaRuta,
   page,
   redirect,
   toast,
@@ -62,12 +63,6 @@ import {
 } from "./connections.schema.ts";
 
 export const connectionsRoutes = new Hono();
-
-function idDeLaRuta(valor: string | undefined): number {
-  const id = Number.parseInt(valor ?? "", 10);
-  if (Number.isNaN(id)) throw new NotFoundError("Aquesta connexio no existeix");
-  return id;
-}
 
 /** L'IBAN nomes surt emmascarat. */
 function ibanEmmascarat(iban: string): string {
@@ -215,7 +210,7 @@ async function ultimaExecucio(connexioId: number): Promise<SyncRun | null> {
 }
 
 connectionsRoutes.post("/:id/sincronitza", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquesta connexio no existeix");
   const parsed = syncSchema.safeParse(await c.req.parseBody());
 
   const [connexio] = await db
@@ -252,7 +247,7 @@ connectionsRoutes.post("/:id/sincronitza", async (c) => {
 
 /** L'estat d'una importacio. El fragment s'atura sol quan la feina acaba. */
 connectionsRoutes.get("/:id/fragment/sync", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquesta connexio no existeix");
   return fragment(c, EstatSync({ connexioId: id, execucio: await ultimaExecucio(id) }));
 });
 
@@ -265,7 +260,7 @@ connectionsRoutes.get("/:id/fragment/sync", async (c) => {
  * sencer del compte— per no viure dins d'un gestor de ruta.
  */
 connectionsRoutes.post("/comptes/:id/espai", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquesta connexio no existeix");
   const parsed = assignSchema.safeParse(await c.req.parseBody());
   if (!parsed.success) throw new AppError("Peticio no valida", 422);
 

@@ -11,33 +11,21 @@
  * que fa el mateix sobre una columna `date` i no lliga tant amb el motor.
  */
 
-import { and, count, eq, gte, inArray, isNull, lte, sql, sum, type SQL } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, sql, sum, type SQL } from "drizzle-orm";
 
 import { db } from "../db/client.ts";
 import { categories, merchants, transactions } from "../db/schema/index.ts";
 import { Decimal, money, toMoneyString, type MoneyString } from "../lib/money.ts";
 import { todayLocal } from "../lib/time.ts";
+import { movimentsComptables } from "./filtres.ts";
 
-/**
- * El filtre que comparteixen tots els agregats.
- *
- * Si algun dia cal canviar que compta com a despesa, es canvia aqui i val per
- * a tots els informes alhora.
- */
+/** Vegeu `services/filtres.ts`: la definicio viu en un sol lloc. */
 function filtreBase(
   ledgerIds: number[],
   dataDes: string | null,
   dataFins: string | null,
 ): SQL | undefined {
-  const parts: (SQL | undefined)[] = [
-    inArray(transactions.ledgerId, ledgerIds),
-    isNull(transactions.transferGroupId),
-    eq(transactions.isExcluded, false),
-    eq(transactions.status, "booked"),
-  ];
-  if (dataDes !== null) parts.push(gte(transactions.bookingDate, dataDes));
-  if (dataFins !== null) parts.push(lte(transactions.bookingDate, dataFins));
-  return and(...parts);
+  return movimentsComptables({ espais: ledgerIds, des: dataDes, fins: dataFins });
 }
 
 /** Primer dia del mes i primer dia del mes següent. */

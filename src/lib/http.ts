@@ -99,16 +99,6 @@ export function redirect(c: Context, url: string) {
   return c.redirect(url, 303);
 }
 
-/**
- * Demana a la pagina que recarregui del tot. Per als canvis que toquen tantes
- * coses que enumerar-les seria pitjor que tornar-hi (per exemple, moure un
- * compte d'espai).
- */
-export function refresh(c: Context) {
-  c.header("HX-Refresh", "true");
-  return c.body(null, 204);
-}
-
 // --- Avisos (`#toast`) -----------------------------------------------------
 
 export type ToastTone = "error" | "success" | "info";
@@ -232,14 +222,18 @@ export function jsonScript(id: string, data: unknown) {
   </script>`;
 }
 
-/** Llegeix un enter d'un paràmetre de consulta, amb limits. */
-export function intParam(
-  value: string | undefined,
-  fallback: number,
-  min: number,
-  max: number,
-): number {
-  const parsed = Number.parseInt(value ?? "", 10);
-  if (Number.isNaN(parsed)) return fallback;
-  return Math.min(Math.max(parsed, min), max);
+/**
+ * L'identificador que ve de l'adreça.
+ *
+ * Nomes digits: un `Number.parseInt("12abc")` retorna 12, i aixi
+ * `/moviments/12qualsevolcosa` era una adreça valida.
+ *
+ * El missatge el posa cada recurs, pero **el codi es sempre 404**: qui
+ * demana un identificador que no es un numero no ha de saber si existeix.
+ */
+export function idDeLaRuta(valor: string | undefined, queNoExisteix: string): number {
+  if (valor === undefined || !/^\d+$/.test(valor)) throw new NotFoundError(queNoExisteix);
+  const id = Number.parseInt(valor, 10);
+  if (!Number.isSafeInteger(id) || id <= 0) throw new NotFoundError(queNoExisteix);
+  return id;
 }

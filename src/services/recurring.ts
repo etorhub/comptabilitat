@@ -8,8 +8,9 @@
  * Traduccio de `backend/app/services/recurring.py`.
  */
 
-import { and, asc, eq, gte, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull } from "drizzle-orm";
 
+import { movimentsComptables } from "./filtres.ts";
 import { db } from "../db/client.ts";
 import {
   CADENCE_DAYS,
@@ -142,16 +143,9 @@ export async function detectaRecurrents(ledgerId: number): Promise<Estadistiques
     })
     .from(transactions)
     .leftJoin(merchants, eq(merchants.id, transactions.merchantId))
-    .where(
-      and(
-        eq(transactions.ledgerId, ledgerId),
-        gte(transactions.bookingDate, des),
-        eq(transactions.status, "booked"),
-        // Els traspassos entre comptes propis no son rebuts.
-        isNull(transactions.transferGroupId),
-        eq(transactions.isExcluded, false),
-      ),
-    )
+    // Els traspassos entre comptes propis no son rebuts, i un moviment
+    // exclos a ma tampoc: `movimentsComptables` ja ho diu.
+    .where(movimentsComptables({ espais: ledgerId, des }))
     .orderBy(asc(transactions.bookingDate));
 
   const grups = new Map<string, MovimentSerie[]>();
