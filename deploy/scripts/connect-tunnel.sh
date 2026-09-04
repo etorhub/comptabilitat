@@ -5,8 +5,9 @@ set -euo pipefail
 
 STACK_NAME="${STACK_NAME:-comptabilitat}"
 NETWORK="${STACK_NAME}_interna"
-WEB_HOST="${WEB_HOST:-web}"
-WEB_PORT="${WEB_PORT:-8080}"
+# Ja no hi ha contenidor `web` amb nginx: el tunel va directe a l'aplicacio.
+WEB_HOST="${WEB_HOST:-app}"
+WEB_PORT="${WEB_PORT:-8000}"
 
 echo "==> Cercant contenidors cloudflared..."
 mapfile -t TUNNELS < <(docker ps --format '{{.Names}}' | grep -i cloudflared || true)
@@ -44,10 +45,10 @@ else
   echo "    Connectat."
 fi
 
-echo "==> Resolent el hostname del servei web..."
+echo "==> Resolent el hostname de l'aplicacio..."
 mapfile -t WEB_CONTAINERS < <(
   docker network inspect "$NETWORK" --format '{{range $k, $v := .Containers}}{{$v.Name}}{{"\n"}}{{end}}' \
-    | grep -E 'web|nginx' || true
+    | grep -E '\-app\-|_app_' || true
 )
 if [[ ${#WEB_CONTAINERS[@]} -eq 0 ]]; then
   WEB_TARGET="${WEB_HOST}:${WEB_PORT}"

@@ -15,12 +15,22 @@ Qui no té accés a un espai no en veu res, ni tan sols que existeixi.
 
 ## Estructura
 
-| Directori | Contingut |
-|---|---|
-| `backend/` | API FastAPI, models SQLAlchemy, migracions Alembic i feines programades |
-| `frontend/` | Interfície React + TypeScript |
-| `deploy/` | Stacks de Docker Compose (producció i local), túnel de Cloudflare i còpies |
-| `docs/` | Espais, provar-ho en local, Enable Banking, desplegament i operació |
+| Directori        | Contingut                                                                  |
+| ---------------- | -------------------------------------------------------------------------- |
+| `src/routes/`    | Una carpeta per recurs: rutes, pàgina, fragments i esquemes                |
+| `src/services/`  | La lògica: importació, classificació, recurrents, previsió, informes       |
+| `src/db/schema/` | L'esquema de Drizzle, per agregats                                         |
+| `src/workers/`   | El planificador i les cinc feines programades                              |
+| `public/`        | HTMX, ECharts, el full d'estil compilat i el fitxer de les gràfiques       |
+| `deploy/`        | Stacks de Docker Compose (producció i local), túnel de Cloudflare i còpies |
+| `docs/`          | Espais, provar-ho en local, Enable Banking, desplegament i operació        |
+
+**Una sola cosa que córrer.** El servidor genera l'HTML i serveix els seus
+estàtics; no hi ha ni empaquetador, ni API JSON per al navegador, ni estat de
+client. La interactivitat és HTMX: el servidor torna el tros de pàgina que ha
+canviat. Les úniques línies de JavaScript pròpies són les gràfiques d'ECharts,
+que llegeixen les dades d'un `<script type="application/json">` que ha escrit
+el servidor. Detalls i convencions, a [`AGENTS.md`](AGENTS.md).
 
 ## Com funciona
 
@@ -72,13 +82,22 @@ Els detalls, i com fer-ho sense Docker, a [`docs/provar-en-local.md`](docs/prova
 ## Proves
 
 ```bash
-cd backend && python -m pytest        # cal un PostgreSQL accessible
-ruff check . && ruff format --check .
-cd ../frontend && npm run build
+bun test              # cal un PostgreSQL accessible
+bun run typecheck     # estricte, sense cap `any`
 ```
 
-Les proves creen la seva pròpia base de dades (`comptabilitat_test`) i cada prova va dins
-d'una transacció que es desfà en acabar. La URL es pot canviar amb `DATABASE_URL`.
+Les proves volen una base de dades a part; la URL es dona amb `DATABASE_URL`:
 
-El client d'Enable Banking i el d'Ollama es proven contra respostes gravades, de manera que
-la bateria no toca cap servei extern.
+```bash
+createdb comptabilitat_test
+DATABASE_URL=postgresql://comptabilitat:comptabilitat@127.0.0.1:5432/comptabilitat_test bun test
+```
+
+Cap prova no toca res de fora: el banc, el servidor de correu i el model local
+són servidors locals muntats per la prova mateixa.
+
+Les que valen més són les que fixen el comportament que costaria de
+redescobrir: la normalització dels conceptes i les claus de deduplicació es
+comproven contra la sortida gravada de la implementació anterior, i
+`tests/espais.test.ts` comprova que qui no té accés a un espai rep exactament
+la mateixa resposta que si no existís.

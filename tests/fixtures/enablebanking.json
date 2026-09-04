@@ -1,0 +1,1599 @@
+[
+  {
+    "cru": {
+      "entry_reference": "REF-001",
+      "status": "BOOK",
+      "transaction_amount": {
+        "amount": "45.20",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-03-01",
+      "value_date": "2026-03-02",
+      "creditor": {
+        "name": "Mercadona S.A."
+      },
+      "remittance_information": ["COMPRA TARJ 1234"],
+      "bank_transaction_code": {
+        "code": "PMNT",
+        "sub_code": "CCRD",
+        "description": "Card payment"
+      }
+    },
+    "esperat": {
+      "entryReference": "REF-001",
+      "transactionId": null,
+      "bookingDate": "2026-03-01",
+      "valueDate": "2026-03-02",
+      "amount": "-45.20",
+      "currency": "EUR",
+      "status": "booked",
+      "description": "COMPRA TARJ 1234 · Mercadona S.A. · Card payment",
+      "counterparty": "Mercadona S.A.",
+      "bankTransactionCode": "PMNT/CCRD",
+      "dedupKey": "ref:REF-001"
+    }
+  },
+  {
+    "cru": {
+      "status": "BOOK",
+      "transaction_amount": {
+        "amount": "1800.00",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "CRDT",
+      "booking_date": "2026-03-05",
+      "debtor": {
+        "name": "Empresa Exemple SL"
+      },
+      "remittance_information": "NOMINA MARZO"
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-03-05",
+      "valueDate": null,
+      "amount": "1800.00",
+      "currency": "EUR",
+      "status": "booked",
+      "description": "NOMINA MARZO · Empresa Exemple SL",
+      "counterparty": "Empresa Exemple SL",
+      "bankTransactionCode": "",
+      "dedupKey": "h:37361cccbcc5f23b1ff23efaa3a8da6ece29c7268ffe3569cf89f844525ff3"
+    }
+  },
+  {
+    "cru": {
+      "status": "PDNG",
+      "transaction_amount": {
+        "amount": "12.99",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-03-07",
+      "creditor": {
+        "name": "Netflix"
+      }
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-03-07",
+      "valueDate": null,
+      "amount": "-12.99",
+      "currency": "EUR",
+      "status": "pending",
+      "description": "Netflix",
+      "counterparty": "Netflix",
+      "bankTransactionCode": "",
+      "dedupKey": "h:8ba535d249b499067684c5c3ae41e471bbe46d66ca713b674f298b763c92b2"
+    }
+  },
+  {
+    "cru": {
+      "status": "BOOKED",
+      "transaction_amount": {
+        "amount": "9.99",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-03-08",
+      "creditor": {
+        "name": "Aigües de Barcelona"
+      },
+      "remittance_information": ["Aigües de Barcelona", "  "],
+      "note": "Aigües de Barcelona"
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-03-08",
+      "valueDate": null,
+      "amount": "-9.99",
+      "currency": "EUR",
+      "status": "booked",
+      "description": "Aigües de Barcelona",
+      "counterparty": "Aigües de Barcelona",
+      "bankTransactionCode": "",
+      "dedupKey": "h:29094b3a696160f46417eef67a7ab99a936383377e2f5733cef37caf44ed0b"
+    }
+  },
+  {
+    "cru": {
+      "status": "RJCT",
+      "transaction_amount": {
+        "amount": "5.00",
+        "currency": "EUR"
+      },
+      "booking_date": "2026-03-09"
+    },
+    "esperat": null
+  },
+  {
+    "cru": {
+      "status": "BOOK",
+      "booking_date": "2026-03-10"
+    },
+    "esperat": null
+  },
+  {
+    "cru": {
+      "status": "BOOK",
+      "transaction_amount": {
+        "amount": "5.00",
+        "currency": "EUR"
+      }
+    },
+    "esperat": null
+  },
+  {
+    "cru": {
+      "status": "BOOK",
+      "transaction_amount": {
+        "amount": "3.50",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "DBIT",
+      "transaction_date": "2026-03-11T14:22:00.000Z",
+      "creditor": {
+        "name": "Bar"
+      }
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-03-11",
+      "valueDate": null,
+      "amount": "-3.50",
+      "currency": "EUR",
+      "status": "booked",
+      "description": "Bar",
+      "counterparty": "Bar",
+      "bankTransactionCode": "",
+      "dedupKey": "h:916a73d2c70309e93bba7ec187afb73fc57f811ccafe95600af912673f4997"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": "E0",
+      "status": "PDNG",
+      "transaction_amount": {
+        "amount": "2843.62",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-02-27",
+      "creditor": {
+        "name": "Mercadona"
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": ["A", "B"],
+      "note": "",
+      "bank_transaction_code": {
+        "code": "PMNT",
+        "sub_code": "CCRD"
+      }
+    },
+    "esperat": {
+      "entryReference": "E0",
+      "transactionId": null,
+      "bookingDate": "2026-02-27",
+      "valueDate": null,
+      "amount": "-2843.62",
+      "currency": "USD",
+      "status": "pending",
+      "description": "A B · Mercadona",
+      "counterparty": "Mercadona",
+      "bankTransactionCode": "PMNT/CCRD",
+      "dedupKey": "ref:E0"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "BOOK",
+      "transaction_amount": {
+        "amount": "1301.22",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-02-18",
+      "creditor": {
+        "name": "Nom \"estrany\""
+      },
+      "debtor": {
+        "name": "Empresa"
+      },
+      "remittance_information": ["A", "B"],
+      "note": "",
+      "bank_transaction_code": {}
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-02-18",
+      "valueDate": null,
+      "amount": "-1301.22",
+      "currency": "EUR",
+      "status": "booked",
+      "description": "A B · Nom \"estrany\"",
+      "counterparty": "Nom \"estrany\"",
+      "bankTransactionCode": "",
+      "dedupKey": "h:0660285f5bc6cb262bac16ff4959100af4e7e4f2ff75516dd40e32d450340e"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "BOOK",
+      "transaction_amount": {
+        "amount": "1731.52",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-04-02",
+      "creditor": {
+        "name": "Àlex Pérez"
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": [],
+      "note": "",
+      "bank_transaction_code": {}
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-04-02",
+      "valueDate": null,
+      "amount": "-1731.52",
+      "currency": "USD",
+      "status": "booked",
+      "description": "Àlex Pérez",
+      "counterparty": "Àlex Pérez",
+      "bankTransactionCode": "",
+      "dedupKey": "h:5af55fb8e1d9148d4d98493b23a188a7650ce0abb6b2edaf37ecfba8ce217f"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": "E3",
+      "status": "BOOK",
+      "transaction_amount": {
+        "amount": "1712.96",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-10-19",
+      "creditor": {
+        "name": "Àlex Pérez"
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": ["A", "B"],
+      "note": "",
+      "bank_transaction_code": {}
+    },
+    "esperat": {
+      "entryReference": "E3",
+      "transactionId": null,
+      "bookingDate": "2026-10-19",
+      "valueDate": null,
+      "amount": "-1712.96",
+      "currency": "EUR",
+      "status": "booked",
+      "description": "A B · Àlex Pérez",
+      "counterparty": "Àlex Pérez",
+      "bankTransactionCode": "",
+      "dedupKey": "ref:E3"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "BOOK",
+      "transaction_amount": {
+        "amount": "1857.22",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "CRDT",
+      "booking_date": "2026-06-15",
+      "creditor": {
+        "name": "Nom \"estrany\""
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": null,
+      "note": "",
+      "bank_transaction_code": {
+        "code": "PMNT",
+        "sub_code": "CCRD"
+      }
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-06-15",
+      "valueDate": null,
+      "amount": "1857.22",
+      "currency": "USD",
+      "status": "booked",
+      "description": "Joan",
+      "counterparty": "Joan",
+      "bankTransactionCode": "PMNT/CCRD",
+      "dedupKey": "h:3d05f6ff5b7ef309ede5e6f9e07de83bcc054cab4d27e79fd395258bcf3aa8"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "BOOKED",
+      "transaction_amount": {
+        "amount": "246.02",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "CRDT",
+      "booking_date": "2026-06-24",
+      "creditor": {
+        "name": "Nom \"estrany\""
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": ["A", "B"],
+      "note": "",
+      "bank_transaction_code": {}
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-06-24",
+      "valueDate": null,
+      "amount": "246.02",
+      "currency": "USD",
+      "status": "booked",
+      "description": "A B · Joan",
+      "counterparty": "Joan",
+      "bankTransactionCode": "",
+      "dedupKey": "h:f42aabaa94244bb84818f2ca609a81d53355ee3165cbfbfaed5b25231ed286"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": "E6",
+      "status": "PENDING",
+      "transaction_amount": {
+        "amount": "495.30",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-08-14",
+      "creditor": {
+        "name": "Mercadona"
+      },
+      "debtor": {
+        "name": ""
+      },
+      "remittance_information": ["A", "B"],
+      "note": "nota",
+      "bank_transaction_code": {
+        "description": "X"
+      }
+    },
+    "esperat": {
+      "entryReference": "E6",
+      "transactionId": null,
+      "bookingDate": "2026-08-14",
+      "valueDate": null,
+      "amount": "-495.30",
+      "currency": "USD",
+      "status": "pending",
+      "description": "A B · Mercadona · nota · X",
+      "counterparty": "Mercadona",
+      "bankTransactionCode": "X",
+      "dedupKey": "ref:E6"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "PDNG",
+      "transaction_amount": {
+        "amount": "1783.31",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-02-09",
+      "creditor": {
+        "name": "Nom \"estrany\""
+      },
+      "debtor": {
+        "name": ""
+      },
+      "remittance_information": ["A", "B"],
+      "note": "",
+      "bank_transaction_code": {}
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-02-09",
+      "valueDate": null,
+      "amount": "-1783.31",
+      "currency": "USD",
+      "status": "pending",
+      "description": "A B · Nom \"estrany\"",
+      "counterparty": "Nom \"estrany\"",
+      "bankTransactionCode": "",
+      "dedupKey": "h:d5b4ce2d0fb55cc97dd4a45435449437428825c354df83595aab3b08eb8db9"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "PDNG",
+      "transaction_amount": {
+        "amount": "1941.56",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "CRDT",
+      "booking_date": "2026-12-13",
+      "creditor": {
+        "name": ""
+      },
+      "debtor": {
+        "name": "Empresa"
+      },
+      "remittance_information": [],
+      "note": "nota",
+      "bank_transaction_code": {
+        "code": "PMNT",
+        "sub_code": "CCRD"
+      }
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-12-13",
+      "valueDate": null,
+      "amount": "1941.56",
+      "currency": "USD",
+      "status": "pending",
+      "description": "Empresa · nota",
+      "counterparty": "Empresa",
+      "bankTransactionCode": "PMNT/CCRD",
+      "dedupKey": "h:395f3a8f419521ccf83f9b8aaa9e6a8dd893ef0ab10c6573cb99827a4d168c"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": "E9",
+      "status": "BOOK",
+      "transaction_amount": {
+        "amount": "1481.33",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "CRDT",
+      "booking_date": "2026-03-24",
+      "creditor": {
+        "name": "Àlex Pérez"
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": [],
+      "note": "nota",
+      "bank_transaction_code": {
+        "code": "PMNT",
+        "sub_code": "CCRD"
+      }
+    },
+    "esperat": {
+      "entryReference": "E9",
+      "transactionId": null,
+      "bookingDate": "2026-03-24",
+      "valueDate": null,
+      "amount": "1481.33",
+      "currency": "EUR",
+      "status": "booked",
+      "description": "Joan · nota",
+      "counterparty": "Joan",
+      "bankTransactionCode": "PMNT/CCRD",
+      "dedupKey": "ref:E9"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "BOOKED",
+      "transaction_amount": {
+        "amount": "1347.84",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-07-28",
+      "creditor": {
+        "name": ""
+      },
+      "debtor": {
+        "name": ""
+      },
+      "remittance_information": [],
+      "note": "nota",
+      "bank_transaction_code": {}
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-07-28",
+      "valueDate": null,
+      "amount": "-1347.84",
+      "currency": "USD",
+      "status": "booked",
+      "description": "nota",
+      "counterparty": "",
+      "bankTransactionCode": "",
+      "dedupKey": "h:d52cb68221ad82ea8be0d74d510c9ea973797ad1db080f76eb561a1fcbc1e6"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "PENDING",
+      "transaction_amount": {
+        "amount": "2873.21",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-03-05",
+      "creditor": {
+        "name": "Àlex Pérez"
+      },
+      "debtor": {
+        "name": ""
+      },
+      "remittance_information": "text lliure",
+      "note": "",
+      "bank_transaction_code": {
+        "description": "X"
+      }
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-03-05",
+      "valueDate": null,
+      "amount": "-2873.21",
+      "currency": "EUR",
+      "status": "pending",
+      "description": "text lliure · Àlex Pérez · X",
+      "counterparty": "Àlex Pérez",
+      "bankTransactionCode": "X",
+      "dedupKey": "h:02ed57c61cb3561ffcaaa5f5fe9fcb4cd3199ea59d67d293a20256203b5653"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": "E12",
+      "status": "BOOKED",
+      "transaction_amount": {
+        "amount": "788.61",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-07-18",
+      "creditor": {
+        "name": ""
+      },
+      "debtor": {
+        "name": ""
+      },
+      "remittance_information": null,
+      "note": "",
+      "bank_transaction_code": {}
+    },
+    "esperat": {
+      "entryReference": "E12",
+      "transactionId": null,
+      "bookingDate": "2026-07-18",
+      "valueDate": null,
+      "amount": "-788.61",
+      "currency": "EUR",
+      "status": "booked",
+      "description": "",
+      "counterparty": "",
+      "bankTransactionCode": "",
+      "dedupKey": "ref:E12"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "BOOK",
+      "transaction_amount": {
+        "amount": "1370.20",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "CRDT",
+      "booking_date": "2026-07-13",
+      "creditor": {
+        "name": "Mercadona"
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": [],
+      "note": "",
+      "bank_transaction_code": {
+        "code": "PMNT",
+        "sub_code": "CCRD"
+      }
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-07-13",
+      "valueDate": null,
+      "amount": "1370.20",
+      "currency": "USD",
+      "status": "booked",
+      "description": "Joan",
+      "counterparty": "Joan",
+      "bankTransactionCode": "PMNT/CCRD",
+      "dedupKey": "h:b13c78e90db96ede7153a63978391fd9ce633e701a7516bfc7505ac0e8350d"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "BOOK",
+      "transaction_amount": {
+        "amount": "2954.01",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-02-11",
+      "creditor": {
+        "name": "Mercadona"
+      },
+      "debtor": {
+        "name": "Empresa"
+      },
+      "remittance_information": ["A", "B"],
+      "note": "",
+      "bank_transaction_code": {}
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-02-11",
+      "valueDate": null,
+      "amount": "-2954.01",
+      "currency": "USD",
+      "status": "booked",
+      "description": "A B · Mercadona",
+      "counterparty": "Mercadona",
+      "bankTransactionCode": "",
+      "dedupKey": "h:e4c5bed8fe0b02d7c00337bce45710cabeac15902f65ac40c38398f51a4ea5"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": "E15",
+      "status": "BOOK",
+      "transaction_amount": {
+        "amount": "2846.87",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-04-20",
+      "creditor": {
+        "name": "Nom \"estrany\""
+      },
+      "debtor": {
+        "name": "Empresa"
+      },
+      "remittance_information": null,
+      "note": "nota",
+      "bank_transaction_code": {}
+    },
+    "esperat": {
+      "entryReference": "E15",
+      "transactionId": null,
+      "bookingDate": "2026-04-20",
+      "valueDate": null,
+      "amount": "-2846.87",
+      "currency": "EUR",
+      "status": "booked",
+      "description": "Nom \"estrany\" · nota",
+      "counterparty": "Nom \"estrany\"",
+      "bankTransactionCode": "",
+      "dedupKey": "ref:E15"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "PDNG",
+      "transaction_amount": {
+        "amount": "1422.72",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "CRDT",
+      "booking_date": "2026-08-16",
+      "creditor": {
+        "name": "Nom \"estrany\""
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": ["A", "B"],
+      "note": "",
+      "bank_transaction_code": {
+        "code": "PMNT",
+        "sub_code": "CCRD"
+      }
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-08-16",
+      "valueDate": null,
+      "amount": "1422.72",
+      "currency": "EUR",
+      "status": "pending",
+      "description": "A B · Joan",
+      "counterparty": "Joan",
+      "bankTransactionCode": "PMNT/CCRD",
+      "dedupKey": "h:a85bac470000cf7c72a54d07b03119c692cae98ff65de68e76d831853b55d3"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "PDNG",
+      "transaction_amount": {
+        "amount": "2221.18",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-09-01",
+      "creditor": {
+        "name": "Àlex Pérez"
+      },
+      "debtor": {
+        "name": ""
+      },
+      "remittance_information": null,
+      "note": "",
+      "bank_transaction_code": {}
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-09-01",
+      "valueDate": null,
+      "amount": "-2221.18",
+      "currency": "USD",
+      "status": "pending",
+      "description": "Àlex Pérez",
+      "counterparty": "Àlex Pérez",
+      "bankTransactionCode": "",
+      "dedupKey": "h:13ea3eae0dc36a31dc5a722abde66a9ee2d434407507bd053f455e15d82168"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": "E18",
+      "status": "BOOK",
+      "transaction_amount": {
+        "amount": "2274.55",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-12-28",
+      "creditor": {
+        "name": ""
+      },
+      "debtor": {
+        "name": ""
+      },
+      "remittance_information": null,
+      "note": "",
+      "bank_transaction_code": {
+        "description": "X"
+      }
+    },
+    "esperat": {
+      "entryReference": "E18",
+      "transactionId": null,
+      "bookingDate": "2026-12-28",
+      "valueDate": null,
+      "amount": "-2274.55",
+      "currency": "USD",
+      "status": "booked",
+      "description": "X",
+      "counterparty": "",
+      "bankTransactionCode": "X",
+      "dedupKey": "ref:E18"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "BOOKED",
+      "transaction_amount": {
+        "amount": "1598.01",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-10-26",
+      "creditor": {
+        "name": "Àlex Pérez"
+      },
+      "debtor": {
+        "name": "Empresa"
+      },
+      "remittance_information": [],
+      "note": "",
+      "bank_transaction_code": {
+        "code": "PMNT",
+        "sub_code": "CCRD"
+      }
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-10-26",
+      "valueDate": null,
+      "amount": "-1598.01",
+      "currency": "USD",
+      "status": "booked",
+      "description": "Àlex Pérez",
+      "counterparty": "Àlex Pérez",
+      "bankTransactionCode": "PMNT/CCRD",
+      "dedupKey": "h:2e275de2539720366948167d13b3b5098e46c8706fa1cee05e480b1130887a"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "PENDING",
+      "transaction_amount": {
+        "amount": "1067.01",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-05-16",
+      "creditor": {
+        "name": ""
+      },
+      "debtor": {
+        "name": "Empresa"
+      },
+      "remittance_information": null,
+      "note": "nota",
+      "bank_transaction_code": {}
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-05-16",
+      "valueDate": null,
+      "amount": "-1067.01",
+      "currency": "EUR",
+      "status": "pending",
+      "description": "nota",
+      "counterparty": "",
+      "bankTransactionCode": "",
+      "dedupKey": "h:14895b9091130e95848efab1ccb160e79dcc13759c54401f8ddc89853d0070"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": "E21",
+      "status": "PDNG",
+      "transaction_amount": {
+        "amount": "2865.02",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-04-04",
+      "creditor": {
+        "name": "Àlex Pérez"
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": "text lliure",
+      "note": "nota",
+      "bank_transaction_code": {
+        "code": "PMNT",
+        "sub_code": "CCRD"
+      }
+    },
+    "esperat": {
+      "entryReference": "E21",
+      "transactionId": null,
+      "bookingDate": "2026-04-04",
+      "valueDate": null,
+      "amount": "-2865.02",
+      "currency": "USD",
+      "status": "pending",
+      "description": "text lliure · Àlex Pérez · nota",
+      "counterparty": "Àlex Pérez",
+      "bankTransactionCode": "PMNT/CCRD",
+      "dedupKey": "ref:E21"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "PENDING",
+      "transaction_amount": {
+        "amount": "1872.39",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "CRDT",
+      "booking_date": "2026-11-12",
+      "creditor": {
+        "name": "Mercadona"
+      },
+      "debtor": {
+        "name": ""
+      },
+      "remittance_information": ["A", "B"],
+      "note": "nota",
+      "bank_transaction_code": {}
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-11-12",
+      "valueDate": null,
+      "amount": "1872.39",
+      "currency": "EUR",
+      "status": "pending",
+      "description": "A B · nota",
+      "counterparty": "",
+      "bankTransactionCode": "",
+      "dedupKey": "h:c380e80aa274cc5afefae7124af0594f61de158ab61d96ce6269a8fc7733a8"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "BOOKED",
+      "transaction_amount": {
+        "amount": "1434.36",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "CRDT",
+      "booking_date": "2026-11-11",
+      "creditor": {
+        "name": "Mercadona"
+      },
+      "debtor": {
+        "name": ""
+      },
+      "remittance_information": [],
+      "note": "nota",
+      "bank_transaction_code": {
+        "description": "X"
+      }
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-11-11",
+      "valueDate": null,
+      "amount": "1434.36",
+      "currency": "EUR",
+      "status": "booked",
+      "description": "nota · X",
+      "counterparty": "",
+      "bankTransactionCode": "X",
+      "dedupKey": "h:94a85fb99b5268faeab53457c9a5b4d9714368a87f6b9547dd0e0e6e94500b"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": "E24",
+      "status": "BOOK",
+      "transaction_amount": {
+        "amount": "2174.53",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-01-05",
+      "creditor": {
+        "name": "Nom \"estrany\""
+      },
+      "debtor": {
+        "name": ""
+      },
+      "remittance_information": "text lliure",
+      "note": "nota",
+      "bank_transaction_code": {}
+    },
+    "esperat": {
+      "entryReference": "E24",
+      "transactionId": null,
+      "bookingDate": "2026-01-05",
+      "valueDate": null,
+      "amount": "-2174.53",
+      "currency": "EUR",
+      "status": "booked",
+      "description": "text lliure · Nom \"estrany\" · nota",
+      "counterparty": "Nom \"estrany\"",
+      "bankTransactionCode": "",
+      "dedupKey": "ref:E24"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "PDNG",
+      "transaction_amount": {
+        "amount": "468.16",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-01-26",
+      "creditor": {
+        "name": "Mercadona"
+      },
+      "debtor": {
+        "name": ""
+      },
+      "remittance_information": "text lliure",
+      "note": "nota",
+      "bank_transaction_code": {
+        "code": "PMNT",
+        "sub_code": "CCRD"
+      }
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-01-26",
+      "valueDate": null,
+      "amount": "-468.16",
+      "currency": "EUR",
+      "status": "pending",
+      "description": "text lliure · Mercadona · nota",
+      "counterparty": "Mercadona",
+      "bankTransactionCode": "PMNT/CCRD",
+      "dedupKey": "h:eca4d7322e01a51d880c09a06c091f57f134b3dd8c4a1da06c421e000872e5"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "BOOKED",
+      "transaction_amount": {
+        "amount": "84.47",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "CRDT",
+      "booking_date": "2026-09-08",
+      "creditor": {
+        "name": ""
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": [],
+      "note": "",
+      "bank_transaction_code": {
+        "code": "PMNT",
+        "sub_code": "CCRD"
+      }
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-09-08",
+      "valueDate": null,
+      "amount": "84.47",
+      "currency": "EUR",
+      "status": "booked",
+      "description": "Joan",
+      "counterparty": "Joan",
+      "bankTransactionCode": "PMNT/CCRD",
+      "dedupKey": "h:8eca98dadfd715978778cd259a4f47a3d970c8e3cf7f8e776edb020329a7fb"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": "E27",
+      "status": "PDNG",
+      "transaction_amount": {
+        "amount": "2693.16",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-09-05",
+      "creditor": {
+        "name": "Mercadona"
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": "text lliure",
+      "note": "",
+      "bank_transaction_code": {
+        "code": "PMNT",
+        "sub_code": "CCRD"
+      }
+    },
+    "esperat": {
+      "entryReference": "E27",
+      "transactionId": null,
+      "bookingDate": "2026-09-05",
+      "valueDate": null,
+      "amount": "-2693.16",
+      "currency": "USD",
+      "status": "pending",
+      "description": "text lliure · Mercadona",
+      "counterparty": "Mercadona",
+      "bankTransactionCode": "PMNT/CCRD",
+      "dedupKey": "ref:E27"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "BOOKED",
+      "transaction_amount": {
+        "amount": "425.11",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-06-22",
+      "creditor": {
+        "name": "Nom \"estrany\""
+      },
+      "debtor": {
+        "name": "Empresa"
+      },
+      "remittance_information": ["A", "B"],
+      "note": "",
+      "bank_transaction_code": {
+        "code": "PMNT",
+        "sub_code": "CCRD"
+      }
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-06-22",
+      "valueDate": null,
+      "amount": "-425.11",
+      "currency": "EUR",
+      "status": "booked",
+      "description": "A B · Nom \"estrany\"",
+      "counterparty": "Nom \"estrany\"",
+      "bankTransactionCode": "PMNT/CCRD",
+      "dedupKey": "h:f5e96c2b5613a265c8d37ba48c6e09e9286e3fc588311f510c35484ef071a3"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "PDNG",
+      "transaction_amount": {
+        "amount": "127.08",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "CRDT",
+      "booking_date": "2026-09-01",
+      "creditor": {
+        "name": "Mercadona"
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": null,
+      "note": "",
+      "bank_transaction_code": {}
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-09-01",
+      "valueDate": null,
+      "amount": "127.08",
+      "currency": "EUR",
+      "status": "pending",
+      "description": "Joan",
+      "counterparty": "Joan",
+      "bankTransactionCode": "",
+      "dedupKey": "h:5aeae830ac7795719433c398ae82b1604a8a033e5a450ccfc6be14cc7f515b"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": "E30",
+      "status": "PDNG",
+      "transaction_amount": {
+        "amount": "1357.31",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-12-17",
+      "creditor": {
+        "name": ""
+      },
+      "debtor": {
+        "name": ""
+      },
+      "remittance_information": "text lliure",
+      "note": "nota",
+      "bank_transaction_code": {
+        "code": "PMNT",
+        "sub_code": "CCRD"
+      }
+    },
+    "esperat": {
+      "entryReference": "E30",
+      "transactionId": null,
+      "bookingDate": "2026-12-17",
+      "valueDate": null,
+      "amount": "-1357.31",
+      "currency": "USD",
+      "status": "pending",
+      "description": "text lliure · nota",
+      "counterparty": "",
+      "bankTransactionCode": "PMNT/CCRD",
+      "dedupKey": "ref:E30"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "PENDING",
+      "transaction_amount": {
+        "amount": "365.31",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "CRDT",
+      "booking_date": "2026-02-22",
+      "creditor": {
+        "name": "Àlex Pérez"
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": ["A", "B"],
+      "note": "",
+      "bank_transaction_code": {}
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-02-22",
+      "valueDate": null,
+      "amount": "365.31",
+      "currency": "USD",
+      "status": "pending",
+      "description": "A B · Joan",
+      "counterparty": "Joan",
+      "bankTransactionCode": "",
+      "dedupKey": "h:755f45a390ee56675ca3c195ed3fe3bd1272746d56f64a6a280f9adc122a99"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "PDNG",
+      "transaction_amount": {
+        "amount": "2351.92",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "CRDT",
+      "booking_date": "2026-03-09",
+      "creditor": {
+        "name": "Àlex Pérez"
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": "text lliure",
+      "note": "",
+      "bank_transaction_code": {
+        "description": "X"
+      }
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-03-09",
+      "valueDate": null,
+      "amount": "2351.92",
+      "currency": "EUR",
+      "status": "pending",
+      "description": "text lliure · Joan · X",
+      "counterparty": "Joan",
+      "bankTransactionCode": "X",
+      "dedupKey": "h:de9092e25816061b188d621690193a5a5c50fd424af84206a764265f70c34c"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": "E33",
+      "status": "PENDING",
+      "transaction_amount": {
+        "amount": "488.80",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-12-14",
+      "creditor": {
+        "name": "Nom \"estrany\""
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": [],
+      "note": "",
+      "bank_transaction_code": {
+        "description": "X"
+      }
+    },
+    "esperat": {
+      "entryReference": "E33",
+      "transactionId": null,
+      "bookingDate": "2026-12-14",
+      "valueDate": null,
+      "amount": "-488.80",
+      "currency": "EUR",
+      "status": "pending",
+      "description": "Nom \"estrany\" · X",
+      "counterparty": "Nom \"estrany\"",
+      "bankTransactionCode": "X",
+      "dedupKey": "ref:E33"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "PDNG",
+      "transaction_amount": {
+        "amount": "277.04",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-06-18",
+      "creditor": {
+        "name": "Nom \"estrany\""
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": ["A", "B"],
+      "note": "nota",
+      "bank_transaction_code": {
+        "description": "X"
+      }
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-06-18",
+      "valueDate": null,
+      "amount": "-277.04",
+      "currency": "USD",
+      "status": "pending",
+      "description": "A B · Nom \"estrany\" · nota · X",
+      "counterparty": "Nom \"estrany\"",
+      "bankTransactionCode": "X",
+      "dedupKey": "h:44d89a3c664736448e66e57bb4ce16b41010ebde8a383bc06b68f245201a60"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "PDNG",
+      "transaction_amount": {
+        "amount": "1537.03",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "DBIT",
+      "booking_date": "2026-04-04",
+      "creditor": {
+        "name": "Mercadona"
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": null,
+      "note": "",
+      "bank_transaction_code": {
+        "code": "PMNT",
+        "sub_code": "CCRD"
+      }
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-04-04",
+      "valueDate": null,
+      "amount": "-1537.03",
+      "currency": "EUR",
+      "status": "pending",
+      "description": "Mercadona",
+      "counterparty": "Mercadona",
+      "bankTransactionCode": "PMNT/CCRD",
+      "dedupKey": "h:70724d9ce899c6c1a65977ec32f70f0ceac7a908e9c6b8722fff437b7ed84f"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": "E36",
+      "status": "PDNG",
+      "transaction_amount": {
+        "amount": "2267.45",
+        "currency": "USD"
+      },
+      "credit_debit_indicator": "CRDT",
+      "booking_date": "2026-07-05",
+      "creditor": {
+        "name": "Nom \"estrany\""
+      },
+      "debtor": {
+        "name": ""
+      },
+      "remittance_information": null,
+      "note": "",
+      "bank_transaction_code": {
+        "description": "X"
+      }
+    },
+    "esperat": {
+      "entryReference": "E36",
+      "transactionId": null,
+      "bookingDate": "2026-07-05",
+      "valueDate": null,
+      "amount": "2267.45",
+      "currency": "USD",
+      "status": "pending",
+      "description": "X",
+      "counterparty": "",
+      "bankTransactionCode": "X",
+      "dedupKey": "ref:E36"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "BOOK",
+      "transaction_amount": {
+        "amount": "2398.86",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "CRDT",
+      "booking_date": "2026-02-09",
+      "creditor": {
+        "name": "Mercadona"
+      },
+      "debtor": {
+        "name": ""
+      },
+      "remittance_information": ["A", "B"],
+      "note": "nota",
+      "bank_transaction_code": {
+        "code": "PMNT",
+        "sub_code": "CCRD"
+      }
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-02-09",
+      "valueDate": null,
+      "amount": "2398.86",
+      "currency": "EUR",
+      "status": "booked",
+      "description": "A B · nota",
+      "counterparty": "",
+      "bankTransactionCode": "PMNT/CCRD",
+      "dedupKey": "h:a4ace8e9413d4bc3cb7dbaf80432f426528341cea92a4beb37864a7e4dde29"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": null,
+      "status": "BOOKED",
+      "transaction_amount": {
+        "amount": "200.33",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "CRDT",
+      "booking_date": "2026-01-11",
+      "creditor": {
+        "name": "Nom \"estrany\""
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": "text lliure",
+      "note": "",
+      "bank_transaction_code": {}
+    },
+    "esperat": {
+      "entryReference": null,
+      "transactionId": null,
+      "bookingDate": "2026-01-11",
+      "valueDate": null,
+      "amount": "200.33",
+      "currency": "EUR",
+      "status": "booked",
+      "description": "text lliure · Joan",
+      "counterparty": "Joan",
+      "bankTransactionCode": "",
+      "dedupKey": "h:f87fce57476b60eb3d95768d386f3015dbfa32e5ea33da443e24f7845dd2d6"
+    }
+  },
+  {
+    "cru": {
+      "entry_reference": "E39",
+      "status": "BOOKED",
+      "transaction_amount": {
+        "amount": "2814.41",
+        "currency": "EUR"
+      },
+      "credit_debit_indicator": "CRDT",
+      "booking_date": "2026-01-06",
+      "creditor": {
+        "name": "Àlex Pérez"
+      },
+      "debtor": {
+        "name": "Joan"
+      },
+      "remittance_information": null,
+      "note": "",
+      "bank_transaction_code": {
+        "description": "X"
+      }
+    },
+    "esperat": {
+      "entryReference": "E39",
+      "transactionId": null,
+      "bookingDate": "2026-01-06",
+      "valueDate": null,
+      "amount": "2814.41",
+      "currency": "EUR",
+      "status": "booked",
+      "description": "Joan · X",
+      "counterparty": "Joan",
+      "bankTransactionCode": "X",
+      "dedupKey": "ref:E39"
+    }
+  }
+]

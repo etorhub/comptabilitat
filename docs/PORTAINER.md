@@ -8,11 +8,11 @@ Guia pas a pas per desplegar l'stack al NAS sense SSH. El repositori ja inclou
 
 Al túnel existent, afegeix un **Public Hostname**:
 
-| Camp | Valor |
-|---|---|
-| Subdomain | `comptes` |
-| Domain | el teu domini |
-| Service | `http://web:8080` *(després del pas 5, actualitza amb el nom real del contenidor)* |
+| Camp      | Valor                                                                              |
+| --------- | ---------------------------------------------------------------------------------- |
+| Subdomain | `comptes`                                                                          |
+| Domain    | el teu domini                                                                      |
+| Service   | `http://app:8000` _(després del pas 5, actualitza amb el nom real del contenidor)_ |
 
 `PUBLIC_BASE_URL` ha de ser `https://comptes.el-teu-domini` (sense barra final).
 
@@ -45,15 +45,16 @@ openssl rand -base64 24       # POSTGRES_PASSWORD
 
 **Stacks → Add stack** → nom `comptabilitat`
 
-| Camp | Valor |
-|---|---|
-| Build method | Repository |
-| Repository URL | `https://github.com/etorhub/comptabilitat` |
-| Compose path | `deploy/docker-compose.yml` |
-| Environment variables | Contingut de `deploy/.env` |
+| Camp                  | Valor                                      |
+| --------------------- | ------------------------------------------ |
+| Build method          | Repository                                 |
+| Repository URL        | `https://github.com/etorhub/comptabilitat` |
+| Compose path          | `deploy/docker-compose.yml`                |
+| Environment variables | Contingut de `deploy/.env`                 |
 
 Portainer clona el repositori i fa `docker compose build` al NAS. La primera
-vegada pot trigar uns minuts (frontend + backend).
+vegada pot trigar uns minuts: la imatge instal·la les dependències i compila el
+full d'estil.
 
 **No activis el perfil `tunnel`** si reutilitzes el cloudflared existent.
 
@@ -99,6 +100,6 @@ bash deploy/scripts/nas-deploy.sh --build
 
 ```bash
 docker compose ps
-curl -s https://comptes.el-teu-domini/api/health
+curl -s https://comptes.el-teu-domini/salut
 docker compose logs worker | head -20
 ```

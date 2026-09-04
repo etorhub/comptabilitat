@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  # Nomes la branca principal: la resta ja les cobreix `pull_request`. Si les
+  # dues escoltessin totes les branques, cada empenta amb una PR oberta
+  # llançaria dues execucions identiques.
+  push:
+    branches: [master]
+  pull_request:
+
+# Una empenta nova deixa sense sentit la que s'estigui executant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  comprova:
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: comptabilitat
+          POSTGRES_PASSWORD: comptabilitat
+          POSTGRES_DB: comptabilitat_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U comptabilitat -d comptabilitat_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgresql://comptabilitat:comptabilitat@127.0.0.1:5432/comptabilitat_test
+      # Nomes per a les proves: no obre res, pero la configuracio l'exigeix.
+      SECRET_KEY: una-clau-de-proves-de-32-caracters-o-mes
+      PUBLIC_BASE_URL: http://localhost:8000
+      COOKIE_SECURE: "false"
+      ENVIRONMENT: local
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3"
+
+      - run: bun install --frozen-lockfile
+
+      # Els tipus primer: es el que falla mes de pressa i el que mes diu.
+      - name: Tipus (src i tests)
+        run: bun run typecheck
+
+      - name: Estil
+        run: bun run lint
+
+      - name: Format
+        run: bun run format:check
+
+      # L'esquema surt de les migracions, com a produccio.
+      - name: Migracions
+        run: bun run db:apply
+
+      - name: Proves
+        run: bun test
+        env:
+          SKIP_MIGRATIONS: "true"

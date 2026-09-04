@@ -1,0 +1,958 @@
+@import "tailwindcss";
+
+/*
+ * Els testimonis de color venen tal qual de l'aplicacio anterior
+ * (`frontend/src/index.css`): es defineixen en clar i es reescriuen en fosc.
+ * El mode fosc el decideix el sistema operatiu; no hi ha cap interruptor, com
+ * fins ara.
+ *
+ * Les classes d'aqui son les que fan servir les plantilles de `hono/jsx`.
+ * Tailwind cobreix la disposicio; aixo cobreix el que ha de ser consistent a
+ * tota l'aplicacio.
+ */
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+:root {
+  --fons: #f8fafc;
+  --superficie: #ffffff;
+  --vora: #e2e8f0;
+  --text: #0f172a;
+  --text-suau: #64748b;
+  --accent: #2563eb;
+  --positiu: #16a34a;
+  --negatiu: #dc2626;
+  --avis: #d97706;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fons: #0b1120;
+    --superficie: #111827;
+    --vora: #1f2937;
+    --text: #e5e7eb;
+    --text-suau: #94a3b8;
+    --accent: #60a5fa;
+    --positiu: #4ade80;
+    --negatiu: #f87171;
+    --avis: #fbbf24;
+  }
+}
+
+body {
+  background: var(--fons);
+  color: var(--text);
+  font-family: var(--font-sans);
+  margin: 0;
+}
+
+.text-suau {
+  color: var(--text-suau);
+}
+
+.superficie {
+  background: var(--superficie);
+  border: 1px solid var(--vora);
+}
+
+/* --- Salt de navegacio --------------------------------------------------- */
+
+.salta {
+  position: absolute;
+  left: -9999px;
+  background: var(--accent);
+  color: white;
+  padding: 0.6rem 1rem;
+  border-radius: 0 0 0.5rem 0;
+  z-index: 100;
+}
+
+.salta:focus {
+  left: 0;
+  top: 0;
+}
+
+/* --- Disposicio ---------------------------------------------------------- */
+
+.disposicio {
+  display: grid;
+  grid-template-columns: 16rem 1fr;
+  min-height: 100vh;
+}
+
+@media (max-width: 60rem) {
+  .disposicio {
+    grid-template-columns: 1fr;
+  }
+}
+
+.principal {
+  padding: 1.5rem 2rem 4rem;
+  min-width: 0;
+}
+
+.barra {
+  background: var(--superficie);
+  border-right: 1px solid var(--vora);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.marca {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.menu a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.5rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.menu a:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.menu a[aria-current="page"] {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  font-weight: 600;
+}
+
+.menu-titol {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-suau);
+  margin: 0 0 0.35rem 0.6rem;
+}
+
+.barra-peu {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-top: 1px solid var(--vora);
+  padding-top: 0.75rem;
+}
+
+.usuari {
+  font-size: 0.85rem;
+  color: var(--text-suau);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.comptador {
+  font-size: 0.72rem;
+  min-width: 1.4rem;
+  text-align: center;
+  border-radius: 999px;
+  padding: 0 0.35rem;
+}
+
+.comptador-actiu {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.comptador-avis {
+  background: color-mix(in srgb, var(--avis) 22%, transparent);
+  color: var(--avis);
+  font-weight: 600;
+}
+
+/* --- Pagines centrades (entrada, errors) --------------------------------- */
+
+.cos-centrat {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+.targeta-centrada {
+  background: var(--superficie);
+  border: 1px solid var(--vora);
+  border-radius: 0.75rem;
+  padding: 2rem;
+  width: min(26rem, 100%);
+}
+
+/* --- Formularis ---------------------------------------------------------- */
+
+.camp {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.9rem;
+}
+
+.camp-etiqueta {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.camp-etiqueta abbr {
+  color: var(--negatiu);
+  text-decoration: none;
+  margin-left: 0.15rem;
+}
+
+.camp-ajuda {
+  color: var(--text-suau);
+  font-size: 0.78rem;
+}
+
+.camp-error,
+.form-error {
+  color: var(--negatiu);
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.form-error {
+  background: color-mix(in srgb, var(--negatiu) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--negatiu) 35%, transparent);
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.casella {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+}
+
+input,
+select,
+textarea {
+  background: var(--superficie);
+  border: 1px solid var(--vora);
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  color: var(--text);
+  font: inherit;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: 1px;
+}
+
+input[aria-invalid="true"],
+select[aria-invalid="true"] {
+  border-color: var(--negatiu);
+}
+
+.boto {
+  display: inline-block;
+  background: var(--accent);
+  color: white;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: filter 120ms ease;
+}
+
+.boto:hover {
+  filter: brightness(1.08);
+}
+
+.boto[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.boto-discret {
+  background: transparent;
+  color: var(--text-suau);
+  border-color: var(--vora);
+}
+
+.boto-perill {
+  background: var(--negatiu);
+}
+
+/* --- Taules -------------------------------------------------------------- */
+
+table.dades {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table.dades th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-suau);
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--vora);
+  white-space: nowrap;
+}
+
+table.dades td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--vora);
+  vertical-align: top;
+}
+
+table.dades tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+/* Qualsevol cosa ampla (taules, grafics) es desplaça dins seu, mai la pagina. */
+.desplaçable {
+  overflow-x: auto;
+}
+
+/* --- Avisos (`#toast`) --------------------------------------------------- */
+
+#toast {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: min(26rem, calc(100vw - 2rem));
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: var(--superficie);
+  border: 1px solid var(--vora);
+  border-left-width: 4px;
+  border-radius: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+}
+
+.toast-cos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.88rem;
+}
+
+.toast-cos small {
+  color: var(--text-suau);
+}
+
+.toast-error {
+  border-left-color: var(--negatiu);
+}
+.toast-error strong {
+  color: var(--negatiu);
+}
+
+.toast-success {
+  border-left-color: var(--positiu);
+}
+.toast-success strong {
+  color: var(--positiu);
+}
+
+.toast-info {
+  border-left-color: var(--accent);
+}
+.toast-info strong {
+  color: var(--accent);
+}
+
+.toast-tanca {
+  background: none;
+  border: none;
+  color: var(--text-suau);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0;
+  margin-left: auto;
+}
+
+/* --- Indicador de peticio en curs ---------------------------------------- */
+
+.htmx-indicator {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  opacity: 1;
+}
+
+/* Mentre s'espera resposta, el contingut vell es queda pero es marca. */
+.htmx-request.taula-carregant tbody {
+  opacity: 0.55;
+}
+
+/* --- Capçaleres i targetes ----------------------------------------------- */
+
+.capçalera {
+  margin-bottom: 1.25rem;
+}
+
+.capçalera h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.capçalera p {
+  margin: 0;
+  max-width: 60ch;
+}
+
+.targeta {
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.targeta h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+
+.buit {
+  padding: 2rem 0;
+  text-align: center;
+}
+
+/* --- Formularis en línia -------------------------------------------------- */
+
+.form-linia,
+.linia {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.form-linia .camp,
+.linia .camp,
+.camp-linia {
+  margin-bottom: 0;
+  min-width: 12rem;
+}
+
+.form-linia h2 {
+  flex-basis: 100%;
+}
+
+.form-ok {
+  background: color-mix(in srgb, var(--positiu) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--positiu) 35%, transparent);
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  margin: 0 0 0.9rem;
+}
+
+.filtres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+/* --- Etiquetes ------------------------------------------------------------ */
+
+.etiqueta {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+}
+
+.etiqueta-suau {
+  background: color-mix(in srgb, var(--text-suau) 18%, transparent);
+  color: var(--text-suau);
+  font-weight: 500;
+  margin-left: 0.4rem;
+}
+
+/* --- Arbre de categories -------------------------------------------------- */
+
+.punt {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  margin-right: 0.5rem;
+  vertical-align: baseline;
+}
+
+.sagnat {
+  color: var(--text-suau);
+  margin-right: 0.3rem;
+}
+
+tr.filla .nom {
+  color: var(--text-suau);
+}
+
+tr.pare .nom {
+  font-weight: 600;
+}
+
+.dreta {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.accions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  white-space: nowrap;
+}
+
+tr.editant td,
+tr.reassignant td {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.reassignant-text {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+/* --- Avisos --------------------------------------------------------------- */
+
+.avisos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.avis {
+  background: var(--superficie);
+  border: 1px solid var(--vora);
+  border-left-width: 4px;
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.avis-nou {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.avis-critic {
+  border-left-color: var(--negatiu);
+}
+.avis-atencio {
+  border-left-color: var(--avis);
+}
+.avis-info {
+  border-left-color: var(--accent);
+}
+
+.avis-cap {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.avis-titol {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.avis-cos {
+  margin: 0.5rem 0 0;
+  color: var(--text-suau);
+}
+
+.avis-accions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.avis-fora {
+  display: none;
+}
+
+/* --- Barra lateral, restes ------------------------------------------------ */
+
+.barra-cap {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--vora);
+}
+
+.menu-seccio {
+  border-top: 1px solid var(--vora);
+  padding-top: 0.75rem;
+}
+
+.selector-espai {
+  width: 100%;
+}
+
+/* --- Paginacio ------------------------------------------------------------ */
+
+.paginacio {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.25rem;
+  flex-wrap: wrap;
+}
+
+.passos {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* --- Regles --------------------------------------------------------------- */
+
+.condicions {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  font-size: 0.82rem;
+  color: var(--text-suau);
+}
+
+.condicions li::before {
+  content: "· ";
+}
+
+tr.inactiva {
+  opacity: 0.6;
+}
+
+.condicions-camp {
+  border: 1px solid var(--vora);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem 1rem;
+  margin: 0 0 0.9rem;
+}
+
+.condicions-camp legend {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0 0.35rem;
+}
+
+.fila-condicio {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.fila-condicio input[name="value"] {
+  flex: 1 1 12rem;
+}
+
+.camp-estret {
+  max-width: 8rem;
+}
+
+.form-accions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+.etiquetes {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+/* --- Moviments ------------------------------------------------------------ */
+
+.taula-moviments .data {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.taula-moviments .tria {
+  width: 2rem;
+}
+
+.concepte {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px dashed var(--vora);
+}
+
+.concepte:hover {
+  border-bottom-color: var(--accent);
+}
+
+.nota {
+  display: block;
+  margin-top: 0.2rem;
+}
+
+.origen {
+  margin-left: 0.35rem;
+}
+
+.negatiu {
+  color: var(--negatiu);
+}
+
+.positiu {
+  color: var(--positiu);
+}
+
+tr.exclos {
+  opacity: 0.55;
+}
+
+.barra-bloc {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--vora);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.visualment-ocult {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* --- Safata de revisio ----------------------------------------------------- */
+
+.revisio {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item-revisio {
+  margin-bottom: 0.75rem;
+}
+
+.item-cap {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.35rem;
+}
+
+.item-cap strong {
+  flex: 1 1 12rem;
+}
+
+.proposta {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  margin: 0.5rem 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.proposta small {
+  flex-basis: 100%;
+}
+
+/* --- Xifres grosses -------------------------------------------------------- */
+
+.xifres {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.xifra {
+  background: var(--superficie);
+  border: 1px solid var(--vora);
+  border-radius: 0.75rem;
+  padding: 0.9rem 1.1rem;
+  min-width: 11rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.xifra-etiqueta {
+  font-size: 0.78rem;
+  color: var(--text-suau);
+}
+
+.xifra-valor {
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Grafics --------------------------------------------------------------- */
+
+.grafic {
+  width: 100%;
+  min-height: 200px;
+}
+
+/* Si no hi ha dades, val mes un buit honest que uns eixos sols. */
+.grafic[data-buit]::after {
+  content: "Encara no hi ha prou dades per dibuixar-ho.";
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--text-suau);
+  font-size: 0.9rem;
+}
+
+.dues-columnes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+@media (max-width: 60rem) {
+  .dues-columnes {
+    grid-template-columns: 1fr;
+  }
+}
+
+.punt-gran {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.xifra-enllac {
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 120ms ease;
+}
+
+.xifra-enllac:hover {
+  border-color: var(--accent);
+}
+
+.avis-fort {
+  background: color-mix(in srgb, var(--negatiu) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--negatiu) 35%, transparent);
+  border-radius: 0.75rem;
+  padding: 0.9rem 1.1rem;
+  margin: 0 0 1.25rem;
+}
+
+.descarregues {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.descarregues-linia {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+
+/* --- Estat d'una importacio ------------------------------------------------ */
+
+.sync-estat {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--vora);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  font-size: 0.9rem;
+}
+
+.sync-estat small {
+  flex-basis: 100%;
+}
+
+.sync-estat:empty {
+  display: none;
+}
+
+.filador {
+  width: 0.9rem;
+  height: 0.9rem;
+  border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 999px;
+  animation: gira 0.8s linear infinite;
+}
+
+@keyframes gira {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filador {
+    animation: none;
+  }
+}
+
+.etiqueta-perill {
+  background: color-mix(in srgb, var(--negatiu) 15%, transparent);
+  color: var(--negatiu);
+}

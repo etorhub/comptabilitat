@@ -19,4 +19,4 @@ fi
 export PORTAINER_PASSWORD="${PORTAINER_PASSWORD:?cal PORTAINER_PASSWORD}"
 export GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token)}"
 python3 "$ROOT/deploy/scripts/portainer-deploy.py"
-echo "Fet. Prova: curl -s https://comptabilitat.dossierapp.org/api/health"
+echo "Fet. Prova: curl -s https://comptabilitat.dossierapp.org/salut"

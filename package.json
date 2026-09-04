@@ -1,0 +1,52 @@
+{
+  "name": "comptabilitat",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --hot src/server.ts",
+    "start": "bun run src/server.ts",
+    "worker": "bun run src/workers/scheduler.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "css": "tailwindcss -i src/styles/app.css -o public/app.css",
+    "css:watch": "tailwindcss -i src/styles/app.css -o public/app.css --watch",
+    "db:pull": "drizzle-kit pull",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:check": "drizzle-kit check",
+    "jobs": "bun run src/workers/cli.ts",
+    "cli": "bun run src/cli.ts",
+    "lint": "oxlint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "bun run typecheck && bun run lint && bun run format:check",
+    "db:apply": "bun run src/db/migrate.ts"
+  },
+  "dependencies": {
+    "croner": "^10.0.1",
+    "decimal.js": "^10.4.3",
+    "drizzle-orm": "^0.45.2",
+    "drizzle-zod": "^0.8.3",
+    "echarts": "^6.1.0",
+    "exceljs": "^4.4.0",
+    "hono": "^4.6.14",
+    "htmx.org": "2",
+    "jose": "^5.9.6",
+    "nodemailer": "^9.1.1",
+    "pdfkit": "^0.20.2",
+    "postgres": "^3.4.5",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.0.0",
+    "@types/bun": "^1.1.14",
+    "@types/nodemailer": "^8.0.1",
+    "@types/pdfkit": "^0.17.6",
+    "drizzle-kit": "^0.31.10",
+    "oxlint": "1.81.0",
+    "prettier": "3.9.6",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.2"
+  }
+}

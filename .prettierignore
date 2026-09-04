@@ -1,0 +1,6 @@
+node_modules
+drizzle
+public/htmx.min.js
+public/echarts.min.js
+public/app.css
+bun.lock

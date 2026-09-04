@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx",
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": false,
+    "skipLibCheck": true,
+
+    "types": ["bun-types"]
+  },
+  // Les proves tambe. Si no hi son, `bun run typecheck` no les mira i el
+  // «estricte, sense cap `any`» val nomes per a la meitat del codi.
+  "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "drizzle.config.ts"],
+  "exclude": ["node_modules"]
+}

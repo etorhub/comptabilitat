@@ -21,13 +21,13 @@ else
 fi
 
 echo "==> Creant usuari administrador ${EMAIL}..."
-docker compose exec -T api python -m app.cli create-user \
-  --email "$EMAIL" --name "$NAME" --admin --password "$PASSWORD"
+docker compose exec -T app bun run cli crea-usuari \
+  --email "$EMAIL" --nom "$NAME" --admin --password "$PASSWORD"
 
 echo "==> Atorgant accés als tres espais..."
 for ledger in personal calella pardals; do
-  docker compose exec -T api python -m app.cli grant \
-    --email "$EMAIL" --ledger "$ledger" --role admin
+  docker compose exec -T app bun run cli dona-acces \
+    --email "$EMAIL" --espai "$ledger" --rol admin
   echo "    ${ledger}: admin"
 done
 
