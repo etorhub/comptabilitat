@@ -148,6 +148,11 @@ def main() -> int:
         "RepositoryAuthentication": bool(os.environ.get("GITHUB_TOKEN")),
         "RepositoryUsername": os.environ.get("GITHUB_USERNAME", "etorhub"),
         "RepositoryPassword": os.environ.get("GITHUB_TOKEN", ""),
+        "AutoUpdate": {
+            "Interval": os.environ.get("PORTAINER_POLL_INTERVAL", "5m"),
+            "ForceUpdate": False,
+            "ForcePullImage": False,
+        },
         "Env": env,
     }
 
