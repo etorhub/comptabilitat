@@ -1,9 +1,17 @@
 name: CI
 
 on:
+  # Nomes la branca principal: la resta ja les cobreix `pull_request`. Si les
+  # dues escoltessin totes les branques, cada empenta amb una PR oberta
+  # llançaria dues execucions identiques.
   push:
-    branches: ["**"]
+    branches: [master]
   pull_request:
+
+# Una empenta nova deixa sense sentit la que s'estigui executant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   comprova:
@@ -18,7 +26,7 @@ jobs:
           POSTGRES_DB: comptabilitat_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U comptabilitat"
+          --health-cmd "pg_isready -U comptabilitat -d comptabilitat_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
@@ -32,7 +40,7 @@ jobs:
       ENVIRONMENT: local
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: oven-sh/setup-bun@v2
         with:

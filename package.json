@@ -44,6 +44,8 @@
     "@types/nodemailer": "^8.0.1",
     "@types/pdfkit": "^0.17.6",
     "drizzle-kit": "^0.31.10",
+    "oxlint": "1.81.0",
+    "prettier": "3.9.6",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.2"
   }
