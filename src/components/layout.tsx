@@ -137,7 +137,6 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous }: SidebarProps) 
         { href: `/e/${codi}/categories`, text: "Categories" },
         { href: `/e/${codi}/etiquetes`, text: "Etiquetes" },
         { href: `/e/${codi}/comercos`, text: "Comerços" },
-        { href: `/e/${codi}/regles`, text: "Regles" },
         { href: `/e/${codi}/avisos`, text: "Avisos", comptador: ComptadorAvisos(avisosNous) },
       ]
     : [];

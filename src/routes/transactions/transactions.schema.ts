@@ -86,11 +86,6 @@ export const categorizeSchema = z.object({
     .union([z.literal("0"), z.literal("false")])
     .optional()
     .transform((v) => v === undefined),
-  /** Si a mes n'ha de sortir una regla. */
-  crea_regla: z
-    .union([z.literal("on"), z.literal("1"), z.literal("true")])
-    .optional()
-    .transform((v) => v !== undefined),
 });
 
 /** Classificacio en bloc: les caselles marcades de la taula. */

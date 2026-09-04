@@ -29,10 +29,8 @@ import {
   toastOnly,
   withOob,
 } from "../../lib/http.ts";
-import { currentUser } from "../../middleware/session.ts";
 import { currentRole, currentWorkspace, requireEditor } from "../../middleware/workspace.ts";
 import { opcionsCategories } from "../../services/categories.ts";
-import { construeixReglaApresa } from "../../services/classification.ts";
 import { comptaPerRevisar } from "../../services/comptadors.ts";
 import { recordaEleccioComerc } from "../../services/merchants.ts";
 import {
@@ -240,12 +238,11 @@ async function respostaFila(
  * Canvi de categoria d'un moviment.
  *
  * Es una decisio d'una persona: queda amb `category_source = 'user'` i cap
- * regla ni cap comerç no la tornara a tocar. Per defecte tambe es recorda per
- * a tot el comerç d'aquest espai.
+ * comerç no la tornara a tocar. Per defecte tambe es recorda per a tot el
+ * comerç d'aquest espai.
  */
 transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const user = currentUser(c);
   const id = idDeLaRuta(c.req.param("id"));
   const parsed = categorizeSchema.safeParse(await c.req.parseBody());
 
@@ -274,18 +271,6 @@ transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
       .where(eq(merchants.id, fila.merchantId))
       .limit(1);
     if (comerc) recordat = await recordaEleccioComerc(comerc, parsed.data.category_id, true);
-  }
-
-  if (parsed.data.crea_regla) {
-    await construeixReglaApresa(
-      {
-        ledgerId: espai.id,
-        normalizedDescription: fila.normalizedDescription,
-        counterparty: fila.counterparty,
-      },
-      parsed.data.category_id,
-      user.id,
-    );
   }
 
   return respostaFila(

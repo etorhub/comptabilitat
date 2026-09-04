@@ -22,7 +22,6 @@ import { exportsRoutes } from "./exports/exports.routes.ts";
 import { homeRoutes } from "./home/home.routes.ts";
 import { merchantsRoutes } from "./merchants/merchants.routes.ts";
 import { recurringRoutes } from "./recurring/recurring.routes.ts";
-import { rulesRoutes } from "./rules/rules.routes.ts";
 import { tagsRoutes } from "./tags/tags.routes.ts";
 import { transactionsRoutes } from "./transactions/transactions.routes.ts";
 import { usersRoutes } from "./users/users.routes.ts";
@@ -83,7 +82,6 @@ export function registerRoutes(app: Hono): void {
   espai.route("/categories", ambAdmin(categoriesRoutes));
   espai.route("/etiquetes", ambAdmin(tagsRoutes));
   espai.route("/comercos", ambAdmin(merchantsRoutes));
-  espai.route("/regles", ambAdmin(rulesRoutes));
   espai.route("/configuracio", ambAdmin(workspacesRoutes));
   espai.route("/moviments", transactionsRoutes);
   espai.route("/recurrents", recurringRoutes);

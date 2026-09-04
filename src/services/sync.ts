@@ -38,7 +38,6 @@ import { creaAvis } from "./alerts.ts";
 import { classificaMoviment } from "./classification.ts";
 import { obteOCreaComerc } from "./merchants.ts";
 import { normalizeDescription } from "./normalization.ts";
-import { reglesActives } from "./rules.ts";
 
 /** Marge per aparellar un pendent amb el seu apunt definitiu. */
 const PENDING_MATCH_DAYS = 5;
@@ -339,9 +338,6 @@ async function desaMoviments(
   let pendents = existents.filter((e) => e.status === "pending");
   const vistes = new Set<string>();
 
-  // Es carreguen un sol cop: la mateixa llista serveix per a tots els moviments.
-  const regles = compte.ledgerId === null ? [] : await reglesActives(compte.ledgerId);
-
   for (const item of items) {
     const clau = dedupKey(item);
     vistes.add(clau);
@@ -453,22 +449,12 @@ async function desaMoviments(
       .set({ normalizedDescription: normalitzat.slice(0, 200), merchantId })
       .where(eq(transactions.id, creat.id));
 
-    await classificaMoviment(
-      {
-        id: creat.id,
-        ledgerId: compte.ledgerId,
-        description: item.description,
-        normalizedDescription: normalitzat,
-        counterparty: item.counterparty,
-        amount: item.amount,
-        bankTransactionCode: item.bankTransactionCode,
-        accountId: compte.id,
-        merchantId,
-        categorySource: "none",
-        tags: [],
-      },
-      regles,
-    );
+    await classificaMoviment({
+      id: creat.id,
+      ledgerId: compte.ledgerId,
+      merchantId,
+      categorySource: "none",
+    });
 
     perClau.set(clau, {
       id: creat.id,

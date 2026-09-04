@@ -140,7 +140,6 @@ describe("la configuracio de l'espai nomes per a administradors", () => {
     "/e/personal/categories",
     "/e/personal/etiquetes",
     "/e/personal/comercos",
-    "/e/personal/regles",
     "/e/personal/avisos",
   ];
 
@@ -191,8 +190,8 @@ describe("la configuracio de l'espai nomes per a administradors", () => {
     expect(html).toContain("/e/personal/categories");
     expect(html).toContain("/e/personal/etiquetes");
     expect(html).toContain("/e/personal/comercos");
-    expect(html).toContain("/e/personal/regles");
     expect(html).toContain("/e/personal/avisos");
+    expect(html).not.toContain("/e/personal/regles");
     expect(html).toContain("/connexions");
     expect(html).toContain("/usuaris");
   });

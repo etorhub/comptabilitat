@@ -256,11 +256,11 @@ connectionsRoutes.get("/:id/fragment/sync", async (c) => {
 /**
  * Assigna un compte a un espai.
  *
- * Moure'l **no es una operacio per fer sovint**: les categories, els comerços
- * i les regles son de cada espai, de manera que les classificacions anteriors
- * deixen de ser valides. S'esborren, es tornen a crear els comerços dins de
- * l'espai nou i s'hi apliquen les seves regles; el que no encaixi queda a la
- * safata de revisio.
+ * Moure'l **no es una operacio per fer sovint**: les categories i els comerços
+ * son de cada espai, de manera que les classificacions anteriors deixen de
+ * ser valides. S'esborren, es tornen a crear els comerços dins de l'espai nou
+ * i s'hi aplica la memoria de comerços; el que no encaixi queda a la safata
+ * de revisio.
  */
 connectionsRoutes.post("/comptes/:id/espai", async (c) => {
   const id = idDeLaRuta(c.req.param("id"));

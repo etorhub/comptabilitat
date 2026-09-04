@@ -1,5 +1,5 @@
 /**
- * Regles, memoria de comerços i cua de revisio, dins d'un espai.
+ * Memoria de comerços i cua de revisio, dins d'un espai.
  *
  * Port de `backend/tests/test_classification.py`. La invariant que es
  * comprova tot el temps: **el que ha decidit una persona no ho toca res**.
@@ -22,11 +22,9 @@ import {
   transactions,
   userLedgerPermissions,
   users,
-  type Rule,
 } from "../src/db/schema/index.ts";
 import { hashPassword } from "../src/lib/auth.ts";
 import { classificaMoviment, classificaPendents } from "../src/services/classification.ts";
-import { reglesActives } from "../src/services/rules.ts";
 import { seedCategories } from "../src/services/seed.ts";
 import { app } from "../src/server.ts";
 
@@ -147,21 +145,6 @@ async function comerc(nom = "MERCADONA", extra: Partial<typeof merchants.$inferI
   return m?.id ?? 0;
 }
 
-async function creaRegla(valors: Partial<typeof rules.$inferInsert> & { name: string }) {
-  await db.insert(rules).values({
-    ledgerId: personalId,
-    priority: 100,
-    isActive: true,
-    source: "user",
-    conditions: [],
-    setCategoryId: null,
-    setMerchantId: null,
-    setTags: [],
-    matchCount: 0,
-    ...valors,
-  });
-}
-
 /** Torna a llegir un moviment de la base de dades. */
 async function llegeix(id: number) {
   const [fila] = await db.select().from(transactions).where(eq(transactions.id, id));
@@ -171,23 +154,12 @@ async function llegeix(id: number) {
 
 async function classifica(id: number): Promise<void> {
   const fila = await llegeix(id);
-  const regles: Rule[] = await reglesActives(personalId);
-  await classificaMoviment(
-    {
-      id: fila.id,
-      ledgerId: fila.ledgerId,
-      description: fila.description,
-      normalizedDescription: fila.normalizedDescription,
-      counterparty: fila.counterparty,
-      amount: fila.amount,
-      bankTransactionCode: fila.bankTransactionCode,
-      accountId: fila.accountId,
-      merchantId: fila.merchantId,
-      categorySource: fila.categorySource,
-      tags: fila.tags,
-    },
-    regles,
-  );
+  await classificaMoviment({
+    id: fila.id,
+    ledgerId: fila.ledgerId,
+    merchantId: fila.merchantId,
+    categorySource: fila.categorySource,
+  });
 }
 
 beforeEach(async () => {
@@ -277,52 +249,8 @@ beforeEach(async () => {
   sessio = await entra("anna@exemple.cat");
 });
 
-describe("les regles", () => {
-  test("una regla assigna la categoria", async () => {
-    const supermercat = await categoria(personalId);
-    await creaRegla({
-      name: "Mercadona",
-      priority: 10,
-      conditions: [
-        { field: "normalized_description", operator: "contains", value: "MERCADONA" },
-      ],
-      setCategoryId: supermercat.id,
-    });
-    const id = await moviment();
-
-    await classifica(id);
-
-    const fila = await llegeix(id);
-    expect(fila.categoryId).toBe(supermercat.id);
-    expect(fila.categorySource).toBe("rule");
-    expect(fila.needsReview).toBe(false);
-  });
-
-  test("respecten la prioritat: la mes baixa guanya", async () => {
-    const supermercat = await categoria(personalId);
-    const restaurants = await categoria(personalId, "restauracio-restaurants");
-    await creaRegla({
-      name: "general",
-      priority: 100,
-      conditions: [{ field: "description", operator: "contains", value: "COMPRA" }],
-      setCategoryId: restaurants.id,
-    });
-    await creaRegla({
-      name: "especifica",
-      priority: 10,
-      conditions: [{ field: "description", operator: "contains", value: "MERCADONA" }],
-      setCategoryId: supermercat.id,
-    });
-    const id = await moviment();
-
-    await classifica(id);
-
-    expect((await llegeix(id)).categoryId).toBe(supermercat.id);
-  });
-});
-
 describe("la memoria de comerços", () => {
-  test("classifica sense cap regla", async () => {
+  test("classifica a partir del comerç", async () => {
     const supermercat = await categoria(personalId);
     const comercId = await comerc("MERCADONA", {
       defaultCategoryId: supermercat.id,
@@ -353,17 +281,18 @@ describe("la memoria de comerços", () => {
 });
 
 describe("el que decideix una persona", () => {
-  test("no es sobreescriu mai, ni per una regla", async () => {
+  test("no es sobreescriu mai, ni per un comerç", async () => {
     const supermercat = await categoria(personalId);
     const restaurants = await categoria(personalId, "restauracio-restaurants");
-    await creaRegla({
-      name: "Mercadona",
-      conditions: [
-        { field: "normalized_description", operator: "contains", value: "MERCADONA" },
-      ],
-      setCategoryId: supermercat.id,
+    const comercId = await comerc("MERCADONA", {
+      defaultCategoryId: supermercat.id,
+      isConfirmed: true,
     });
-    const id = await moviment({ categoryId: restaurants.id, categorySource: "user" });
+    const id = await moviment({
+      merchantId: comercId,
+      categoryId: restaurants.id,
+      categorySource: "user",
+    });
 
     await classifica(id);
 
@@ -412,21 +341,6 @@ describe("corregir una categoria", () => {
     expect(comercFila?.defaultCategoryId).toBe(supermercat.id);
     expect(comercFila?.isConfirmed).toBe(true);
     expect((await llegeix(segon)).categoryId).toBe(supermercat.id);
-  });
-
-  test("pot crear-ne una regla apresa", async () => {
-    const id = await moviment();
-    const supermercat = await categoria(personalId);
-
-    const res = await envia(`/e/personal/moviments/${id}/categoria`, {
-      category_id: String(supermercat.id),
-      crea_regla: "on",
-    });
-
-    expect(res.status).toBe(200);
-    const [regla] = await db.select().from(rules).where(eq(rules.source, "learned"));
-    expect(regla).toBeDefined();
-    expect(regla?.ledgerId).toBe(personalId);
   });
 });
 

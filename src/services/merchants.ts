@@ -17,7 +17,6 @@ import { categories, merchants, transactions, type Merchant } from "../db/schema
 import { AppError, NotFoundError } from "../lib/http.ts";
 import { classificaMoviment } from "./classification.ts";
 import { normalizeDescription } from "./normalization.ts";
-import { reglesActives } from "./rules.ts";
 
 /** Cubells especials que abans engolien compres amb «COMISION» al final. */
 const CUBELLS_ESPECIALS = new Set([
@@ -352,7 +351,6 @@ export async function reassignaNormalitzacio(
 
   let canviats = 0;
   const tocats = new Set<number>();
-  const reglesPerEspai = new Map<number, Awaited<ReturnType<typeof reglesActives>>>();
 
   for (const moviment of files) {
     const [novaClau, mostrar] = normalizeDescription(
@@ -401,28 +399,14 @@ export async function reassignaNormalitzacio(
       continue;
     }
 
-    let regles = reglesPerEspai.get(moviment.ledgerId);
-    if (regles === undefined) {
-      regles = await reglesActives(moviment.ledgerId);
-      reglesPerEspai.set(moviment.ledgerId, regles);
-    }
-
     await classificaMoviment(
       {
         id: moviment.id,
         ledgerId: moviment.ledgerId,
-        description: moviment.description,
-        normalizedDescription: clauNova,
-        counterparty: moviment.counterparty,
-        amount: moviment.amount,
-        bankTransactionCode: moviment.bankTransactionCode,
-        accountId: moviment.accountId,
         merchantId: nouMerchantId,
         // Forcem que es torni a decidir: treiem la categoria del cubell.
         categorySource: "none",
-        tags: moviment.tags,
       },
-      regles,
       connexio,
     );
   }
