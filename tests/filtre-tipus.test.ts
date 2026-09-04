@@ -15,6 +15,7 @@ import {
   userLedgerPermissions,
   users,
 } from "../src/db/schema/index.ts";
+import { hashPassword } from "../src/lib/auth.ts";
 import { BarraFiltres } from "../src/routes/transactions/transactions.fragment.tsx";
 import {
   transactionFiltersSchema,
@@ -22,6 +23,9 @@ import {
 } from "../src/routes/transactions/transactions.schema.ts";
 import { seedCategories } from "../src/services/seed.ts";
 import { llistaMoviments } from "../src/services/transactions.ts";
+import { app } from "../src/server.ts";
+
+const CONTRASENYA = "provaprovaprova";
 
 let ledgerId = 0;
 let accountId = 0;
@@ -219,5 +223,61 @@ describe("schema de filtres tipus", () => {
     expect(html).toContain('value="transferencia"');
     expect(html).toContain("checked");
     expect(html).toContain("Targeta");
+  });
+});
+
+async function entra(email: string): Promise<string> {
+  const getEntrada = await app.request("/entrada");
+  const htmlEntrada = await getEntrada.text();
+  const seedCookie = (getEntrada.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+  const camp = /name="_csrf" value="([^"]+)"/.exec(htmlEntrada)?.[1] ?? "";
+  const res = await app.request("/entrada", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
+    body: new URLSearchParams({ _csrf: camp, email, password: CONTRASENYA }).toString(),
+  });
+  return (res.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+}
+
+describe("ruta de moviments amb filtre tipus", () => {
+  test("la pagina i el fragment no tornen el mateix, i el push guarda tipus", async () => {
+    const [usuari] = await db
+      .insert(users)
+      .values({
+        email: "filtre-tipus@exemple.cat",
+        fullName: "Filtre",
+        passwordHash: await hashPassword(CONTRASENYA),
+        isActive: true,
+        isAdmin: false,
+      })
+      .returning();
+    await db.insert(userLedgerPermissions).values({
+      userId: usuari?.id ?? 0,
+      ledgerId,
+      role: "editor",
+    });
+    const cookie = await entra("filtre-tipus@exemple.cat");
+
+    const pagina = await app.request("/e/personal/moviments?tipus=transferencia", {
+      headers: { Cookie: cookie },
+    });
+    const frag = await app.request(
+      "/e/personal/moviments/fragment/taula?tipus=transferencia",
+      { headers: { Cookie: cookie } },
+    );
+    expect(pagina.status).toBe(200);
+    expect(frag.status).toBe(200);
+
+    const htmlPagina = await pagina.text();
+    const htmlFrag = await frag.text();
+    expect(htmlPagina.toLowerCase()).toContain("<!doctype html");
+    expect(htmlFrag.toLowerCase()).not.toContain("<!doctype html");
+    expect(htmlPagina).toContain("filtre-tipus");
+    expect(htmlPagina).toContain('name="tipus"');
+    expect(htmlFrag).toContain("Maria Lopez");
+    expect(htmlFrag).toContain("transferència");
+    expect(htmlFrag).not.toContain("Mercadona");
+    expect(frag.headers.get("HX-Push-Url")).toContain("tipus=transferencia");
+    expect(htmlPagina).not.toBe(htmlFrag);
   });
 });
