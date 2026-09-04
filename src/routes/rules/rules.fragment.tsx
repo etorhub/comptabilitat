@@ -4,7 +4,8 @@
 
 import { html, raw } from "hono/html";
 
-import { Tria } from "../../components/form.tsx";
+import { Casella, Tria } from "../../components/form.tsx";
+import { Etiqueta, TaulaDades } from "../../components/vista.tsx";
 import { RULE_FIELDS, RULE_OPERATORS, type Rule } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
 import type { GrupCategories } from "../../services/categories.ts";
@@ -30,29 +31,16 @@ export interface LlistaProps {
 
 export function Llista({ codi, regles, potEditar, oob = false }: LlistaProps): Html {
   return html`<div id="llista-regles" ${oob ? raw('hx-swap-oob="true"') : ""}>
-    ${
-      regles.length === 0
-        ? html`<p class="buit text-suau">
-          Encara no hi ha cap regla. Les regles s'apliquen abans que la memoria
-          de comerços, i la primera que encaixa guanya.
-        </p>`
-        : html`<div class="desplaçable">
-          <table class="dades">
-            <thead>
-              <tr>
-                <th class="dreta">Prioritat</th>
-                <th>Regla</th>
-                <th>Assigna</th>
-                <th class="dreta">Encaixos</th>
-                ${potEditar ? html`<th></th>` : ""}
-              </tr>
-            </thead>
-            <tbody>
-              ${regles.map((regla) => Fila({ codi, regla, potEditar }))}
-            </tbody>
-          </table>
-        </div>`
-    }
+    ${TaulaDades({
+      columnes: html`<th class="dreta">Prioritat</th>
+        <th>Regla</th>
+        <th>Assigna</th>
+        <th class="dreta">Encaixos</th>
+        ${potEditar ? html`<th></th>` : ""}` as Html,
+      files: regles.map((regla) => Fila({ codi, regla, potEditar })),
+      buit: html`Encara no hi ha cap regla. Les regles s'apliquen abans que la memoria de
+      comerços, i la primera que encaixa guanya.` as Html,
+    })}
   </div>` as Html;
 }
 
@@ -74,12 +62,10 @@ export function Fila({
       <span class="nom">${regla.name}</span>
       ${
         regla.source === "learned"
-          ? html`<span class="etiqueta etiqueta-suau" title="Creada en corregir un moviment"
-            >apresa</span
-          >`
+          ? Etiqueta("apresa", { suau: true, titol: "Creada en corregir un moviment" })
           : ""
       }
-      ${regla.isActive ? "" : html`<span class="etiqueta etiqueta-suau">aturada</span>`}
+      ${regla.isActive ? "" : Etiqueta("aturada", { suau: true })}
       <ul class="condicions">
         ${condicions.map((c) => html`<li>${condicioLlegible(c)}</li>`)}
       </ul>
@@ -89,7 +75,7 @@ export function Fila({
       ${
         regla.setTags.length > 0
           ? html`<div class="etiquetes">
-            ${regla.setTags.map((t) => html`<span class="etiqueta etiqueta-suau">${t}</span>`)}
+            ${regla.setTags.map((t) => Etiqueta(t, { suau: true }))}
           </div>`
           : ""
       }
@@ -120,7 +106,7 @@ export function Fila({
             type="button"
             class="boto boto-discret"
             hx-delete="${base}"
-            hx-target="#regla-${regla.id}"
+            hx-target="#llista-regles"
             hx-swap="outerHTML"
             hx-confirm="Segur que vols esborrar «${regla.name}»?"
           >
@@ -130,10 +116,6 @@ export function Fila({
         : ""
     }
   </tr>` as Html;
-}
-
-export function FilaEsborrada(id: number): Html {
-  return html`<tr id="regla-${id}" hidden></tr>` as Html;
 }
 
 export interface FormAltaProps {
@@ -213,10 +195,11 @@ export function FormAlta({ codi, grups, errors, valors }: FormAltaProps): Html {
       </button>
     </fieldset>
 
-    <label class="casella">
-      <input type="checkbox" name="apply_now" checked />
-      <span>Aplica-la ara als moviments que ja hi ha</span>
-    </label>
+    ${Casella({
+      nom: "apply_now",
+      etiqueta: "Aplica-la ara als moviments que ja hi ha",
+      marcat: true,
+    })}
 
     <div class="form-accions">
       <button type="submit" class="boto">Crea la regla</button>

@@ -7,8 +7,9 @@
 
 import { html, raw } from "hono/html";
 
-import { Tria } from "../../components/form.tsx";
+import { Casella, Tria } from "../../components/form.tsx";
 import type { CategorySource } from "../../db/schema/index.ts";
+import { Paginacio, TaulaDades } from "../../components/vista.tsx";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
 import type { GrupCategories } from "../../services/categories.ts";
@@ -43,43 +44,26 @@ export interface TaulaProps {
 }
 
 export function Taula({ codi, pagina, grups, filters, potEditar }: TaulaProps): Html {
-  const desde = pagina.total === 0 ? 0 : pagina.offset + 1;
-  const fins = Math.min(pagina.offset + pagina.limit, pagina.total);
-
   return html`<div id="taula-moviments">
-    ${
-      pagina.items.length === 0
-        ? html`<p class="buit text-suau">Cap moviment encaixa amb aquests filtres.</p>`
-        : html`
-          ${potEditar ? BarraBloc({ codi, grups, filters }) : ""}
-
-            <div class="desplaçable">
-              <table class="dades taula-moviments">
-                <thead>
-                  <tr>
-                    ${potEditar ? html`<th class="tria"><span class="visualment-ocult">Tria</span></th>` : ""}
-                    <th>Data</th>
-                    <th>Concepte</th>
-                    <th>Comerç</th>
-                    <th>Categoria</th>
-                    <th class="dreta">Import</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${pagina.items.map((moviment) => Fila({ codi, moviment, grups, potEditar }))}
-                </tbody>
-              </table>
-            </div>
-
-          <nav class="paginacio" aria-label="Paginacio">
-            <span class="text-suau">
-              ${String(desde)}–${String(fins)} de ${String(pagina.total)} ·
-              suma ${formatMoney(pagina.totalImport)}
-            </span>
-            ${Passos({ codi, filters, total: pagina.total })}
-          </nav>
-        `
-    }
+    ${TaulaDades({
+      classe: "taula-moviments",
+      abans: potEditar ? BarraBloc({ codi, grups, filters }) : "",
+      columnes: html`${
+        potEditar ? html`<th class="tria"><span class="visualment-ocult">Tria</span></th>` : ""
+      }
+        <th>Data</th>
+        <th>Concepte</th>
+        <th>Comerç</th>
+        <th>Categoria</th>
+        <th class="dreta">Import</th>` as Html,
+      files: pagina.items.map((moviment) => Fila({ codi, moviment, grups, potEditar })),
+      buit: "Cap moviment encaixa amb aquests filtres.",
+      peu: Paginacio({
+        pagina,
+        passos: Passos({ codi, filters, total: pagina.total }),
+        resum: html` · suma ${formatMoney(pagina.totalImport)}` as Html,
+      }),
+    })}
   </div>` as Html;
 }
 
@@ -386,30 +370,26 @@ export function BarraFiltres({ codi, filters, comptes, grups }: BarraFiltresProp
       buit: "— totes —",
     })}
 
-    <label class="casella">
-      <input
-        type="checkbox"
-        name="sense_classificar"
-        value="1"
-        ${filters.sense_classificar ? raw("checked") : ""}
-      />
-      <span>Nomes sense classificar</span>
-    </label>
+    ${Casella({
+      nom: "sense_classificar",
+      valor: "1",
+      etiqueta: "Nomes sense classificar",
+      marcat: filters.sense_classificar,
+    })}
 
-    <label class="casella">
-      <input type="checkbox" name="revisio" value="1" ${filters.revisio ? raw("checked") : ""} />
-      <span>Nomes per revisar</span>
-    </label>
+    ${Casella({
+      nom: "revisio",
+      valor: "1",
+      etiqueta: "Nomes per revisar",
+      marcat: filters.revisio,
+    })}
 
-    <label class="casella">
-      <input
-        type="checkbox"
-        name="traspassos"
-        value="1"
-        ${filters.traspassos ? raw("checked") : ""}
-      />
-      <span>Inclou els traspassos</span>
-    </label>
+    ${Casella({
+      nom: "traspassos",
+      valor: "1",
+      etiqueta: "Inclou els traspassos",
+      marcat: filters.traspassos,
+    })}
   </form>` as Html;
 }
 

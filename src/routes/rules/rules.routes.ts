@@ -25,7 +25,7 @@ import { currentRole, currentWorkspace, requireEditor } from "../../middleware/w
 import { opcionsCategories } from "../../services/categories.ts";
 import { comptaPerRevisar } from "../../services/comptadors.ts";
 import { aplicaReglaAlsExistents } from "../../services/rules-apply.ts";
-import { Fila, FilaEsborrada, FormAlta, Llista, type ReglaVista } from "./rules.fragment.tsx";
+import { Fila, FormAlta, Llista, type ReglaVista } from "./rules.fragment.tsx";
 import { RulesPage } from "./rules.page.tsx";
 import { ruleCreateSchema } from "./rules.schema.ts";
 
@@ -232,5 +232,15 @@ rulesRoutes.delete("/:id", requireEditor, async (c) => {
 
   await db.delete(rules).where(eq(rules.id, id));
 
-  return fragment(c, await withOob(FilaEsborrada(id), toast("Regla esborrada", "success")));
+  // Torna la llista sencera i no nomes la fila: si era l'ultima, el que ha de
+  // sortir es l'avis que no n'hi ha cap, i una fila no el sap dibuixar.
+  const regles = await llistaRegles(espai.id);
+
+  return fragment(
+    c,
+    await withOob(
+      Llista({ codi: espai.code, regles, potEditar: true }),
+      toast("Regla esborrada", "success"),
+    ),
+  );
 });

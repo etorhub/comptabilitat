@@ -7,6 +7,7 @@ import { html, raw } from "hono/html";
 import { Tria } from "../../components/form.tsx";
 import type { ConnectionStatus, Ledger, SyncRun } from "../../db/schema/index.ts";
 import { isSyncFinished } from "../../db/schema/index.ts";
+import { EstatBuit, TaulaDades } from "../../components/vista.tsx";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
 import { formatDate } from "../../lib/time.ts";
@@ -51,9 +52,7 @@ export function Llista({ connexions, espais, oob = false }: LlistaProps): Html {
   return html`<div id="llista-connexions" ${oob ? raw('hx-swap-oob="true"') : ""}>
     ${
       connexions.length === 0
-        ? html`<p class="buit text-suau">
-          Encara no hi ha cap banc connectat.
-        </p>`
+        ? EstatBuit("Encara no hi ha cap banc connectat.")
         : connexions.map((connexio) => Targeta({ connexio, espais }))
     }
   </div>` as Html;
@@ -125,26 +124,13 @@ export function TaulaComptes({
   comptes: CompteVista[];
   espais: Ledger[];
 }): Html {
-  if (comptes.length === 0) {
-    return html`<p class="text-suau nota">
-      Encara no s'ha importat cap compte d'aquesta connexio.
-    </p>` as Html;
-  }
-
-  return html`<div class="desplaçable">
-    <table class="dades">
-      <thead>
-        <tr>
-          <th>Compte</th>
-          <th class="dreta">Saldo</th>
-          <th>Espai</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${comptes.map((compte) => FilaCompte({ compte, espais }))}
-      </tbody>
-    </table>
-  </div>` as Html;
+  return TaulaDades({
+    columnes: html`<th>Compte</th>
+      <th class="dreta">Saldo</th>
+      <th>Espai</th>` as Html,
+    files: comptes.map((compte) => FilaCompte({ compte, espais })),
+    buit: "Encara no s'ha importat cap compte d'aquesta connexio.",
+  });
 }
 
 export function FilaCompte({

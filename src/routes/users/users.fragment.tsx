@@ -11,6 +11,7 @@ import {
   type LedgerRole,
   type User,
 } from "../../db/schema/index.ts";
+import { TaulaDades } from "../../components/vista.tsx";
 import type { Html } from "../../lib/html.ts";
 
 const NOMS_ROL: Record<LedgerRole, string> = {
@@ -103,18 +104,13 @@ export function Targeta({
       </div>
     </form>
 
-    <div class="desplaçable">
-      <table class="dades">
-        <thead>
-          <tr>
-            <th>Espai</th>
-            <th>Acces</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${espais.map((espai) => {
-            const acces = usuari.accessos.find((a) => a.ledgerId === espai.id);
-            return html`<tr>
+    ${TaulaDades({
+      columnes: html`<th>Espai</th>
+        <th>Acces</th>` as Html,
+      buit: "Encara no hi ha cap espai actiu.",
+      files: espais.map((espai) => {
+        const acces = usuari.accessos.find((a) => a.ledgerId === espai.id);
+        return html`<tr>
               <td>${espai.name}</td>
               <td>
                 <form
@@ -135,11 +131,9 @@ export function Targeta({
                   </select>
                 </form>
               </td>
-            </tr>`;
-          })}
-        </tbody>
-      </table>
-    </div>
+            </tr>` as Html;
+      }),
+    })}
 
     <form
       hx-post="${base}/contrasenya"
@@ -224,10 +218,10 @@ export function FormAlta({ errors, valors }: FormAltaProps): Html {
       })}
     </div>
 
-    <label class="casella">
-      <input type="checkbox" name="is_admin" />
-      <span>Administrador de la instal·lacio (bancs i usuaris)</span>
-    </label>
+    ${Casella({
+      nom: "is_admin",
+      etiqueta: "Administrador de la instal·lacio (bancs i usuaris)",
+    })}
 
     <div class="form-accions">
       <button type="submit" class="boto">Crea'l</button>
