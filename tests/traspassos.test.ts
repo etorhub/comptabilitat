@@ -22,6 +22,7 @@ import {
   categories,
   ledgers,
   merchants,
+  rules,
   transactions,
   userLedgerPermissions,
   users,
@@ -274,5 +275,47 @@ describe("les dues cames, o cap", () => {
     // hauria quedat amb grup i l'entrada sense.
     expect((await llegeix(surt)).transferGroupId).toBeNull();
     expect((await llegeix(entra)).transferGroupId).toBeNull();
+  });
+});
+
+/**
+ * El comptador d'encaixos d'una regla.
+ *
+ * Es puja amb `match_count + 1` **a la base de dades**. Si es fes des del
+ * valor llegit en JavaScript, dues passades alhora —la sincronitzacio de la
+ * nit i algu aplicant una regla a ma— es trepitjarien i el comptador aniria
+ * enrere.
+ */
+describe("el comptador d'una regla", () => {
+  test("no es perd res encara que dues passades hi escriguin alhora", async () => {
+    const [regla] = await db
+      .insert(rules)
+      .values({
+        ledgerId,
+        name: "prova",
+        priority: 10,
+        isActive: true,
+        source: "user",
+        conditions: [],
+        setCategoryId: null,
+        setMerchantId: null,
+        setTags: [],
+        matchCount: 0,
+      })
+      .returning();
+    const id = regla?.id ?? 0;
+
+    // Vint sumes alhora, cadascuna a la seva connexio.
+    await Promise.all(
+      Array.from({ length: 20 }, () =>
+        db
+          .update(rules)
+          .set({ matchCount: sql`${rules.matchCount} + 1` })
+          .where(eq(rules.id, id)),
+      ),
+    );
+
+    const [final] = await db.select().from(rules).where(eq(rules.id, id));
+    expect(final?.matchCount).toBe(20);
   });
 });

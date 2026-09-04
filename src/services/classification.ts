@@ -13,7 +13,7 @@
  * altres. Traduccio de `backend/app/services/classification.py`.
  */
 
-import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 
 import { db, type Transactor } from "../db/client.ts";
 import {
@@ -81,12 +81,14 @@ export async function classificaMoviment(
       })
       .where(eq(transactions.id, moviment.id));
 
+    // Es puja a la base de dades, no a partir del valor que teniem llegit:
+    // dues passades alhora es trepitjarien i el comptador aniria enrere.
     await connexio
       .update(rules)
-      .set({ matchCount: regla.matchCount + 1 })
+      .set({ matchCount: sql`${rules.matchCount} + 1` })
       .where(eq(rules.id, regla.id));
-    // El comptador de la regla que tenim a la ma tambe puja, perque la
-    // mateixa llista de regles es fa servir per a tots els moviments del lot.
+    // El de l'objecte que tenim a la ma tambe, perque la mateixa llista de
+    // regles es fa servir per a tots els moviments del lot.
     regla.matchCount += 1;
 
     return "rule";

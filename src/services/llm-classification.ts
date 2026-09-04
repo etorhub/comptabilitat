@@ -211,30 +211,34 @@ export async function classificaComercos(
       continue;
     }
 
-    await db
-      .update(merchants)
-      .set({
-        defaultCategoryId: categoria.id,
-        categorySource: "llm",
-        ...(suggeriment.merchant !== "" ? { displayName: suggeriment.merchant } : {}),
-      })
-      .where(eq(merchants.id, comerc.id));
+    // Les dues juntes: si nomes passa la primera, el comerç diu que el model
+    // li ha posat una categoria i els seus moviments no la tenen.
+    await db.transaction(async (tx) => {
+      await tx
+        .update(merchants)
+        .set({
+          defaultCategoryId: categoria.id,
+          categorySource: "llm",
+          ...(suggeriment.merchant !== "" ? { displayName: suggeriment.merchant } : {}),
+        })
+        .where(eq(merchants.id, comerc.id));
 
-    // Es proposa, pero cal que una persona ho validi: `needsReview` a cert.
-    await db
-      .update(transactions)
-      .set({
-        categoryId: categoria.id,
-        categorySource: "llm",
-        categoryConfidence: suggeriment.confidence,
-        needsReview: true,
-      })
-      .where(
-        and(
-          eq(transactions.merchantId, comerc.id),
-          inArray(transactions.categorySource, ["none"]),
-        ),
-      );
+      // Es proposa, pero cal que una persona ho validi: `needsReview` a cert.
+      await tx
+        .update(transactions)
+        .set({
+          categoryId: categoria.id,
+          categorySource: "llm",
+          categoryConfidence: suggeriment.confidence,
+          needsReview: true,
+        })
+        .where(
+          and(
+            eq(transactions.merchantId, comerc.id),
+            inArray(transactions.categorySource, ["none"]),
+          ),
+        );
+    });
 
     estadistiques.classificats += 1;
   }

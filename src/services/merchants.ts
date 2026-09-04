@@ -136,6 +136,15 @@ export async function vistaComerc(id: number, ledgerId: number): Promise<ComercV
  * Els moviments que ja tenen categoria posada **per una persona**
  * (`category_source = 'user'`) no es toquen mai: aquella decisio mana per
  * sobre de tot. Retorna quants moviments s'han canviat.
+ *
+ * Les dues escriptures van juntes. Si nomes passes la primera, el comerç diu
+ * «confirmat, categoria X» i els seus moviments continuen amb la d'abans; i
+ * aixo no s'adoba sol, perque `classificaPendents` nomes recull els moviments
+ * sense categoria o marcats per revisar, i aquests no en son cap dels dos.
+ *
+ * `connexio.transaction()` val tant per a la piscina com per a una transaccio
+ * que ja estigui oberta: dins d'una altra, Postgres hi posa un punt de
+ * seguretat i prou.
  */
 export async function recordaEleccioComerc(
   comerc: Merchant,
@@ -143,35 +152,37 @@ export async function recordaEleccioComerc(
   aplicaAlsExistents = true,
   connexio: Transactor = db,
 ): Promise<number> {
-  await connexio
-    .update(merchants)
-    .set({
-      defaultCategoryId: categoryId,
-      categorySource: "user",
-      isConfirmed: true,
-    })
-    .where(eq(merchants.id, comerc.id));
+  return connexio.transaction(async (tx) => {
+    await tx
+      .update(merchants)
+      .set({
+        defaultCategoryId: categoryId,
+        categorySource: "user",
+        isConfirmed: true,
+      })
+      .where(eq(merchants.id, comerc.id));
 
-  if (!aplicaAlsExistents) return 0;
+    if (!aplicaAlsExistents) return 0;
 
-  const canviats = await connexio
-    .update(transactions)
-    .set({
-      categoryId,
-      categorySource: "merchant",
-      categoryConfidence: 1,
-      needsReview: false,
-    })
-    .where(
-      and(
-        eq(transactions.merchantId, comerc.id),
-        // La decisio d'una persona no la sobreescriu res.
-        ne(transactions.categorySource, "user"),
-      ),
-    )
-    .returning({ id: transactions.id });
+    const canviats = await tx
+      .update(transactions)
+      .set({
+        categoryId,
+        categorySource: "merchant",
+        categoryConfidence: 1,
+        needsReview: false,
+      })
+      .where(
+        and(
+          eq(transactions.merchantId, comerc.id),
+          // La decisio d'una persona no la sobreescriu res.
+          ne(transactions.categorySource, "user"),
+        ),
+      )
+      .returning({ id: transactions.id });
 
-  return canviats.length;
+    return canviats.length;
+  });
 }
 
 /** Canvia el nom que es veu d'un comerç. */

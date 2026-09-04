@@ -5,7 +5,7 @@
  * les regles. La resta del motor de classificacio arriba amb els moviments.
  */
 
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 
 import { db } from "../db/client.ts";
 import { rules, transactions, type Rule } from "../db/schema/index.ts";
@@ -58,9 +58,11 @@ export async function aplicaReglaAlsExistents(rule: Rule): Promise<number> {
         .where(eq(transactions.id, moviment.id));
     }
 
+    // Sumat a la base de dades: si mentrestant hi ha passat una
+    // sincronitzacio, el valor que teniem llegit ja no valia.
     await tx
       .update(rules)
-      .set({ matchCount: rule.matchCount + encaixen.length })
+      .set({ matchCount: sql`${rules.matchCount} + ${encaixen.length}` })
       .where(eq(rules.id, rule.id));
   });
 
