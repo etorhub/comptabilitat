@@ -177,7 +177,7 @@ describe("filtre per tipus d'operacio", () => {
       ...baseFiltre,
       tipusOperacio: ["targeta", "bizum"],
     });
-    const descs = pagina.items.map((i) => i.description).sort();
+    const descs = pagina.items.map((i) => i.description).toSorted();
     expect(descs).toEqual(["Joan", "Mercadona"]);
   });
 

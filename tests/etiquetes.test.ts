@@ -360,9 +360,11 @@ describe("servei d'etiquetes", () => {
     expect(casament?.ingressos).toBe("20.00");
     expect(casament?.net).toBe("-130.00");
     // Cap parseFloat: el net es la resta exacta amb Decimal.
-    expect(money(casament!.ingressos).minus(money(casament!.despeses)).toFixed(2)).toBe(
-      "-130.00",
-    );
+    expect(
+      money(casament?.ingressos ?? "0")
+        .minus(money(casament?.despeses ?? "0"))
+        .toFixed(2),
+    ).toBe("-130.00");
   });
 
   test("esborra de tot l'espai", async () => {
