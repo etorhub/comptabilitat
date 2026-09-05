@@ -563,7 +563,12 @@ export function FiltreTargetes({
   >
     <legend class="camp-etiqueta">Targeta</legend>
     ${targetes.map((t) =>
-      Casella({ nom: "targeta", valor: t, etiqueta: `*${t}`, marcat: seleccionades.includes(t) }),
+      Casella({
+        nom: "targeta",
+        valor: t,
+        etiqueta: `*${t}`,
+        marcat: seleccionades.includes(t),
+      }),
     )}
   </fieldset>` as Html;
 }
