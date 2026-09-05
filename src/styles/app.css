@@ -543,6 +543,14 @@ table.dades tbody tr:hover {
   padding: 0 0.25rem;
 }
 
+.filtre-targetes {
+  display: none;
+}
+
+.filtres:has(input[name="tipus"][value="targeta"]:checked) .filtre-targetes {
+  display: flex;
+}
+
 /* --- Etiquetes ------------------------------------------------------------ */
 
 .etiqueta {

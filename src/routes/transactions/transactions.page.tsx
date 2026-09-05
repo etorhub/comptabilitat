@@ -22,6 +22,7 @@ export interface TransactionsPageProps {
   filters: TransactionFilters;
   potEditar: boolean;
   etiquetesConegudes?: string[];
+  targetesConegudes?: string[];
 }
 
 export function TransactionsPage(props: TransactionsPageProps): Html {
@@ -33,6 +34,7 @@ export function TransactionsPage(props: TransactionsPageProps): Html {
     filters,
     potEditar,
     etiquetesConegudes = [],
+    targetesConegudes = [],
   } = props;
   // El que et descarregues es el que estas veient: els mateixos filtres.
   const consulta = transactionFiltersToQuery(filters);
@@ -56,7 +58,7 @@ export function TransactionsPage(props: TransactionsPageProps): Html {
         </div>
       </header>
 
-      ${BarraFiltres({ codi, filters, comptes, grups, etiquetesConegudes })}
+      ${BarraFiltres({ codi, filters, comptes, grups, etiquetesConegudes, targetesConegudes })}
       ${Taula({ codi, pagina, grups, filters, potEditar, etiquetesConegudes })}
     </div>
   ` as Html;

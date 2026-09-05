@@ -11,14 +11,7 @@ import { Hono } from "hono";
 
 import { workspacePage } from "../../components/workspace-page.ts";
 import { roleAtLeast } from "../../db/schema/index.ts";
-import {
-  AppError,
-  fragment,
-  page,
-  pushUrl,
-  redirect,
-  toastOnly,
-} from "../../lib/http.ts";
+import { AppError, fragment, page, pushUrl, redirect, toastOnly } from "../../lib/http.ts";
 import { currentRole, currentWorkspace, requireEditor } from "../../middleware/workspace.ts";
 import { opcionsCategories } from "../../services/categories.ts";
 import {
@@ -63,6 +56,7 @@ async function dadesDetall(ledgerId: number, nom: string, query: Record<string, 
       cerca: "",
       etiqueta: nom,
       tipusOperacio: [],
+      targetes: [],
       nomesRevisio: false,
       nomesSenseClassificar: false,
       incloTraspassos: false,
@@ -84,11 +78,7 @@ tagsRoutes.get("/", async (c) => {
 
   return page(
     c,
-    await workspacePage(
-      c,
-      "Etiquetes",
-      TagsPage({ codi: espai.code, etiquetes, potEditar }),
-    ),
+    await workspacePage(c, "Etiquetes", TagsPage({ codi: espai.code, etiquetes, potEditar })),
   );
 });
 

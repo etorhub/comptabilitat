@@ -559,12 +559,44 @@ export function FilaConcepte({
   </tr>` as Html;
 }
 
+/** Selector multiple de targetes (darrers 4 digits) fetes servir al compte. */
+export function FiltreTargetes({
+  targetes,
+  seleccionades,
+  oob = false,
+}: {
+  targetes: string[];
+  seleccionades: string[];
+  oob?: boolean;
+}): Html {
+  if (targetes.length === 0) return html`` as Html;
+  return html`<fieldset
+    id="filtre-targetes"
+    class="filtre-tipus filtre-targetes"
+    ${oob ? raw('hx-swap-oob="true"') : ""}
+  >
+    <legend class="camp-etiqueta">Targeta</legend>
+    ${targetes.map(
+      (t) => html`<label class="casella">
+        <input
+          type="checkbox"
+          name="targeta"
+          value="${t}"
+          ${seleccionades.includes(t) ? raw("checked") : ""}
+        />
+        <span>*${t}</span>
+      </label>`,
+    )}
+  </fieldset>` as Html;
+}
+
 export interface BarraFiltresProps {
   codi: string;
   filters: TransactionFilters;
   comptes: { valor: number; text: string }[];
   grups: GrupCategories[];
   etiquetesConegudes?: string[];
+  targetesConegudes?: string[];
 }
 
 export function BarraFiltres({
@@ -573,6 +605,7 @@ export function BarraFiltres({
   comptes,
   grups,
   etiquetesConegudes = [],
+  targetesConegudes = [],
 }: BarraFiltresProps): Html {
   return html`<form
     class="filtres superficie targeta"
@@ -649,6 +682,8 @@ export function BarraFiltres({
         </label>`,
       )}
     </fieldset>
+
+    ${FiltreTargetes({ targetes: targetesConegudes, seleccionades: filters.targeta })}
 
     <label class="casella">
       <input

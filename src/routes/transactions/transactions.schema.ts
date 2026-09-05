@@ -26,7 +26,17 @@ const tipusSchema = z
   .transform((v): TipusOperacio[] => {
     const bruts = v === undefined ? [] : Array.isArray(v) ? v : [v];
     const valids = new Set<TipusOperacio>(TIPUS_OPERACIO);
-    return [...new Set(bruts.filter((x): x is TipusOperacio => valids.has(x as TipusOperacio)))];
+    return [
+      ...new Set(bruts.filter((x): x is TipusOperacio => valids.has(x as TipusOperacio))),
+    ];
+  });
+
+const targetaSchema = z
+  .union([z.string(), z.array(z.string())])
+  .optional()
+  .transform((v): string[] => {
+    const bruts = v === undefined ? [] : Array.isArray(v) ? v : [v];
+    return [...new Set(bruts.filter((x) => /^\d{4}$/.test(x)))];
   });
 
 export const transactionFiltersSchema = z.object({
@@ -49,6 +59,7 @@ export const transactionFiltersSchema = z.object({
     .or(z.literal(""))
     .transform((v) => (v ? v : null)),
   tipus: tipusSchema,
+  targeta: targetaSchema,
   sense_classificar: casella,
   revisio: casella,
   traspassos: casella,
@@ -70,15 +81,16 @@ export const ETIQUETES_TIPUS: { valor: TipusOperacio; text: string }[] = [
 export function teFiltresActius(f: TransactionFilters): boolean {
   return Boolean(
     f.cerca ||
-      f.des ||
-      f.fins ||
-      f.compte !== null ||
-      f.categoria !== null ||
-      f.etiqueta ||
-      f.tipus.length > 0 ||
-      f.sense_classificar ||
-      f.revisio ||
-      f.traspassos,
+    f.des ||
+    f.fins ||
+    f.compte !== null ||
+    f.categoria !== null ||
+    f.etiqueta ||
+    f.tipus.length > 0 ||
+    f.targeta.length > 0 ||
+    f.sense_classificar ||
+    f.revisio ||
+    f.traspassos,
   );
 }
 
@@ -91,6 +103,7 @@ export function transactionFiltersToQuery(f: TransactionFilters): string {
   if (f.categoria !== null) p.set("categoria", String(f.categoria));
   if (f.etiqueta) p.set("etiqueta", f.etiqueta);
   for (const t of f.tipus) p.append("tipus", t);
+  for (const t of f.targeta) p.append("targeta", t);
   if (f.sense_classificar) p.set("sense_classificar", "1");
   if (f.revisio) p.set("revisio", "1");
   if (f.traspassos) p.set("traspassos", "1");

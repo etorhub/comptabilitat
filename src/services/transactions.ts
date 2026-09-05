@@ -195,8 +195,7 @@ export function vistaMoviment(fila: FilaCrua): MovimentVista {
   }
 
   const parsejat = parsejaConcepte(fila.description);
-  const hint =
-    parsejat.originalNetejat !== parsejat.titol ? parsejat.originalNetejat : null;
+  const hint = parsejat.originalNetejat !== parsejat.titol ? parsejat.originalNetejat : null;
 
   return {
     id: fila.id,
@@ -238,6 +237,8 @@ export interface FiltresMoviments {
   etiqueta: string | null;
   /** Tipus d'operacio (OR). Buit = tots. */
   tipusOperacio: TipusOperacio[];
+  /** Darrers 4 digits de targeta (OR). Buit = totes. */
+  targetes: string[];
   nomesRevisio: boolean;
   nomesSenseClassificar: boolean;
   incloTraspassos: boolean;
@@ -289,6 +290,46 @@ function clausulaTipus(tipus: TipusOperacio[]): SQL | undefined {
   return or(...tipus.map(predicatTipus));
 }
 
+/** El concepte conte aquests 4 digits com a bloc (no enganxats a mes digits). */
+function predicatTargeta(v: string): SQL {
+  return sql`${transactions.description} ~ ('(^|[^0-9])' || ${v} || '($|[^0-9])')`;
+}
+
+function clausulaTargetes(targetes: string[]): SQL | undefined {
+  if (targetes.length === 0) return undefined;
+  return and(predicatTipus("targeta"), or(...targetes.map(predicatTargeta)));
+}
+
+/**
+ * Darrers 4 digits de cada targeta feta servir en un compte (o tot el
+ * ledger si no se'n dona cap). Es dedueix del concepte, igual que
+ * `darrers4` a `vistaMoviment()`: no hi ha cap columna a la BD.
+ */
+export async function targetesDisponibles(
+  ledgerId: number,
+  accountId: number | null,
+): Promise<string[]> {
+  const on = and(
+    eq(transactions.ledgerId, ledgerId),
+    accountId !== null ? eq(transactions.accountId, accountId) : undefined,
+    predicatTipus("targeta"),
+    // Un moviment emmascarat no es pot cercar pel concepte bancari
+    // (vistaMoviment): tampoc ha de revelar-hi la targeta.
+    or(isNull(transactions.displayDescription), eq(transactions.displayDescription, "")),
+  );
+  const files = await db
+    .selectDistinct({ description: transactions.description })
+    .from(transactions)
+    .where(on);
+
+  const trobades = new Set<string>();
+  for (const f of files) {
+    const { darrers4 } = parsejaConcepte(f.description);
+    if (darrers4) trobades.add(darrers4);
+  }
+  return [...trobades].toSorted();
+}
+
 /**
  * Cerca sobre el text **visible**.
  *
@@ -325,6 +366,7 @@ function condicions(ledgerId: number, f: FiltresMoviments): SQL | undefined {
   if (f.cerca.trim()) parts.push(clausulaCerca(`%${f.cerca.trim()}%`));
   if (f.etiqueta) parts.push(teEtiqueta(f.etiqueta));
   parts.push(clausulaTipus(f.tipusOperacio));
+  parts.push(clausulaTargetes(f.targetes));
   if (f.nomesRevisio) parts.push(eq(transactions.needsReview, true));
   if (f.nomesSenseClassificar) parts.push(isNull(transactions.categoryId));
   // Els traspassos entre comptes propis no son ni ingres ni despesa: per

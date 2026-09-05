@@ -44,6 +44,7 @@ const CAP_FILTRE = {
   cerca: "",
   etiqueta: null,
   tipusOperacio: [],
+  targetes: [],
   nomesRevisio: false,
   nomesSenseClassificar: false,
   incloTraspassos: true,

@@ -15,11 +15,7 @@ import { Hono } from "hono";
 import { AppError, page } from "../../lib/http.ts";
 import { addDays, todayLocal } from "../../lib/time.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
-import {
-  informeAPdf,
-  movimentsACsv,
-  resumAXlsx,
-} from "../../services/export.ts";
+import { informeAPdf, movimentsACsv, resumAXlsx } from "../../services/export.ts";
 import {
   ingressosIDespeses,
   repartimentCategories,
@@ -55,6 +51,7 @@ async function movimentsPerExportar(ledgerId: number, query: Record<string, stri
     cerca: filters.cerca,
     etiqueta: null,
     tipusOperacio: [],
+    targetes: [],
     nomesRevisio: false,
     nomesSenseClassificar: false,
     incloTraspassos: filters.traspassos,
