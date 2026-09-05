@@ -10,6 +10,7 @@
 
 import { html, raw } from "hono/html";
 
+import { TaulaDades } from "../../components/vista.tsx";
 import type { Html } from "../../lib/html.ts";
 import { jsonScript } from "../../lib/http.ts";
 import { formatMoney } from "../../lib/money.ts";
@@ -142,66 +143,44 @@ export function Xifra({ etiqueta, valor, detall, to = "", href }: XifraProps): H
  * que pot llegir un lector de pantalla.
  */
 export function TaulaCategories(dades: TrosCategoria[]): Html {
-  if (dades.length === 0) {
-    return html`<p class="buit text-suau">Encara no hi ha despeses classificades.</p>` as Html;
-  }
-
-  return html`<div class="desplaçable">
-    <table class="dades">
-      <thead>
-        <tr>
-          <th>Categoria</th>
-          <th class="dreta">Import</th>
-          <th class="dreta">Part</th>
-          <th class="dreta">Moviments</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${dades.map(
-          (tros) => html`<tr>
-            <td>
-              <span class="punt" style="background:${tros.color}" aria-hidden="true"></span>
-              ${tros.categoryName}
-            </td>
-            <td class="dreta">${formatMoney(tros.amount)}</td>
-            <td class="dreta">${String(Math.round(tros.share * 100))}%</td>
-            <td class="dreta">${String(tros.transactions)}</td>
-          </tr>`,
-        )}
-      </tbody>
-    </table>
-  </div>` as Html;
+  return TaulaDades({
+    columnes: html`<th>Categoria</th>
+      <th class="dreta">Import</th>
+      <th class="dreta">Part</th>
+      <th class="dreta">Moviments</th>` as Html,
+    files: dades.map(
+      (tros) =>
+        html`<tr>
+          <td>
+            <span class="punt" style="background:${tros.color}" aria-hidden="true"></span>
+            ${tros.categoryName}
+          </td>
+          <td class="dreta">${formatMoney(tros.amount)}</td>
+          <td class="dreta">${String(Math.round(tros.share * 100))}%</td>
+          <td class="dreta">${String(tros.transactions)}</td>
+        </tr>` as Html,
+    ),
+    buit: "Encara no hi ha despeses classificades.",
+  });
 }
 
 export function TaulaEsdeveniments(previsio: Previsio): Html {
-  if (previsio.esdeveniments.length === 0) {
-    return html`<p class="buit text-suau">
-      No hi ha cap rebut previst dins d'aquest horitzo.
-    </p>` as Html;
-  }
-
-  return html`<div class="desplaçable">
-    <table class="dades">
-      <thead>
-        <tr>
-          <th>Dia</th>
-          <th>Rebut</th>
-          <th class="dreta">Import</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${previsio.esdeveniments.map(
-          (e) => html`<tr>
-            <td><time datetime="${e.dia}">${formatDate(e.dia)}</time></td>
-            <td>${e.label}</td>
-            <td class="dreta ${e.amount.startsWith("-") ? "negatiu" : "positiu"}">
-              ${formatMoney(e.amount)}
-            </td>
-          </tr>`,
-        )}
-      </tbody>
-    </table>
-  </div>` as Html;
+  return TaulaDades({
+    columnes: html`<th>Dia</th>
+      <th>Rebut</th>
+      <th class="dreta">Import</th>` as Html,
+    files: previsio.esdeveniments.map(
+      (e) =>
+        html`<tr>
+          <td><time datetime="${e.dia}">${formatDate(e.dia)}</time></td>
+          <td>${e.label}</td>
+          <td class="dreta ${e.amount.startsWith("-") ? "negatiu" : "positiu"}">
+            ${formatMoney(e.amount)}
+          </td>
+        </tr>` as Html,
+    ),
+    buit: "No hi ha cap rebut previst dins d'aquest horitzo.",
+  });
 }
 
 /** El saldo de la capçalera del panell: objectiu fora de banda. */

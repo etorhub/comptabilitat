@@ -6,6 +6,7 @@ import { html, raw } from "hono/html";
 
 import { Camp, ErrorGeneral, type FieldErrors } from "../../components/form.tsx";
 import { LEDGER_ROLES, type Ledger, type LedgerRole } from "../../db/schema/index.ts";
+import { TaulaDades } from "../../components/vista.tsx";
 import type { Html } from "../../lib/html.ts";
 
 const NOMS_ROL: Record<LedgerRole, string> = {
@@ -79,31 +80,21 @@ export function TaulaMembres({ membres }: { membres: MembreVista[] }): Html {
       L'acces es dona des de <a href="/usuaris">Usuaris</a>, que es on hi ha
       tots els espais alhora.
     </p>
-    ${
-      membres.length === 0
-        ? html`<p class="buit text-suau">Encara no hi entra ningu mes.</p>`
-        : html`<div class="desplaçable">
-          <table class="dades">
-            <thead>
-              <tr>
-                <th>Persona</th>
-                <th>Acces</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${membres.map(
-                (m) => html`<tr>
-                  <td>
-                    <span class="nom">${m.fullName || m.email}</span><br />
-                    <small class="text-suau">${m.email}</small>
-                  </td>
-                  <td>${NOMS_ROL[m.role]}</td>
-                </tr>`,
-              )}
-            </tbody>
-          </table>
-        </div>`
-    }
+    ${TaulaDades({
+      columnes: html`<th>Persona</th>
+        <th>Acces</th>` as Html,
+      files: membres.map(
+        (m) =>
+          html`<tr>
+            <td>
+              <span class="nom">${m.fullName || m.email}</span><br />
+              <small class="text-suau">${m.email}</small>
+            </td>
+            <td>${NOMS_ROL[m.role]}</td>
+          </tr>` as Html,
+      ),
+      buit: "Encara no hi entra ningu mes.",
+    })}
   </section>` as Html;
 }
 

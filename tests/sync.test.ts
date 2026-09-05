@@ -54,12 +54,15 @@ function crua(over: Record<string, unknown> = {}): Record<string, unknown> {
  * es prova es la part que decideix, que es `desaMoviments`, a traves del seu
  * efecte a la base de dades.
  */
-async function importa(items: Record<string, unknown>[]): Promise<void> {
-  const { desaMovimentsPerAProves } = await import("../src/services/sync.ts");
+async function importa(
+  items: Record<string, unknown>[],
+  llistaIncompleta = false,
+): Promise<void> {
+  const { desaMoviments } = await import("../src/services/import.ts");
   const analitzats = items
     .map(parseTransaction)
     .filter((x): x is NonNullable<typeof x> => x !== null);
-  await desaMovimentsPerAProves(compte, analitzats);
+  await desaMoviments(compte, analitzats, llistaIncompleta);
 }
 
 beforeEach(async () => {
@@ -251,6 +254,28 @@ describe("un apunt pendent que es consolida", () => {
     const desats = await db.select().from(transactions);
     expect(desats).toHaveLength(1);
     expect(desats[0]?.entryReference).toBe("R-ALTRE");
+  });
+
+  test("pero no si la llista del banc ve escapçada", async () => {
+    await importa([crua({ status: "PDNG", booking_date: "2026-03-01" })]);
+    expect(await db.select().from(transactions)).toHaveLength(1);
+
+    // El mateix cas d'abans, pero el banc ha arribat al limit de pagines: «no
+    // hi es» vol dir «no ha arribat», i esborrar-lo seria perdre'l de debo amb
+    // les notes i la categoria que hi hagues.
+    await importa(
+      [
+        crua({
+          status: "BOOK",
+          booking_date: "2026-03-02",
+          entry_reference: "R-ALTRE",
+          transaction_amount: { amount: "99.99", currency: "EUR" },
+        }),
+      ],
+      true,
+    );
+
+    expect(await db.select().from(transactions)).toHaveLength(2);
   });
 });
 

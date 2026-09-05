@@ -222,7 +222,11 @@ export class EnableBankingClient {
       transactionStatus?: string | null;
       maxPages?: number;
     },
-  ): AsyncGenerator<Record<string, unknown>> {
+    // El `boolean` de retorn diu si s'ha arribat al limit de pagines, es a
+    // dir, si el que s'ha llegit **no** es tot el que hi ha. Qui ho crida ho
+    // ha de mirar: hi ha decisions —esborrar pendents que el banc ja no
+    // reporta— que amb una llista incompleta esborrarien coses vives.
+  ): AsyncGenerator<Record<string, unknown>, boolean> {
     const maxPages = opcions.maxPages ?? 200;
     let continuationKey: string | null = null;
 
@@ -242,12 +246,14 @@ export class EnableBankingClient {
       for (const moviment of payload.transactions ?? []) yield moviment;
 
       continuationKey = payload.continuation_key ?? null;
-      if (continuationKey === null) return;
+      if (continuationKey === null) return false;
     }
 
     console.warn(
-      `[enablebanking] compte ${accountUid}: s'ha arribat al limit de ${maxPages} pagines`,
+      `[enablebanking] compte ${accountUid}: s'ha arribat al limit de ${maxPages} pagines; ` +
+        "la llista que se'n treu no es completa",
     );
+    return true;
   }
 }
 

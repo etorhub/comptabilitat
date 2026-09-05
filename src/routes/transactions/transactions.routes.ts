@@ -5,24 +5,18 @@
  * `vistaMoviment()`, que es on s'aplica l'emmascarament.
  */
 
-import { and, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { Hono } from "hono";
 
 import { ComptadorRevisio } from "../../components/layout.tsx";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
+import { accounts, categories, roleAtLeast, transactions } from "../../db/schema/index.ts";
 import {
-  accounts,
-  categories,
-  llmSuggestions,
-  merchants,
-  roleAtLeast,
-  transactions,
-} from "../../db/schema/index.ts";
-import {
+  NotFoundError,
   clearToast,
   fragment,
-  NotFoundError,
+  idDeLaRuta,
   page,
   pushUrl,
   toast,
@@ -31,8 +25,12 @@ import {
 } from "../../lib/http.ts";
 import { currentRole, currentWorkspace, requireEditor } from "../../middleware/workspace.ts";
 import { opcionsCategories } from "../../services/categories.ts";
+import {
+  categoritzaEnBloc,
+  categoritzaMoviment,
+  confirmaDeLaRevisio,
+} from "../../services/categoritzacio.ts";
 import { comptaPerRevisar } from "../../services/comptadors.ts";
-import { recordaEleccioComerc } from "../../services/merchants.ts";
 import {
   afegeixEtiqueta,
   afegeixEtiquetaEnBloc,
@@ -67,12 +65,6 @@ import {
 } from "./transactions.schema.ts";
 
 export const transactionsRoutes = new Hono();
-
-function idDeLaRuta(valor: string | undefined): number {
-  const id = Number.parseInt(valor ?? "", 10);
-  if (Number.isNaN(id)) throw new NotFoundError("Aquest moviment no existeix");
-  return id;
-}
 
 async function dades(ledgerId: number, query: Record<string, string | string[]>) {
   const filters = transactionFiltersSchema.parse(query);
@@ -188,7 +180,10 @@ transactionsRoutes.get("/fragment/taula", async (c) => {
 /** Una fila sola, per cancel·lar una edicio. */
 transactionsRoutes.get("/:id/fragment/fila", async (c) => {
   const espai = currentWorkspace(c);
-  const moviment = await movimentDeLespai(idDeLaRuta(c.req.param("id")), espai.id);
+  const moviment = await movimentDeLespai(
+    idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix"),
+    espai.id,
+  );
   const [grups, etiquetesConegudes] = await Promise.all([
     opcionsCategories(espai.id),
     etiquetesEspai(espai.id),
@@ -212,7 +207,10 @@ transactionsRoutes.get("/:id/fragment/fila", async (c) => {
 /** La fila amb el desplegable de categoria obert per editar-la. */
 transactionsRoutes.get("/:id/fragment/categoria", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const moviment = await movimentDeLespai(idDeLaRuta(c.req.param("id")), espai.id);
+  const moviment = await movimentDeLespai(
+    idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix"),
+    espai.id,
+  );
   const [grups, etiquetesConegudes] = await Promise.all([
     opcionsCategories(espai.id),
     etiquetesEspai(espai.id),
@@ -234,7 +232,10 @@ transactionsRoutes.get("/:id/fragment/categoria", requireEditor, async (c) => {
 /** La fila convertida en el camp de l'alias. */
 transactionsRoutes.get("/:id/fragment/concepte", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const moviment = await movimentDeLespai(idDeLaRuta(c.req.param("id")), espai.id);
+  const moviment = await movimentDeLespai(
+    idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix"),
+    espai.id,
+  );
   return fragment(c, FilaConcepte({ codi: espai.code, moviment }));
 });
 
@@ -274,7 +275,7 @@ async function respostaFila(
  */
 transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix");
   const parsed = categorizeSchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success) return toastOnly(c, "La categoria no es valida", 422);
@@ -284,33 +285,17 @@ transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
 
   const fila = await filaMoviment(id, espai.id);
 
-  await db
-    .update(transactions)
-    .set({
-      categoryId: parsed.data.category_id,
-      categorySource: "user",
-      categoryConfidence: 1,
-      needsReview: false,
-    })
-    .where(eq(transactions.id, id));
-
-  let recordat = 0;
-  if (parsed.data.recorda_comerc && fila.merchantId !== null) {
-    const [comerc] = await db
-      .select()
-      .from(merchants)
-      .where(eq(merchants.id, fila.merchantId))
-      .limit(1);
-    if (comerc) recordat = await recordaEleccioComerc(comerc, parsed.data.category_id, true);
-  }
+  const { recordats } = await categoritzaMoviment(id, fila, parsed.data.category_id, {
+    recordaComerc: parsed.data.recorda_comerc,
+  });
 
   return respostaFila(
     c,
     espai.id,
     espai.code,
     id,
-    recordat > 1
-      ? { text: `Recordat per a ${recordat} moviments d'aquest comerç`, to: "success" }
+    recordats > 1
+      ? { text: `Recordat per a ${recordats} moviments d'aquest comerç`, to: "success" }
       : undefined,
   );
 });
@@ -323,7 +308,7 @@ transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
  */
 transactionsRoutes.post("/:id/concepte", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix");
   const parsed = maskSchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success) {
@@ -381,47 +366,15 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
     return toastOnly(c, "La categoria no es d'aquest espai", 422);
   }
 
-  // Nomes els que son d'aquest espai: aixi no s'hi pot colar un identificador.
-  const demanats = [...new Set(parsed.data.moviment)];
-  const meus = await db
-    .select({ id: transactions.id, merchantId: transactions.merchantId })
-    .from(transactions)
-    .where(and(eq(transactions.ledgerId, espai.id), inArray(transactions.id, demanats)));
-
-  // **Tot o res.** Si algun identificador no es d'aquest espai, no s'aplica
-  // a cap: una peticio a mitges deixaria l'usuari sense saber que ha canviat.
-  if (meus.length !== demanats.length) {
-    return toastOnly(c, "No s'ha trobat", 404);
-  }
-
-  await db
-    .update(transactions)
-    .set({
-      categoryId: parsed.data.category_id,
-      categorySource: "user",
-      categoryConfidence: 1,
-      needsReview: false,
-    })
-    .where(
-      inArray(
-        transactions.id,
-        meus.map((m) => m.id),
-      ),
-    );
-
-  if (parsed.data.recorda_comerc) {
-    const comercIds = [
-      ...new Set(meus.map((m) => m.merchantId).filter((x): x is number => x !== null)),
-    ];
-    for (const comercId of comercIds) {
-      const [comerc] = await db
-        .select()
-        .from(merchants)
-        .where(eq(merchants.id, comercId))
-        .limit(1);
-      if (comerc) await recordaEleccioComerc(comerc, parsed.data.category_id, true);
-    }
-  }
+  // El servei ho fa tot o res i llança un 404 si algun identificador no es
+  // d'aquest espai: una peticio a mitges deixaria l'usuari sense saber que ha
+  // canviat.
+  const { aplicats } = await categoritzaEnBloc(
+    parsed.data.moviment,
+    espai.id,
+    parsed.data.category_id,
+    { recordaComerc: parsed.data.recorda_comerc },
+  );
 
   const { filters, pagina, grups, etiquetesConegudes } = await dades(
     espai.id,
@@ -447,7 +400,7 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
       }),
       ComptadorRevisio(perRevisar, true),
       toast(
-        `S'ha posat la categoria a ${meus.length} ${meus.length === 1 ? "moviment" : "moviments"}`,
+        `S'ha posat la categoria a ${aplicats} ${aplicats === 1 ? "moviment" : "moviments"}`,
         "success",
       ),
     ),
@@ -510,7 +463,7 @@ transactionsRoutes.post("/bloc/etiquetes", requireEditor, async (c) => {
 /** Afegeix una etiqueta a un moviment des de la fila. */
 transactionsRoutes.post("/:id/etiquetes", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix");
   // Assegura que el moviment es de l'espai abans de validar el cos.
   await movimentDeLespai(id, espai.id);
   const parsed = tagAddRowSchema.safeParse(await c.req.parseBody());
@@ -538,7 +491,7 @@ transactionsRoutes.post("/:id/etiquetes", requireEditor, async (c) => {
 /** Treu una etiqueta d'un moviment. */
 transactionsRoutes.post("/:id/etiquetes/treure", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix");
   const parsed = tagMutationSchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success) {
@@ -577,7 +530,7 @@ transactionsRoutes.get("/revisio", async (c) => {
  */
 transactionsRoutes.post("/:id/revisa", requireEditor, async (c) => {
   const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"));
+  const id = idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix");
   const parsed = categorizeSchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success || parsed.data.category_id === null) {
@@ -589,44 +542,11 @@ transactionsRoutes.post("/:id/revisa", requireEditor, async (c) => {
 
   const fila = await filaMoviment(id, espai.id);
 
-  await db
-    .update(transactions)
-    .set({
-      categoryId: parsed.data.category_id,
-      categorySource: "user",
-      categoryConfidence: 1,
-      needsReview: false,
-    })
-    .where(eq(transactions.id, id));
-
-  // Tanca la proposta del model dient si l'encertava.
-  if (fila.merchantId !== null) {
-    const [proposta] = await db
-      .select()
-      .from(llmSuggestions)
-      .where(
-        and(eq(llmSuggestions.merchantId, fila.merchantId), isNull(llmSuggestions.accepted)),
-      )
-      .limit(1);
-    if (proposta) {
-      await db
-        .update(llmSuggestions)
-        .set({
-          accepted: proposta.suggestedCategoryId === parsed.data.category_id,
-          reviewedAt: new Date(),
-        })
-        .where(eq(llmSuggestions.id, proposta.id));
-    }
-
-    if (parsed.data.recorda_comerc) {
-      const [comerc] = await db
-        .select()
-        .from(merchants)
-        .where(eq(merchants.id, fila.merchantId))
-        .limit(1);
-      if (comerc) await recordaEleccioComerc(comerc, parsed.data.category_id, true);
-    }
-  }
+  // El mateix que canviar-la des de la llista, i a mes tanca la proposta del
+  // model dient si l'encertava.
+  await confirmaDeLaRevisio(id, fila, parsed.data.category_id, {
+    recordaComerc: parsed.data.recorda_comerc,
+  });
 
   const perRevisar = await comptaPerRevisar(espai.id);
 

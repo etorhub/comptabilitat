@@ -15,7 +15,7 @@
 
 import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 
-import { db, type Db } from "../db/client.ts";
+import { db, type Transactor } from "../db/client.ts";
 import {
   categories,
   merchants,
@@ -49,7 +49,7 @@ interface MovimentClassificable {
  */
 export async function classificaMoviment(
   moviment: MovimentClassificable,
-  connexio: Db = db,
+  connexio: Transactor = db,
 ): Promise<CategorySource> {
   if (moviment.categorySource === "user") return "user";
 
@@ -133,7 +133,11 @@ export async function classificaPendents(
 }
 
 /** Una categoria de l'espai pel seu pendent estable. */
-export async function categoriaPerSlug(ledgerId: number, slug: string, connexio: Db = db) {
+export async function categoriaPerSlug(
+  ledgerId: number,
+  slug: string,
+  connexio: Transactor = db,
+) {
   const [categoria] = await connexio
     .select()
     .from(categories)
@@ -142,7 +146,7 @@ export async function categoriaPerSlug(ledgerId: number, slug: string, connexio:
   return categoria ?? null;
 }
 
-export async function categoriaSenseClassificar(ledgerId: number, connexio: Db = db) {
+export async function categoriaSenseClassificar(ledgerId: number, connexio: Transactor = db) {
   return categoriaPerSlug(ledgerId, SLUG_UNCATEGORIZED, connexio);
 }
 
@@ -150,7 +154,7 @@ export async function categoriaSenseClassificar(ledgerId: number, connexio: Db =
  * La categoria dels traspassos interns. Si algu l'ha canviat de tipus, no
  * serveix: val mes no aparellar res que aparellar-ho malament.
  */
-export async function categoriaTraspas(ledgerId: number, connexio: Db = db) {
+export async function categoriaTraspas(ledgerId: number, connexio: Transactor = db) {
   const categoria = await categoriaPerSlug(ledgerId, SLUG_INTERNAL_TRANSFER, connexio);
   if (categoria !== null && categoria.kind !== "transfer") return null;
   return categoria;

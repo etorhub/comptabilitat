@@ -93,13 +93,10 @@ function treuTargeta(text: string): { text: string; darrers4: string | null } {
   };
 
   // TARJ. / TARJETA + digits (amb o sense * i :).
-  net = net.replace(
-    /\bTARJ(?:ETA)?\.?\s*:?\s*\*?(\d{4,19})\b/gi,
-    (_m, digits: string) => {
-      marcar(digits);
-      return " ";
-    },
-  );
+  net = net.replace(/\bTARJ(?:ETA)?\.?\s*:?\s*\*?(\d{4,19})\b/gi, (_m, digits: string) => {
+    marcar(digits);
+    return " ";
+  });
 
   // PAN emmascarat amb X o *: 5402XXXXXXXX1234, 1234******5678
   net = net.replace(/\b\d{2,6}[X*]{3,}(\d{2,6})\b/gi, (_m, cua: string) => {
@@ -136,7 +133,10 @@ function treuComissio(text: string): string {
  * i quotes (`Q.IBI 95,25`).
  */
 function trossosConcepte(despres: string): string {
-  const parts = despres.split("/").map((p) => p.trim()).filter(Boolean);
+  const parts = despres
+    .split("/")
+    .map((p) => p.trim())
+    .filter(Boolean);
   const humans: string[] = [];
 
   for (const part of parts) {
@@ -147,7 +147,7 @@ function trossosConcepte(despres: string): string {
     // Cues numeriques curtes: «0066», «07746», «P0202».
     if (/^[P]?\d{3,6}$/i.test(part)) continue;
     // Cadastre nu: nomes alfanumeric llarg, sense + / - (que marquen un concepte).
-    if (!/[+/\-]/.test(part) && !/\s/.test(part)) {
+    if (!/[+/-]/.test(part) && !/\s/.test(part)) {
       const alnum = part.replace(/[^A-Z0-9]/gi, "");
       if (alnum.length >= 10 && alnum === part.replace(/[^A-Z0-9]/gi, "")) {
         continue;
@@ -163,7 +163,7 @@ function trossosConcepte(despres: string): string {
     // Treu cues «Q.IBI …» encara dins del mateix tros.
     net = net.replace(/\s+Q\.\s*[A-Z]+\s+\d+[.,]\d{2}.*$/i, "").trim();
     if (!net) continue;
-    if (!/[+/\-]/.test(net) && !/\s/.test(net)) {
+    if (!/[+/-]/.test(net) && !/\s/.test(net)) {
       const alnum = net.replace(/[^A-Z0-9]/gi, "");
       if (alnum.length >= 10) continue;
     }
@@ -174,7 +174,7 @@ function trossosConcepte(despres: string): string {
 }
 
 function treuPrefix(text: string): string {
-  let net = text.trim();
+  const net = text.trim();
   for (const pattern of PREFIXOS) {
     const replaced = net.replace(pattern, "");
     if (replaced !== net) {
@@ -192,7 +192,7 @@ function treuPrefix(text: string): string {
  */
 function treuCuaLloc(text: string): string {
   // Ultima coma + cua en majuscules / pais (ignora comes finals).
-  const match = /^(.*?),\s*([A-ZÀ-ÜÑ][A-ZÀ-ÜÑa-zà-üñ' .\-]{0,40})\s*,?\s*$/u.exec(text.trim());
+  const match = /^(.*?),\s*([A-ZÀ-ÜÑ][A-ZÀ-ÜÑa-zà-üñ' .-]{0,40})\s*,?\s*$/u.exec(text.trim());
   if (!match) return text.trim().replace(/,+\s*$/, "");
   const cap = (match[1] ?? "").trim();
   const cua = (match[2] ?? "").trim();
@@ -235,7 +235,19 @@ const CONNECTORS_TITOL = new Set([
   "A",
 ]);
 
-const SUFIXOS_EMPRESA = new Set(["SA", "SL", "SLU", "SAU", "SARL", "SCP", "SCCL", "SAS", "BV", "GMBH", "LTD"]);
+const SUFIXOS_EMPRESA = new Set([
+  "SA",
+  "SL",
+  "SLU",
+  "SAU",
+  "SARL",
+  "SCP",
+  "SCCL",
+  "SAS",
+  "BV",
+  "GMBH",
+  "LTD",
+]);
 
 /**
  * Title-case per a la UI. A diferencia de `displayName` (clau de comerç),
@@ -269,14 +281,17 @@ function presenta(text: string): string {
     return net
       .split(" · ")
       .map((tros) => {
-        if (/[+/\-]/.test(tros)) return tros;
-        const c = stripAccents(tros).toUpperCase().replace(/[^A-Z0-9&'.\s]/g, " ").trim();
+        if (/[+/-]/.test(tros)) return tros;
+        const c = stripAccents(tros)
+          .toUpperCase()
+          .replace(/[^A-Z0-9&'.\s]/g, " ")
+          .trim();
         return c ? titolLlegible(c) : tros;
       })
       .join(" · ");
   }
   // Conserva + / - en codis tipus IBI+TM2026-3T.
-  if (/[+/\-]/.test(net) && !/\s/.test(net)) {
+  if (/[+/-]/.test(net) && !/\s/.test(net)) {
     return net;
   }
   const clau = stripAccents(net)

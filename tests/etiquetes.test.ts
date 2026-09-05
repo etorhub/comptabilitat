@@ -335,10 +335,16 @@ describe("servei d'etiquetes", () => {
 
   test("suma ingressos i despeses amb Decimal", async () => {
     const segon = (
-      await db.select({ id: transactions.id }).from(transactions).where(eq(transactions.dedupKey, "k-p-2"))
+      await db
+        .select({ id: transactions.id })
+        .from(transactions)
+        .where(eq(transactions.dedupKey, "k-p-2"))
     )[0]?.id;
     const tercer = (
-      await db.select({ id: transactions.id }).from(transactions).where(eq(transactions.dedupKey, "k-p-3"))
+      await db
+        .select({ id: transactions.id })
+        .from(transactions)
+        .where(eq(transactions.dedupKey, "k-p-3"))
     )[0]?.id;
     if (!segon || !tercer) throw new Error("falten moviments");
 
@@ -354,12 +360,19 @@ describe("servei d'etiquetes", () => {
     expect(casament?.ingressos).toBe("20.00");
     expect(casament?.net).toBe("-130.00");
     // Cap parseFloat: el net es la resta exacta amb Decimal.
-    expect(money(casament!.ingressos).minus(money(casament!.despeses)).toFixed(2)).toBe("-130.00");
+    expect(
+      money(casament?.ingressos ?? "0")
+        .minus(money(casament?.despeses ?? "0"))
+        .toFixed(2),
+    ).toBe("-130.00");
   });
 
   test("esborra de tot l'espai", async () => {
     const segon = (
-      await db.select({ id: transactions.id }).from(transactions).where(eq(transactions.dedupKey, "k-p-2"))
+      await db
+        .select({ id: transactions.id })
+        .from(transactions)
+        .where(eq(transactions.dedupKey, "k-p-2"))
     )[0]?.id;
     if (!segon) throw new Error("falta");
     await afegeixEtiqueta(movimentPersonal, personalId, "casament");

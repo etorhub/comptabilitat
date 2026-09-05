@@ -21,10 +21,18 @@ import { ComptadorAvisos } from "../../components/layout.tsx";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { alerts } from "../../db/schema/index.ts";
-import { clearToast, fragment, NotFoundError, page, pushUrl, withOob } from "../../lib/http.ts";
+import {
+  NotFoundError,
+  clearToast,
+  fragment,
+  idDeLaRuta,
+  page,
+  pushUrl,
+  withOob,
+} from "../../lib/http.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
 import { comptaAvisosNous } from "../../services/comptadors.ts";
-import { AvisDescartat, LlistaAvisos, TargetaAvis } from "./alerts.fragment.tsx";
+import { LlistaAvisos, TargetaAvis } from "./alerts.fragment.tsx";
 import { AlertsPage } from "./alerts.page.tsx";
 import { alertFiltersSchema, alertFiltersToQuery } from "./alerts.schema.ts";
 
@@ -90,8 +98,7 @@ alertsRoutes.get("/fragment/llista", async (c) => {
 
 alertsRoutes.post("/:id/llegit", async (c) => {
   const espai = currentWorkspace(c);
-  const id = Number.parseInt(c.req.param("id"), 10);
-  if (Number.isNaN(id)) throw new NotFoundError("Aquest avis no existeix");
+  const id = idDeLaRuta(c.req.param("id"), "Aquest avis no existeix");
 
   const avis = await avisDeLespai(id, espai.id);
 
@@ -108,7 +115,11 @@ alertsRoutes.post("/:id/llegit", async (c) => {
     // El tros que ha canviat, el comptador de la barra lateral fora de banda,
     // i el `#toast` net per esborrar l'error que hi pogues haver.
     await withOob(
-      TargetaAvis({ codi: espai.code, avis: actualitzat }),
+      TargetaAvis({
+        codi: espai.code,
+        avis: actualitzat,
+        filters: alertFiltersSchema.parse(c.req.query()),
+      }),
       ComptadorAvisos(await comptaAvisosNous(espai.id), true),
       clearToast(),
     ),
@@ -117,16 +128,20 @@ alertsRoutes.post("/:id/llegit", async (c) => {
 
 alertsRoutes.post("/:id/descarta", async (c) => {
   const espai = currentWorkspace(c);
-  const id = Number.parseInt(c.req.param("id"), 10);
-  if (Number.isNaN(id)) throw new NotFoundError("Aquest avis no existeix");
+  const id = idDeLaRuta(c.req.param("id"), "Aquest avis no existeix");
 
   await avisDeLespai(id, espai.id);
   await db.update(alerts).set({ status: "dismissed" }).where(eq(alerts.id, id));
 
+  // La llista sencera i no nomes la targeta: descartar l'ultim avis pendent
+  // ha de deixar veure que no en queda cap.
+  const filtres = alertFiltersSchema.parse(c.req.query());
+  const avisos = await llegeixAvisos(espai.id, filtres.descartats, filtres.limit);
+
   return fragment(
     c,
     await withOob(
-      AvisDescartat(id),
+      LlistaAvisos({ codi: espai.code, avisos, filters: filtres }),
       ComptadorAvisos(await comptaAvisosNous(espai.id), true),
       clearToast(),
     ),

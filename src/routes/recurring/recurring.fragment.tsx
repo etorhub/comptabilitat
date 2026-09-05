@@ -5,6 +5,8 @@
 import { html, raw } from "hono/html";
 
 import type { Cadence } from "../../db/schema/index.ts";
+import { Casella } from "../../components/form.tsx";
+import { TaulaDades } from "../../components/vista.tsx";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
 import { formatDate } from "../../lib/time.ts";
@@ -56,31 +58,18 @@ export interface TaulaProps {
 
 export function Taula({ codi, series, potEditar }: TaulaProps): Html {
   return html`<div id="taula-recurrents">
-    ${
-      series.length === 0
-        ? html`<p class="buit text-suau">
-          Encara no s'ha detectat cap serie. Calen com a minim tres aparicions a
-          intervals regulars perque una despesa es reconegui com a rebut.
-        </p>`
-        : html`<div class="desplaçable">
-          <table class="dades">
-            <thead>
-              <tr>
-                <th>Serie</th>
-                <th>Cadencia</th>
-                <th class="dreta">Import</th>
-                <th class="dreta">Al mes</th>
-                <th>Seguent</th>
-                <th class="dreta">Confiança</th>
-                <th>A la previsio</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${series.map((serie) => Fila({ codi, serie, potEditar }))}
-            </tbody>
-          </table>
-        </div>`
-    }
+    ${TaulaDades({
+      columnes: html`<th>Serie</th>
+        <th>Cadencia</th>
+        <th class="dreta">Import</th>
+        <th class="dreta">Al mes</th>
+        <th>Seguent</th>
+        <th class="dreta">Confiança</th>
+        <th>A la previsio</th>` as Html,
+      files: series.map((serie) => Fila({ codi, serie, potEditar })),
+      buit: html`Encara no s'ha detectat cap serie. Calen com a minim tres aparicions a
+      intervals regulars perque una despesa es reconegui com a rebut.` as Html,
+    })}
   </div>` as Html;
 }
 
@@ -167,23 +156,17 @@ export function BarraFiltres({ codi, filters }: BarraFiltresProps): Html {
     hx-swap="outerHTML"
     hx-trigger="change"
   >
-    <label class="casella">
-      <input
-        type="checkbox"
-        name="nomes_subscripcions"
-        value="1"
-        ${filters.nomes_subscripcions ? raw("checked") : ""}
-      />
-      <span>Nomes les subscripcions</span>
-    </label>
-    <label class="casella">
-      <input
-        type="checkbox"
-        name="inclou_acabades"
-        value="1"
-        ${filters.inclou_acabades ? raw("checked") : ""}
-      />
-      <span>Inclou les acabades</span>
-    </label>
+    ${Casella({
+      nom: "nomes_subscripcions",
+      valor: "1",
+      etiqueta: "Nomes les subscripcions",
+      marcat: filters.nomes_subscripcions,
+    })}
+    ${Casella({
+      nom: "inclou_acabades",
+      valor: "1",
+      etiqueta: "Inclou les acabades",
+      marcat: filters.inclou_acabades,
+    })}
   </form>` as Html;
 }

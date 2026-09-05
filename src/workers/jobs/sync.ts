@@ -6,7 +6,8 @@ import { and, eq, isNotNull } from "drizzle-orm";
 
 import { db } from "../../db/client.ts";
 import { bankConnections } from "../../db/schema/index.ts";
-import { comprovaConsentiments, sincronitzaConnexio } from "../../services/sync.ts";
+import { comprovaConsentiments } from "../../services/consent.ts";
+import { sincronitzaConnexio } from "../../services/sync.ts";
 
 export async function feinaSincronitzacio(
   opcions: { connectionId?: number | null; daysBack?: number | null } = {},

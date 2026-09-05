@@ -29,6 +29,14 @@ import { workspacesRoutes } from "./workspaces/workspaces.routes.ts";
 import { requireAdmin, requireUser } from "../middleware/session.ts";
 import { workspaceMiddleware } from "../middleware/workspace.ts";
 
+/** Penja unes rutes darrere de la guarda d'administrador de la instal·lacio. */
+function ambAdmin(rutes: Hono): Hono {
+  const sub = new Hono();
+  sub.use("*", requireAdmin);
+  sub.route("/", rutes);
+  return sub;
+}
+
 export function registerRoutes(app: Hono): void {
   // --- Transversals --------------------------------------------------------
   app.route("/", authRoutes);
@@ -71,13 +79,6 @@ export function registerRoutes(app: Hono): void {
   // Configuracio de l'espai: nomes administradors de la instal·lacio.
   // La guarda va a cada sub-programa, no a `espai` sencer: un `use("*")`
   // aqui tancaria Panell, Moviments i la resta.
-  const ambAdmin = (rutes: Hono) => {
-    const sub = new Hono();
-    sub.use("*", requireAdmin);
-    sub.route("/", rutes);
-    return sub;
-  };
-
   espai.route("/avisos", ambAdmin(alertsRoutes));
   espai.route("/categories", ambAdmin(categoriesRoutes));
   espai.route("/etiquetes", ambAdmin(tagsRoutes));
