@@ -50,10 +50,6 @@ export const merchantCategorySchema = z.object({
     .transform((v) => v === undefined),
 });
 
-export const merchantRenameSchema = z.object({
-  display_name: z.string().trim().min(1, "Cal un nom").max(200, "El nom es massa llarg"),
-});
-
 /**
  * Marcar el comerç com a recurrent. La casella desmarcada no arriba al cos;
  * la cadencia nomes cal quan es marca (si falta, el servei fa servir monthly).

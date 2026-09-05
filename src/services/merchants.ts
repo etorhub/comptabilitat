@@ -219,19 +219,6 @@ export async function recordaEleccioComerc(
   });
 }
 
-/** Canvia el nom que es veu d'un comerç. */
-export async function reanomenaComerc(
-  id: number,
-  ledgerId: number,
-  displayName: string,
-): Promise<void> {
-  await comercDeLespai(id, ledgerId);
-  await db
-    .update(merchants)
-    .set({ displayName: displayName.slice(0, 200) })
-    .where(eq(merchants.id, id));
-}
-
 /**
  * Assigna la categoria per defecte d'un comerç.
  *

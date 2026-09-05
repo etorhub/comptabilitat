@@ -81,7 +81,7 @@
           type: "bar",
           itemStyle: { color: c.positiu, borderRadius: [3, 3, 0, 0] },
           data: dades.map(function (d) {
-            return Number(d.ingressos);
+            return d.ingressos;
           }),
         },
         {
@@ -89,7 +89,7 @@
           type: "bar",
           itemStyle: { color: c.negatiu, borderRadius: [3, 3, 0, 0] },
           data: dades.map(function (d) {
-            return Number(d.despeses);
+            return d.despeses;
           }),
         },
         {
@@ -100,7 +100,7 @@
           lineStyle: { color: c.accent },
           itemStyle: { color: c.accent },
           data: dades.map(function (d) {
-            return Number(d.net);
+            return d.net;
           }),
         },
       ];
@@ -122,7 +122,7 @@
           data: dades.map(function (d) {
             return {
               name: d.categoryName,
-              value: Number(d.amount),
+              value: d.amount,
               itemStyle: { color: d.color },
             };
           }),
@@ -158,7 +158,7 @@
           lineStyle: { color: c.accent },
           areaStyle: { color: c.accent, opacity: 0.12 },
           data: dades.map(function (d) {
-            return Number(d.saldo);
+            return d.saldo;
           }),
         },
       ];
@@ -199,7 +199,7 @@
             data: [
               {
                 name: "Descobert",
-                coord: [puntDescobert.dia, Number(puntDescobert.esperat)],
+                coord: [puntDescobert.dia, puntDescobert.esperat],
               },
             ],
           };
@@ -214,7 +214,7 @@
       var puntsRebut = diesRebut
         .map(function (dia) {
           var p = perDia[dia];
-          return p ? [dia, Number(p.esperat)] : null;
+          return p ? [dia, p.esperat] : null;
         })
         .filter(Boolean);
 
@@ -226,14 +226,14 @@
         lineStyle: { color: c.accent, width: 2 },
         areaStyle: { color: c.accent, opacity: 0.1 },
         data: dades.punts.map(function (p) {
-          return Number(p.esperat);
+          return p.esperat;
         }),
         markLine: {
           silent: true,
           symbol: "none",
           lineStyle: { color: c.negatiu, type: "dashed" },
           label: { formatter: "Llindar", color: c.negatiu },
-          data: [{ yAxis: Number(dades.llindar) }],
+          data: [{ yAxis: dades.llindar }],
         },
       };
       if (markPoint) serieEsperat.markPoint = markPoint;
@@ -246,7 +246,7 @@
           showSymbol: false,
           lineStyle: { color: c.positiu, type: "dashed", width: 1 },
           data: dades.punts.map(function (p) {
-            return Number(p.optimista);
+            return p.optimista;
           }),
         },
         serieEsperat,
@@ -257,7 +257,7 @@
           showSymbol: false,
           lineStyle: { color: c.avis, type: "dashed", width: 1 },
           data: dades.punts.map(function (p) {
-            return Number(p.pessimista);
+            return p.pessimista;
           }),
         },
         {
@@ -267,7 +267,7 @@
           showSymbol: false,
           lineStyle: { color: c.suau, width: 1.5 },
           data: dades.punts.map(function (p) {
-            return Number(p.tendencia);
+            return p.tendencia;
           }),
         },
       ];
@@ -311,7 +311,7 @@
           type: "bar",
           itemStyle: { color: c.accent, borderRadius: [0, 3, 3, 0] },
           data: dades.map(function (d) {
-            return Number(d.amount);
+            return d.amount;
           }),
         },
       ];

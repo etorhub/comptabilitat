@@ -8,11 +8,18 @@
  * El que et descarregues es el que estas veient: els filtres son els mateixos
  * i, sobretot, **les dades passen per `vistaMoviment()`**, de manera que un
  * moviment emmascarat surt emmascarat tambe al full de calcul.
+ *
+ * Dos programes i no un: `/moviments.csv` nomes te sentit sota `/moviments`,
+ * i `/informe.xlsx`/`/informe.pdf` nomes sota `/informes`. Un sol
+ * `exportsRoutes` muntat a totes dues adreces —com hi havia abans— feia que
+ * cada descarrega respongues a **dues** adreces, una d'elles brossa
+ * (`/moviments/informe.xlsx`, `/informes/moviments.csv`), contra la regla que
+ * una adreça nomes retorna una cosa.
  */
 
 import { Hono } from "hono";
 
-import { AppError, page } from "../../lib/http.ts";
+import { AppError } from "../../lib/http.ts";
 import { addDays, todayLocal } from "../../lib/time.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
 import { informeAPdf, movimentsACsv, resumAXlsx } from "../../services/export.ts";
@@ -24,7 +31,8 @@ import {
 import { llistaMoviments } from "../../services/transactions.ts";
 import { exportFiltersSchema, MAX_FILES, summarySchema } from "./exports.schema.ts";
 
-export const exportsRoutes = new Hono();
+export const movimentsExportRoutes = new Hono();
+export const informesExportRoutes = new Hono();
 
 /** Nom de fitxer amb l'espai i el dia, com feia el Python. */
 function nomFitxer(codi: string, extensio: string): string {
@@ -68,7 +76,7 @@ async function movimentsPerExportar(ledgerId: number, query: Record<string, stri
   return pagina.items;
 }
 
-exportsRoutes.get("/moviments.csv", async (c) => {
+movimentsExportRoutes.get("/moviments.csv", async (c) => {
   const espai = currentWorkspace(c);
   const moviments = await movimentsPerExportar(espai.id, c.req.query());
 
@@ -79,7 +87,7 @@ exportsRoutes.get("/moviments.csv", async (c) => {
   );
 });
 
-exportsRoutes.get("/informe.xlsx", async (c) => {
+informesExportRoutes.get("/informe.xlsx", async (c) => {
   const espai = currentWorkspace(c);
   const { mesos } = summarySchema.parse(c.req.query());
   const avui = todayLocal();
@@ -100,7 +108,7 @@ exportsRoutes.get("/informe.xlsx", async (c) => {
   );
 });
 
-exportsRoutes.get("/informe.pdf", async (c) => {
+informesExportRoutes.get("/informe.pdf", async (c) => {
   const espai = currentWorkspace(c);
   const filters = exportFiltersSchema.parse(c.req.query());
   const avui = todayLocal();
@@ -131,5 +139,3 @@ exportsRoutes.get("/informe.pdf", async (c) => {
     capçaleres(`informe-${espai.code}-${avui.replace(/-/g, "")}.pdf`, "application/pdf"),
   );
 });
-
-export { page };

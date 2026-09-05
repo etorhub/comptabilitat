@@ -179,12 +179,6 @@ export function toastOnly(
   return c.html(toast(missatge, tone, detall));
 }
 
-/** El mateix, a partir d'un error del domini. */
-export function toastError(c: Context, error: unknown) {
-  const { status, missatge, detall } = describeError(error);
-  return toastOnly(c, missatge, status, "error", detall);
-}
-
 export function describeError(error: unknown): {
   status: number;
   missatge: string;

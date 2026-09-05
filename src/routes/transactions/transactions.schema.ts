@@ -185,7 +185,3 @@ export const maskSchema = z.object({
     .max(200, "Com a molt 200 carácters")
     .transform((v) => (v === "" ? null : v)),
 });
-
-export const notesSchema = z.object({
-  notes: z.string().trim().max(2000, "Les notes son massa llargues"),
-});

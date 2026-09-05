@@ -8,12 +8,12 @@
  * funcionant.
  */
 
-import { html, raw } from "hono/html";
+import { html } from "hono/html";
 
 import { TaulaDades } from "../../components/vista.tsx";
 import type { Html } from "../../lib/html.ts";
 import { jsonScript } from "../../lib/http.ts";
-import { formatMoney } from "../../lib/money.ts";
+import { formatMoney, toChartNumber } from "../../lib/money.ts";
 import { formatDate } from "../../lib/time.ts";
 import type { PuntSaldo } from "../../services/balances.ts";
 import type { Previsio } from "../../services/forecast.ts";
@@ -56,13 +56,29 @@ function Grafic({
   </section>` as Html;
 }
 
+/**
+ * Els imports es converteixen a `number` aqui, no als serveis.
+ *
+ * `PuntMensual`, `TrosCategoria`, `PuntSaldo`, `TrosComerc` i `PuntPrevisio`
+ * son `MoneyString`: la mateixa fila serveix per a `formatMoney()` a les
+ * taules (`TaulaCategories`, `TaulaEsdeveniments`, la pagina de previsio) i
+ * per al grafic. Canviar el tipus del servei per fer content el grafic hauria
+ * trencat aquelles taules —`formatMoney()` no accepta `number`. El grafic es
+ * l'unic que necessita `number`, aixi que es ell qui el demana, amb
+ * `toChartNumber()`.
+ */
 export function GraficMensual(dades: PuntMensual[]): Html {
   return Grafic({
     tipus: "mensual",
     id: "grafic-mensual",
     titol: "Mes a mes",
     descripcio: "Ingressos, despeses i resultat de cada mes",
-    dades,
+    dades: dades.map((d) => ({
+      periode: d.periode,
+      ingressos: toChartNumber(d.ingressos),
+      despeses: toChartNumber(d.despeses),
+      net: toChartNumber(d.net),
+    })),
   });
 }
 
@@ -72,7 +88,11 @@ export function GraficCategories(dades: TrosCategoria[]): Html {
     id: "grafic-categories",
     titol: "On van les despeses",
     descripcio: "Repartiment de la despesa per categoria",
-    dades,
+    dades: dades.map((d) => ({
+      categoryName: d.categoryName,
+      color: d.color,
+      amount: toChartNumber(d.amount),
+    })),
   });
 }
 
@@ -82,7 +102,7 @@ export function GraficSaldos(dades: PuntSaldo[]): Html {
     id: "grafic-saldos",
     titol: "Evolucio del saldo",
     descripcio: "Saldo dia a dia, reconstruit cap enrere des del saldo d'avui",
-    dades,
+    dades: dades.map((d) => ({ dia: d.dia, saldo: toChartNumber(d.saldo) })),
   });
 }
 
@@ -92,7 +112,10 @@ export function GraficComercos(dades: TrosComerc[]): Html {
     id: "grafic-comercos",
     titol: "On es gasta mes",
     descripcio: "Els comerços amb mes despesa",
-    dades,
+    dades: dades.map((d) => ({
+      merchantName: d.merchantName,
+      amount: toChartNumber(d.amount),
+    })),
     alçada: 320,
   });
 }
@@ -105,8 +128,14 @@ export function GraficPrevisio(previsio: Previsio): Html {
     titol: "Saldo previst",
     descripcio: `Projeccio del saldo a ${previsio.horitzoDies} dies, en banda optimista, esperada i pessimista, amb la tendencia de conjunt`,
     dades: {
-      punts: previsio.punts,
-      llindar: previsio.llindar,
+      punts: previsio.punts.map((p) => ({
+        dia: p.dia,
+        esperat: toChartNumber(p.esperat),
+        optimista: toChartNumber(p.optimista),
+        pessimista: toChartNumber(p.pessimista),
+        tendencia: toChartNumber(p.tendencia),
+      })),
+      llindar: toChartNumber(previsio.llindar),
       primerDescobert: previsio.primerDescobert,
       diesRebut,
     },
@@ -183,17 +212,18 @@ export function TaulaEsdeveniments(previsio: Previsio): Html {
   });
 }
 
-/** El saldo de la capçalera del panell: objectiu fora de banda. */
-export function SaldoCapcalera({
-  saldo,
-  data,
-  oob = false,
-}: {
-  saldo: string;
-  data: string | null;
-  oob?: boolean;
-}): Html {
-  return html`<div id="saldo-capcalera" class="xifra" ${oob ? raw('hx-swap-oob="true"') : ""}>
+/**
+ * El saldo de la capçalera del panell.
+ *
+ * **No es cap objectiu fora de banda**, tot i que `AGENTS.md` ho deia:
+ * sincronitzar es fa des de `/connexions`, una pagina d'administracio sense
+ * cap espai concret, i el saldo viu al panell d'un espai (`/e/:codi`) —dues
+ * pagines que no coincideixen mai al DOM del navegador. No hi ha cap mutacio
+ * al panell mateix que l'hagi de refrescar sense recarregar. Es veu al dia
+ * perque **cada cop que es carrega el panell es torna a calcular**.
+ */
+export function SaldoCapcalera({ saldo, data }: { saldo: string; data: string | null }): Html {
+  return html`<div id="saldo-capcalera" class="xifra">
     <span class="xifra-etiqueta">Saldo</span>
     <strong class="xifra-valor">${formatMoney(saldo)}</strong>
     <small class="text-suau">

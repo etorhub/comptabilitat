@@ -18,7 +18,7 @@ import { callbackRoute, connectionsRoutes } from "./connections/connections.rout
 import { analyticsRoutes } from "./analytics/analytics.routes.ts";
 import { authRoutes } from "./auth/auth.routes.ts";
 import { categoriesRoutes } from "./categories/categories.routes.ts";
-import { exportsRoutes } from "./exports/exports.routes.ts";
+import { informesExportRoutes, movimentsExportRoutes } from "./exports/exports.routes.ts";
 import { homeRoutes } from "./home/home.routes.ts";
 import { merchantsRoutes } from "./merchants/merchants.routes.ts";
 import { recurringRoutes } from "./recurring/recurring.routes.ts";
@@ -87,8 +87,11 @@ export function registerRoutes(app: Hono): void {
   espai.route("/moviments", transactionsRoutes);
   espai.route("/recurrents", recurringRoutes);
   // Les descarregues pengen de Moviments i d'Informes, que son d'on surten.
-  espai.route("/moviments", exportsRoutes);
-  espai.route("/informes", exportsRoutes);
+  // Cada programa nomes coneix les seves rutes: abans un de sol es muntava a
+  // totes dues adreces i cada descarrega responia dues vegades, un cop a la
+  // seva i un cop a una brossa (`/moviments/informe.xlsx`).
+  espai.route("/moviments", movimentsExportRoutes);
+  espai.route("/informes", informesExportRoutes);
 
   // Les analitiques porten l'arrel de l'espai, els informes i la previsio.
   espai.route("/", analyticsRoutes);
