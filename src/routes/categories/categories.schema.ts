@@ -8,7 +8,7 @@
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-import { categories, categoryKindSchema } from "../../db/schema/index.ts";
+import { cadenceSchema, categories, categoryKindSchema } from "../../db/schema/index.ts";
 
 /** Un enter que ve d'un camp de formulari, on el buit vol dir «cap». */
 const idOpcional = z
@@ -51,4 +51,20 @@ export const categoryUpdateSchema = z.object({
 export const categoryDeleteSchema = z.object({
   /** A qui van a parar els moviments que hi hagi. */
   reassign_to: idOpcional,
+});
+
+/**
+ * Marcar la categoria com a porta del detector de recurrents. La casella
+ * desmarcada no arriba al cos; la cadencia es opcional: buida vol dir que el
+ * detector l'ha de deduir sol de la regularitat observada.
+ */
+export const categoryRecurrentSchema = z.object({
+  is_recurrent: z
+    .union([z.literal("1"), z.literal("on"), z.literal("true")])
+    .optional()
+    .transform((v) => v !== undefined),
+  recurrent_cadence: z
+    .union([z.literal(""), cadenceSchema])
+    .optional()
+    .transform((v) => (v === "" || v === undefined ? null : v)),
 });

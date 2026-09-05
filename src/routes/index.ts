@@ -13,6 +13,7 @@
 
 import { Hono } from "hono";
 
+import { actorsRoutes } from "./actors/actors.routes.ts";
 import { alertsRoutes } from "./alerts/alerts.routes.ts";
 import { callbackRoute, connectionsRoutes } from "./connections/connections.routes.ts";
 import { analyticsRoutes } from "./analytics/analytics.routes.ts";
@@ -83,6 +84,7 @@ export function registerRoutes(app: Hono): void {
   espai.route("/categories", ambAdmin(categoriesRoutes));
   espai.route("/etiquetes", ambAdmin(tagsRoutes));
   espai.route("/comercos", ambAdmin(merchantsRoutes));
+  espai.route("/actors", ambAdmin(actorsRoutes));
   espai.route("/configuracio", ambAdmin(workspacesRoutes));
   espai.route("/moviments", transactionsRoutes);
   espai.route("/recurrents", recurringRoutes);

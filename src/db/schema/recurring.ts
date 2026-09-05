@@ -19,6 +19,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
+import { actors } from "./actors.ts";
 import { domainEnum, money, timestamps } from "./columns.ts";
 import type { Cadence, SeriesStatus } from "./enums.ts";
 import { ledgers } from "./ledgers.ts";
@@ -29,11 +30,25 @@ export const recurringSeries = pgTable(
   {
     id: serial().notNull(),
     ledgerId: integer("ledger_id").notNull(),
-    /** Nom normalitzat del comerç + signe de l'import: identifica la serie. */
+    /**
+     * Identifica la serie: `categoria|contrapart|sentit`, per exemple
+     * `c12|m34|in` o `c12|a56|out` (vegeu `signatura()` a
+     * `services/recurring.ts`). Abans nomes era el nom normalitzat del
+     * comerç, de manera que reanomenar-lo orfenava la serie; ara son
+     * identificadors, no text.
+     */
     signature: varchar({ length: 220 }).notNull(),
     label: varchar({ length: 200 }).notNull(),
     merchantId: integer("merchant_id"),
-    categoryId: integer("category_id"),
+    /** Afegida per la migracio `0002_actors_i_recurrents`. */
+    actorId: integer("actor_id"),
+    /**
+     * Mai nul: des de la migracio `0002_actors_i_recurrents` la categoria es
+     * qui decideix si una serie existeix (`categories.is_recurrent`), i
+     * esborrar-la ha d'esborrar les seves series (per aixo la FK es CASCADE,
+     * no SET NULL com abans).
+     */
+    categoryId: integer("category_id").notNull(),
     cadence: domainEnum<Cadence>().notNull(),
     expectedAmount: money("expected_amount").notNull(),
     amountTolerance: money("amount_tolerance").notNull(),
@@ -56,7 +71,7 @@ export const recurringSeries = pgTable(
       name: "fk_recurring_series_category_id_categories",
       columns: [t.categoryId],
       foreignColumns: [categories.id],
-    }).onDelete("set null"),
+    }).onDelete("cascade"),
     foreignKey({
       name: "fk_recurring_series_ledger_id_ledgers",
       columns: [t.ledgerId],
@@ -66,6 +81,11 @@ export const recurringSeries = pgTable(
       name: "fk_recurring_series_merchant_id_merchants",
       columns: [t.merchantId],
       foreignColumns: [merchants.id],
+    }).onDelete("set null"),
+    foreignKey({
+      name: "fk_recurring_series_actor_id_actors",
+      columns: [t.actorId],
+      foreignColumns: [actors.id],
     }).onDelete("set null"),
     unique("uq_recurring_ledger_signature").on(t.ledgerId, t.signature),
   ],

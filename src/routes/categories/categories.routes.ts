@@ -17,6 +17,7 @@ import {
   idDeLaRuta,
   page,
   toast,
+  toastOnly,
   withOob,
 } from "../../lib/http.ts";
 import { roleAtLeast } from "../../db/schema/index.ts";
@@ -26,11 +27,14 @@ import {
   categoriaDeLespai,
   creaCategoria,
   esborraCategoria,
+  marcaRecurrent,
   marcaSubscripcio,
   movimentsDe,
   opcionsCategories,
   reanomenaCategoria,
 } from "../../services/categories.ts";
+import { resumSubscripcions } from "../../services/recurring-list.ts";
+import { ResumSubscripcionsFragment } from "../recurring/recurring.fragment.tsx";
 import {
   Arbre,
   Fila,
@@ -43,6 +47,7 @@ import { CategoriesPage } from "./categories.page.tsx";
 import {
   categoryCreateSchema,
   categoryDeleteSchema,
+  categoryRecurrentSchema,
   categoryUpdateSchema,
 } from "./categories.schema.ts";
 
@@ -234,6 +239,46 @@ categoriesRoutes.post("/:id/subscripcio", requireEditor, async (c) => {
         potEditar: true,
         filla: trobada.filla,
       }),
+      clearToast(),
+    ),
+  );
+});
+
+/**
+ * Marcar una categoria com a recurrent la converteix en la porta del
+ * detector: `detectaRecurrents` nomes hi entra si la categoria ho es. Com que
+ * el resum de subscripcions en depen, torna fora de banda.
+ */
+categoriesRoutes.post("/:id/recurrent", requireEditor, async (c) => {
+  const espai = currentWorkspace(c);
+  const id = idDeLaRuta(c.req.param("id"), "Aquesta categoria no existeix");
+  const parsed = categoryRecurrentSchema.safeParse(await c.req.parseBody());
+
+  if (!parsed.success) {
+    return toastOnly(c, "La cadencia no es valida", 422);
+  }
+
+  await marcaRecurrent(id, espai.id, {
+    isRecurrent: parsed.data.is_recurrent,
+    cadence: parsed.data.recurrent_cadence,
+  });
+
+  const [trobada, resum] = await Promise.all([
+    vistaDe(id, espai.id),
+    resumSubscripcions(espai.id),
+  ]);
+  if (!trobada) return fragment(c, FilaEsborrada(id));
+
+  return fragment(
+    c,
+    await withOob(
+      Fila({
+        codi: espai.code,
+        categoria: trobada.vista,
+        potEditar: true,
+        filla: trobada.filla,
+      }),
+      ResumSubscripcionsFragment({ resum, oob: true }),
       clearToast(),
     ),
   );

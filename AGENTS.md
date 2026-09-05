@@ -157,12 +157,12 @@ retornis codis a mà.
 Quan una mutació canvia alguna cosa que és **fora del seu propi tros**, la torna
 al costat, amb `hx-swap-oob="true"`. Fes servir `withOob()`.
 
-| Objectiu               | De qui és     | Quan canvia                                      |
-| ---------------------- | ------------- | ------------------------------------------------ |
-| `#toast`               | `lib/http.ts` | qualsevol error o confirmació                    |
-| `#comptador-revisio`   | moviments     | es classifica un moviment                        |
-| `#comptador-avisos`    | avisos        | es llegeix o es descarta un avís                 |
-| `#resum-subscripcions` | recurrents    | canvia `include_in_forecast` o `is_subscription` |
+| Objectiu               | De qui és     | Quan canvia                                                                    |
+| ---------------------- | ------------- | ------------------------------------------------------------------------------ |
+| `#toast`               | `lib/http.ts` | qualsevol error o confirmació                                                  |
+| `#comptador-revisio`   | moviments     | es classifica un moviment                                                      |
+| `#comptador-avisos`    | avisos        | es llegeix o es descarta un avís                                               |
+| `#resum-subscripcions` | recurrents    | canvia `include_in_forecast`, o des de categories quan es marca `is_recurrent` |
 
 - **Cada objectiu té un sol amo.** El fragment del recurs propietari l'exporta i
   cap altre recurs no el dibuixa.

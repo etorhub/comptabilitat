@@ -1,9 +1,10 @@
 /**
- * Neteja dels conceptes bancaris per obtenir el nom del comerç.
+ * Neteja dels conceptes bancaris per obtenir el nom del comerç o de l'actor.
  *
  * Els conceptes del Santander arriben amb molt de soroll: tipus d'operacio,
  * digits de la targeta, dates, poblacio i referencies internes. Aixo ho
- * redueix a un nom estable que serveix de clau de la memoria de comerços.
+ * redueix a un nom estable que serveix de clau de la memoria de comerços
+ * (`normalizeDescription`) o d'actors (`normalizeActorName`).
  *
  * Traduccio de `backend/app/services/normalization.py`. La majoria de casos
  * han de donar el mateix resultat que el Python (vegeu
@@ -12,7 +13,44 @@
  * concepte com a cubell especial, ni de reciclar el prefix cru quan no
  * queda cap token. Aquells moviments s'han de reassignar amb
  * `reassignaNormalitzacio`.
+ *
+ * **`normalizeDescription` no es toca mai a la lleugera**: `tests/normalitzacio.test.ts`
+ * la compara amb la sortida gravada del Python, i canviar-la reagruparia tots
+ * els `merchants.normalized_name` que ja hi ha.
  */
+
+/** Detecta el tipus abans de treure cap prefix (sobre el text cru del banc). */
+export type TipusOperacio = "targeta" | "transferencia" | "bizum" | "rebut" | "altres";
+
+export const TIPUS_OPERACIO = [
+  "targeta",
+  "transferencia",
+  "bizum",
+  "rebut",
+  "altres",
+] as const satisfies readonly TipusOperacio[];
+
+/**
+ * El tipus d'operacio decideix on va la contrapart (`services/contraparts.ts`):
+ * nomes `transferencia` fa actor. Un Bizum, encara que tambe sigui un
+ * traspas entre persones, continua sent comerç: el titular ho ha decidit
+ * expressament (moltes compres per Bizum son a un negoci, no a una persona).
+ */
+export function detectaTipusOperacio(text: string): TipusOperacio {
+  const t = text.trim();
+  if (!t) return "altres";
+
+  if (
+    /^(?:COMPRA|PAGO\s+(?:MOVIL|CON\s+MOVIL|TARJETA|EN)\b)/i.test(t) ||
+    /\bTARJ(?:ETA)?\.?\b/i.test(t)
+  ) {
+    return "targeta";
+  }
+  if (/^BIZUM\b|^ENVIO\s+BIZUM\b/i.test(t)) return "bizum";
+  if (/^TRANSFERENCIA\b|^TRANSF\b/i.test(t)) return "transferencia";
+  if (/^(?:RECIBO|ADEUDO)\b/i.test(t)) return "rebut";
+  return "altres";
+}
 
 /** Prefixos que descriuen el tipus d'operacio i no el comerç. */
 const PREFIX_PATTERNS: RegExp[] = [
@@ -302,6 +340,69 @@ export function normalizeDescription(description: string, counterparty = ""): [s
     // comerç: totes les «PAGO MOVIL EN» buides acabarien al mateix lloc.
     if (haTretPrefix) return ["", ""];
     // Sense prefix: millor alguna clau que deixar el moviment sense nom.
+    const fallback = stripAccents(source)
+      .toUpperCase()
+      .split(/\s+/)
+      .filter(Boolean)
+      .join(" ")
+      .slice(0, 200);
+    return [fallback, displayName(fallback)];
+  }
+
+  return [normalized, displayName(normalized)];
+}
+
+/** Nomes els prefixos de transferencia: es l'unica mena de moviment amb actor. */
+const ACTOR_PREFIX_PATTERNS: RegExp[] = [
+  /^TRANSFERENCIA\b(?:\s+(?:IMMEDIATA|URGENTE|ORDINARIA))*(?:\s+(?:RECIBIDA\s+)?(?:DE|A|A\s+FAVOR\s+DE|EMITIDA\s+A)?)?\s*/,
+  /^TRANSF\.?\b(?:\s+(?:DE|A)?)?\s*/,
+];
+
+/**
+ * Com `normalizeDescription`, pero per al nom d'un actor (el titular d'una
+ * transferencia), no d'un comerç.
+ *
+ * Comparteix la neteja de soroll (IBAN, NIF, dates, referencies) i
+ * `displayName()`, pero nomes treu els prefixos de transferencia i talla a
+ * **8** tokens, no 6: un nom i cognoms complets en gasten facilment cinc o
+ * sis.
+ */
+export function normalizeActorName(description: string, counterparty = ""): [string, string] {
+  const source = counterparty.trim() || description.trim();
+  if (!source) return ["", ""];
+
+  let text = stripAccents(source).toUpperCase();
+
+  for (const pattern of ACTOR_PREFIX_PATTERNS) {
+    const replaced = text.replace(pattern, "");
+    if (replaced !== text) {
+      text = replaced;
+      // Amb un prefix conegut, el que va despres d'una coma sol ser la poblacio.
+      text = text.split(",")[0] ?? "";
+      break;
+    }
+  }
+
+  for (const [pattern, replacement] of NOISE_PATTERNS) {
+    text = text.replace(pattern, replacement);
+  }
+
+  text = text.replace(/[^A-Z0-9&'.\s]/g, " ");
+  const tokens = text.split(/\s+/).filter(Boolean);
+
+  while (tokens.length > 0) {
+    const ultim = tokens[tokens.length - 1] as string;
+    if (TRAILING_NOISE.has(ultim) || esNumero(ultim)) tokens.pop();
+    else break;
+  }
+  while (tokens.length > 0) {
+    const primer = tokens[0] as string;
+    if (esNumero(primer) || LEADING_STOPWORDS.has(primer) || MONTHS.has(primer)) tokens.shift();
+    else break;
+  }
+
+  const normalized = retallaExtrems(tokens.slice(0, 8).join(" ").slice(0, 200), " .");
+  if (!normalized) {
     const fallback = stripAccents(source)
       .toUpperCase()
       .split(/\s+/)

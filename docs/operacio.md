@@ -47,6 +47,20 @@ a més marques «crea una regla», queda una regla apresa visible a **Regles**.
 El model local mai confirma res pel seu compte: quan proposa una categoria, el moviment
 queda marcat per revisar amb la seva confiança i la seva justificació.
 
+**Un actor no hi entra mai.** El titular d'una transferència (**Actors**, no **Comerços**)
+no porta cap categoria per defecte: cada transferència es classifica moviment a moviment,
+com faria una persona revisant-la. Un actor mai no s'ha de confirmar per poder classificar
+res, perquè no en classifica.
+
+### Migrar comerços que eren titulars de transferència
+
+Abans del canvi a actors, una `TRANSFERENCIA DE JOAN GARCIA` es guardava com un comerç.
+`migraActors()` (`src/workers/jobs/migra-actors.ts`) recorre els comerços que ja hi ha i,
+dels que **només** tenen moviments de transferència, en fa actors; els que tenen moviments
+barrejats (alguna compra a banda) es deixen quiets. És d'un sol ús: un cop feta, no cal
+tornar-la a fer. Encara no té ordre pròpia a `bun run jobs`; mentre no n'hi hagi, es crida
+important-la des d'un script curt o des de la consola de `bun run src/cli.ts`.
+
 ## Traspassos
 
 Quan surten diners d'un compte i n'entren els mateixos a un altre **del mateix espai**

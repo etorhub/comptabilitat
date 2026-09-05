@@ -25,8 +25,7 @@ import {
 } from "../lib/enablebanking/parsing.ts";
 import { addDays, daysBetween, todayLocal } from "../lib/time.ts";
 import { classificaMoviment } from "./classification.ts";
-import { obteOCreaComerc } from "./merchants.ts";
-import { normalizeDescription } from "./normalization.ts";
+import { resolContrapart } from "./contraparts.ts";
 
 /** Marge per aparellar un pendent amb el seu apunt definitiu. */
 const PENDING_MATCH_DAYS = 5;
@@ -241,6 +240,7 @@ export async function desaMoviments(
         counterparty: item.counterparty,
         bankTransactionCode: item.bankTransactionCode,
         merchantId: null,
+        actorId: null,
         categoryId: null,
         categorySource: "none",
         categoryConfidence: null,
@@ -256,23 +256,25 @@ export async function desaMoviments(
 
     if (!creat) continue;
 
-    // Nom normalitzat, comerç i categoria.
-    const [normalitzat, mostrar] = normalizeDescription(item.description, item.counterparty);
+    // Nom normalitzat, contrapart (comerç o actor) i categoria.
     let merchantId: number | null = null;
+    let actorId: number | null = null;
+    let normalitzat = "";
 
-    if (compte.ledgerId !== null && normalitzat) {
-      const comerc = await obteOCreaComerc(
-        compte.ledgerId,
-        normalitzat,
-        mostrar,
-        item.bookingDate,
-      );
-      merchantId = comerc?.id ?? null;
+    if (compte.ledgerId !== null) {
+      const contrapart = await resolContrapart(compte.ledgerId, {
+        description: item.description,
+        counterparty: item.counterparty,
+        bookingDate: item.bookingDate,
+      });
+      merchantId = contrapart.merchantId;
+      actorId = contrapart.actorId;
+      normalitzat = contrapart.normalizedKey;
     }
 
     await db
       .update(transactions)
-      .set({ normalizedDescription: normalitzat.slice(0, 200), merchantId })
+      .set({ normalizedDescription: normalitzat.slice(0, 200), merchantId, actorId })
       .where(eq(transactions.id, creat.id));
 
     await classificaMoviment({
