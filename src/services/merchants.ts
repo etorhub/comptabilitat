@@ -25,16 +25,11 @@ import {
 } from "drizzle-orm";
 
 import { db, type Transactor } from "../db/client.ts";
-import {
-  categories,
-  merchants,
-  transactions,
-  type Cadence,
-  type Merchant,
-} from "../db/schema/index.ts";
+import { categories, merchants, transactions, type Merchant } from "../db/schema/index.ts";
 import { AppError, NotFoundError } from "../lib/http.ts";
+import { recompteActors } from "./actors.ts";
 import { classificaMoviment } from "./classification.ts";
-import { normalizeDescription } from "./normalization.ts";
+import { resolContrapart } from "./contraparts.ts";
 
 /** Cubells especials que abans engolien compres amb «COMISION» al final. */
 const CUBELLS_ESPECIALS = new Set([
@@ -60,9 +55,6 @@ export interface ComercVista {
   /** El nom de la categoria, per no fer una consulta per fila. */
   categoryName: string | null;
   isConfirmed: boolean;
-  /** Marcat a ma per entrar a la previsio sense esperar el detector. */
-  isRecurrent: boolean;
-  recurrentCadence: Cadence | null;
   transactionCount: number;
   lastSeenAt: string | null;
 }
@@ -110,8 +102,6 @@ export async function llistaComercos(
       defaultCategoryId: merchants.defaultCategoryId,
       categoryName: categories.name,
       isConfirmed: merchants.isConfirmed,
-      isRecurrent: merchants.isRecurrent,
-      recurrentCadence: merchants.recurrentCadence,
       transactionCount: merchants.transactionCount,
       lastSeenAt: merchants.lastSeenAt,
     })
@@ -151,8 +141,6 @@ export async function vistaComerc(id: number, ledgerId: number): Promise<ComercV
       defaultCategoryId: merchants.defaultCategoryId,
       categoryName: categories.name,
       isConfirmed: merchants.isConfirmed,
-      isRecurrent: merchants.isRecurrent,
-      recurrentCadence: merchants.recurrentCadence,
       transactionCount: merchants.transactionCount,
       lastSeenAt: merchants.lastSeenAt,
     })
@@ -361,6 +349,7 @@ export async function reassignaNormalitzacio(
       counterparty: transactions.counterparty,
       normalizedDescription: transactions.normalizedDescription,
       merchantId: transactions.merchantId,
+      actorId: transactions.actorId,
       categoryId: transactions.categoryId,
       categorySource: transactions.categorySource,
       amount: transactions.amount,
@@ -373,40 +362,48 @@ export async function reassignaNormalitzacio(
     .where(ledgerId === undefined ? undefined : eq(transactions.ledgerId, ledgerId));
 
   let canviats = 0;
-  const tocats = new Set<number>();
+  const merchantsTocats = new Set<number>();
+  const actorsTocats = new Set<number>();
 
   for (const moviment of files) {
-    const [novaClau, mostrar] = normalizeDescription(
-      moviment.description,
-      moviment.counterparty,
-    );
-    const clauNova = novaClau.slice(0, 200);
-    const calCanviarClau = clauNova !== moviment.normalizedDescription;
-
     let nouMerchantId: number | null = null;
-    if (moviment.ledgerId !== null && clauNova) {
-      const comerc = await obteOCreaComerc(
+    let nouActorId: number | null = null;
+    let clauNova = "";
+
+    if (moviment.ledgerId !== null) {
+      const contrapart = await resolContrapart(
         moviment.ledgerId,
-        clauNova,
-        mostrar,
-        moviment.bookingDate,
+        {
+          description: moviment.description,
+          counterparty: moviment.counterparty,
+          bookingDate: moviment.bookingDate,
+        },
         connexio,
         false,
       );
-      nouMerchantId = comerc?.id ?? null;
+      nouMerchantId = contrapart.merchantId;
+      nouActorId = contrapart.actorId;
+      clauNova = contrapart.normalizedKey.slice(0, 200);
     }
 
-    if (!calCanviarClau && nouMerchantId === moviment.merchantId) continue;
+    const calCanviarClau = clauNova !== moviment.normalizedDescription;
+    const noCanviaContrapart =
+      nouMerchantId === moviment.merchantId && nouActorId === moviment.actorId;
+
+    if (!calCanviarClau && noCanviaContrapart) continue;
 
     canviats += 1;
-    if (moviment.merchantId !== null) tocats.add(moviment.merchantId);
-    if (nouMerchantId !== null) tocats.add(nouMerchantId);
+    if (moviment.merchantId !== null) merchantsTocats.add(moviment.merchantId);
+    if (nouMerchantId !== null) merchantsTocats.add(nouMerchantId);
+    if (moviment.actorId !== null) actorsTocats.add(moviment.actorId);
+    if (nouActorId !== null) actorsTocats.add(nouActorId);
 
     await connexio
       .update(transactions)
       .set({
         normalizedDescription: clauNova,
         merchantId: nouMerchantId,
+        actorId: nouActorId,
       })
       .where(eq(transactions.id, moviment.id));
 
@@ -418,7 +415,7 @@ export async function reassignaNormalitzacio(
       moviment.categorySource === "merchant" &&
       CUBELLS_ESPECIALS.has(moviment.normalizedDescription);
 
-    if (!calCanviarClau && !veniaDelCubell && nouMerchantId === moviment.merchantId) {
+    if (!calCanviarClau && !veniaDelCubell && noCanviaContrapart) {
       continue;
     }
 
@@ -434,6 +431,7 @@ export async function reassignaNormalitzacio(
     );
   }
 
-  await recompteComercos([...tocats], connexio);
+  await recompteComercos([...merchantsTocats], connexio);
+  await recompteActors([...actorsTocats], connexio);
   return { revisats: files.length, canviats };
 }

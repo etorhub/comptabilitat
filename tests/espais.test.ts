@@ -13,8 +13,18 @@ import { beforeAll, describe, expect, test } from "bun:test";
 
 import { app } from "../src/server.ts";
 import { db } from "../src/db/client.ts";
-import { alerts, ledgers, userLedgerPermissions, users } from "../src/db/schema/index.ts";
+import {
+  accounts,
+  actors,
+  alerts,
+  bankConnections,
+  ledgers,
+  transactions,
+  userLedgerPermissions,
+  users,
+} from "../src/db/schema/index.ts";
 import { hashPassword } from "../src/lib/auth.ts";
+import { altraCamaEntreEspais } from "../src/services/actors.ts";
 import { eq } from "drizzle-orm";
 
 const CONTRASENYA = "provaprovaprova";
@@ -51,6 +61,7 @@ async function entra(email: string): Promise<Sessio> {
   return { cookie, csrf };
 }
 
+let idPersonal = 0;
 let idCalella = 0;
 let idAvisCalella = 0;
 
@@ -92,6 +103,7 @@ beforeAll(async () => {
   const personal = espais.find((e) => e.code === "personal");
   const calella = espais.find((e) => e.code === "calella");
   if (!personal || !calella) throw new Error("no s'han creat els espais");
+  idPersonal = personal.id;
   idCalella = calella.id;
 
   const passwordHash = await hashPassword(CONTRASENYA);
@@ -212,5 +224,180 @@ describe("un espai desactivat", () => {
     const res = await app.request("/e/calella/avisos", { headers: { Cookie: cookie } });
     expect(res.status).toBe(404);
     await db.update(ledgers).set({ isActive: true }).where(eq(ledgers.id, idCalella));
+  });
+});
+
+describe("l'altra cama d'un actor entre espais", () => {
+  let idAccountPersonal = 0;
+  let idAccountCalella = 0;
+  let idMoviment = 0;
+  let idHelena = 0;
+
+  beforeAll(async () => {
+    const [connexio] = await db
+      .insert(bankConnections)
+      .values({
+        name: "P",
+        aspspName: "S",
+        aspspCountry: "ES",
+        psuType: "personal",
+        status: "active",
+        lastError: "",
+      })
+      .returning();
+
+    const comptes = await db
+      .insert(accounts)
+      .values([
+        {
+          connectionId: connexio?.id ?? 0,
+          ledgerId: idPersonal,
+          ebAccountUid: "uid-espais-personal",
+          name: "C",
+          product: "",
+          iban: "ES00",
+          currency: "EUR",
+          cashAccountType: "CACC",
+          usage: "PRIV",
+          isActive: true,
+          raw: {},
+        },
+        {
+          connectionId: connexio?.id ?? 0,
+          ledgerId: idCalella,
+          ebAccountUid: "uid-espais-calella",
+          name: "C",
+          product: "",
+          iban: "ES00",
+          currency: "EUR",
+          cashAccountType: "CACC",
+          usage: "PRIV",
+          isActive: true,
+          raw: {},
+        },
+      ])
+      .returning();
+    idAccountPersonal = comptes.find((c) => c.ledgerId === idPersonal)?.id ?? 0;
+    idAccountCalella = comptes.find((c) => c.ledgerId === idCalella)?.id ?? 0;
+
+    // La Maria es la mateixa persona a banda i banda: dos actors, un a cada
+    // espai, lligats al mateix usuari.
+    const [maria] = await db
+      .insert(users)
+      .values({
+        email: "maria@exemple.cat",
+        fullName: "Maria",
+        passwordHash: await hashPassword(CONTRASENYA),
+        isAdmin: false,
+        isActive: true,
+      })
+      .returning();
+
+    const actorsCreats = await db
+      .insert(actors)
+      .values([
+        {
+          ledgerId: idPersonal,
+          normalizedName: "MARIA PERSONAL",
+          displayName: "Maria",
+          kind: "persona",
+          isConfirmed: true,
+          userId: maria?.id ?? 0,
+          transactionCount: 1,
+          lastSeenAt: null,
+        },
+        {
+          ledgerId: idCalella,
+          normalizedName: "MARIA CALELLA",
+          displayName: "Maria",
+          kind: "persona",
+          isConfirmed: true,
+          userId: maria?.id ?? 0,
+          transactionCount: 1,
+          lastSeenAt: null,
+        },
+      ])
+      .returning();
+    const actorPersonal = actorsCreats.find((a) => a.ledgerId === idPersonal);
+    const actorCalella = actorsCreats.find((a) => a.ledgerId === idCalella);
+
+    const [sortida] = await db
+      .insert(transactions)
+      .values({
+        accountId: idAccountPersonal,
+        ledgerId: idPersonal,
+        dedupKey: "espais-sortida",
+        source: "manual",
+        bookingDate: "2026-05-10",
+        amount: "-100.00",
+        currency: "EUR",
+        status: "booked",
+        description: "TRANSFERENCIA A MARIA",
+        normalizedDescription: "MARIA PERSONAL",
+        counterparty: "",
+        bankTransactionCode: "",
+        actorId: actorPersonal?.id ?? null,
+        categoryId: null,
+        categorySource: "none",
+        needsReview: true,
+        notes: "",
+        tags: [],
+        isExcluded: false,
+        raw: {},
+      })
+      .returning();
+    idMoviment = sortida?.id ?? 0;
+
+    await db.insert(transactions).values({
+      accountId: idAccountCalella,
+      ledgerId: idCalella,
+      dedupKey: "espais-entrada",
+      source: "manual",
+      bookingDate: "2026-05-11",
+      amount: "100.00",
+      currency: "EUR",
+      status: "booked",
+      description: "TRANSFERENCIA DE MARIA",
+      normalizedDescription: "MARIA CALELLA",
+      counterparty: "",
+      bankTransactionCode: "",
+      actorId: actorCalella?.id ?? null,
+      categoryId: null,
+      categorySource: "none",
+      needsReview: true,
+      notes: "",
+      tags: [],
+      isExcluded: false,
+      raw: {},
+    });
+
+    // L'Helena, a diferencia d'en Pau, te acces als dos espais.
+    const [helena] = await db
+      .insert(users)
+      .values({
+        email: "helena@exemple.cat",
+        fullName: "Helena",
+        passwordHash: await hashPassword(CONTRASENYA),
+        isAdmin: false,
+        isActive: true,
+      })
+      .returning();
+    idHelena = helena?.id ?? 0;
+    await db.insert(userLedgerPermissions).values([
+      { userId: idHelena, ledgerId: idPersonal, role: "viewer" },
+      { userId: idHelena, ledgerId: idCalella, role: "viewer" },
+    ]);
+  });
+
+  test("es identifica per a qui te permis als dos espais", async () => {
+    const [pau] = await db.select().from(users).where(eq(users.email, "pau@exemple.cat"));
+
+    const trobada = await altraCamaEntreEspais(idMoviment, idHelena);
+    expect(trobada?.ledgerCode).toBe("calella");
+
+    // En Pau nomes te permis a personal, no a calella: la resposta ha de ser
+    // exactament la mateixa que si no hi hagues cap altra cama.
+    const senseAcces = await altraCamaEntreEspais(idMoviment, pau?.id ?? 0);
+    expect(senseAcces).toBeNull();
   });
 });

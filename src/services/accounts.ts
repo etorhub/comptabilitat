@@ -11,9 +11,14 @@ import { and, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { accounts, categories, ledgers, transactions } from "../db/schema/index.ts";
 import { NotFoundError } from "../lib/http.ts";
+import { obteOCreaActor } from "./actors.ts";
 import { classificaPendents } from "./classification.ts";
 import { obteOCreaComerc } from "./merchants.ts";
-import { normalizeDescription } from "./normalization.ts";
+import {
+  detectaTipusOperacio,
+  normalizeActorName,
+  normalizeDescription,
+} from "./normalization.ts";
 
 export interface ResumMoviment {
   /** Moviments que han canviat d'espai. */
@@ -114,6 +119,7 @@ export async function mouCompteDEspai(
       .set({
         ledgerId: nouEspai,
         merchantId: null,
+        actorId: null,
         categoryId: null,
         categorySource: "none",
         categoryConfidence: null,
@@ -128,13 +134,13 @@ export async function mouCompteDEspai(
     if (nouEspai !== null) {
       // --- El que es recupera ---
       conservades = await tornaLesDecisions(tx, nouEspai, decisions);
-      await refesElsComercos(tx, compteId, nouEspai);
+      await refesLesContraparts(tx, compteId, nouEspai);
     }
 
-    // Els comerços dels **dos** espais queden desquadrats: els de l'espai nou
-    // perque `obteOCreaComerc` puja el comptador d'un en un i aqui s'ha cridat
-    // un cop per comerç, i els de l'espai vell perque compten moviments que
-    // ja no hi son.
+    // Els comerços i els actors dels **dos** espais queden desquadrats: els
+    // de l'espai nou perque `obteOCreaComerc`/`obteOCreaActor` pugen el
+    // comptador d'un en un i aqui s'ha cridat un cop per grup, i els de
+    // l'espai vell perque compten moviments que ja no hi son.
     await requadraElsComptadors(tx, [compte.ledgerId, nouEspai]);
 
     return { moguts: moguts.length, conservades, traspassosDesfets };
@@ -197,12 +203,15 @@ async function tornaLesDecisions(
 }
 
 /**
- * Torna a crear els comerços dins de l'espai nou i hi lliga els moviments.
+ * Torna a crear els comerços i els actors dins de l'espai nou i hi lliga els
+ * moviments.
  *
- * Va per comerç i no per moviment: un compte amb tres mil apunts sol tenir
- * unes desenes de comerços, i la diferencia son milers de consultes.
+ * Va per grup i no per moviment: un compte amb tres mil apunts sol tenir
+ * unes desenes de contraparts, i la diferencia son milers de consultes. El
+ * tipus d'operacio decideix, com sempre, si un grup es un comerç o un actor
+ * (`services/normalization.ts`, `detectaTipusOperacio`).
  */
-async function refesElsComercos(tx: Tx, compteId: number, nouEspai: number): Promise<void> {
+async function refesLesContraparts(tx: Tx, compteId: number, nouEspai: number): Promise<void> {
   const seus = await tx
     .select({
       id: transactions.id,
@@ -211,44 +220,72 @@ async function refesElsComercos(tx: Tx, compteId: number, nouEspai: number): Pro
       bookingDate: transactions.bookingDate,
     })
     .from(transactions)
-    .where(and(eq(transactions.accountId, compteId), isNull(transactions.merchantId)));
+    .where(
+      and(
+        eq(transactions.accountId, compteId),
+        isNull(transactions.merchantId),
+        isNull(transactions.actorId),
+      ),
+    );
 
   interface Grup {
+    esActor: boolean;
+    normalitzat: string;
     mostrar: string;
     ultimDia: string | null;
     ids: number[];
   }
-  const perNom = new Map<string, Grup>();
+  const perClau = new Map<string, Grup>();
 
   for (const moviment of seus) {
-    const [normalitzat, mostrar] = normalizeDescription(
-      moviment.description,
-      moviment.counterparty,
-    );
+    const esActor = detectaTipusOperacio(moviment.description) === "transferencia";
+    const [normalitzat, mostrar] = esActor
+      ? normalizeActorName(moviment.description, moviment.counterparty)
+      : normalizeDescription(moviment.description, moviment.counterparty);
     if (!normalitzat) continue;
 
-    const clau = normalitzat.slice(0, 200);
-    const grup = perNom.get(clau);
+    const clau = `${esActor ? "a" : "m"}:${normalitzat.slice(0, 200)}`;
+    const grup = perClau.get(clau);
     if (grup === undefined) {
-      perNom.set(clau, { mostrar, ultimDia: moviment.bookingDate, ids: [moviment.id] });
+      perClau.set(clau, {
+        esActor,
+        normalitzat: normalitzat.slice(0, 200),
+        mostrar,
+        ultimDia: moviment.bookingDate,
+        ids: [moviment.id],
+      });
     } else {
       grup.ids.push(moviment.id);
       if (moviment.bookingDate > (grup.ultimDia ?? "")) grup.ultimDia = moviment.bookingDate;
     }
   }
 
-  for (const [normalitzat, grup] of perNom) {
-    const comerc = await obteOCreaComerc(
-      nouEspai,
-      normalitzat,
-      grup.mostrar,
-      grup.ultimDia,
-      tx,
-    );
-    await tx
-      .update(transactions)
-      .set({ normalizedDescription: normalitzat, merchantId: comerc?.id ?? null })
-      .where(inArray(transactions.id, grup.ids));
+  for (const grup of perClau.values()) {
+    if (grup.esActor) {
+      const actor = await obteOCreaActor(
+        nouEspai,
+        grup.normalitzat,
+        grup.mostrar,
+        grup.ultimDia,
+        tx,
+      );
+      await tx
+        .update(transactions)
+        .set({ normalizedDescription: grup.normalitzat, actorId: actor?.id ?? null })
+        .where(inArray(transactions.id, grup.ids));
+    } else {
+      const comerc = await obteOCreaComerc(
+        nouEspai,
+        grup.normalitzat,
+        grup.mostrar,
+        grup.ultimDia,
+        tx,
+      );
+      await tx
+        .update(transactions)
+        .set({ normalizedDescription: grup.normalitzat, merchantId: comerc?.id ?? null })
+        .where(inArray(transactions.id, grup.ids));
+    }
   }
 }
 
@@ -271,5 +308,14 @@ async function requadraElsComptadors(tx: Tx, espais: (number | null)[]): Promise
               where transactions.merchant_id = merchants.id
            ), 0)
      where merchants.ledger_id in ${sql.raw(`(${ids.join(",")})`)}
+  `);
+
+  await tx.execute(sql`
+    update actors
+       set transaction_count = coalesce((
+             select count(*) from transactions
+              where transactions.actor_id = actors.id
+           ), 0)
+     where actors.ledger_id in ${sql.raw(`(${ids.join(",")})`)}
   `);
 }

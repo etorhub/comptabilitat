@@ -8,8 +8,6 @@
 
 import { z } from "zod/v4";
 
-import { cadenceSchema } from "../../db/schema/index.ts";
-
 export const PER_PAGINA = 50;
 
 export const merchantFiltersSchema = z.object({
@@ -48,16 +46,4 @@ export const merchantCategorySchema = z.object({
     .union([z.literal("0"), z.literal("false")])
     .optional()
     .transform((v) => v === undefined),
-});
-
-/**
- * Marcar el comerç com a recurrent. La casella desmarcada no arriba al cos;
- * la cadencia nomes cal quan es marca (si falta, el servei fa servir monthly).
- */
-export const merchantRecurrentSchema = z.object({
-  is_recurrent: z
-    .union([z.literal("1"), z.literal("on"), z.literal("true")])
-    .optional()
-    .transform((v) => v !== undefined),
-  recurrent_cadence: cadenceSchema.optional(),
 });

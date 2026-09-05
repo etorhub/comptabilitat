@@ -31,8 +31,9 @@ import { hashPassword } from "../lib/auth.ts";
 import { Decimal, toMoneyString } from "../lib/money.ts";
 import { addDays, todayLocal } from "../lib/time.ts";
 import { classificaPendents } from "./classification.ts";
+import { resolContrapart } from "./contraparts.ts";
 import { comprovaDescoberts } from "./forecast.ts";
-import { obteOCreaComerc, recordaEleccioComerc } from "./merchants.ts";
+import { recordaEleccioComerc } from "./merchants.ts";
 import { normalizeDescription } from "./normalization.ts";
 import { detectaRecurrents } from "./recurring.ts";
 import { seedLedgers } from "./seed.ts";
@@ -101,6 +102,39 @@ const RECURRENTS: readonly (readonly [string, string, number, string, string])[]
     30,
     "pardals",
     "salut-asseguranca-medica",
+  ],
+];
+
+/**
+ * [concepte, import, cada quants dies o `null` si es excepcional, espai,
+ * pendent de la categoria]
+ *
+ * Transferencies a una persona, no a un comerç: es el cas que demostra per
+ * que la recurrencia no pot penjar de qui rep els diners. La Maria fa el
+ * lloguer cada mes (recurrent, categoria d'habitatge) i tambe li vam pagar un
+ * sopar un dissabte (excepcional, categoria de restauracio): mateix actor,
+ * cadascuna a la seva categoria, i nomes la primera genera una serie.
+ */
+const TRANSFERENCIES_PERSONALS: readonly (readonly [
+  string,
+  string,
+  number | null,
+  string,
+  string,
+])[] = [
+  [
+    "TRANSFERENCIA A MARIA GARCIA LOPEZ, LLOGUER",
+    "-350.00",
+    30,
+    "personal",
+    "habitatge-lloguer-o-hipoteca",
+  ],
+  [
+    "TRANSFERENCIA A MARIA GARCIA LOPEZ, SOPAR DISSABTE",
+    "-42.50",
+    null,
+    "personal",
+    "restauracio-restaurants",
   ],
 ];
 
@@ -234,10 +268,11 @@ export async function omplePerAProves(
     quantitat: Decimal,
     concepte: string,
   ) => {
-    const [normalitzat, mostrar] = normalizeDescription(concepte, "");
-    const comerc = normalitzat
-      ? await obteOCreaComerc(compte.ledgerId, normalitzat, mostrar, dia)
-      : null;
+    const contrapart = await resolContrapart(compte.ledgerId, {
+      description: concepte,
+      counterparty: "",
+      bookingDate: dia,
+    });
 
     await db.insert(transactions).values({
       accountId: compte.id,
@@ -256,10 +291,11 @@ export async function omplePerAProves(
       currency: "EUR",
       status: "booked",
       description: concepte,
-      normalizedDescription: normalitzat.slice(0, 200),
+      normalizedDescription: contrapart.normalizedKey.slice(0, 200),
       counterparty: "",
       bankTransactionCode: "",
-      merchantId: comerc?.id ?? null,
+      merchantId: contrapart.merchantId,
+      actorId: contrapart.actorId,
       categoryId: null,
       categorySource: "none",
       categoryConfidence: null,
@@ -303,6 +339,24 @@ export async function omplePerAProves(
       if (mes % Math.max(1, Math.round(dies / 30)) !== 0) continue;
       await afegeix(compte, addDays(base, 3), new Decimal(quantitat), concepte);
     }
+
+    // Transferencies a una persona amb periodicitat declarada (el lloguer).
+    // Les excepcionals (`dies === null`) es generen a banda, un cop.
+    for (const [concepte, quantitat, dies, codiEspai] of TRANSFERENCIES_PERSONALS) {
+      if (dies === null) continue;
+      const compte = comptes.get(codiEspai);
+      if (!compte) continue;
+      if (mes % Math.max(1, Math.round(dies / 30)) !== 0) continue;
+      await afegeix(compte, addDays(base, 5), new Decimal(quantitat), concepte);
+    }
+  }
+
+  // Les transferencies excepcionals a una persona: un sol cop, no cada mes.
+  for (const [concepte, quantitat, dies, codiEspai] of TRANSFERENCIES_PERSONALS) {
+    if (dies !== null) continue;
+    const compte = comptes.get(codiEspai);
+    if (!compte) continue;
+    await afegeix(compte, addDays(avui, -10), new Decimal(quantitat), concepte);
   }
 
   // Diners que passen d'un espai a un altre. **No s'han d'aparellar**: per a
@@ -316,10 +370,12 @@ export async function omplePerAProves(
   }
 
   // Els dos moviments d'abans no s'aparellen, pero si que tenen categoria:
-  // son un traspas entre comptes propis a banda i banda.
-  const TRASPASSOS_ENTRE_ESPAIS: [string, string][] = [
-    ["TRASPASO A CALELLA", "traspassos-traspas-entre-comptes-propis"],
-    ["TRANSFERENCIA RECIBIDA DE TU", "traspassos-traspas-entre-comptes-propis"],
+  // son un traspas entre comptes propis a banda i banda. La rebuda a Calella
+  // es una transferencia i per tant un actor (`resolContrapart`), no un
+  // comerç: es classifiquen directament, com faria qui revisa la safata.
+  const TRASPASSOS_ENTRE_ESPAIS: [string, string, string][] = [
+    ["personal", "TRASPASO A CALELLA", "traspassos-traspas-entre-comptes-propis"],
+    ["calella", "TRANSFERENCIA RECIBIDA DE TU", "traspassos-traspas-entre-comptes-propis"],
   ];
 
   // --- Saldos ---
@@ -349,7 +405,6 @@ export async function omplePerAProves(
     ...DESPESES.map(([concepte, , , slug]) => [concepte, slug] as [string, string]),
     ...RECURRENTS.map(([concepte, , , , slug]) => [concepte, slug] as [string, string]),
     [NOMINA, "ingressos-del-treball-nomina"],
-    ...TRASPASSOS_ENTRE_ESPAIS,
   ];
 
   for (const compte of comptes.values()) {
@@ -373,6 +428,61 @@ export async function omplePerAProves(
       if (!comerc) continue;
 
       await recordaEleccioComerc(comerc, categoriaId, true);
+    }
+  }
+
+  // Les transferencies a una persona no tenen comerç ni actor amb categoria
+  // per defecte: com faria de debò qui revisa la safata, es classifiquen
+  // moviment a moviment, no pel titular. Aixo val tant per les
+  // transferencies personals com per la rebuda entre espais (un actor, no un
+  // comerç: `resolContrapart` no li dona categoria).
+  const classificacioDirecta: [string, string, string][] = [
+    ...TRASPASSOS_ENTRE_ESPAIS,
+    ...TRANSFERENCIES_PERSONALS.map(
+      ([concepte, , , codiEspai, slug]) =>
+        [codiEspai, concepte, slug] as [string, string, string],
+    ),
+  ];
+
+  for (const [codiEspai, concepte, slug] of classificacioDirecta) {
+    const compte = comptes.get(codiEspai);
+    if (!compte) continue;
+
+    const categoriaId = perSlug.get(`${compte.ledgerId}:${slug}`);
+    if (categoriaId === undefined) continue;
+
+    await db
+      .update(transactions)
+      .set({
+        categoryId: categoriaId,
+        categorySource: "user",
+        categoryConfidence: 1,
+        needsReview: false,
+      })
+      .where(
+        and(eq(transactions.ledgerId, compte.ledgerId), eq(transactions.description, concepte)),
+      );
+  }
+
+  // La categoria del lloguer compartit es la porta del detector: nomes ella
+  // genera una serie, i nomes per a la Maria. El sopar excepcional es queda
+  // a Restauracio, que no ho es, i mai no en formara part.
+  const CATEGORIES_RECURRENTS = [
+    "subministraments-electricitat",
+    "oci-i-cultura-subscripcions",
+    "subministraments-aigua",
+    "habitatge-comunitat",
+    "salut-asseguranca-medica",
+    "habitatge-lloguer-o-hipoteca",
+  ];
+  for (const compte of comptes.values()) {
+    for (const slug of CATEGORIES_RECURRENTS) {
+      const categoriaId = perSlug.get(`${compte.ledgerId}:${slug}`);
+      if (categoriaId === undefined) continue;
+      await db
+        .update(categories)
+        .set({ isRecurrent: true })
+        .where(eq(categories.id, categoriaId));
     }
   }
 

@@ -40,20 +40,32 @@ dona el banc o, si no n'hi ha, per un resum estable de les dades que no canvien.
 moviments pendents es reconcilien amb el seu apunt definitiu en comptes de duplicar-se, i
 conserven la categoria que hi haguessis posat.
 
+**Comerços i actors.** Un comerç és on es gasta; un actor és qui hi ha a l'altra banda d'una
+transferència — mai un comerç, perquè el nom d'un comerç sovint era, abans, el nom d'una
+persona. Només les transferències fan actor; un Bizum, una nòmina o un rebut continuen sent
+comerç. Un actor es pot lligar a un usuari de l'app per identificar-lo i reconèixer els seus
+moviments entre espais.
+
 **Classificació.** Dins de cada espai, l'ordre és sempre el mateix, del més barat i explícit
 al més car: el que has decidit tu (que no es toca mai), les regles per prioritat, la memòria
 de comerços i, només per als comerços que no han encaixat enlloc, el model local. La resta
 va a la safata de revisió. Quan corregeixes una categoria, la decisió es recorda per a tot
 el comerç **d'aquell espai**: la sogra classificant a Calella no toca res del teu Personal.
+**Un actor no classifica mai res**: la mateixa persona et pot fer el lloguer cada mes i
+tornar-te un sopar excepcional, i cap transferència no hauria de decidir com es classifica
+l'altra. Els seus moviments sempre van, un a un, a la safata de revisió.
 
 **El model local classifica per comerç, no per moviment.** És el que fa viable un NAS sense
 targeta gràfica: en règim normal apareixen pocs comerços nous cada nit, i un cop resolts no
 es tornen a preguntar mai més.
 
-**Previsió.** Les sèries recurrents es detecten per la regularitat dels intervals i
-l'estabilitat de l'import. A partir d'aquí, el saldo es projecta a 90 dies sumant els
-rebuts previstos i restant una deriva de despesa variable calculada amb els imports
-extrems descartats, en banda esperada, optimista i pessimista.
+**Previsió.** Una categoria marcada com a recurrent és la porta del detector: només els
+moviments de les categories que ho són hi entren, i dins d'una d'elles cada comerç o actor
+té la seva pròpia sèrie. Les sèries es detecten per la regularitat dels intervals i
+l'estabilitat de l'import — llevat que la categoria porti una cadència declarada, que
+llavors n'hi ha prou amb una sola aparició. A partir d'aquí, el saldo es projecta a 90 dies
+sumant els rebuts previstos i restant una deriva de despesa variable calculada amb els
+imports extrems descartats, en banda esperada, optimista i pessimista.
 
 **Traspassos.** Dins d'un mateix espai, moure diners entre dos comptes seus no és ni ingrés
 ni despesa: els imports oposats dins de tres dies s'aparellen i queden fora dels informes.

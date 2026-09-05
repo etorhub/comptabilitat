@@ -8,16 +8,15 @@
 
 import { stripAccents } from "./normalization.ts";
 
-/** Tipus d'operacio deduit del prefix del concepte bancari. */
-export type TipusOperacio = "targeta" | "transferencia" | "bizum" | "rebut" | "altres";
-
-export const TIPUS_OPERACIO = [
-  "targeta",
-  "transferencia",
-  "bizum",
-  "rebut",
-  "altres",
-] as const satisfies readonly TipusOperacio[];
+/**
+ * `TipusOperacio` i `detectaTipusOperacio` viuen a `normalization.ts` des que
+ * decideixen on va la contrapart (`services/contraparts.ts`), no nomes com
+ * s'ensenya. Es reexporten aqui perque aquest era el seu lloc original i no
+ * calgui remenar tots els imports.
+ */
+export { detectaTipusOperacio, TIPUS_OPERACIO } from "./normalization.ts";
+export type { TipusOperacio } from "./normalization.ts";
+import { detectaTipusOperacio, type TipusOperacio } from "./normalization.ts";
 
 export interface ConcepteParsejat {
   /** Text net per a la columna Concepte. */
@@ -61,22 +60,6 @@ const PREFIXOS: RegExp[] = [
   /^CARGO\s+(?:DE\s+)?/i,
 ];
 
-/** Detecta el tipus abans de treure el prefix (sobre el text cru). */
-export function detectaTipusOperacio(text: string): TipusOperacio {
-  const t = text.trim();
-  if (!t) return "altres";
-
-  if (
-    /^(?:COMPRA|PAGO\s+(?:MOVIL|CON\s+MOVIL|TARJETA|EN)\b)/i.test(t) ||
-    /\bTARJ(?:ETA)?\.?\b/i.test(t)
-  ) {
-    return "targeta";
-  }
-  if (/^BIZUM\b|^ENVIO\s+BIZUM\b/i.test(t)) return "bizum";
-  if (/^TRANSFERENCIA\b|^TRANSF\b/i.test(t)) return "transferencia";
-  if (/^(?:RECIBO|ADEUDO)\b/i.test(t)) return "rebut";
-  return "altres";
-}
 /**
  * Extreu els darrers 4 digits i treu del text qualsevol mencio de targeta.
  *

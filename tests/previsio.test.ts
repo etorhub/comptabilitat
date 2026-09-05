@@ -28,7 +28,7 @@ import {
   despesaDiariaVariable,
   esdevenimentsPrevistos,
 } from "../src/services/forecast.ts";
-import { declaraComercRecurrent } from "../src/services/recurring.ts";
+import { detectaRecurrents } from "../src/services/recurring.ts";
 import { ingressosIDespeses, serieMensual } from "../src/services/reports.ts";
 import { seedCategories } from "../src/services/seed.ts";
 import { addDays, todayLocal } from "../src/lib/time.ts";
@@ -213,7 +213,7 @@ describe("la projeccio", () => {
     expect(money(ultim?.tendencia).lt(money(primer?.tendencia))).toBe(true);
   });
 
-  test("un comerç anual declarat apareix als esdeveniments previstos", async () => {
+  test("una categoria anual declarada apareix als esdeveniments previstos", async () => {
     const [comerc] = await db
       .insert(merchants)
       .values({
@@ -225,6 +225,24 @@ describe("la projeccio", () => {
         isConfirmed: false,
         transactionCount: 1,
         lastSeenAt: addDays(todayLocal(), -20),
+      })
+      .returning();
+
+    const [categoria] = await db
+      .insert(categories)
+      .values({
+        ledgerId: espai.id,
+        parentId: null,
+        slug: "asseguranca-anual",
+        name: "Assegurança anual",
+        kind: "expense",
+        color: "#000000",
+        icon: "",
+        isSystem: false,
+        position: 0,
+        isSubscription: false,
+        isRecurrent: true,
+        recurrentCadence: "annual",
       })
       .returning();
 
@@ -242,8 +260,8 @@ describe("la projeccio", () => {
       counterparty: "",
       bankTransactionCode: "",
       merchantId: comerc?.id ?? 0,
-      categoryId: null,
-      categorySource: "none",
+      categoryId: categoria?.id ?? 0,
+      categorySource: "user",
       needsReview: false,
       notes: "",
       tags: [],
@@ -251,10 +269,7 @@ describe("la projeccio", () => {
       raw: {},
     });
 
-    await declaraComercRecurrent(comerc?.id ?? 0, espai.id, {
-      recurrent: true,
-      cadence: "annual",
-    });
+    await detectaRecurrents(espai.id);
 
     const horitzo = addDays(todayLocal(), 400);
     const esdeveniments = await esdevenimentsPrevistos(espai.id, horitzo);

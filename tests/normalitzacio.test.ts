@@ -15,7 +15,9 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  detectaTipusOperacio,
   displayName,
+  normalizeActorName,
   normalizeDescription,
   stripAccents,
 } from "../src/services/normalization.ts";
@@ -99,5 +101,53 @@ describe("el que fa, explicat", () => {
   test("treu els accents per a la clau", () => {
     expect(stripAccents("AIGÜES DE BARCELONA")).toBe("AIGUES DE BARCELONA");
     expect(normalizeDescription("FARMACIA NÚRIA")[0]).toBe("FARMACIA NURIA");
+  });
+});
+
+describe("detectaTipusOperacio decideix on va la contrapart", () => {
+  test("una transferencia ho es, un Bizum no", () => {
+    expect(detectaTipusOperacio("TRANSFERENCIA DE JOAN GARCIA PEREZ")).toBe("transferencia");
+    expect(detectaTipusOperacio("TRANSF. A MARIA LOPEZ")).toBe("transferencia");
+    expect(detectaTipusOperacio("BIZUM DE JOAN GARCIA")).toBe("bizum");
+    expect(detectaTipusOperacio("ENVIO BIZUM A MARIA")).toBe("bizum");
+  });
+
+  test("compres, rebuts i la resta no son transferencia", () => {
+    expect(detectaTipusOperacio("COMPRA TARJ. MERCADONA")).toBe("targeta");
+    expect(detectaTipusOperacio("RECIBO NETFLIX")).toBe("rebut");
+    expect(detectaTipusOperacio("ADEUDO POR DOMICILIACION DE ENDESA")).toBe("rebut");
+    expect(detectaTipusOperacio("INGRESO EN EFECTIVO")).toBe("altres");
+    expect(detectaTipusOperacio("TRASPASO A CALELLA")).toBe("altres");
+  });
+});
+
+describe("normalizeActorName", () => {
+  test("treu el prefix de transferencia i deixa el nom de la persona", () => {
+    const [clau, mostrar] = normalizeActorName("TRANSFERENCIA DE JOAN GARCIA PEREZ");
+    expect(clau).toBe("JOAN GARCIA PEREZ");
+    expect(mostrar).toBe("Joan Garcia Perez");
+  });
+
+  test("la contrapart del banc mana per sobre del concepte lliure", () => {
+    const [clau] = normalizeActorName("TRANSFERENCIA A FAVOR DE X", "Maria Garcia Lopez");
+    expect(clau).toBe("MARIA GARCIA LOPEZ");
+  });
+
+  test("talla a 8 tokens, no a 6: un nom i cognoms complets hi caben", () => {
+    const [clau] = normalizeActorName(
+      "TRANSFERENCIA DE JOAN CARLES GARCIA MARTINEZ LOPEZ FERNANDEZ SUAREZ TORRES",
+    );
+    expect(clau.split(" ")).toHaveLength(8);
+  });
+
+  test("neteja IBAN i referencies com el nom de comerç", () => {
+    const [clau] = normalizeActorName(
+      "TRANSFERENCIA DE JOAN GARCIA REF: 99887766 ES9121000418450200051332",
+    );
+    expect(clau).toBe("JOAN GARCIA");
+  });
+
+  test("sense text no dona cap actor", () => {
+    expect(normalizeActorName("")[0]).toBe("");
   });
 });

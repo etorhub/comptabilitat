@@ -7,7 +7,6 @@ import { and, asc, eq, ne } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import {
   categories,
-  merchants,
   recurringSeries,
   type Cadence,
   type SeriesStatus,
@@ -19,7 +18,7 @@ import { costMensual } from "./recurring.ts";
 export interface SerieVista {
   id: number;
   label: string;
-  categoryId: number | null;
+  categoryId: number;
   categoryName: string | null;
   cadence: Cadence;
   expectedAmount: MoneyString;
@@ -35,7 +34,7 @@ export interface SerieVista {
   isSubscription: boolean;
   status: SeriesStatus;
   includeInForecast: boolean;
-  /** Ve d'un comerç marcat a ma, no nomes del detector. */
+  /** La categoria porta una cadencia declarada, no nomes el detector. */
   isDeclared: boolean;
 }
 
@@ -52,15 +51,14 @@ export async function llistaSeries(
     .select({
       serie: recurringSeries,
       categoryName: categories.name,
-      merchantIsRecurrent: merchants.isRecurrent,
+      categoryRecurrentCadence: categories.recurrentCadence,
     })
     .from(recurringSeries)
-    .leftJoin(categories, eq(categories.id, recurringSeries.categoryId))
-    .leftJoin(merchants, eq(merchants.id, recurringSeries.merchantId))
+    .innerJoin(categories, eq(categories.id, recurringSeries.categoryId))
     .where(and(...parts))
     .orderBy(asc(recurringSeries.nextExpectedDate), asc(recurringSeries.label));
 
-  return files.map(({ serie, categoryName, merchantIsRecurrent }) => ({
+  return files.map(({ serie, categoryName, categoryRecurrentCadence }) => ({
     id: serie.id,
     label: serie.label,
     categoryId: serie.categoryId,
@@ -78,7 +76,7 @@ export async function llistaSeries(
     isSubscription: serie.isSubscription,
     status: serie.status,
     includeInForecast: serie.includeInForecast,
-    isDeclared: merchantIsRecurrent === true,
+    isDeclared: categoryRecurrentCadence !== null,
   }));
 }
 

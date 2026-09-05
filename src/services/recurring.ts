@@ -1,21 +1,32 @@
 /**
  * Deteccio de moviments recurrents i subscripcions.
  *
- * Un rebut es reconeix perque el mateix emissor apareix a intervals regulars
- * amb un import estable. A partir d'aqui es pot avisar quan puja de preu o
- * quan un mes no arriba, i sobretot es pot projectar el saldo.
+ * La porta es la **categoria**: nomes entren al detector els moviments d'una
+ * categoria marcada `is_recurrent` (`services/categories.ts`, `marcaRecurrent`).
+ * Dins d'una categoria recurrent, cada contrapart (comerç o actor) te la seva
+ * propia serie — Netflix i Spotify a «Subscripcions» no es barregen — i un
+ * moviment sense contrapart en fa una de sola per categoria i sentit.
  *
- * A mes, un comerç es pot **declarar** recurrent a ma: aleshores es crea o
- * manté una serie sense esperar les tres aparicions regulars del detector.
+ * Abans la porta era el comerç (`merchants.is_recurrent`), pero un comerç no
+ * serveix per a un actor: la mateixa persona et pot fer el lloguer cada mes i
+ * tornar-te un sopar excepcional, i cap de les dues coses no hauria de
+ * decidir l'altra.
  *
- * Traduccio de `backend/app/services/recurring.py`.
+ * Un rebut es reconeix perque la mateixa contrapart apareix a intervals
+ * regulars amb un import estable. A partir d'aqui es pot avisar quan puja de
+ * preu o quan un mes no arriba, i sobretot es pot projectar el saldo.
+ *
+ * Traduccio de `backend/app/services/recurring.py`, adaptada al canvi de
+ * porta (`0002_actors_i_recurrents`).
  */
 
-import { and, asc, eq, gte, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull } from "drizzle-orm";
 
 import { movimentsComptables } from "./filtres.ts";
-import { db } from "../db/client.ts";
+import { db, type Transactor } from "../db/client.ts";
 import {
+  actors,
+  categories,
   CADENCE_DAYS,
   merchants,
   recurringOccurrences,
@@ -23,7 +34,6 @@ import {
   transactions,
   type Cadence,
 } from "../db/schema/index.ts";
-import { AppError, NotFoundError } from "../lib/http.ts";
 import { addDays, daysBetween, todayLocal } from "../lib/time.ts";
 import { Decimal, money, toMoneyString } from "../lib/money.ts";
 import { creaAvis } from "./alerts.ts";
@@ -96,30 +106,40 @@ interface MovimentSerie {
   id: number;
   bookingDate: string;
   amount: string;
+  /** Mai nul: `detectaRecurrents` nomes selecciona moviments amb categoria. */
+  categoryId: number;
+  categoryRecurrentCadence: Cadence | null;
+  categoryIsSubscription: boolean;
   merchantId: number | null;
-  categoryId: number | null;
-  merchantNormalized: string | null;
+  actorId: number | null;
   merchantDisplay: string | null;
+  actorDisplay: string | null;
   normalizedDescription: string;
   description: string;
   displayDescription: string | null;
 }
 
-interface ComercRecurrent {
+interface CadenciaDeclarada {
   cadence: Cadence;
 }
 
-/** Clau que identifica la serie: el comerç mes el sentit de l'import. */
-function signatura(m: MovimentSerie): string | null {
-  const base = m.merchantNormalized ?? m.normalizedDescription;
-  if (!base) return null;
+/**
+ * Clau que identifica la serie: categoria + contrapart + sentit de l'import.
+ *
+ * Son identificadors, no text: reanomenar un comerç o un actor no orfena la
+ * serie (abans la clau era el nom normalitzat i ho feia).
+ */
+function signatura(m: MovimentSerie): string {
+  const contrapart =
+    m.merchantId !== null ? `m${m.merchantId}` : m.actorId !== null ? `a${m.actorId}` : "-";
   const sentit = money(m.amount).isPositive() ? "in" : "out";
-  return `${base}|${sentit}`.slice(0, 220);
+  return `c${m.categoryId}|${contrapart}|${sentit}`;
 }
 
 function etiquetaSerie(m: MovimentSerie): string {
   if (m.displayDescription) return m.displayDescription;
   if (m.merchantDisplay) return m.merchantDisplay;
+  if (m.actorDisplay) return m.actorDisplay;
   return m.normalizedDescription || m.description.slice(0, 80);
 }
 
@@ -128,21 +148,11 @@ function toleranciaDimport(importEsperat: Decimal): Decimal {
 }
 
 /**
- * Intenta endevinar la cadencia a partir dels intervals observats; si no n'hi
- * ha prou, torna `monthly`.
- */
-export function inferCadencia(dates: string[]): Cadence {
-  const intervals: number[] = [];
-  for (let i = 1; i < dates.length; i += 1) {
-    const dies = daysBetween(dates[i - 1] as string, dates[i] as string);
-    if (dies > 0) intervals.push(dies);
-  }
-  if (intervals.length === 0) return "monthly";
-  return cadenciaMesPropera(mediana(intervals)) ?? "monthly";
-}
-
-/**
  * Recalcula les series recurrents d'un espai a partir del seu historic.
+ *
+ * Nomes hi entren els moviments d'una categoria marcada `is_recurrent`
+ * (`innerJoin` amb `categories`): un moviment sense categoria, o amb una
+ * categoria que no ho es, no genera mai cap serie.
  */
 export async function detectaRecurrents(ledgerId: number): Promise<EstadistiquesRecurrents> {
   const estadistiques: EstadistiquesRecurrents = {
@@ -154,52 +164,51 @@ export async function detectaRecurrents(ledgerId: number): Promise<Estadistiques
 
   const des = addDays(todayLocal(), -HISTORY_MONTHS * 31);
 
-  const [moviments, declarats] = await Promise.all([
-    db
-      .select({
-        id: transactions.id,
-        bookingDate: transactions.bookingDate,
-        amount: transactions.amount,
-        merchantId: transactions.merchantId,
-        categoryId: transactions.categoryId,
-        merchantNormalized: merchants.normalizedName,
-        merchantDisplay: merchants.displayName,
-        normalizedDescription: transactions.normalizedDescription,
-        description: transactions.description,
-        displayDescription: transactions.displayDescription,
-      })
-      .from(transactions)
-      .leftJoin(merchants, eq(merchants.id, transactions.merchantId))
-      // Els traspassos entre comptes propis no son rebuts, i un moviment
-      // exclos a ma tampoc: `movimentsComptables` ja ho diu.
-      .where(movimentsComptables({ espais: ledgerId, des }))
-      .orderBy(asc(transactions.bookingDate)),
-    db
-      .select({
-        id: merchants.id,
-        recurrentCadence: merchants.recurrentCadence,
-      })
-      .from(merchants)
-      .where(and(eq(merchants.ledgerId, ledgerId), eq(merchants.isRecurrent, true))),
-  ]);
-
-  const perComerc = new Map<number, ComercRecurrent>();
-  for (const c of declarats) {
-    if (c.recurrentCadence) perComerc.set(c.id, { cadence: c.recurrentCadence });
-  }
+  const moviments = await db
+    .select({
+      id: transactions.id,
+      bookingDate: transactions.bookingDate,
+      amount: transactions.amount,
+      categoryId: transactions.categoryId,
+      categoryRecurrentCadence: categories.recurrentCadence,
+      categoryIsSubscription: categories.isSubscription,
+      merchantId: transactions.merchantId,
+      actorId: transactions.actorId,
+      merchantDisplay: merchants.displayName,
+      actorDisplay: actors.displayName,
+      normalizedDescription: transactions.normalizedDescription,
+      description: transactions.description,
+      displayDescription: transactions.displayDescription,
+    })
+    .from(transactions)
+    // L'inner join amb `categories` es la porta: exclou de rel qualsevol
+    // moviment sense categoria (l'`eq` mai no es certa amb `categoryId` nul).
+    .innerJoin(categories, eq(categories.id, transactions.categoryId))
+    .leftJoin(merchants, eq(merchants.id, transactions.merchantId))
+    .leftJoin(actors, eq(actors.id, transactions.actorId))
+    .where(
+      and(
+        movimentsComptables({ espais: ledgerId, des }),
+        eq(categories.ledgerId, ledgerId),
+        eq(categories.isRecurrent, true),
+      ),
+    )
+    .orderBy(asc(transactions.bookingDate));
 
   const grups = new Map<string, MovimentSerie[]>();
   for (const moviment of moviments) {
-    const clau = signatura(moviment);
-    if (clau === null) continue;
+    const fila: MovimentSerie = { ...moviment, categoryId: moviment.categoryId as number };
+    const clau = signatura(fila);
     const grup = grups.get(clau);
-    if (grup) grup.push(moviment);
-    else grups.set(clau, [moviment]);
+    if (grup) grup.push(fila);
+    else grups.set(clau, [fila]);
   }
 
   for (const [clau, items] of grups) {
-    const merchantId = items.find((i) => i.merchantId !== null)?.merchantId ?? null;
-    const declarat = merchantId !== null ? (perComerc.get(merchantId) ?? null) : null;
+    const cadenciaCategoria = items[0]?.categoryRecurrentCadence ?? null;
+    const declarat: CadenciaDeclarada | null = cadenciaCategoria
+      ? { cadence: cadenciaCategoria }
+      : null;
     await avaluaGrup(ledgerId, clau, items, estadistiques, declarat);
   }
 
@@ -211,7 +220,7 @@ async function avaluaGrup(
   clau: string,
   items: MovimentSerie[],
   estadistiques: EstadistiquesRecurrents,
-  declarat: ComercRecurrent | null,
+  declarat: CadenciaDeclarada | null,
 ): Promise<void> {
   const dates = items.map((i) => i.bookingDate);
   const intervals: number[] = [];
@@ -225,7 +234,7 @@ async function avaluaGrup(
   let confianca: number;
 
   if (declarat) {
-    // El comerç s'ha marcat a ma: no calen tres aparicions ni regularitat.
+    // La categoria porta cadencia declarada: no calen tres aparicions ni regularitat.
     if (items.length < 1) return;
     cadencia = declarat.cadence;
     intervalArrodonit = CADENCE_DAYS[cadencia];
@@ -252,6 +261,7 @@ async function avaluaGrup(
   const ultimaData = dates[dates.length - 1] as string;
   const seguentPrevista = addDays(ultimaData, intervalArrodonit);
   const ultim = items[items.length - 1] as MovimentSerie;
+  const isSubscription = ultim.categoryIsSubscription;
 
   const [existent] = await db
     .select()
@@ -269,6 +279,7 @@ async function avaluaGrup(
         signature: clau,
         label: etiquetaSerie(ultim),
         merchantId: ultim.merchantId,
+        actorId: ultim.actorId,
         categoryId: ultim.categoryId,
         cadence: cadencia,
         expectedAmount: toMoneyString(importEsperat),
@@ -279,8 +290,7 @@ async function avaluaGrup(
         firstSeenDate: dates[0] as string,
         lastSeenDate: ultimaData,
         nextExpectedDate: seguentPrevista,
-        // Nomes es diu «subscripcio» si es mensual i surt diners.
-        isSubscription: cadencia === "monthly" && money(ultim.amount).isNegative(),
+        isSubscription,
         status: "active",
         includeInForecast: true,
       })
@@ -293,7 +303,7 @@ async function avaluaGrup(
     serieId = existent.id;
     const importAnterior = money(existent.expectedAmount);
 
-    // Si el comerç es declarat, la cadencia la mana la persona: el detector
+    // Si la categoria porta cadencia declarada, mana ella: el detector
     // nomes refresca import, dates i aparicions.
     await db
       .update(recurringSeries)
@@ -315,11 +325,14 @@ async function avaluaGrup(
           ultimaData,
           declarat ? CADENCE_DAYS[declarat.cadence] : intervalArrodonit,
         ),
-        categoryId: ultim.categoryId ?? existent.categoryId,
-        merchantId: ultim.merchantId ?? existent.merchantId,
+        merchantId: ultim.merchantId,
+        actorId: ultim.actorId,
         status: "active",
         expectedAmount: toMoneyString(importEsperat),
         amountTolerance: toMoneyString(toleranciaImport),
+        // Es refresca sempre, no nomes en crear: una categoria que deixa de
+        // ser subscripcio no ha de continuar comptant al resum.
+        isSubscription,
         ...(ultim.displayDescription ? { label: ultim.displayDescription } : {}),
       })
       .where(eq(recurringSeries.id, serieId));
@@ -375,193 +388,41 @@ async function enllacaAparicions(serieId: number, items: MovimentSerie[]): Promi
 }
 
 /**
- * Marca o desmarca un comerç com a recurrent i sincronitza la serie.
+ * Esborra les series (i les seves aparicions, en cascada) d'una categoria.
  *
- * Quan es marca, cal almenys un moviment no exclòs (i no un traspàs) per
- * poder-ne treure l'import i la data. La serie queda a la previsio i el
- * detector ja no la pot acabar.
+ * Es crida quan es desmarca `categories.is_recurrent`: sense la categoria
+ * com a porta, les series que ja hi havia no es poden reaprofitar. Si es
+ * torna a marcar, `detectaRecurrents` les torna a crear des de l'historic.
  */
-export async function declaraComercRecurrent(
-  merchantId: number,
-  ledgerId: number,
-  opcions: { recurrent: boolean; cadence: Cadence | null },
-): Promise<{ isSubscription: boolean }> {
-  const [comerc] = await db
-    .select()
-    .from(merchants)
-    .where(and(eq(merchants.id, merchantId), eq(merchants.ledgerId, ledgerId)))
-    .limit(1);
-  if (!comerc) throw new NotFoundError("Aquest comerç no existeix");
-
-  if (!opcions.recurrent) {
-    await db
-      .update(merchants)
-      .set({ isRecurrent: false, recurrentCadence: null })
-      .where(eq(merchants.id, merchantId));
-
-    await db
-      .update(recurringSeries)
-      .set({ status: "ended", includeInForecast: false })
-      .where(
-        and(
-          eq(recurringSeries.ledgerId, ledgerId),
-          eq(recurringSeries.merchantId, merchantId),
-          eq(recurringSeries.status, "active"),
-        ),
-      );
-
-    return { isSubscription: false };
-  }
-
-  const cadence = opcions.cadence ?? "monthly";
-  const des = addDays(todayLocal(), -HISTORY_MONTHS * 31);
-
-  const moviments = await db
-    .select({
-      id: transactions.id,
-      bookingDate: transactions.bookingDate,
-      amount: transactions.amount,
-      merchantId: transactions.merchantId,
-      categoryId: transactions.categoryId,
-      merchantNormalized: merchants.normalizedName,
-      merchantDisplay: merchants.displayName,
-      normalizedDescription: transactions.normalizedDescription,
-      description: transactions.description,
-      displayDescription: transactions.displayDescription,
-    })
-    .from(transactions)
-    .innerJoin(merchants, eq(merchants.id, transactions.merchantId))
-    .where(
-      and(
-        eq(transactions.ledgerId, ledgerId),
-        eq(transactions.merchantId, merchantId),
-        gte(transactions.bookingDate, des),
-        eq(transactions.status, "booked"),
-        isNull(transactions.transferGroupId),
-        eq(transactions.isExcluded, false),
-      ),
-    )
-    .orderBy(asc(transactions.bookingDate));
-
-  if (moviments.length === 0) {
-    throw new AppError(
-      "Aquest comerç encara no te moviments per projectar; importa'n algun abans de marcar-lo com a recurrent",
-      422,
-    );
-  }
-
-  // Una sola serie: el sentit (entrada o sortida) amb mes aparicions.
-  let entrades = 0;
-  let sortides = 0;
-  for (const m of moviments) {
-    if (money(m.amount).isPositive()) entrades += 1;
-    else sortides += 1;
-  }
-  const sentit: "in" | "out" = entrades >= sortides ? "in" : "out";
-  const items = moviments.filter((m) =>
-    sentit === "in" ? money(m.amount).isPositive() : money(m.amount).isNegative(),
-  );
-
-  if (items.length === 0) {
-    throw new AppError(
-      "Aquest comerç encara no te moviments per projectar; importa'n algun abans de marcar-lo com a recurrent",
-      422,
-    );
-  }
-
-  const clau = signatura(items[0] as MovimentSerie);
-  if (clau === null) {
-    throw new AppError("No s'ha pogut identificar la serie d'aquest comerç", 422);
-  }
-
-  await db
-    .update(merchants)
-    .set({ isRecurrent: true, recurrentCadence: cadence })
-    .where(eq(merchants.id, merchantId));
-
-  const dates = items.map((i) => i.bookingDate);
-  const importEsperat = medianaImports(items.map((i) => i.amount)).toDecimalPlaces(2);
-  const toleranciaImport = toleranciaDimport(importEsperat);
-  const intervalDies = CADENCE_DAYS[cadence];
-  const ultimaData = dates[dates.length - 1] as string;
-  const ultim = items[items.length - 1] as MovimentSerie;
-  const isSubscription = cadence === "monthly" && money(ultim.amount).isNegative();
-
-  const [existent] = await db
-    .select()
-    .from(recurringSeries)
-    .where(and(eq(recurringSeries.ledgerId, ledgerId), eq(recurringSeries.signature, clau)))
-    .limit(1);
-
-  let serieId: number;
-
-  if (!existent) {
-    const [creada] = await db
-      .insert(recurringSeries)
-      .values({
-        ledgerId,
-        signature: clau,
-        label: etiquetaSerie(ultim),
-        merchantId,
-        categoryId: ultim.categoryId,
-        cadence,
-        expectedAmount: toMoneyString(importEsperat),
-        amountTolerance: toMoneyString(toleranciaImport),
-        intervalDays: intervalDies,
-        confidence: 1,
-        occurrencesCount: items.length,
-        firstSeenDate: dates[0] as string,
-        lastSeenDate: ultimaData,
-        nextExpectedDate: addDays(ultimaData, intervalDies),
-        isSubscription,
-        status: "active",
-        includeInForecast: true,
-      })
-      .returning({ id: recurringSeries.id });
-    if (!creada) throw new AppError("No s'ha pogut crear la serie recurrent", 500);
-    serieId = creada.id;
-  } else {
-    serieId = existent.id;
-    await db
-      .update(recurringSeries)
-      .set({
-        label: etiquetaSerie(ultim),
-        merchantId,
-        categoryId: ultim.categoryId ?? existent.categoryId,
-        cadence,
-        expectedAmount: toMoneyString(importEsperat),
-        amountTolerance: toMoneyString(toleranciaImport),
-        intervalDays: intervalDies,
-        confidence: 1,
-        occurrencesCount: items.length,
-        firstSeenDate: dates[0] as string,
-        lastSeenDate: ultimaData,
-        nextExpectedDate: addDays(ultimaData, intervalDies),
-        isSubscription,
-        status: "active",
-        includeInForecast: true,
-      })
-      .where(eq(recurringSeries.id, serieId));
-  }
-
-  await enllacaAparicions(serieId, items);
-  return { isSubscription };
+export async function esborraSeriesDeCategoria(
+  categoryId: number,
+  connexio: Transactor = db,
+): Promise<void> {
+  await connexio.delete(recurringSeries).where(eq(recurringSeries.categoryId, categoryId));
 }
 
 /**
  * Avisa dels rebuts que no han arribat quan tocava.
  *
  * Passat mes d'un periode sencer sense saber-ne res, la serie es dona per
- * acabada en lloc d'anar avisant per sempre. Les series d'un comerç marcat
- * com a recurrent **no** s'acaben: la persona les ha volgut a la previsio.
+ * acabada en lloc d'anar avisant per sempre. Les series d'una categoria amb
+ * cadencia declarada **no** s'acaben: la persona les ha volgut a la previsio.
  */
 export async function comprovaRebutsQueFalten(ledgerId: number): Promise<number> {
   const avui = todayLocal();
   let creats = 0;
 
   const series = await db
-    .select()
+    .select({
+      id: recurringSeries.id,
+      label: recurringSeries.label,
+      nextExpectedDate: recurringSeries.nextExpectedDate,
+      intervalDays: recurringSeries.intervalDays,
+      expectedAmount: recurringSeries.expectedAmount,
+      categoryRecurrentCadence: categories.recurrentCadence,
+    })
     .from(recurringSeries)
+    .innerJoin(categories, eq(categories.id, recurringSeries.categoryId))
     .where(
       and(
         eq(recurringSeries.ledgerId, ledgerId),
@@ -569,18 +430,6 @@ export async function comprovaRebutsQueFalten(ledgerId: number): Promise<number>
         isNotNull(recurringSeries.nextExpectedDate),
       ),
     );
-
-  const merchantIds = [
-    ...new Set(series.map((s) => s.merchantId).filter((id): id is number => id !== null)),
-  ];
-  const declarats = new Set<number>();
-  if (merchantIds.length > 0) {
-    const files = await db
-      .select({ id: merchants.id })
-      .from(merchants)
-      .where(and(inArray(merchants.id, merchantIds), eq(merchants.isRecurrent, true)));
-    for (const f of files) declarats.add(f.id);
-  }
 
   for (const serie of series) {
     const prevista = serie.nextExpectedDate;
@@ -590,8 +439,8 @@ export async function comprovaRebutsQueFalten(ledgerId: number): Promise<number>
     if (diesDeRetard < MISSING_GRACE_DAYS) continue;
 
     if (diesDeRetard > serie.intervalDays + MISSING_GRACE_DAYS) {
-      // Un comerç declarat es queda actiu encara que el rebut no arribi.
-      if (serie.merchantId !== null && declarats.has(serie.merchantId)) continue;
+      // Una categoria amb cadencia declarada es queda activa encara que el rebut no arribi.
+      if (serie.categoryRecurrentCadence !== null) continue;
 
       await db
         .update(recurringSeries)
