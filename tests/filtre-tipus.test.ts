@@ -3,6 +3,7 @@
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
 
 import { db } from "../src/db/client.ts";
 import {
@@ -22,7 +23,7 @@ import {
   transactionFiltersToQuery,
 } from "../src/routes/transactions/transactions.schema.ts";
 import { seedCategories } from "../src/services/seed.ts";
-import { llistaMoviments } from "../src/services/transactions.ts";
+import { llistaMoviments, targetesDisponibles } from "../src/services/transactions.ts";
 import { app } from "../src/server.ts";
 
 const CONTRASENYA = "provaprovaprova";
@@ -39,6 +40,7 @@ const baseFiltre = {
   cerca: "",
   etiqueta: null as string | null,
   tipusOperacio: [] as ("targeta" | "transferencia" | "bizum" | "rebut" | "altres")[],
+  targetes: [] as string[],
   nomesRevisio: false,
   nomesSenseClassificar: false,
   incloTraspassos: true,
@@ -191,6 +193,37 @@ describe("filtre per tipus d'operacio", () => {
   });
 });
 
+describe("filtre per targeta concreta", () => {
+  test("nomes els moviments d'aquella targeta", async () => {
+    const pagina = await llistaMoviments(ledgerId, {
+      ...baseFiltre,
+      targetes: ["1234"],
+    });
+    expect(pagina.items).toHaveLength(1);
+    expect(pagina.items[0]?.description).toBe("Mercadona");
+  });
+
+  test("cap targeta seleccionada no filtra res", async () => {
+    const pagina = await llistaMoviments(ledgerId, { ...baseFiltre, targetes: [] });
+    expect(pagina.items).toHaveLength(5);
+  });
+
+  test("targetesDisponibles retorna els darrers 4 digits usats al compte", async () => {
+    const targetes = await targetesDisponibles(ledgerId, accountId);
+    expect(targetes).toEqual(["1234"]);
+  });
+
+  test("targetesDisponibles no revela la targeta d'un moviment emmascarat", async () => {
+    await db
+      .update(transactions)
+      .set({ displayDescription: "Despesa personal" })
+      .where(eq(transactions.dedupKey, "card"));
+
+    const targetes = await targetesDisponibles(ledgerId, accountId);
+    expect(targetes).toEqual([]);
+  });
+});
+
 describe("schema de filtres tipus", () => {
   test("accepta un sol valor o una llista", () => {
     expect(transactionFiltersSchema.parse({ tipus: "transferencia" }).tipus).toEqual([
@@ -210,6 +243,23 @@ describe("schema de filtres tipus", () => {
     expect(q).toContain("pagina=1");
   });
 
+  test("targeta accepta nomes 4 digits", () => {
+    expect(
+      transactionFiltersSchema.parse({ targeta: ["1234", "abcd", "12345"] }).targeta,
+    ).toEqual(["1234"]);
+    expect(
+      transactionFiltersSchema.parse({ targeta: ["1234", "5678", "1234"] }).targeta,
+    ).toEqual(["1234", "5678"]);
+  });
+
+  test("serialitza targeta repetides a la query", () => {
+    const q = transactionFiltersToQuery(
+      transactionFiltersSchema.parse({ targeta: ["1234", "5678"] }),
+    );
+    expect(q).toContain("targeta=1234");
+    expect(q).toContain("targeta=5678");
+  });
+
   test("la barra mostra els checkboxes de tipus", async () => {
     const html = String(
       await BarraFiltres({
@@ -223,6 +273,33 @@ describe("schema de filtres tipus", () => {
     expect(html).toContain('value="transferencia"');
     expect(html).toContain("checked");
     expect(html).toContain("Targeta");
+  });
+
+  test("la barra mostra els checkboxes de targeta quan n'hi ha", async () => {
+    const html = String(
+      await BarraFiltres({
+        codi: "personal",
+        filters: transactionFiltersSchema.parse({ targeta: "1234" }),
+        comptes: [],
+        grups: [],
+        targetesConegudes: ["1234"],
+      }),
+    );
+    expect(html).toContain('name="targeta"');
+    expect(html).toContain('value="1234"');
+    expect(html).toContain("checked");
+  });
+
+  test("sense targetes conegudes no hi ha fieldset", async () => {
+    const html = String(
+      await BarraFiltres({
+        codi: "personal",
+        filters: transactionFiltersSchema.parse({}),
+        comptes: [],
+        grups: [],
+      }),
+    );
+    expect(html).not.toContain('name="targeta"');
   });
 });
 
@@ -278,5 +355,35 @@ describe("ruta de moviments amb filtre tipus", () => {
     expect(htmlFrag).not.toContain("Mercadona");
     expect(frag.headers.get("HX-Push-Url")).toContain("tipus=transferencia");
     expect(htmlPagina).not.toBe(htmlFrag);
+  });
+
+  test("el fragment refresca el fieldset de targetes amb un swap OOB", async () => {
+    const [usuari] = await db
+      .insert(users)
+      .values({
+        email: "filtre-targeta@exemple.cat",
+        fullName: "Filtre targeta",
+        passwordHash: await hashPassword(CONTRASENYA),
+        isActive: true,
+        isAdmin: false,
+      })
+      .returning();
+    await db.insert(userLedgerPermissions).values({
+      userId: usuari?.id ?? 0,
+      ledgerId,
+      role: "editor",
+    });
+    const cookie = await entra("filtre-targeta@exemple.cat");
+
+    const frag = await app.request("/e/personal/moviments/fragment/taula?targeta=1234", {
+      headers: { Cookie: cookie },
+    });
+    expect(frag.status).toBe(200);
+    const htmlFrag = await frag.text();
+    expect(htmlFrag).toContain('id="filtre-targetes"');
+    expect(htmlFrag).toContain('hx-swap-oob="true"');
+    expect(htmlFrag).toContain('name="targeta"');
+    expect(htmlFrag).toContain('value="1234"');
+    expect(htmlFrag).toContain("Mercadona");
   });
 });
