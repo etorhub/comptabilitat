@@ -27,8 +27,3 @@ export function recurringFiltersToQuery(f: RecurringFilters): string {
   const q = p.toString();
   return q ? `?${q}` : "";
 }
-
-/** Canvi de l'etiqueta d'una serie. */
-export const recurringRenameSchema = z.object({
-  label: z.string().trim().min(1, "Cal un nom").max(200, "El nom es massa llarg"),
-});

@@ -72,19 +72,7 @@ const formatadorLlarg = new Intl.NumberFormat("ca-ES", {
   maximumFractionDigits: 2,
 });
 
-const formatadorCurt = new Intl.NumberFormat("ca-ES", {
-  style: "currency",
-  currency: "EUR",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
-
 /** «1.234,56 €» */
 export function formatMoney(value: MoneyString | Decimal | null | undefined): string {
   return formatadorLlarg.format(money(value).toNumber());
-}
-
-/** «1.235 €», per als eixos dels grafics i les xifres grosses. */
-export function formatMoneyShort(value: MoneyString | Decimal | null | undefined): string {
-  return formatadorCurt.format(money(value).toNumber());
 }

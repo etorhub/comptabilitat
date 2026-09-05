@@ -54,8 +54,12 @@ src/
   workers/                  planificador
 ```
 
-- **Tot recurs té els quatre fitxers.** Cap excepció. Si un no necessita
-  fragments, el fitxer existeix igualment i queda buit d'exportacions.
+- **Tot recurs amb pàgina té els quatre fitxers.** Cap excepció. Si un no
+  necessita fragments, el fitxer existeix igualment i queda buit
+  d'exportacions. `exports/` (dos fitxers: descàrregues penjades de Moviments
+  i d'Informes, sense pàgina pròpia) i `home/` (un fitxer: nomes redirigeix a
+  l'espai actiu) no en són excepcions a la regla — son fora del seu abast, ja
+  que cap dels dos té `GET <base>` retornant una pàgina.
 - **La lògica de negoci no és un recurs.** `sync`, `normalization`,
   `classification`, `forecast`, `recurring`, `reports`... van a `src/services/`,
   un mòdul per tema. Les rutes són primes: llegir paràmetres, autoritzar,
@@ -74,9 +78,14 @@ Tres regles i cap excepció:
 3. `POST | PATCH | DELETE` retornen el **tros que ha canviat**, més els
    intercanvis fora de banda que calguin.
 
-**Mai** es mira la capçalera `HX-Request` per decidir què es retorna. Una adreça
-retorna una sola cosa; si no, l'historial, els enllaços compartits, la memòria
-cau i les proves es tornen ambigus.
+**Mai** es mira la capçalera `HX-Request` per decidir **quin recurs** es
+retorna. Una adreça retorna una sola cosa; si no, l'historial, els enllaços
+compartits, la memòria cau i les proves es tornen ambigus.
+
+Es mira a tres llocs, i cap dels tres tria el recurs: `server.ts` (`notFound`,
+`onError`) i `redirect()` a `lib/http.ts` decideixen **com ensenyar** un error
+o una redirecció (un `#toast` fora de banda a una petició d'HTMX, una pàgina o
+una capçalera `HX-Redirect` si no), no què hi ha a l'altra banda de l'adreça.
 
 **L'estat dels filtres i de la paginació viu a la cadena de consulta de la
 pàgina**, no en cap variable de client. La ruta de fragment llegeix els mateixos
@@ -153,7 +162,6 @@ al costat, amb `hx-swap-oob="true"`. Fes servir `withOob()`.
 | `#toast`               | `lib/http.ts` | qualsevol error o confirmació                    |
 | `#comptador-revisio`   | moviments     | es classifica un moviment                        |
 | `#comptador-avisos`    | avisos        | es llegeix o es descarta un avís                 |
-| `#saldo-capcalera`     | analítiques   | acaba una sincronització                         |
 | `#resum-subscripcions` | recurrents    | canvia `include_in_forecast` o `is_subscription` |
 
 - **Cada objectiu té un sol amo.** El fragment del recurs propietari l'exporta i
@@ -163,6 +171,20 @@ al costat, amb `hx-swap-oob="true"`. Fes servir `withOob()`.
   refrescava la llista, el panell i els dos comptadors sense dir-ho.
 - **Excepció única:** l'estat d'una sincronització del banc, que sí que fa
   sondeig i s'atura sol quan la feina acaba.
+- **`#toast` no fa `hx-swap-oob="true"` com la resta.** Fa
+  `hx-swap-oob="innerHTML:#toast"`: es canvia el **contingut**, no el
+  contenidor. El `<div id="toast">` neix amb `aria-live="polite"` a
+  `components/layout.tsx`; si es reemplacés el node sencer, el de recanvi
+  hauria de dur el mateix atribut o deixaria de ser una regió viva a partir
+  del primer avís.
+- **El saldo de la capçalera del panell (`#saldo-capcalera`) no és cap
+  objectiu fora de banda**, tot i que ho va ser en una versió anterior
+  d'aquest document. Sincronitzar es fa des de `/connexions`, una pàgina
+  d'administració sense cap espai concret; el saldo viu al panell d'un espai
+  (`/e/:codi`). Són dues pàgines que mai coincideixen al DOM del navegador amb
+  aquest tipus de navegació (sense cap web socket ni SSE), i no hi ha cap
+  mutació al panell mateix que l'hagi de refrescar sense recarregar. Es veu al
+  dia perquè es torna a calcular cada cop que el panell es carrega.
 
 ---
 
@@ -218,6 +240,11 @@ Dues garanties del producte, no detalls d'implementació:
 - **Mai `parseFloat` d'un import per fer-hi càlculs.** En una aplicació de
   comptabilitat això és un error de correcció, no una preferència d'estil.
 - `number` només per als grafics, que són només per mirar (`toChartNumber()`).
+  La conversió es fa **al fragment que construeix el paquet del grafic**
+  (`Grafic*()` a `routes/analytics/analytics.fragment.tsx`), no al servei: la
+  mateixa fila sovint també alimenta una taula amb `formatMoney()`, que no
+  accepta `number`. El client (`public/grafics.js`) ja no fa cap `Number()`;
+  el que rep del `<script type="application/json">` ja son numeros.
 
 ---
 

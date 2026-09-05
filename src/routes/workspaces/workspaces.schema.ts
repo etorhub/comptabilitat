@@ -5,7 +5,7 @@
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-import { ledgerRoleSchema, ledgers } from "../../db/schema/index.ts";
+import { ledgers } from "../../db/schema/index.ts";
 
 const base = createInsertSchema(ledgers);
 
@@ -24,8 +24,6 @@ export const workspaceCreateSchema = base.pick({ name: true }).extend({
     .regex(/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/, "El color ha de ser un codi hexadecimal")
     .default("#2563eb"),
 });
-
-export type WorkspaceCreateInput = z.infer<typeof workspaceCreateSchema>;
 
 export const workspaceUpdateSchema = z.object({
   name: z.string().trim().min(1, "Cal un nom").max(120),
@@ -52,9 +50,4 @@ export const workspaceUpdateSchema = z.object({
         .filter(Boolean),
     )
     .pipe(z.array(z.email("Hi ha una adreça que no es valida"))),
-});
-
-export const memberSchema = z.object({
-  user_id: z.coerce.number().int().positive(),
-  role: ledgerRoleSchema,
 });

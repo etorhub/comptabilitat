@@ -30,8 +30,6 @@ export const loginSchema = z.object({
     .transform((v) => (v && v.startsWith("/") && !v.startsWith("//") ? v : "/")),
 });
 
-export type LoginInput = z.infer<typeof loginSchema>;
-
 export const passwordChangeSchema = z
   .object({
     current_password: z.string().min(1, "Cal la contrasenya actual"),
@@ -51,5 +49,3 @@ export const passwordChangeSchema = z
     message: "La contrasenya nova ha de ser diferent de l'actual",
     path: ["new_password"],
   });
-
-export type PasswordChangeInput = z.infer<typeof passwordChangeSchema>;

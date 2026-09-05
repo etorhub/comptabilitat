@@ -38,11 +38,6 @@ export function daysBetween(des: string, fins: string): number {
   return Math.round((b - a) / 86_400_000);
 }
 
-/** Primer dia del mes d'una data. */
-export function startOfMonth(isoDate: string): string {
-  return `${isoDate.slice(0, 7)}-01`;
-}
-
 /** Formata una data de calendari per ensenyar-la. */
 const formatador = new Intl.DateTimeFormat("ca-ES", {
   day: "numeric",

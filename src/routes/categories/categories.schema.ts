@@ -43,14 +43,10 @@ export const categoryCreateSchema = base.pick({ name: true }).extend({
   is_subscription: casella,
 });
 
-export type CategoryCreateInput = z.infer<typeof categoryCreateSchema>;
-
 /** Canvi de nom i de marca de subscripcio des de la fila de la taula. */
 export const categoryUpdateSchema = z.object({
   name: z.string().trim().min(1, "Cal un nom").max(120, "El nom es massa llarg"),
 });
-
-export type CategoryUpdateInput = z.infer<typeof categoryUpdateSchema>;
 
 export const categoryDeleteSchema = z.object({
   /** A qui van a parar els moviments que hi hagi. */
