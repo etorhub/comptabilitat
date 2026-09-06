@@ -67,6 +67,21 @@ document.body.addEventListener("htmx:afterSettle", function () {
 });
 `);
 
+/**
+ * Les dues icones del calaix.
+ *
+ * Dibuixades aqui i no des d'un fitxer: son dos traços, i una peticio mes per
+ * a cada carrega de pagina no els val. `aria-hidden`, perque qui les ha
+ * d'entendre ho fa per l'`aria-label` del `<label>` que les conte.
+ */
+const iconaMenu = raw(
+  `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>`,
+);
+
+const iconaTanca = raw(
+  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>`,
+);
+
 export function Layout(props: LayoutProps): Html {
   const {
     titol,
@@ -104,7 +119,28 @@ export function Layout(props: LayoutProps): Html {
       <body hx-headers='{"${raw(CSRF_HEADER)}": "${csrfToken}"}'>
         <a class="salta" href="#contingut">Ves al contingut</a>
 
+        <!--
+          El calaix de la navegacio, sense gens de JavaScript: una casella
+          amagada i uns quants label. Es el mateix idioma que el cercador
+          plegable dels moviments (la classe toggle-cerca).
+
+          Com que cada enllaç es una carrega de pagina sencera, la casella es
+          reinicia sola en navegar i el calaix es tanca tot sol.
+        -->
+        <input type="checkbox" id="menu-obert" class="toggle-menu visualment-ocult" />
+
+        <header class="barra-mobil">
+          <label for="menu-obert" class="boto-menu" aria-label="Obre el menu">
+            ${iconaMenu}
+          </label>
+          <span class="marca">Comptabilitat</span>
+          ${espai ? html`<span class="barra-mobil-espai text-suau">${espai.name}</span>` : ""}
+        </header>
+
         <div class="disposicio">
+          <!-- Tocar fora del calaix el tanca. Per a qui hi veu, i prou. -->
+          <label for="menu-obert" class="rerefons-menu" aria-hidden="true"></label>
+
           ${Sidebar({ user, espais, espai, perRevisar, avisosNous, ruta })}
 
           <main id="contingut" class="principal">${props.children}</main>
@@ -187,6 +223,8 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous, ruta }: SidebarP
   return html`<nav class="barra" aria-label="Navegacio principal">
     <div class="barra-cap">
       <span class="marca">Comptabilitat</span>
+      <!-- Nomes es veu quan la barra es un calaix, es a dir, al mobil. -->
+      <label for="menu-obert" class="tanca-menu" aria-label="Tanca el menu">${iconaTanca}</label>
     </div>
 
     ${

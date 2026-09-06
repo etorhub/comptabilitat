@@ -82,6 +82,48 @@ describe("aria-current a la barra lateral", () => {
   });
 });
 
+/**
+ * El calaix del mobil.
+ *
+ * Es de CSS pur: una casella amagada i uns `<label>` que hi apunten. Si algu
+ * canvia l'identificador d'un costat i no de l'altre, el menu deixa d'obrir-se
+ * i res no peta —el navegador no es queixa d'un `for` que no apunta enlloc—,
+ * de manera que el que es comprova aqui es que els dos costats es diguin igual.
+ */
+describe("el calaix de la navegacio", () => {
+  test("la casella i tots els `for` que hi apunten es diuen igual", async () => {
+    const pagina = await barra("/e/personal");
+
+    expect(pagina).toContain('<input type="checkbox" id="menu-obert"');
+    // El d'obrir, el rerefons i el de tancar.
+    expect([...pagina.matchAll(/for="menu-obert"/g)]).toHaveLength(3);
+  });
+
+  test("els botons del calaix diuen que fan", async () => {
+    const pagina = await barra("/e/personal");
+
+    // Son `<label>` amb una icona a dins: sense aixo no diuen res.
+    expect(pagina).toContain('aria-label="Obre el menu"');
+    expect(pagina).toContain('aria-label="Tanca el menu"');
+  });
+
+  test("els comptadors no es dupliquen a la barra de dalt", async () => {
+    // Son objectius fora de banda i cada identificador te un sol amo: si es
+    // dibuixessin dos cops, l'intercanvi nomes en trobaria un i l'altre
+    // quedaria encallat amb el numero vell. Vegeu AGENTS.md.
+    const pagina = await barra("/e/personal");
+
+    expect([...pagina.matchAll(/id="comptador-revisio"/g)]).toHaveLength(1);
+    expect([...pagina.matchAll(/id="comptador-avisos"/g)]).toHaveLength(1);
+  });
+
+  test("la barra de dalt diu a quin espai ets", async () => {
+    expect(await barra("/e/personal")).toContain(
+      '<span class="barra-mobil-espai text-suau">Personal</span>',
+    );
+  });
+});
+
 describe("#toast", () => {
   test("canvia el contingut i no el contenidor", () => {
     // Si tornes un `<div id="toast">`, te'n vas la regio viva amb ell.

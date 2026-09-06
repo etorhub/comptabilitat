@@ -86,7 +86,10 @@ export function Taula({
   // peticio corre. El full d'estil el tenia i ningu no el posava.
   return html`<div id="taula-moviments" class="taula-carregant">
     ${TaulaDades({
-      classe: "taula-moviments",
+      // `taula-fitxes`: per sota de 40rem cada fila es dibuixa com una fitxa
+      // en comptes d'una fila. El nom de cada columna surt de la
+      // `data-etiqueta` de la cel·la, aqui sota.
+      classe: "taula-moviments taula-fitxes",
       abans: potEditar ? BarraBloc({ codi, grups, filters }) : "",
       columnes: html`${
         potEditar
@@ -356,7 +359,7 @@ export function Fila({
   >
     ${
       potEditar
-        ? html`<td class="tria">
+        ? html`<td class="tria" data-etiqueta="Tria">
           <input
             type="checkbox"
             name="moviment"
@@ -367,7 +370,7 @@ export function Fila({
         : ""
     }
 
-    <td class="data">
+    <td class="data" data-etiqueta="Data">
       <time datetime="${moviment.bookingDate}">
         ${dataCurta.format(new Date(`${moviment.bookingDate}T00:00:00`))}
       </time>
@@ -378,7 +381,7 @@ export function Fila({
       }
     </td>
 
-    <td>
+    <td class="cel-concepte" data-etiqueta="Concepte">
       <div class="concepte-linia">
         ${
           potEditar
@@ -416,15 +419,17 @@ export function Fila({
       ${moviment.notes ? html`<small class="text-suau nota">${moviment.notes}</small>` : ""}
     </td>
 
-    <td>
+    <td class="cel-comerc" data-etiqueta="Comerç">
       ${moviment.merchantName ?? html`<span class="text-suau">—</span>`}
     </td>
 
-    <td class="cel-categoria">
+    <td class="cel-categoria" data-etiqueta="Categoria">
       ${CelCategoria({ codi, moviment, grups, potEditar, editantCategoria })}
     </td>
 
-    <td class="dreta ${negatiu ? "negatiu" : "positiu"}">${formatMoney(moviment.amount)}</td>
+    <td class="dreta ${negatiu ? "negatiu" : "positiu"}" data-etiqueta="Import">
+      ${formatMoney(moviment.amount)}
+    </td>
   </tr>` as Html;
 }
 
