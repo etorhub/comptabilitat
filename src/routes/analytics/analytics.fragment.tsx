@@ -47,7 +47,7 @@ function Grafic({
       data-grafic="${tipus}"
       id="${id}"
       class="grafic"
-      style="height:${String(alçada)}px"
+      style="--alçada:${String(alçada)}px"
       role="img"
       aria-label="${descripcio}"
     >

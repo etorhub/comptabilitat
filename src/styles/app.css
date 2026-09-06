@@ -76,6 +76,18 @@ body {
 
 /* --- Disposicio ---------------------------------------------------------- */
 
+/*
+ * Tres amplades, i cap mes:
+ *
+ *   60rem  la barra lateral deixa de cabre al costat i passa a ser un calaix;
+ *          el que anava en dues columnes en fa una.
+ *   48rem  els camps s'han de poder tocar amb el dit.
+ *   40rem  telefon: els moviments passen de taula a fitxes.
+ *
+ * Estan escrites a ma a cada lloc perque el full es de CSS pla; si algun dia
+ * s'hi posen utilitats, que siguin aquestes tres i no unes altres.
+ */
+
 .disposicio {
   display: grid;
   grid-template-columns: 16rem 1fr;
@@ -89,7 +101,8 @@ body {
 }
 
 .principal {
-  padding: 1.5rem 2rem 4rem;
+  /* Els 2rem dels costats es mengen mitja pantalla d'un telefon. */
+  padding: 1.5rem clamp(0.75rem, 4vw, 2rem) 4rem;
   min-width: 0;
 }
 
@@ -181,6 +194,118 @@ body {
   font-weight: 600;
 }
 
+/* --- Mobil: barra de dalt i calaix ---------------------------------------- */
+
+/*
+ * Per sota de 60rem la barra lateral no cap al costat. Abans es desapilava:
+ * passava a ser un bloc d'amplada sencera **per sobre** del contingut, de
+ * manera que cada pagina començava fent-te baixar pel selector d'espai, quinze
+ * enllaços i el boto de sortir. Ara es un calaix.
+ *
+ * Tot amb una casella i uns `<label>` (`#menu-obert`, a `components/
+ * layout.tsx`): cap JavaScript, com mana la casa. El preu es que no hi ha
+ * `aria-expanded` ni captura del focus; a canvi els `<label>` duen
+ * `aria-label`, el calaix ja es un `<nav aria-label>` i te un boto de tancar
+ * propi. Es el mateix tracte que el cercador plegable dels moviments.
+ */
+
+.barra-mobil {
+  display: none;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--superficie);
+  border-bottom: 1px solid var(--vora);
+}
+
+.barra-mobil-espai {
+  margin-left: auto;
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boto-menu,
+.tanca-menu {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  margin: -0.5rem 0;
+  border-radius: 0.5rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.boto-menu:hover,
+.tanca-menu:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* El `<label>` no rep el focus del teclat sol; la casella si, i esta al costat. */
+.toggle-menu:focus-visible + .barra-mobil .boto-menu {
+  outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: 1px;
+}
+
+/* A l'escriptori no hi ha ni barra de dalt, ni calaix, ni res per tancar. */
+.tanca-menu,
+.rerefons-menu {
+  display: none;
+}
+
+@media (max-width: 60rem) {
+  .barra-mobil {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .barra {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(18rem, 84vw);
+    z-index: 70;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    transform: translateX(-100%);
+    transition: transform 180ms ease;
+    box-shadow: 0 0 24px rgb(0 0 0 / 18%);
+  }
+
+  #menu-obert:checked ~ .disposicio .barra {
+    transform: none;
+  }
+
+  .barra-cap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .tanca-menu {
+    display: inline-flex;
+  }
+
+  #menu-obert:checked ~ .disposicio .rerefons-menu {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: rgb(0 0 0 / 45%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barra {
+    transition: none;
+  }
+}
+
 /* --- Pagines centrades (entrada, errors) --------------------------------- */
 
 .cos-centrat {
@@ -194,7 +319,7 @@ body {
   background: var(--superficie);
   border: 1px solid var(--vora);
   border-radius: 0.75rem;
-  padding: 2rem;
+  padding: clamp(1.25rem, 5vw, 2rem);
   width: min(26rem, 100%);
 }
 
@@ -282,6 +407,42 @@ select[aria-invalid="true"] {
   border-color: var(--negatiu);
 }
 
+/*
+ * Al Safari de l'iPhone, enfocar un camp amb la lletra per sota de 16px fa
+ * zoom a la pagina i **no en surt**: et deixa l'aplicacio de biaix fins que
+ * pinces per tornar. Passa amb els camps petits que hi ha per aqui
+ * (`.recurrent-comerc select`, `.alta-etiqueta input`). El `max()` puja el
+ * minim sense tocar els que ja son mes grossos.
+ */
+@media (max-width: 48rem) {
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+
+  /* Amb 16px, les 4.5rem de la xapa d'alta d'etiqueta ja no hi caben. */
+  .alta-etiqueta input {
+    width: 6rem;
+  }
+}
+
+/*
+ * Amb el dit, un objectiu d'1rem no s'encerta. Nomes on el punter es gruixut:
+ * a l'escriptori la densitat es queda com esta.
+ */
+@media (pointer: coarse) {
+  .boto-icona,
+  .boto-xapa,
+  .toast-tanca {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
 .boto {
   display: inline-block;
   background: var(--accent);
@@ -347,6 +508,28 @@ table.dades tbody tr:hover {
 /* Qualsevol cosa ampla (taules, grafics) es desplaça dins seu, mai la pagina. */
 .desplaçable {
   overflow-x: auto;
+  /*
+   * Arribar al final del desplaçament ja no arrossega la pagina de sota ni
+   * dispara el «tornar enrere» del navegador, que amb el dit passava sovint.
+   */
+  overscroll-behavior-x: contain;
+  /*
+   * Que es vegi que allo es desplaça. Dues ombres enganxades al contingut
+   * (`local`) i dos degradats blancs enganxats al marc (`scroll`): quan hi ha
+   * mes taula cap a un costat, l'ombra d'aquell costat es destapa. Nomes CSS.
+   */
+  background:
+    linear-gradient(to right, var(--fons) 30%, transparent),
+    linear-gradient(to left, var(--fons) 30%, transparent) 100% 0,
+    radial-gradient(farthest-side at 0 50%, rgb(0 0 0 / 16%), transparent),
+    radial-gradient(farthest-side at 100% 50%, rgb(0 0 0 / 16%), transparent) 100% 0;
+  background-repeat: no-repeat;
+  background-size:
+    2.5rem 100%,
+    2.5rem 100%,
+    0.75rem 100%,
+    0.75rem 100%;
+  background-attachment: local, local, scroll, scroll;
 }
 
 /* --- Avisos (`#toast`) --------------------------------------------------- */
@@ -442,7 +625,7 @@ table.dades tbody tr:hover {
 
 .capçalera h1 {
   margin: 0 0 0.25rem;
-  font-size: 1.5rem;
+  font-size: clamp(1.25rem, 4vw, 1.5rem);
 }
 
 .capçalera p {
@@ -476,7 +659,7 @@ table.dades tbody tr:hover {
 
 .targeta {
   border-radius: 0.75rem;
-  padding: 1.25rem;
+  padding: clamp(0.9rem, 3vw, 1.25rem);
   margin-bottom: 1.25rem;
 }
 
@@ -505,6 +688,23 @@ table.dades tbody tr:hover {
 .camp-linia {
   margin-bottom: 0;
   min-width: 12rem;
+}
+
+/*
+ * Al telefon, un camp per fila i prou.
+ *
+ * Les 12rem de minim son 192px: amb dos camps i el buit ja no caben en una
+ * pantalla de 390, i el que passava es que el darrer de cada fila quedava
+ * escapçat o empenyia la pagina. Val mes que cadascun ocupi la fila sencera
+ * que no pas que dos hi vagin estrets. A l'escriptori no canvia res.
+ */
+@media (max-width: 40rem) {
+  .form-linia .camp,
+  .linia .camp,
+  .camp-linia {
+    min-width: 0;
+    width: 100%;
+  }
 }
 
 .form-linia h2 {
@@ -862,7 +1062,7 @@ tr.exclos {
 .cel-categoria .camp {
   display: inline-block;
   margin: 0;
-  min-width: 10rem;
+  min-width: min(10rem, 100%);
   vertical-align: middle;
 }
 
@@ -899,6 +1099,179 @@ tr.exclos {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* --- Moviments al telefon: de taula a fitxes ------------------------------- */
+
+/*
+ * Sis columnes, una amb un `<select>` de categoria a cada fila, no caben en
+ * 390px. Fins ara nomes se salvaven pel desplaçament horitzontal de
+ * `.desplaçable`: es podia fer servir, pero llegir un moviment volia dir anar
+ * d'esquerra a dreta i tornar.
+ *
+ * Per sota de 40rem cada fila es una fitxa. El capçal desapareix i la
+ * `data-etiqueta` de cada cel·la (la posa `Fila()` a
+ * `routes/transactions/transactions.fragment.tsx`) fa de nom del camp, aixi
+ * que el nom de la columna no s'escriu dues vegades enlloc.
+ *
+ * **Nomes els moviments.** La resta de taules segueixen desplaçant-se: son de
+ * consulta i de configuracio, i no es el que mires al telefon.
+ */
+
+@media (max-width: 40rem) {
+  /* Una fitxa no es ampla: ja no hi ha res per desplaçar, ni ombres que valguin. */
+  .desplaçable:has(.taula-fitxes) {
+    overflow-x: visible;
+    background: none;
+  }
+
+  .taula-fitxes,
+  .taula-fitxes tbody,
+  .taula-fitxes td {
+    display: block;
+  }
+
+  .taula-fitxes thead {
+    display: none;
+  }
+
+  /*
+   * El comerç i la categoria van en fileres propies, no compartint columna
+   * amb la casella: si no, un nom llarg («Farmacia Central») eixampla la
+   * primera columna i empeny la data cap al mig de la fitxa.
+   */
+  .taula-fitxes tr {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      "tria data import"
+      "concepte concepte concepte"
+      "comerc comerc comerc"
+      "categoria categoria categoria";
+    align-items: baseline;
+    gap: 0.15rem 0.5rem;
+    background: var(--superficie);
+    border: 1px solid var(--vora);
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    margin-bottom: 0.6rem;
+  }
+
+  /*
+   * `table.dades td` te mes pes que `.taula-fitxes td`, aixi que la vora i el
+   * farciment de la taula sobrevivien dins de la fitxa i la dibuixaven a
+   * ratlles. Per aixo els selectors d'aqui van amb `table.`
+   */
+  table.taula-fitxes td {
+    border-bottom: 0;
+    padding: 0;
+  }
+
+  /* El nom de la columna, ara que no hi ha capçal que el digui. */
+  .taula-fitxes td::before {
+    content: attr(data-etiqueta);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-suau);
+  }
+
+  /* La data, l'import i el concepte s'expliquen sols. */
+  .taula-fitxes .tria::before,
+  .taula-fitxes .data::before,
+  .taula-fitxes .cel-concepte::before,
+  .taula-fitxes .dreta::before {
+    content: none;
+  }
+
+  .taula-fitxes .tria {
+    grid-area: tria;
+    width: auto;
+  }
+
+  .taula-fitxes .data {
+    grid-area: data;
+  }
+
+  .taula-fitxes .dreta {
+    grid-area: import;
+    font-weight: 600;
+  }
+
+  table.taula-fitxes .cel-concepte {
+    grid-area: concepte;
+    padding: 0.35rem 0 0.15rem;
+  }
+
+  /* El nom de la columna i el valor, en una linia i no en dues. */
+  .taula-fitxes .cel-comerc,
+  .taula-fitxes .cel-categoria {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+  }
+
+  .taula-fitxes .cel-comerc {
+    grid-area: comerc;
+  }
+
+  .taula-fitxes .cel-categoria {
+    grid-area: categoria;
+    /* Dins d'una fitxa, la categoria pot passar de linia. */
+    white-space: normal;
+  }
+
+  .taula-fitxes .cel-comerc::before,
+  .taula-fitxes .cel-categoria::before {
+    flex: 0 0 5rem;
+  }
+
+  .taula-fitxes .cel-categoria .camp,
+  .taula-fitxes .cel-categoria select {
+    display: block;
+    width: 100%;
+  }
+
+  .taula-fitxes .cel-categoria .camp {
+    flex: 1 1 auto;
+  }
+
+  /*
+   * La barra de la seleccio en bloc, ancorada a baix de la pantalla.
+   *
+   * Es dibuixa **abans** de la taula, i marcar moviments es justament el que
+   * es fa baixant per la llista: en flux et queda a dalt de tot i has de
+   * tornar a pujar per aplicar res. `position: sticky` no serveix —nomes
+   * reté un element, mai l'empeny per sota de la seva posicio natural, i la
+   * seva es al capdamunt d'un contenidor de milers de pixels—, de manera que
+   * es `fixed`. Nomes existeix quan hi ha alguna casella marcada (el `:has`
+   * de mes amunt), aixi que no tapa res quan no fa falta.
+   */
+  .barra-bloc {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 55;
+    margin: 0;
+    padding: 0.6rem 0.75rem;
+    gap: 0.5rem;
+    border-width: 1px 0 0;
+    border-radius: 0;
+    background: var(--superficie);
+    box-shadow: 0 -6px 18px rgb(0 0 0 / 14%);
+  }
+
+  /* Dins la barra els camps no s'estiren: han de cabre-hi de dos en dos. */
+  .barra-bloc .camp {
+    width: auto;
+    flex: 1 1 8rem;
+    min-width: 0;
+  }
+
+  /* Que l'ultima fitxa no es quedi sota la barra. */
+  #taula-moviments:has(input[name="moviment"]:checked) .paginacio {
+    padding-bottom: 11rem;
+  }
 }
 
 /* --- Safata de revisio ----------------------------------------------------- */
@@ -960,6 +1333,22 @@ tr.exclos {
   gap: 0.2rem;
 }
 
+/*
+ * A 390px, 11rem clavades donen una xifra i mitja per fila: la segona es veu
+ * mig tallada i la resta baixa. Que en caben dues, i que s'ho reparteixin.
+ */
+@media (max-width: 40rem) {
+  .xifres {
+    gap: 0.6rem;
+  }
+
+  .xifra {
+    flex: 1 1 calc(50% - 0.6rem);
+    min-width: calc(50% - 0.6rem);
+    padding: 0.7rem 0.8rem;
+  }
+}
+
 .xifra-etiqueta {
   font-size: 0.78rem;
   color: var(--text-suau);
@@ -972,9 +1361,22 @@ tr.exclos {
 
 /* --- Grafics --------------------------------------------------------------- */
 
+/*
+ * L'alçada la diu qui demana el grafic, pero com a variable i no com a
+ * `style="height:…"` en linia: aixi el full la pot escurçar al telefon, cosa
+ * que amb un estil en linia només es podria fer amb un `!important`.
+ * L'ECharts ja es redibuixa sol al `resize` (`public/grafics.js`).
+ */
 .grafic {
   width: 100%;
-  min-height: 200px;
+  height: var(--alçada, 260px);
+  min-height: 180px;
+}
+
+@media (max-width: 40rem) {
+  .grafic {
+    height: min(var(--alçada, 260px), 200px);
+  }
 }
 
 /* Si no hi ha dades, val mes un buit honest que uns eixos sols. */
@@ -1011,8 +1413,15 @@ tr.exclos {
   width: auto;
 }
 
+/*
+ * El reinici de `.previsio-cap` s'escriu encara que sembli que sobra: te la
+ * mateixa especificitat que la regla de sobre i nomes guanyava per l'ordre del
+ * fitxer. Moure trenta linies el trencaria sense que res petes, i el primer
+ * carril de `minmax(16rem, …)` deixaria la previsio desbordant al telefon.
+ */
 @media (max-width: 60rem) {
-  .dues-columnes {
+  .dues-columnes,
+  .previsio-cap {
     grid-template-columns: 1fr;
   }
 }

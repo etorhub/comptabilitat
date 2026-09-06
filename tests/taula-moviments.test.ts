@@ -200,3 +200,43 @@ describe("la taula de moviments", () => {
     expect(marcatge).not.toContain(">traspas<");
   });
 });
+
+/**
+ * Les fitxes del telefon.
+ *
+ * Per sota de 40rem la taula es dibuixa com una fitxa per moviment: el capçal
+ * desapareix i el nom de cada columna surt de la `data-etiqueta` de la cella.
+ * Es a dir que **una cella sense `data-etiqueta` es un camp sense nom** al
+ * telefon, i al navegador de l'escriptori no es veu gens. Per aixo es
+ * comprova aqui i no a ull.
+ */
+describe("la taula de moviments en fitxes", () => {
+  test("la taula demana el dibuix en fitxes", async () => {
+    expect(await taula(true, 2)).toContain('class="dades taula-moviments taula-fitxes"');
+  });
+
+  test("cada cella duu el nom de la seva columna", async () => {
+    const marcatge = await taula(true, 2);
+
+    for (const nom of ["Tria", "Data", "Concepte", "Comerç", "Categoria", "Import"]) {
+      expect(marcatge).toContain(`data-etiqueta="${nom}"`);
+    }
+  });
+
+  test("no hi ha cap cella sense nom", async () => {
+    // Nomes les files, no el capçal: els `<th>` ja diuen com es diuen.
+    const celles = [...(await taula(true, 3)).matchAll(/<td\b[^>]*>/g)].map((m) => m[0]);
+
+    expect(celles.length).toBeGreaterThan(0);
+    for (const cella of celles) {
+      expect(cella).toContain("data-etiqueta=");
+    }
+  });
+
+  test("qui nomes mira te fitxa igualment, sense la cella de tria", async () => {
+    const marcatge = await taula(false, 2);
+
+    expect(marcatge).toContain('data-etiqueta="Data"');
+    expect(marcatge).not.toContain('data-etiqueta="Tria"');
+  });
+});

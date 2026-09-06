@@ -43,6 +43,18 @@
     }).format(valor);
   }
 
+  /**
+   * Quant pot ocupar el nom d'un comerç a l'eix vertical.
+   *
+   * Eren 140 píxels fixos. En una pantalla de 390 això es menja gairebé la
+   * meitat de l'amplada i les barres queden en no res; a l'escriptori, en
+   * canvi, 140 va bé. Com que els gràfics ja es tornen a dibuixar quan la
+   * finestra canvia de mida, n'hi ha prou de mirar-la aquí.
+   */
+  function ampladaEtiqueta() {
+    return Math.max(72, Math.min(140, Math.round(window.innerWidth * 0.28)));
+  }
+
   /** Base comuna: sense títol, amb quadrícula discreta i tipografia heretada. */
   function base(c) {
     return {
@@ -299,7 +311,7 @@
           return d.merchantName;
         }),
         axisLine: { lineStyle: { color: c.vora } },
-        axisLabel: { color: c.suau, width: 140, overflow: "truncate" },
+        axisLabel: { color: c.suau, width: ampladaEtiqueta(), overflow: "truncate" },
       };
       opcions.xAxis = {
         type: "value",
