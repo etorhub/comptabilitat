@@ -32,16 +32,16 @@ docker compose exec app bun run cli dona-acces \
 
 ## Què no es comparteix
 
-|                         | Compartit | De cada espai            |
-| ----------------------- | --------- | ------------------------ |
-| Usuaris i sessions      | ✓         |                          |
-| Connexions bancàries    | ✓         |                          |
-| Comptes                 |           | ✓ (assignats a un espai) |
-| Moviments               |           | ✓                        |
-| Categories              |           | ✓                        |
-| Memòria de comerços     |           | ✓ (interna, sense pàgina)|
-| Recurrents i previsions |           | ✓                        |
-| Avisos i destinataris   |           | ✓                        |
+|                         | Compartit | De cada espai             |
+| ----------------------- | --------- | ------------------------- |
+| Usuaris i sessions      | ✓         |                           |
+| Connexions bancàries    | ✓         |                           |
+| Comptes                 |           | ✓ (assignats a un espai)  |
+| Moviments               |           | ✓                         |
+| Categories              |           | ✓                         |
+| Memòria de comerços     |           | ✓ (interna, sense pàgina) |
+| Recurrents i previsions |           | ✓                         |
+| Avisos i destinataris   |           | ✓                         |
 
 Que els comerços no es comparteixin té un cost i un motiu. El cost: el mateix Mercadona
 s'ha de classificar un cop a cada espai on aparegui. El motiu: si es compartissin, la

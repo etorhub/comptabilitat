@@ -22,11 +22,7 @@ import { feinaClassificacio } from "../../workers/jobs/classify.ts";
 import { feinaModelLocal } from "../../workers/jobs/llm.ts";
 import { feinaManteniment } from "../../workers/jobs/maintenance.ts";
 import { feinaAvisos, feinaAvisosUrgents } from "../../workers/jobs/notify.ts";
-import {
-  passadaDiaria,
-  passadaNocturna,
-  passadaTotes,
-} from "../../workers/jobs/pipelines.ts";
+import { passadaDiaria, passadaNocturna, passadaTotes } from "../../workers/jobs/pipelines.ts";
 import { feinaSincronitzacio } from "../../workers/jobs/sync.ts";
 import { type EntradaFeina } from "./jobs.fragment.tsx";
 import { JobsPage } from "./jobs.page.tsx";
@@ -186,5 +182,10 @@ jobsRoutes.post("/", async (c) => {
   enCurs.add(id);
   void corre(id, resolFeina(id));
 
-  return toastOnly(c, "La feina ha començat; el resultat surt al registre del servidor", 200, "success");
+  return toastOnly(
+    c,
+    "La feina ha començat; el resultat surt al registre del servidor",
+    200,
+    "success",
+  );
 });

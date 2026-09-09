@@ -100,7 +100,10 @@ recurringRoutes.post("/:id/previsio", requireEditor, async (c) => {
   const vista = await vistaSerie(id, espai.id);
   return fragment(
     c,
-    await withOob(FilaActiva({ codi: espai.code, serie: vista, potEditar: true }), clearToast()),
+    await withOob(
+      FilaActiva({ codi: espai.code, serie: vista, potEditar: true }),
+      clearToast(),
+    ),
   );
 });
 

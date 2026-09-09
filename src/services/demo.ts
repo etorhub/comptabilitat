@@ -475,7 +475,9 @@ export async function omplePerAProves(
         label: recurringSeries.label,
       })
       .from(recurringSeries)
-      .where(and(eq(recurringSeries.ledgerId, espai.id), eq(recurringSeries.status, "suggested")));
+      .where(
+        and(eq(recurringSeries.ledgerId, espai.id), eq(recurringSeries.status, "suggested")),
+      );
     for (const proposta of propostes) {
       const etiqueta = proposta.label.toLowerCase();
       const average =

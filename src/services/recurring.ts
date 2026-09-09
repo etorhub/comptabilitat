@@ -146,7 +146,9 @@ export async function detectaRecurrents(ledgerId: number): Promise<Estadistiques
     })
     .from(transactions)
     .leftJoin(merchants, eq(merchants.id, transactions.merchantId))
-    .where(and(movimentsComptables({ espais: ledgerId, des }), isNotNull(transactions.categoryId)))
+    .where(
+      and(movimentsComptables({ espais: ledgerId, des }), isNotNull(transactions.categoryId)),
+    )
     .orderBy(asc(transactions.bookingDate));
 
   const grups = new Map<string, MovimentSerie[]>();
@@ -221,7 +223,10 @@ async function avaluaGrup(
 
     if (
       existent.amountMode === "exact" &&
-      money(ultim.amount).minus(money(existent.expectedAmount)).abs().gt(money(existent.amountTolerance))
+      money(ultim.amount)
+        .minus(money(existent.expectedAmount))
+        .abs()
+        .gt(money(existent.amountTolerance))
     ) {
       const puja = money(ultim.amount).abs().gt(money(existent.expectedAmount).abs());
       const creat = await creaAvis({
@@ -261,7 +266,8 @@ async function avaluaGrup(
 
   const cadencia = trobada;
   const intervalArrodonit = Math.round(intervalMedia);
-  const confianca = Math.round(Math.min(1, regular * Math.min(1, items.length / 6)) * 100) / 100;
+  const confianca =
+    Math.round(Math.min(1, regular * Math.min(1, items.length / 6)) * 100) / 100;
   const importEsperat = medianaImports(items.map((i) => i.amount)).toDecimalPlaces(2);
   const toleranciaImport = toleranciaDimport(importEsperat);
   const ultimaData = dates[dates.length - 1] as string;

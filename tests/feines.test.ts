@@ -102,9 +102,7 @@ describe("la pantalla de feines", () => {
 
   test("qui no ho es rep un 404, no un 403", async () => {
     const { cookie, csrf } = await entra("pau@exemple.cat");
-    expect(
-      (await app.request("/feines", { headers: { Cookie: cookie } })).status,
-    ).toBe(404);
+    expect((await app.request("/feines", { headers: { Cookie: cookie } })).status).toBe(404);
     expect(
       (
         await app.request("/feines", {

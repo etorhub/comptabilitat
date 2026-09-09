@@ -86,10 +86,7 @@ async function comerc(nom: string): Promise<number> {
   return m?.id ?? 0;
 }
 
-async function categoria(
-  slug: string,
-  opts: { kind?: CategoryKind } = {},
-): Promise<number> {
+async function categoria(slug: string, opts: { kind?: CategoryKind } = {}): Promise<number> {
   const [c] = await db
     .insert(categories)
     .values({
