@@ -157,11 +157,11 @@ retornis codis a mà.
 Quan una mutació canvia alguna cosa que és **fora del seu propi tros**, la torna
 al costat, amb `hx-swap-oob="true"`. Fes servir `withOob()`.
 
-| Objectiu               | De qui és     | Quan canvia                                   |
-| ---------------------- | ------------- | --------------------------------------------- |
-| `#toast`               | `lib/http.ts` | qualsevol error o confirmació                 |
-| `#comptador-revisio`   | moviments     | es classifica un moviment                     |
-| `#comptador-avisos`    | avisos        | es llegeix o es descarta un avís              |
+| Objectiu             | De qui és     | Quan canvia                      |
+| -------------------- | ------------- | -------------------------------- |
+| `#toast`             | `lib/http.ts` | qualsevol error o confirmació    |
+| `#comptador-revisio` | moviments     | es classifica un moviment        |
+| `#comptador-avisos`  | avisos        | es llegeix o es descarta un avís |
 
 Els **rebuts previstos** (`recurring_series`) són schedules: el detector només
 proposa (`suggested`); la persona confirma (`active`) o descarta a
@@ -297,9 +297,13 @@ N'hi ha molt poc i ha de continuar sent així.
 ## Proves
 
 ```bash
-bun run typecheck      # estricte, i sense cap `any`
+bun run check          # typecheck + lint + format:check (el mateix que el CI)
 bun test
 ```
+
+`bun run check` és **obligatori abans d'empènyer**. El CI falla si Prettier,
+oxlint o `tsc` no estan nets; no empentis esperant que el CI ho digui. Si el
+format falla, `bun run format` i torna a comprovar.
 
 - `tests/espais.test.ts` és la més important: comprova les dues garanties dels
   espais estancs. **No la toquis per fer passar res.**
@@ -314,7 +318,7 @@ bun test
 
 ## En acabar un recurs
 
-1. `bun run typecheck` net.
+1. `bun run check` net (tipus, lint i format).
 2. `bun test` verd.
 3. Obre'l al navegador: pàgina sencera, cada interacció d'HTMX, una validació
    que falla a posta, i el botó d'enrere després de canviar un filtre.
@@ -322,3 +326,5 @@ bun test
    tornar les dues coses**.
 5. Comprova que cada objectiu fora de banda que toca el recurs s'actualitza de
    debò, mutant des d'una pàgina que no el conté.
+6. **Només aleshores** crea el commit i empenta: el CI no ha de ser el primer
+   lloc on fallin tipus, lint o format.

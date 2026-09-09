@@ -20,6 +20,7 @@ import { authRoutes } from "./auth/auth.routes.ts";
 import { categoriesRoutes } from "./categories/categories.routes.ts";
 import { informesExportRoutes, movimentsExportRoutes } from "./exports/exports.routes.ts";
 import { homeRoutes } from "./home/home.routes.ts";
+import { jobsRoutes } from "./jobs/jobs.routes.ts";
 import { recurringRoutes } from "./recurring/recurring.routes.ts";
 import { tagsRoutes } from "./tags/tags.routes.ts";
 import { transactionsRoutes } from "./transactions/transactions.routes.ts";
@@ -65,6 +66,12 @@ export function registerRoutes(app: Hono): void {
   connexions.use("*", requireAdmin);
   connexions.route("/", connectionsRoutes);
   app.route("/connexions", connexions);
+
+  const feines = new Hono();
+  feines.use("*", requireUser);
+  feines.use("*", requireAdmin);
+  feines.route("/", jobsRoutes);
+  app.route("/feines", feines);
 
   // --- Dins d'un espai -----------------------------------------------------
   //

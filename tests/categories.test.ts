@@ -149,7 +149,7 @@ describe("crear categories", () => {
         parentId: filla.id,
         color: "#94a3b8",
         icon: "",
-        }),
+      }),
     ).rejects.toThrow(AppError);
   });
 
@@ -183,7 +183,7 @@ describe("crear categories", () => {
         parentId: forana.id,
         color: "#94a3b8",
         icon: "",
-        }),
+      }),
     ).rejects.toThrow();
   });
 });
