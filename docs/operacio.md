@@ -14,7 +14,7 @@
 Els horaris es canvien amb `SYNC_CRON_HOUR`, `CLASSIFY_CRON_HOUR`, `ANALYSIS_CRON_HOUR` i
 `NOTIFY_CRON_HOUR` a `deploy/.env`.
 
-Per llançar-les a mà:
+Per llançar-les a mà, des de **Administracio → Feines** (`/feines`) o per CLI:
 
 ```bash
 docker compose exec worker bun run jobs sync        # sincronitza ara

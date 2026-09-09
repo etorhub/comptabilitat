@@ -197,6 +197,7 @@ describe("la configuracio de l'espai nomes per a administradors", () => {
     expect(html).not.toContain("/e/personal/actors");
     expect(html).not.toContain("/e/personal/regles");
     expect(html).toContain("/connexions");
+    expect(html).toContain("/feines");
     expect(html).toContain("/usuaris");
   });
 });

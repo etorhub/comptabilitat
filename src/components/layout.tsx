@@ -210,7 +210,7 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous, ruta }: SidebarP
     [
       ...enllacos.map((e) => e.href),
       ...configuracio.map((e) => e.href),
-      ...(user.isAdmin ? ["/connexions", "/usuaris"] : []),
+      ...(user.isAdmin ? ["/connexions", "/feines", "/usuaris"] : []),
     ],
     ruta,
   );
@@ -282,6 +282,7 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous, ruta }: SidebarP
             <li>
               <a href="/connexions"${marca("/connexions")}>Connexions bancaries</a>
             </li>
+            <li><a href="/feines"${marca("/feines")}>Feines</a></li>
             <li><a href="/usuaris"${marca("/usuaris")}>Usuaris</a></li>
           </ul>
         </div>`

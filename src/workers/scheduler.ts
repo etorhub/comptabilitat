@@ -18,11 +18,9 @@ import { Cron } from "croner";
 import { closeDb } from "../db/client.ts";
 import { config, validateConfig } from "../lib/config.ts";
 import { feinaAnalisi } from "./jobs/analyze.ts";
-import { feinaClassificacio } from "./jobs/classify.ts";
-import { feinaModelLocal } from "./jobs/llm.ts";
 import { feinaManteniment } from "./jobs/maintenance.ts";
 import { feinaAvisos, feinaAvisosUrgents } from "./jobs/notify.ts";
-import { feinaSincronitzacio } from "./jobs/sync.ts";
+import { passadaDiaria, passadaNocturna } from "./jobs/pipelines.ts";
 
 validateConfig();
 
@@ -40,30 +38,6 @@ async function corre(nom: string, feina: () => Promise<string>): Promise<void> {
   } catch (error) {
     console.error(`[${nom}] ha fallat:`, error);
   }
-}
-
-/**
- * La passada diaria: importar, classificar i analitzar, en aquest ordre.
- *
- * L'ordre importa: no te sentit classificar abans d'haver importat, ni
- * analitzar recurrents abans d'haver classificat.
- */
-async function passadaDiaria(): Promise<string> {
-  const trossos: string[] = [];
-  trossos.push(await feinaSincronitzacio());
-  trossos.push(await feinaClassificacio());
-  trossos.push(await feinaAnalisi());
-  return trossos.join("\n");
-}
-
-/**
- * La passada nocturna: el model local mira els comerços nous i despres es
- * torna a classificar, ja sense model, per escampar el que hagi proposat.
- */
-async function passadaNocturna(): Promise<string> {
-  const model = await feinaModelLocal();
-  const classificacio = await feinaClassificacio();
-  return `${model}\n${classificacio}`;
 }
 
 function main(): void {

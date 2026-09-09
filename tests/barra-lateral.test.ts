@@ -71,6 +71,7 @@ describe("aria-current a la barra lateral", () => {
   test("tambe a les pantalles d'administracio", async () => {
     expect(marcat(await barra("/usuaris"))).toEqual(["/usuaris"]);
     expect(marcat(await barra("/connexions"))).toEqual(["/connexions"]);
+    expect(marcat(await barra("/feines"))).toEqual(["/feines"]);
   });
 
   test("una adreça que no es de cap enllaç no en marca cap", async () => {
