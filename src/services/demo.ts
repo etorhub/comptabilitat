@@ -22,6 +22,7 @@ import {
   categories,
   ledgers,
   merchants,
+  recurringSeries,
   transactions,
   userLedgerPermissions,
   users,
@@ -35,7 +36,7 @@ import { resolContrapart } from "./contraparts.ts";
 import { comprovaDescoberts } from "./forecast.ts";
 import { recordaEleccioComerc } from "./merchants.ts";
 import { normalizeDescription } from "./normalization.ts";
-import { detectaRecurrents } from "./recurring.ts";
+import { confirmaSerie, detectaRecurrents } from "./recurring.ts";
 import { seedLedgers } from "./seed.ts";
 import { detectaTraspassos } from "./transfers.ts";
 
@@ -295,7 +296,6 @@ export async function omplePerAProves(
       counterparty: "",
       bankTransactionCode: "",
       merchantId: contrapart.merchantId,
-      actorId: contrapart.actorId,
       categoryId: null,
       categorySource: "none",
       categoryConfidence: null,
@@ -370,9 +370,8 @@ export async function omplePerAProves(
   }
 
   // Els dos moviments d'abans no s'aparellen, pero si que tenen categoria:
-  // son un traspas entre comptes propis a banda i banda. La rebuda a Calella
-  // es una transferencia i per tant un actor (`resolContrapart`), no un
-  // comerç: es classifiquen directament, com faria qui revisa la safata.
+  // son un traspas entre comptes propis a banda i banda. Es classifiquen
+  // directament, com faria qui revisa la safata.
   const TRASPASSOS_ENTRE_ESPAIS: [string, string, string][] = [
     ["personal", "TRASPASO A CALELLA", "traspassos-traspas-entre-comptes-propis"],
     ["calella", "TRANSFERENCIA RECIBIDA DE TU", "traspassos-traspas-entre-comptes-propis"],
@@ -431,11 +430,9 @@ export async function omplePerAProves(
     }
   }
 
-  // Les transferencies a una persona no tenen comerç ni actor amb categoria
-  // per defecte: com faria de debò qui revisa la safata, es classifiquen
-  // moviment a moviment, no pel titular. Aixo val tant per les
-  // transferencies personals com per la rebuda entre espais (un actor, no un
-  // comerç: `resolContrapart` no li dona categoria).
+  // Les transferencies a una persona no tenen comerç amb categoria per
+  // defecte: com faria de debò qui revisa la safata, es classifiquen
+  // moviment a moviment.
   const classificacioDirecta: [string, string, string][] = [
     ...TRASPASSOS_ENTRE_ESPAIS,
     ...TRANSFERENCIES_PERSONALS.map(
@@ -464,34 +461,33 @@ export async function omplePerAProves(
       );
   }
 
-  // La categoria del lloguer compartit es la porta del detector: nomes ella
-  // genera una serie, i nomes per a la Maria. El sopar excepcional es queda
-  // a Restauracio, que no ho es, i mai no en formara part.
-  const CATEGORIES_RECURRENTS = [
-    "subministraments-electricitat",
-    "oci-i-cultura-subscripcions",
-    "subministraments-aigua",
-    "habitatge-comunitat",
-    "salut-asseguranca-medica",
-    "habitatge-lloguer-o-hipoteca",
-  ];
-  for (const compte of comptes.values()) {
-    for (const slug of CATEGORIES_RECURRENTS) {
-      const categoriaId = perSlug.get(`${compte.ledgerId}:${slug}`);
-      if (categoriaId === undefined) continue;
-      await db
-        .update(categories)
-        .set({ isRecurrent: true })
-        .where(eq(categories.id, categoriaId));
-    }
-  }
-
   // --- I ara, el mateix que faria la feina programada ---
   let traspassos = 0;
   for (const espai of espais) {
     traspassos += await detectaTraspassos(espai.id);
     await classificaPendents(espai.id);
     await detectaRecurrents(espai.id);
+    // A la demo confirmem les propostes: la previsio ha de funcionar de seguida.
+    const propostes = await db
+      .select({
+        id: recurringSeries.id,
+        cadence: recurringSeries.cadence,
+        label: recurringSeries.label,
+      })
+      .from(recurringSeries)
+      .where(and(eq(recurringSeries.ledgerId, espai.id), eq(recurringSeries.status, "suggested")));
+    for (const proposta of propostes) {
+      const etiqueta = proposta.label.toLowerCase();
+      const average =
+        etiqueta.includes("endesa") ||
+        etiqueta.includes("agbar") ||
+        etiqueta.includes("aigua") ||
+        etiqueta.includes("electric");
+      await confirmaSerie(proposta.id, {
+        cadence: proposta.cadence,
+        amountMode: average ? "average" : "exact",
+      });
+    }
     await comprovaDescoberts(espai);
   }
 

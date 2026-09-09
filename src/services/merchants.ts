@@ -27,7 +27,6 @@ import {
 import { db, type Transactor } from "../db/client.ts";
 import { categories, merchants, transactions, type Merchant } from "../db/schema/index.ts";
 import { AppError, NotFoundError } from "../lib/http.ts";
-import { recompteActors } from "./actors.ts";
 import { classificaMoviment } from "./classification.ts";
 import { resolContrapart } from "./contraparts.ts";
 
@@ -349,7 +348,6 @@ export async function reassignaNormalitzacio(
       counterparty: transactions.counterparty,
       normalizedDescription: transactions.normalizedDescription,
       merchantId: transactions.merchantId,
-      actorId: transactions.actorId,
       categoryId: transactions.categoryId,
       categorySource: transactions.categorySource,
       amount: transactions.amount,
@@ -363,11 +361,9 @@ export async function reassignaNormalitzacio(
 
   let canviats = 0;
   const merchantsTocats = new Set<number>();
-  const actorsTocats = new Set<number>();
 
   for (const moviment of files) {
     let nouMerchantId: number | null = null;
-    let nouActorId: number | null = null;
     let clauNova = "";
 
     if (moviment.ledgerId !== null) {
@@ -382,28 +378,23 @@ export async function reassignaNormalitzacio(
         false,
       );
       nouMerchantId = contrapart.merchantId;
-      nouActorId = contrapart.actorId;
       clauNova = contrapart.normalizedKey.slice(0, 200);
     }
 
     const calCanviarClau = clauNova !== moviment.normalizedDescription;
-    const noCanviaContrapart =
-      nouMerchantId === moviment.merchantId && nouActorId === moviment.actorId;
+    const noCanviaContrapart = nouMerchantId === moviment.merchantId;
 
     if (!calCanviarClau && noCanviaContrapart) continue;
 
     canviats += 1;
     if (moviment.merchantId !== null) merchantsTocats.add(moviment.merchantId);
     if (nouMerchantId !== null) merchantsTocats.add(nouMerchantId);
-    if (moviment.actorId !== null) actorsTocats.add(moviment.actorId);
-    if (nouActorId !== null) actorsTocats.add(nouActorId);
 
     await connexio
       .update(transactions)
       .set({
         normalizedDescription: clauNova,
         merchantId: nouMerchantId,
-        actorId: nouActorId,
       })
       .where(eq(transactions.id, moviment.id));
 
@@ -432,6 +423,5 @@ export async function reassignaNormalitzacio(
   }
 
   await recompteComercos([...merchantsTocats], connexio);
-  await recompteActors([...actorsTocats], connexio);
   return { revisats: files.length, canviats };
 }

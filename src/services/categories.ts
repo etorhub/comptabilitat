@@ -14,13 +14,11 @@ import {
   merchants,
   rules,
   transactions,
-  type Cadence,
   type Category,
   type CategoryKind,
 } from "../db/schema/index.ts";
 import { AppError, ConflictError, NotFoundError } from "../lib/http.ts";
 import { money, toMoneyString, type MoneyString } from "../lib/money.ts";
-import { esborraSeriesDeCategoria } from "./recurring.ts";
 import { PROTECTED_SLUGS, slugify } from "./slugs.ts";
 
 /** Una categoria amb el que se n'ensenya a la pantalla. */
@@ -35,11 +33,6 @@ export interface CategoriaVista {
   color: string;
   icon: string;
   isSystem: boolean;
-  isSubscription: boolean;
-  /** Porta del detector de recurrents (`services/recurring.ts`). */
-  isRecurrent: boolean;
-  /** Cadencia declarada quan `isRecurrent`; el detector no la sobreescriu. */
-  recurrentCadence: Cadence | null;
   transactionCount: number;
   totalAmount: MoneyString;
   /** Es una de les que no es poden esborrar mai. */
@@ -127,9 +120,6 @@ export async function arbreCategories(
       color: c.color,
       icon: c.icon,
       isSystem: c.isSystem,
-      isSubscription: c.isSubscription,
-      isRecurrent: c.isRecurrent,
-      recurrentCadence: c.recurrentCadence,
       transactionCount: n,
       totalAmount: total,
       isProtected: PROTECTED_SLUGS.includes(c.slug),
@@ -184,7 +174,6 @@ export interface AltaCategoria {
   parentId: number | null;
   color: string;
   icon: string;
-  isSubscription: boolean;
 }
 
 export async function creaCategoria(ledgerId: number, dades: AltaCategoria): Promise<Category> {
@@ -212,7 +201,6 @@ export async function creaCategoria(ledgerId: number, dades: AltaCategoria): Pro
       color: dades.color,
       icon: dades.icon,
       isSystem: false,
-      isSubscription: dades.isSubscription,
       position: 0,
     })
     .returning();
@@ -233,51 +221,6 @@ export async function reanomenaCategoria(
     .where(eq(categories.id, id))
     .returning();
   if (!actualitzada) throw new NotFoundError("Aquesta categoria no existeix");
-  return actualitzada;
-}
-
-export async function marcaSubscripcio(
-  id: number,
-  ledgerId: number,
-  isSubscription: boolean,
-): Promise<Category> {
-  await categoriaDeLespai(id, ledgerId);
-  const [actualitzada] = await db
-    .update(categories)
-    .set({ isSubscription })
-    .where(eq(categories.id, id))
-    .returning();
-  if (!actualitzada) throw new NotFoundError("Aquesta categoria no existeix");
-  return actualitzada;
-}
-
-/**
- * Marca o desmarca una categoria com a porta del detector de recurrents.
- *
- * En desmarcar-la, les series que ja hi havia s'esborren: sense la categoria
- * com a porta no es poden reaprofitar (vegeu `esborraSeriesDeCategoria`). Si
- * es torna a marcar, `detectaRecurrents` les torna a crear des de l'historic
- * a la propera passada.
- */
-export async function marcaRecurrent(
-  id: number,
-  ledgerId: number,
-  opcions: { isRecurrent: boolean; cadence: Cadence | null },
-): Promise<Category> {
-  await categoriaDeLespai(id, ledgerId);
-
-  const [actualitzada] = await db
-    .update(categories)
-    .set({
-      isRecurrent: opcions.isRecurrent,
-      recurrentCadence: opcions.isRecurrent ? opcions.cadence : null,
-    })
-    .where(eq(categories.id, id))
-    .returning();
-  if (!actualitzada) throw new NotFoundError("Aquesta categoria no existeix");
-
-  if (!opcions.isRecurrent) await esborraSeriesDeCategoria(id);
-
   return actualitzada;
 }
 
@@ -356,13 +299,9 @@ export async function esborraCategoria(
         .update(rules)
         .set({ setCategoryId: reassignTo })
         .where(and(eq(rules.ledgerId, ledgerId), eq(rules.setCategoryId, id)));
-      // Les series recurrents d'aquesta categoria **no es traspassen**: la
-      // seva `signature` porta l'identificador de la categoria (vegeu
-      // `services/recurring.ts`), i reescriure-la a mitges deixaria series
-      // orfenes o en xoc amb les que ja tingui la de desti. Es deixen
-      // esborrar en cascada (`fk_recurring_series_category_id_categories`) i,
-      // si la de desti es recurrent, `detectaRecurrents` les torna a crear a
-      // la propera passada.
+      // Les series recurrents d'aquesta categoria s'esborren en cascada
+      // (`fk_recurring_series_category_id_categories`). Si la de desti te
+      // el mateix patro, `detectaRecurrents` les torna a proposar.
       await tx
         .update(llmSuggestions)
         .set({ suggestedCategoryId: reassignTo })

@@ -133,7 +133,6 @@ describe("crear categories", () => {
       parentId: pare.id,
       color: "#94a3b8",
       icon: "",
-      isSubscription: false,
     });
 
     expect(filla.kind).toBe("income");
@@ -150,8 +149,7 @@ describe("crear categories", () => {
         parentId: filla.id,
         color: "#94a3b8",
         icon: "",
-        isSubscription: false,
-      }),
+        }),
     ).rejects.toThrow(AppError);
   });
 
@@ -163,7 +161,6 @@ describe("crear categories", () => {
       parentId: pare.id,
       color: "#94a3b8",
       icon: "",
-      isSubscription: false,
     });
     const b = await creaCategoria(ledgerId, {
       name: "Extra",
@@ -171,7 +168,6 @@ describe("crear categories", () => {
       parentId: pare.id,
       color: "#94a3b8",
       icon: "",
-      isSubscription: false,
     });
 
     expect(a.slug).toBe("rendes-extra");
@@ -187,8 +183,7 @@ describe("crear categories", () => {
         parentId: forana.id,
         color: "#94a3b8",
         icon: "",
-        isSubscription: false,
-      }),
+        }),
     ).rejects.toThrow();
   });
 });
@@ -201,7 +196,6 @@ describe("esborrar categories", () => {
       parentId: null,
       color: "#94a3b8",
       icon: "",
-      isSubscription: false,
     });
     await esborraCategoria(c.id, ledgerId, null);
     await expect(categoriaDeLespai(c.id, ledgerId)).rejects.toThrow();
@@ -296,7 +290,6 @@ describe("esborrar categories", () => {
       parentId: null,
       color: "#94a3b8",
       icon: "",
-      isSubscription: false,
     });
     await db.insert(transactions).values({
       accountId,

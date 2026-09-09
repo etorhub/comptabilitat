@@ -202,8 +202,6 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous, ruta }: SidebarP
         { href: `/e/${codi}/configuracio`, text: "Espai" },
         { href: `/e/${codi}/categories`, text: "Categories" },
         { href: `/e/${codi}/etiquetes`, text: "Etiquetes" },
-        { href: `/e/${codi}/comercos`, text: "Comerços" },
-        { href: `/e/${codi}/actors`, text: "Actors" },
         { href: `/e/${codi}/avisos`, text: "Avisos", comptador: ComptadorAvisos(avisosNous) },
       ]
     : [];

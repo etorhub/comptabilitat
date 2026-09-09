@@ -27,11 +27,9 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
-import { actors } from "./actors.ts";
 import { accounts } from "./banking.ts";
 import { domainEnum, money, timestamps, tz } from "./columns.ts";
 import type {
-  Cadence,
   CategoryKind,
   CategorySource,
   RuleSource,
@@ -61,20 +59,6 @@ export const categories = pgTable(
     isSystem: boolean("is_system").notNull(),
     position: integer().notNull(),
     ...timestamps,
-    // Afegida per la migracio `a1b2c3d4e5f6`, l'unica columna, a banda de les
-    // marques de temps, que porta un valor per defecte a la base de dades.
-    isSubscription: boolean("is_subscription").default(false).notNull(),
-    /**
-     * Afegida per la migracio `0002_actors_i_recurrents`. Marca la categoria
-     * com a porta de la recurrencia: nomes els moviments d'una categoria amb
-     * `is_recurrent` entren al detector (`services/recurring.ts`). Abans
-     * aquesta decisio vivia al comerç (`merchants.is_recurrent`), pero un
-     * comerç no serveix per a un actor: la mateixa persona et pot fer el
-     * lloguer cada mes i tornar-te un sopar excepcional.
-     */
-    isRecurrent: boolean("is_recurrent").default(false).notNull(),
-    /** Cadencia declarada quan `is_recurrent`; el detector no la sobreescriu. */
-    recurrentCadence: domainEnum<Cadence>("recurrent_cadence"),
   },
   (t) => [
     primaryKey({ name: "pk_categories", columns: [t.id] }),
@@ -95,16 +79,12 @@ export const categories = pgTable(
 );
 
 /**
- * Memoria de comerços, **per espai i a proposit**. El mateix Mercadona es un
- * comerç diferent a cada espai: si es compartissin, confirmar una categoria a
- * Calella canviaria com es classifica al Personal.
+ * Memoria de comerços (payees), **per espai i a proposit**. El mateix
+ * Mercadona es un comerç diferent a cada espai: si es compartissin, confirmar
+ * una categoria a Calella canviaria com es classifica al Personal.
  *
- * Un comerç es on es gasta; qui hi ha a l'altra banda d'una transferencia es
- * un `actor` (`db/schema/actors.ts`), mai un comerç. Abans no hi havia
- * distincio i el titular d'una transferencia acabava aqui («el nom d'un
- * comerç sovint es el nom d'una persona», deia el comentari original): un
- * moviment te `merchant_id` o `actor_id`, mai els dos (vegeu
- * `services/contraparts.ts`).
+ * Serveix nomes per inferir la categoria per defecte en importar. No es un
+ * recurs de la interficie: no hi ha pagina de Comerços.
  */
 export const merchants = pgTable(
   "merchants",
@@ -217,13 +197,6 @@ export const transactions = pgTable(
     counterparty: varchar({ length: 200 }).notNull(),
     bankTransactionCode: varchar("bank_transaction_code", { length: 60 }).notNull(),
     merchantId: integer("merchant_id"),
-    /**
-     * Afegida per la migracio `0002_actors_i_recurrents`. Exclusiva amb
-     * `merchant_id`: un moviment te l'un o l'altre, mai els dos. Ho garanteix
-     * `services/contraparts.ts` (`resolContrapart`), l'unica porta que
-     * escriu cap dels dos; l'esquema no porta cap CHECK, com la resta.
-     */
-    actorId: integer("actor_id"),
     categoryId: integer("category_id"),
     categorySource: domainEnum<CategorySource>("category_source").notNull(),
     categoryConfidence: doublePrecision("category_confidence"),
@@ -258,7 +231,6 @@ export const transactions = pgTable(
     index("ix_transactions_ledger_booking").on(t.ledgerId, t.bookingDate),
     index("ix_transactions_ledger_id").on(t.ledgerId),
     index("ix_transactions_merchant_id").on(t.merchantId),
-    index("ix_transactions_actor_id").on(t.actorId),
     // Sosté la safata de revisio.
     index("ix_transactions_review").on(t.needsReview, t.ledgerId),
     index("ix_transactions_transfer_group_id").on(t.transferGroupId),
@@ -286,11 +258,6 @@ export const transactions = pgTable(
       name: "fk_transactions_merchant_id_merchants",
       columns: [t.merchantId],
       foreignColumns: [merchants.id],
-    }).onDelete("set null"),
-    foreignKey({
-      name: "fk_transactions_actor_id_actors",
-      columns: [t.actorId],
-      foreignColumns: [actors.id],
     }).onDelete("set null"),
     unique("uq_transaction_account_dedup").on(t.accountId, t.dedupKey),
   ],

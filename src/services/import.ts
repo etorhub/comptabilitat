@@ -240,7 +240,6 @@ export async function desaMoviments(
         counterparty: item.counterparty,
         bankTransactionCode: item.bankTransactionCode,
         merchantId: null,
-        actorId: null,
         categoryId: null,
         categorySource: "none",
         categoryConfidence: null,
@@ -256,9 +255,8 @@ export async function desaMoviments(
 
     if (!creat) continue;
 
-    // Nom normalitzat, contrapart (comerç o actor) i categoria.
+    // Nom normalitzat, comerç i categoria.
     let merchantId: number | null = null;
-    let actorId: number | null = null;
     let normalitzat = "";
 
     if (compte.ledgerId !== null) {
@@ -268,13 +266,12 @@ export async function desaMoviments(
         bookingDate: item.bookingDate,
       });
       merchantId = contrapart.merchantId;
-      actorId = contrapart.actorId;
       normalitzat = contrapart.normalizedKey;
     }
 
     await db
       .update(transactions)
-      .set({ normalizedDescription: normalitzat.slice(0, 200), merchantId, actorId })
+      .set({ normalizedDescription: normalitzat.slice(0, 200), merchantId })
       .where(eq(transactions.id, creat.id));
 
     await classificaMoviment({

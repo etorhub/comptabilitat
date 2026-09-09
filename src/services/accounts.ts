@@ -11,14 +11,9 @@ import { and, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { accounts, categories, ledgers, transactions } from "../db/schema/index.ts";
 import { NotFoundError } from "../lib/http.ts";
-import { obteOCreaActor } from "./actors.ts";
 import { classificaPendents } from "./classification.ts";
 import { obteOCreaComerc } from "./merchants.ts";
-import {
-  detectaTipusOperacio,
-  normalizeActorName,
-  normalizeDescription,
-} from "./normalization.ts";
+import { normalizeDescription } from "./normalization.ts";
 
 export interface ResumMoviment {
   /** Moviments que han canviat d'espai. */
@@ -119,7 +114,6 @@ export async function mouCompteDEspai(
       .set({
         ledgerId: nouEspai,
         merchantId: null,
-        actorId: null,
         categoryId: null,
         categorySource: "none",
         categoryConfidence: null,
@@ -137,10 +131,10 @@ export async function mouCompteDEspai(
       await refesLesContraparts(tx, compteId, nouEspai);
     }
 
-    // Els comerços i els actors dels **dos** espais queden desquadrats: els
-    // de l'espai nou perque `obteOCreaComerc`/`obteOCreaActor` pugen el
-    // comptador d'un en un i aqui s'ha cridat un cop per grup, i els de
-    // l'espai vell perque compten moviments que ja no hi son.
+    // Els comerços dels **dos** espais queden desquadrats: els de l'espai nou
+    // perque `obteOCreaComerc` puja el comptador d'un en un i aqui s'ha cridat
+    // un cop per grup, i els de l'espai vell perque compten moviments que ja
+    // no hi son.
     await requadraElsComptadors(tx, [compte.ledgerId, nouEspai]);
 
     return { moguts: moguts.length, conservades, traspassosDesfets };
@@ -203,13 +197,10 @@ async function tornaLesDecisions(
 }
 
 /**
- * Torna a crear els comerços i els actors dins de l'espai nou i hi lliga els
- * moviments.
+ * Torna a crear els comerços dins de l'espai nou i hi lliga els moviments.
  *
  * Va per grup i no per moviment: un compte amb tres mil apunts sol tenir
- * unes desenes de contraparts, i la diferencia son milers de consultes. El
- * tipus d'operacio decideix, com sempre, si un grup es un comerç o un actor
- * (`services/normalization.ts`, `detectaTipusOperacio`).
+ * unes desenes de contraparts, i la diferencia son milers de consultes.
  */
 async function refesLesContraparts(tx: Tx, compteId: number, nouEspai: number): Promise<void> {
   const seus = await tx
@@ -220,16 +211,9 @@ async function refesLesContraparts(tx: Tx, compteId: number, nouEspai: number): 
       bookingDate: transactions.bookingDate,
     })
     .from(transactions)
-    .where(
-      and(
-        eq(transactions.accountId, compteId),
-        isNull(transactions.merchantId),
-        isNull(transactions.actorId),
-      ),
-    );
+    .where(and(eq(transactions.accountId, compteId), isNull(transactions.merchantId)));
 
   interface Grup {
-    esActor: boolean;
     normalitzat: string;
     mostrar: string;
     ultimDia: string | null;
@@ -238,18 +222,17 @@ async function refesLesContraparts(tx: Tx, compteId: number, nouEspai: number): 
   const perClau = new Map<string, Grup>();
 
   for (const moviment of seus) {
-    const esActor = detectaTipusOperacio(moviment.description) === "transferencia";
-    const [normalitzat, mostrar] = esActor
-      ? normalizeActorName(moviment.description, moviment.counterparty)
-      : normalizeDescription(moviment.description, moviment.counterparty);
+    const [normalitzat, mostrar] = normalizeDescription(
+      moviment.description,
+      moviment.counterparty,
+    );
     if (!normalitzat) continue;
 
-    const clau = `${esActor ? "a" : "m"}:${normalitzat.slice(0, 200)}`;
+    const clau = normalitzat.slice(0, 200);
     const grup = perClau.get(clau);
     if (grup === undefined) {
       perClau.set(clau, {
-        esActor,
-        normalitzat: normalitzat.slice(0, 200),
+        normalitzat: clau,
         mostrar,
         ultimDia: moviment.bookingDate,
         ids: [moviment.id],
@@ -261,31 +244,17 @@ async function refesLesContraparts(tx: Tx, compteId: number, nouEspai: number): 
   }
 
   for (const grup of perClau.values()) {
-    if (grup.esActor) {
-      const actor = await obteOCreaActor(
-        nouEspai,
-        grup.normalitzat,
-        grup.mostrar,
-        grup.ultimDia,
-        tx,
-      );
-      await tx
-        .update(transactions)
-        .set({ normalizedDescription: grup.normalitzat, actorId: actor?.id ?? null })
-        .where(inArray(transactions.id, grup.ids));
-    } else {
-      const comerc = await obteOCreaComerc(
-        nouEspai,
-        grup.normalitzat,
-        grup.mostrar,
-        grup.ultimDia,
-        tx,
-      );
-      await tx
-        .update(transactions)
-        .set({ normalizedDescription: grup.normalitzat, merchantId: comerc?.id ?? null })
-        .where(inArray(transactions.id, grup.ids));
-    }
+    const comerc = await obteOCreaComerc(
+      nouEspai,
+      grup.normalitzat,
+      grup.mostrar,
+      grup.ultimDia,
+      tx,
+    );
+    await tx
+      .update(transactions)
+      .set({ normalizedDescription: grup.normalitzat, merchantId: comerc?.id ?? null })
+      .where(inArray(transactions.id, grup.ids));
   }
 }
 
@@ -308,14 +277,5 @@ async function requadraElsComptadors(tx: Tx, espais: (number | null)[]): Promise
               where transactions.merchant_id = merchants.id
            ), 0)
      where merchants.ledger_id in ${sql.raw(`(${ids.join(",")})`)}
-  `);
-
-  await tx.execute(sql`
-    update actors
-       set transaction_count = coalesce((
-             select count(*) from transactions
-              where transactions.actor_id = actors.id
-           ), 0)
-     where actors.ledger_id in ${sql.raw(`(${ids.join(",")})`)}
   `);
 }

@@ -1,36 +1,20 @@
 /**
- * Projeccio del saldo i deteccio anticipada de descoberts.
+ * Projeccio del saldo a partir dels rebuts previstos confirmats.
  *
- * Al saldo d'avui s'hi sumen els rebuts recurrents previstos i s'hi resta una
- * deriva de despesa variable estimada dels ultims mesos. Va en tres linies
- * —esperada, optimista i pessimista— perque la despesa variable no es
- * previsible amb una sola xifra i donar-ne una de sola seria enganyos.
- *
- * Traduccio de `backend/app/services/forecast.py`.
+ * Al saldo d'avui s'hi sumen els schedules actius amb `include_in_forecast`.
+ * No hi ha «despesa variable» residual: el que no es un rebut previst es mira
+ * als informes, no a la previsio.
  */
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
-import { movimentsComptables } from "./filtres.ts";
 import { db } from "../db/client.ts";
-import {
-  recurringOccurrences,
-  recurringSeries,
-  transactions,
-  type Ledger,
-} from "../db/schema/index.ts";
+import { recurringSeries, type Ledger } from "../db/schema/index.ts";
 import { config } from "../lib/config.ts";
 import { Decimal, money, toMoneyString, ZERO, type MoneyString } from "../lib/money.ts";
 import { addDays, daysBetween, todayLocal } from "../lib/time.ts";
 import { creaAvis } from "./alerts.ts";
 import { saldoEspai } from "./balances.ts";
-
-/** Historic que es mira per estimar la despesa variable. */
-const DISCRETIONARY_WINDOW_DAYS = 90;
-/** Els imports mes grans es descarten: una compra excepcional no es tendencia. */
-const OUTLIER_TRIM_RATIO = 0.05;
-/** Amplada de la banda optimista i pessimista sobre la despesa variable. */
-const BAND_SPREAD = new Decimal("0.30");
 
 export interface EsdevenimentPrevist {
   dia: string;
@@ -55,53 +39,15 @@ export interface Previsio {
   saldoInicial: MoneyString;
   llindar: MoneyString;
   horitzoDies: number;
+  /** Sempre zero: es conserva al tipus per no trencar la UI dels grafics. */
   despesaDiaria: MoneyString;
   punts: PuntPrevisio[];
   esdeveniments: EsdevenimentPrevist[];
-  /** El primer dia que la linia esperada cau per sota del llindar. */
   primerDescobert: string | null;
   primerDescobertImport: MoneyString | null;
 }
 
-/**
- * Despesa diaria mitjana que no ve de cap rebut recurrent.
- *
- * Es descarten els imports mes alts perque una compra excepcional no marqui
- * la tendencia de tot el trimestre.
- */
-export async function despesaDiariaVariable(ledgerId: number): Promise<MoneyString> {
-  const des = addDays(todayLocal(), -DISCRETIONARY_WINDOW_DAYS);
-
-  const recurrents = new Set(
-    (
-      await db
-        .select({ transactionId: recurringOccurrences.transactionId })
-        .from(recurringOccurrences)
-        .innerJoin(recurringSeries, eq(recurringSeries.id, recurringOccurrences.seriesId))
-        .where(eq(recurringSeries.ledgerId, ledgerId))
-    ).map((o) => o.transactionId),
-  );
-
-  const files = await db
-    .select({ id: transactions.id, amount: transactions.amount })
-    .from(transactions)
-    .where(movimentsComptables({ espais: ledgerId, des, nomesDespeses: true }));
-
-  const imports = files
-    .filter((f) => !recurrents.has(f.id))
-    .map((f) => money(f.amount).negated());
-
-  if (imports.length === 0) return "0.00";
-
-  imports.sort((a, b) => a.comparedTo(b));
-  const retallar = Math.floor(imports.length * OUTLIER_TRIM_RATIO);
-  const conservats = retallar > 0 ? imports.slice(0, -retallar) : imports;
-
-  const total = conservats.reduce((acc, v) => acc.plus(v), new Decimal(0));
-  return toMoneyString(total.dividedBy(DISCRETIONARY_WINDOW_DAYS));
-}
-
-/** Rebuts recurrents previstos d'aqui a l'horitzo. */
+/** Rebuts previstos confirmats d'aqui a l'horitzo. */
 export async function esdevenimentsPrevistos(
   ledgerId: number,
   horitzo: string,
@@ -125,7 +71,6 @@ export async function esdevenimentsPrevistos(
     const interval = Math.max(serie.intervalDays, 1);
     let aparicio = serie.nextExpectedDate ?? addDays(serie.lastSeenDate, interval);
 
-    // Si la data prevista ja ha passat, s'avança fins a la primera futura.
     while (aparicio < comenca) aparicio = addDays(aparicio, interval);
 
     while (aparicio <= horitzo) {
@@ -152,7 +97,6 @@ export async function construeixPrevisio(
   const horitzo = addDays(inici, dies);
 
   const { total: saldo } = await saldoEspai(espai.id);
-  const diaria = await despesaDiariaVariable(espai.id);
   const esdeveniments = await esdevenimentsPrevistos(espai.id, horitzo, inici);
 
   const perDia = new Map<string, Decimal>();
@@ -160,9 +104,6 @@ export async function construeixPrevisio(
     perDia.set(e.dia, (perDia.get(e.dia) ?? new Decimal(0)).plus(money(e.amount)));
   }
 
-  const diariaDec = money(diaria);
-  const derivaOptimista = diariaDec.times(new Decimal(1).minus(BAND_SPREAD));
-  const derivaPessimista = diariaDec.times(new Decimal(1).plus(BAND_SPREAD));
   const llindar = money(espai.overdraftThreshold);
 
   const puntsSenseTendencia: Omit<PuntPrevisio, "tendencia">[] = [];
@@ -173,14 +114,14 @@ export async function construeixPrevisio(
   for (let offset = 0; offset <= dies; offset += 1) {
     const dia = addDays(inici, offset);
     corrent = corrent.plus(perDia.get(dia) ?? new Decimal(0));
+    const esperat = corrent.toDecimalPlaces(2);
 
-    const esperat = corrent.minus(diariaDec.times(offset)).toDecimalPlaces(2);
-
+    // Sense despesa residual, les bandes coincideixen amb l'esperat.
     puntsSenseTendencia.push({
       dia,
       esperat: toMoneyString(esperat),
-      optimista: toMoneyString(corrent.minus(derivaOptimista.times(offset))),
-      pessimista: toMoneyString(corrent.minus(derivaPessimista.times(offset))),
+      optimista: toMoneyString(esperat),
+      pessimista: toMoneyString(esperat),
     });
 
     if (primerDescobert === null && esperat.lt(llindar)) {
@@ -202,7 +143,7 @@ export async function construeixPrevisio(
     saldoInicial: saldo,
     llindar: espai.overdraftThreshold,
     horitzoDies: dies,
-    despesaDiaria: diaria,
+    despesaDiaria: "0.00",
     punts,
     esdeveniments,
     primerDescobert,
@@ -210,12 +151,6 @@ export async function construeixPrevisio(
   };
 }
 
-/**
- * Recta de minims quadrats sobre una serie diaria.
- *
- * Amb x = 0..n-1. Serveix per veure si el saldo, en global, puja o baixa
- * sense els dents de serra dels rebuts.
- */
 export function rectaMinimsQuadrats(valors: Decimal[]): Decimal[] {
   const n = valors.length;
   if (n === 0) return [];
@@ -237,8 +172,6 @@ export function rectaMinimsQuadrats(valors: Decimal[]): Decimal[] {
 
   const nDec = new Decimal(n);
   const denominador = nDec.times(sumXX).minus(sumX.times(sumX));
-  // Cap serie diaria real te denominador zero (x = 0..n-1 amb n >= 2),
-  // pero si arribés, la tendencia es el valor mitja.
   if (denominador.isZero()) {
     const mitjana = sumY.dividedBy(nDec);
     return valors.map(() => mitjana.toDecimalPlaces(2));
@@ -250,7 +183,6 @@ export function rectaMinimsQuadrats(valors: Decimal[]): Decimal[] {
   return valors.map((_, i) => origen.plus(pendent.times(i)).toDecimalPlaces(2));
 }
 
-/** Setmana ISO d'una data, per deduplicar l'avis un cop per setmana. */
 function setmanaIso(isoDate: string): string {
   const [y, m, d] = isoDate.split("-").map(Number);
   const data = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
@@ -261,11 +193,6 @@ function setmanaIso(isoDate: string): string {
   return `${data.getUTCFullYear()}-${setmana}`;
 }
 
-/**
- * Avisa si es preveu que l'espai entri en descobert.
- *
- * Un avis per espai i setmana: el mateix descobert no ha d'avisar cada dia.
- */
 export async function comprovaDescoberts(espai: Ledger, horitzoDies?: number): Promise<number> {
   const previsio = await construeixPrevisio(espai, horitzoDies);
   if (previsio.primerDescobert === null) return 0;
@@ -276,9 +203,8 @@ export async function comprovaDescoberts(espai: Ledger, horitzoDies?: number): P
   );
 
   let cos =
-    `Amb el saldo actual de ${money(previsio.saldoInicial).toFixed(2)} EUR, els rebuts ` +
-    `previstos i una despesa variable de ${money(previsio.despesaDiaria).toFixed(2)} EUR al ` +
-    `dia, el saldo baixaria a ${money(previsio.primerDescobertImport).toFixed(2)} EUR el ` +
+    `Amb el saldo actual de ${money(previsio.saldoInicial).toFixed(2)} EUR i els rebuts ` +
+    `previstos confirmats, el saldo baixaria a ${money(previsio.primerDescobertImport).toFixed(2)} EUR el ` +
     `${previsio.primerDescobert}.`;
   if (causa) cos += ` El primer rebut important previst es ${causa.label}.`;
 
@@ -288,7 +214,6 @@ export async function comprovaDescoberts(espai: Ledger, horitzoDies?: number): P
     dedupKey: `overdraft:${espai.id}:${setmanaIso(previsio.primerDescobert)}`,
     title: `${espai.name}: possible descobert d'aqui a ${diesVista} dies`,
     body: cos,
-    // Si falta poc, es urgent; si falta mes, nomes es un avis.
     severity: diesVista <= 14 ? "critical" : "warning",
     payload: {
       ledger_id: espai.id,
@@ -300,5 +225,3 @@ export async function comprovaDescoberts(espai: Ledger, horitzoDies?: number): P
 
   return creat ? 1 : 0;
 }
-
-export { inArray };

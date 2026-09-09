@@ -39,8 +39,7 @@ docker compose exec app bun run cli dona-acces \
 | Comptes                 |           | ✓ (assignats a un espai) |
 | Moviments               |           | ✓                        |
 | Categories              |           | ✓                        |
-| Comerços                |           | ✓                        |
-| Regles                  |           | ✓                        |
+| Memòria de comerços     |           | ✓ (interna, sense pàgina)|
 | Recurrents i previsions |           | ✓                        |
 | Avisos i destinataris   |           | ✓                        |
 

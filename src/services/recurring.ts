@@ -1,23 +1,13 @@
 /**
- * Deteccio de moviments recurrents i subscripcions.
+ * Deteccio de rebuts previstos (schedules).
  *
- * La porta es la **categoria**: nomes entren al detector els moviments d'una
- * categoria marcada `is_recurrent` (`services/categories.ts`, `marcaRecurrent`).
- * Dins d'una categoria recurrent, cada contrapart (comerç o actor) te la seva
- * propia serie — Netflix i Spotify a «Subscripcions» no es barregen — i un
- * moviment sense contrapart en fa una de sola per categoria i sentit.
+ * El detector mira l'historic categoritzat i **nomes proposa** series
+ * (`status: suggested`). La persona les confirma o les descarta a
+ * `/recurrents`. La previsio nomes mira les `active` amb
+ * `include_in_forecast`.
  *
- * Abans la porta era el comerç (`merchants.is_recurrent`), pero un comerç no
- * serveix per a un actor: la mateixa persona et pot fer el lloguer cada mes i
- * tornar-te un sopar excepcional, i cap de les dues coses no hauria de
- * decidir l'altra.
- *
- * Un rebut es reconeix perque la mateixa contrapart apareix a intervals
- * regulars amb un import estable. A partir d'aqui es pot avisar quan puja de
- * preu o quan un mes no arriba, i sobretot es pot projectar el saldo.
- *
- * Traduccio de `backend/app/services/recurring.py`, adaptada al canvi de
- * porta (`0002_actors_i_recurrents`).
+ * Agrupa per categoria + comerç + sentit. Calen ≥3 aparicions a intervals
+ * regulars (o ja una serie activa/suggested existent que es refresca).
  */
 
 import { and, asc, eq, isNotNull } from "drizzle-orm";
@@ -25,20 +15,18 @@ import { and, asc, eq, isNotNull } from "drizzle-orm";
 import { movimentsComptables } from "./filtres.ts";
 import { db, type Transactor } from "../db/client.ts";
 import {
-  actors,
-  categories,
   CADENCE_DAYS,
   merchants,
   recurringOccurrences,
   recurringSeries,
   transactions,
+  type AmountMode,
   type Cadence,
 } from "../db/schema/index.ts";
 import { addDays, daysBetween, todayLocal } from "../lib/time.ts";
 import { Decimal, money, toMoneyString } from "../lib/money.ts";
 import { creaAvis } from "./alerts.ts";
 
-/** Falta de calendari: no tots els mesos tenen els mateixos dies. */
 const CADENCE_TOLERANCE_DAYS: Record<Cadence, number> = {
   weekly: 2,
   biweekly: 3,
@@ -50,11 +38,11 @@ const CADENCE_TOLERANCE_DAYS: Record<Cadence, number> = {
 };
 
 const MIN_OCCURRENCES = 3;
-/** Un rebut es dona per perdut quan passen aquests dies de la data prevista. */
 const MISSING_GRACE_DAYS = 7;
 const HISTORY_MONTHS = 18;
-/** Per sota d'aquesta proporcio d'intervals regulars, no es una serie. */
 const MIN_REGULARITY = 0.6;
+/** Finestres per a `amount_mode: average`. */
+const AVERAGE_MONTHS = 6;
 
 export interface EstadistiquesRecurrents {
   creades: number;
@@ -67,7 +55,6 @@ export function resumRecurrents(s: EstadistiquesRecurrents): string {
   return `recurrents: ${s.creades} noves, ${s.actualitzades} actualitzades, ${s.acabades} finalitzades, ${s.avisos} avisos`;
 }
 
-/** Mediana d'una llista de numeros, com la de `statistics`. */
 function mediana(valors: number[]): number {
   if (valors.length === 0) return 0;
   const ordenats = valors.toSorted((a, b) => a - b);
@@ -76,7 +63,6 @@ function mediana(valors: number[]): number {
   return ((ordenats[mig - 1] as number) + (ordenats[mig] as number)) / 2;
 }
 
-/** Mediana d'imports, sense passar mai per coma flotant. */
 function medianaImports(valors: string[]): Decimal {
   if (valors.length === 0) return new Decimal(0);
   const ordenats = valors.map((v) => new Decimal(v)).toSorted((a, b) => a.comparedTo(b));
@@ -85,7 +71,6 @@ function medianaImports(valors: string[]): Decimal {
   return (ordenats[mig - 1] as Decimal).plus(ordenats[mig] as Decimal).dividedBy(2);
 }
 
-/** La cadencia que mes s'acosta a un interval observat, si n'hi ha cap. */
 function cadenciaMesPropera(intervalDies: number): Cadence | null {
   for (const cadencia of Object.keys(CADENCE_DAYS) as Cadence[]) {
     if (Math.abs(intervalDies - CADENCE_DAYS[cadencia]) <= CADENCE_TOLERANCE_DAYS[cadencia]) {
@@ -95,7 +80,6 @@ function cadenciaMesPropera(intervalDies: number): Cadence | null {
   return null;
 }
 
-/** Proporcio d'intervals que encaixen amb la cadencia trobada. */
 function regularitat(intervals: number[], esperat: number, tolerancia: number): number {
   if (intervals.length === 0) return 0;
   const bons = intervals.filter((v) => Math.abs(v - esperat) <= tolerancia).length;
@@ -106,32 +90,16 @@ interface MovimentSerie {
   id: number;
   bookingDate: string;
   amount: string;
-  /** Mai nul: `detectaRecurrents` nomes selecciona moviments amb categoria. */
   categoryId: number;
-  categoryRecurrentCadence: Cadence | null;
-  categoryIsSubscription: boolean;
   merchantId: number | null;
-  actorId: number | null;
   merchantDisplay: string | null;
-  actorDisplay: string | null;
   normalizedDescription: string;
   description: string;
   displayDescription: string | null;
 }
 
-interface CadenciaDeclarada {
-  cadence: Cadence;
-}
-
-/**
- * Clau que identifica la serie: categoria + contrapart + sentit de l'import.
- *
- * Son identificadors, no text: reanomenar un comerç o un actor no orfena la
- * serie (abans la clau era el nom normalitzat i ho feia).
- */
 function signatura(m: MovimentSerie): string {
-  const contrapart =
-    m.merchantId !== null ? `m${m.merchantId}` : m.actorId !== null ? `a${m.actorId}` : "-";
+  const contrapart = m.merchantId !== null ? `m${m.merchantId}` : "-";
   const sentit = money(m.amount).isPositive() ? "in" : "out";
   return `c${m.categoryId}|${contrapart}|${sentit}`;
 }
@@ -139,7 +107,6 @@ function signatura(m: MovimentSerie): string {
 function etiquetaSerie(m: MovimentSerie): string {
   if (m.displayDescription) return m.displayDescription;
   if (m.merchantDisplay) return m.merchantDisplay;
-  if (m.actorDisplay) return m.actorDisplay;
   return m.normalizedDescription || m.description.slice(0, 80);
 }
 
@@ -148,11 +115,12 @@ function toleranciaDimport(importEsperat: Decimal): Decimal {
 }
 
 /**
- * Recalcula les series recurrents d'un espai a partir del seu historic.
+ * Proposa o refresca series a partir de l'historic categoritzat.
  *
- * Nomes hi entren els moviments d'una categoria marcada `is_recurrent`
- * (`innerJoin` amb `categories`): un moviment sense categoria, o amb una
- * categoria que no ho es, no genera mai cap serie.
+ * - Nova serie → `suggested`, fora de la previsio fins que es confirmi.
+ * - `suggested` existent → refresca cadencia/import/dates.
+ * - `active` → refresca dates i aparicions; l'import nomes si `average`.
+ * - `dismissed` / `ended` → no es toca.
  */
 export async function detectaRecurrents(ledgerId: number): Promise<EstadistiquesRecurrents> {
   const estadistiques: EstadistiquesRecurrents = {
@@ -170,34 +138,21 @@ export async function detectaRecurrents(ledgerId: number): Promise<Estadistiques
       bookingDate: transactions.bookingDate,
       amount: transactions.amount,
       categoryId: transactions.categoryId,
-      categoryRecurrentCadence: categories.recurrentCadence,
-      categoryIsSubscription: categories.isSubscription,
       merchantId: transactions.merchantId,
-      actorId: transactions.actorId,
       merchantDisplay: merchants.displayName,
-      actorDisplay: actors.displayName,
       normalizedDescription: transactions.normalizedDescription,
       description: transactions.description,
       displayDescription: transactions.displayDescription,
     })
     .from(transactions)
-    // L'inner join amb `categories` es la porta: exclou de rel qualsevol
-    // moviment sense categoria (l'`eq` mai no es certa amb `categoryId` nul).
-    .innerJoin(categories, eq(categories.id, transactions.categoryId))
     .leftJoin(merchants, eq(merchants.id, transactions.merchantId))
-    .leftJoin(actors, eq(actors.id, transactions.actorId))
-    .where(
-      and(
-        movimentsComptables({ espais: ledgerId, des }),
-        eq(categories.ledgerId, ledgerId),
-        eq(categories.isRecurrent, true),
-      ),
-    )
+    .where(and(movimentsComptables({ espais: ledgerId, des }), isNotNull(transactions.categoryId)))
     .orderBy(asc(transactions.bookingDate));
 
   const grups = new Map<string, MovimentSerie[]>();
   for (const moviment of moviments) {
-    const fila: MovimentSerie = { ...moviment, categoryId: moviment.categoryId as number };
+    if (moviment.categoryId === null) continue;
+    const fila: MovimentSerie = { ...moviment, categoryId: moviment.categoryId };
     const clau = signatura(fila);
     const grup = grups.get(clau);
     if (grup) grup.push(fila);
@@ -205,11 +160,7 @@ export async function detectaRecurrents(ledgerId: number): Promise<Estadistiques
   }
 
   for (const [clau, items] of grups) {
-    const cadenciaCategoria = items[0]?.categoryRecurrentCadence ?? null;
-    const declarat: CadenciaDeclarada | null = cadenciaCategoria
-      ? { cadence: cadenciaCategoria }
-      : null;
-    await avaluaGrup(ledgerId, clau, items, estadistiques, declarat);
+    await avaluaGrup(ledgerId, clau, items, estadistiques);
   }
 
   return estadistiques;
@@ -220,8 +171,17 @@ async function avaluaGrup(
   clau: string,
   items: MovimentSerie[],
   estadistiques: EstadistiquesRecurrents,
-  declarat: CadenciaDeclarada | null,
 ): Promise<void> {
+  const [existent] = await db
+    .select()
+    .from(recurringSeries)
+    .where(and(eq(recurringSeries.ledgerId, ledgerId), eq(recurringSeries.signature, clau)))
+    .limit(1);
+
+  if (existent && (existent.status === "dismissed" || existent.status === "ended")) {
+    return;
+  }
+
   const dates = items.map((i) => i.bookingDate);
   const intervals: number[] = [];
   for (let i = 1; i < dates.length; i += 1) {
@@ -229,47 +189,84 @@ async function avaluaGrup(
     if (dies > 0) intervals.push(dies);
   }
 
-  let cadencia: Cadence;
-  let intervalArrodonit: number;
-  let confianca: number;
+  // Serie activa: refresca amb la cadencia que ja te (no cal re-detectar).
+  if (existent?.status === "active") {
+    const intervalArrodonit = existent.intervalDays;
+    const ultimaData = dates[dates.length - 1] as string;
+    const ultim = items[items.length - 1] as MovimentSerie;
+    const importDetectat = medianaImports(items.map((i) => i.amount)).toDecimalPlaces(2);
+    const importEsperat =
+      existent.amountMode === "average"
+        ? medianaImports(importsRecents(items)).toDecimalPlaces(2)
+        : money(existent.expectedAmount);
 
-  if (declarat) {
-    // La categoria porta cadencia declarada: no calen tres aparicions ni regularitat.
-    if (items.length < 1) return;
-    cadencia = declarat.cadence;
-    intervalArrodonit = CADENCE_DAYS[cadencia];
-    confianca = 1;
-  } else {
-    if (items.length < MIN_OCCURRENCES) return;
-    if (intervals.length === 0) return;
+    await db
+      .update(recurringSeries)
+      .set({
+        occurrencesCount: items.length,
+        lastSeenDate: ultimaData,
+        nextExpectedDate: addDays(ultimaData, intervalArrodonit),
+        merchantId: ultim.merchantId,
+        ...(existent.amountMode === "average"
+          ? {
+              expectedAmount: toMoneyString(importEsperat),
+              amountTolerance: toMoneyString(toleranciaDimport(importEsperat)),
+            }
+          : {}),
+        ...(ultim.displayDescription ? { label: ultim.displayDescription } : {}),
+      })
+      .where(eq(recurringSeries.id, existent.id));
 
-    const intervalMedia = mediana(intervals);
-    const trobada = cadenciaMesPropera(intervalMedia);
-    if (trobada === null) return;
+    estadistiques.actualitzades += 1;
 
-    const tolerancia = CADENCE_TOLERANCE_DAYS[trobada];
-    const regular = regularitat(intervals, CADENCE_DAYS[trobada], tolerancia);
-    if (regular < MIN_REGULARITY) return;
+    if (
+      existent.amountMode === "exact" &&
+      money(ultim.amount).minus(money(existent.expectedAmount)).abs().gt(money(existent.amountTolerance))
+    ) {
+      const puja = money(ultim.amount).abs().gt(money(existent.expectedAmount).abs());
+      const creat = await creaAvis({
+        type: "recurring_amount_change",
+        ledgerId,
+        dedupKey: `amount-change:${existent.id}:${ultimaData}`,
+        title: `${existent.label}: l'import ${puja ? "puja" : "baixa"} a ${money(ultim.amount).abs().toFixed(2)} EUR`,
+        body: `L'import habitual era de ${money(existent.expectedAmount).abs().toFixed(2)} EUR i l'ultim rebut ha estat de ${money(ultim.amount).abs().toFixed(2)} EUR.`,
+        severity: "warning",
+        payload: {
+          series_id: existent.id,
+          previous_amount: existent.expectedAmount,
+          new_amount: ultim.amount,
+          transaction_id: ultim.id,
+        },
+      });
+      if (creat) estadistiques.avisos += 1;
+    }
 
-    cadencia = trobada;
-    intervalArrodonit = Math.round(intervalMedia);
-    confianca = Math.round(Math.min(1, regular * Math.min(1, items.length / 6)) * 100) / 100;
+    // Si l'import detectat divergeix molt amb average, no cal avis: ja es refresca.
+    void importDetectat;
+    await enllacaAparicions(existent.id, items);
+    return;
   }
 
+  // Suggested nova o existent: cal patro minim.
+  if (items.length < MIN_OCCURRENCES) return;
+  if (intervals.length === 0) return;
+
+  const intervalMedia = mediana(intervals);
+  const trobada = cadenciaMesPropera(intervalMedia);
+  if (trobada === null) return;
+
+  const tolerancia = CADENCE_TOLERANCE_DAYS[trobada];
+  const regular = regularitat(intervals, CADENCE_DAYS[trobada], tolerancia);
+  if (regular < MIN_REGULARITY) return;
+
+  const cadencia = trobada;
+  const intervalArrodonit = Math.round(intervalMedia);
+  const confianca = Math.round(Math.min(1, regular * Math.min(1, items.length / 6)) * 100) / 100;
   const importEsperat = medianaImports(items.map((i) => i.amount)).toDecimalPlaces(2);
   const toleranciaImport = toleranciaDimport(importEsperat);
   const ultimaData = dates[dates.length - 1] as string;
   const seguentPrevista = addDays(ultimaData, intervalArrodonit);
   const ultim = items[items.length - 1] as MovimentSerie;
-  const isSubscription = ultim.categoryIsSubscription;
-
-  const [existent] = await db
-    .select()
-    .from(recurringSeries)
-    .where(and(eq(recurringSeries.ledgerId, ledgerId), eq(recurringSeries.signature, clau)))
-    .limit(1);
-
-  let serieId: number;
 
   if (!existent) {
     const [creada] = await db
@@ -279,88 +276,53 @@ async function avaluaGrup(
         signature: clau,
         label: etiquetaSerie(ultim),
         merchantId: ultim.merchantId,
-        actorId: ultim.actorId,
         categoryId: ultim.categoryId,
         cadence: cadencia,
         expectedAmount: toMoneyString(importEsperat),
         amountTolerance: toMoneyString(toleranciaImport),
+        amountMode: "exact",
         intervalDays: intervalArrodonit,
         confidence: confianca,
         occurrencesCount: items.length,
         firstSeenDate: dates[0] as string,
         lastSeenDate: ultimaData,
         nextExpectedDate: seguentPrevista,
-        isSubscription,
-        status: "active",
-        includeInForecast: true,
+        status: "suggested",
+        includeInForecast: false,
       })
       .returning({ id: recurringSeries.id });
 
     if (!creada) return;
-    serieId = creada.id;
     estadistiques.creades += 1;
-  } else {
-    serieId = existent.id;
-    const importAnterior = money(existent.expectedAmount);
-
-    // Si la categoria porta cadencia declarada, mana ella: el detector
-    // nomes refresca import, dates i aparicions.
-    await db
-      .update(recurringSeries)
-      .set({
-        ...(declarat
-          ? {
-              cadence: declarat.cadence,
-              intervalDays: CADENCE_DAYS[declarat.cadence],
-              confidence: 1,
-            }
-          : {
-              cadence: cadencia,
-              intervalDays: intervalArrodonit,
-              confidence: confianca,
-            }),
-        occurrencesCount: items.length,
-        lastSeenDate: ultimaData,
-        nextExpectedDate: addDays(
-          ultimaData,
-          declarat ? CADENCE_DAYS[declarat.cadence] : intervalArrodonit,
-        ),
-        merchantId: ultim.merchantId,
-        actorId: ultim.actorId,
-        status: "active",
-        expectedAmount: toMoneyString(importEsperat),
-        amountTolerance: toMoneyString(toleranciaImport),
-        // Es refresca sempre, no nomes en crear: una categoria que deixa de
-        // ser subscripcio no ha de continuar comptant al resum.
-        isSubscription,
-        ...(ultim.displayDescription ? { label: ultim.displayDescription } : {}),
-      })
-      .where(eq(recurringSeries.id, serieId));
-
-    estadistiques.actualitzades += 1;
-
-    // Si l'ultim rebut s'aparta del que era habitual, val la pena dir-ho.
-    if (money(ultim.amount).minus(importAnterior).abs().gt(money(existent.amountTolerance))) {
-      const puja = money(ultim.amount).abs().gt(importAnterior.abs());
-      const creat = await creaAvis({
-        type: "recurring_amount_change",
-        ledgerId,
-        dedupKey: `amount-change:${serieId}:${ultimaData}`,
-        title: `${existent.label}: l'import ${puja ? "puja" : "baixa"} a ${money(ultim.amount).abs().toFixed(2)} EUR`,
-        body: `L'import habitual era de ${importAnterior.abs().toFixed(2)} EUR i l'ultim rebut ha estat de ${money(ultim.amount).abs().toFixed(2)} EUR.`,
-        severity: "warning",
-        payload: {
-          series_id: serieId,
-          previous_amount: existent.expectedAmount,
-          new_amount: ultim.amount,
-          transaction_id: ultim.id,
-        },
-      });
-      if (creat) estadistiques.avisos += 1;
-    }
+    await enllacaAparicions(creada.id, items);
+    return;
   }
 
-  await enllacaAparicions(serieId, items);
+  // suggested existent
+  await db
+    .update(recurringSeries)
+    .set({
+      cadence: cadencia,
+      intervalDays: intervalArrodonit,
+      confidence: confianca,
+      occurrencesCount: items.length,
+      lastSeenDate: ultimaData,
+      nextExpectedDate: seguentPrevista,
+      merchantId: ultim.merchantId,
+      expectedAmount: toMoneyString(importEsperat),
+      amountTolerance: toMoneyString(toleranciaImport),
+      ...(ultim.displayDescription ? { label: ultim.displayDescription } : {}),
+    })
+    .where(eq(recurringSeries.id, existent.id));
+
+  estadistiques.actualitzades += 1;
+  await enllacaAparicions(existent.id, items);
+}
+
+function importsRecents(items: MovimentSerie[]): string[] {
+  const des = addDays(todayLocal(), -AVERAGE_MONTHS * 31);
+  const recents = items.filter((i) => i.bookingDate >= des).map((i) => i.amount);
+  return recents.length > 0 ? recents : items.map((i) => i.amount);
 }
 
 async function enllacaAparicions(serieId: number, items: MovimentSerie[]): Promise<void> {
@@ -388,25 +350,40 @@ async function enllacaAparicions(serieId: number, items: MovimentSerie[]): Promi
 }
 
 /**
- * Esborra les series (i les seves aparicions, en cascada) d'una categoria.
- *
- * Es crida quan es desmarca `categories.is_recurrent`: sense la categoria
- * com a porta, les series que ja hi havia no es poden reaprofitar. Si es
- * torna a marcar, `detectaRecurrents` les torna a crear des de l'historic.
+ * Confirma una proposta: passa a activa i entra a la previsio.
  */
-export async function esborraSeriesDeCategoria(
-  categoryId: number,
+export async function confirmaSerie(
+  serieId: number,
+  opcions: { cadence: Cadence; amountMode: AmountMode },
   connexio: Transactor = db,
 ): Promise<void> {
-  await connexio.delete(recurringSeries).where(eq(recurringSeries.categoryId, categoryId));
+  await connexio
+    .update(recurringSeries)
+    .set({
+      status: "active",
+      includeInForecast: true,
+      cadence: opcions.cadence,
+      intervalDays: CADENCE_DAYS[opcions.cadence],
+      amountMode: opcions.amountMode,
+      confidence: 1,
+    })
+    .where(eq(recurringSeries.id, serieId));
+}
+
+/** Descarta una proposta: el detector ja no la tornarà a crear (mateixa signatura). */
+export async function descartaSerie(serieId: number, connexio: Transactor = db): Promise<void> {
+  await connexio
+    .update(recurringSeries)
+    .set({ status: "dismissed", includeInForecast: false })
+    .where(eq(recurringSeries.id, serieId));
 }
 
 /**
- * Avisa dels rebuts que no han arribat quan tocava.
+ * Avisa dels rebuts actius que no han arribat quan tocava.
  *
  * Passat mes d'un periode sencer sense saber-ne res, la serie es dona per
- * acabada en lloc d'anar avisant per sempre. Les series d'una categoria amb
- * cadencia declarada **no** s'acaben: la persona les ha volgut a la previsio.
+ * acabada. Les confirmades amb `amount_mode: exact` **no** s'acaben soles
+ * (la persona les vol a la previsio); nomes avisen.
  */
 export async function comprovaRebutsQueFalten(ledgerId: number): Promise<number> {
   const avui = todayLocal();
@@ -419,10 +396,9 @@ export async function comprovaRebutsQueFalten(ledgerId: number): Promise<number>
       nextExpectedDate: recurringSeries.nextExpectedDate,
       intervalDays: recurringSeries.intervalDays,
       expectedAmount: recurringSeries.expectedAmount,
-      categoryRecurrentCadence: categories.recurrentCadence,
+      amountMode: recurringSeries.amountMode,
     })
     .from(recurringSeries)
-    .innerJoin(categories, eq(categories.id, recurringSeries.categoryId))
     .where(
       and(
         eq(recurringSeries.ledgerId, ledgerId),
@@ -439,8 +415,8 @@ export async function comprovaRebutsQueFalten(ledgerId: number): Promise<number>
     if (diesDeRetard < MISSING_GRACE_DAYS) continue;
 
     if (diesDeRetard > serie.intervalDays + MISSING_GRACE_DAYS) {
-      // Una categoria amb cadencia declarada es queda activa encara que el rebut no arribi.
-      if (serie.categoryRecurrentCadence !== null) continue;
+      // Exactes confirmades es queden actives; les de mitjana poden acabar-se.
+      if (serie.amountMode === "exact") continue;
 
       await db
         .update(recurringSeries)

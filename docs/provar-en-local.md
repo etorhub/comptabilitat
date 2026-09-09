@@ -57,11 +57,9 @@ MERCADONA, BARCELONA` i companyia), repartides pels tres espais:
 - **Panell**: saldo, ingressos i despeses del mes, evolució i repartiment per categoria.
 - **Moviments**: uns 300 apunts per espai amb filtres, edició de categoria i exportació a
   CSV i Excel.
-- **Recurrents**: set rebuts detectats sols (Endesa, Netflix, Spotify, comunitat, Agbar,
-  assegurança i la nòmina), amb el cost mensual i la propera data prevista.
-- **Previsió**: projecció a 90 dies amb els rebuts previstos i la banda de despesa variable.
+- **Recurrents**: propostes del detector per confirmar (import fix o mitjana).
+- **Previsió**: projecció a 90 dies amb els rebuts previstos confirmats.
 - **Informes**: comparativa mes a mes i exportació a Excel i PDF.
-- **Comerços** i **Regles**: la memòria de l'espai i les regles que la governen.
 - **Configuració**: el nom i el color de l'espai, el llindar de descobert, qui rep els
   avisos i qui hi té accés.
 

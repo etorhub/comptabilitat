@@ -11,7 +11,7 @@
 import { html, raw } from "hono/html";
 
 import { Tria } from "../../components/form.tsx";
-import type { Cadence, CategoryKind } from "../../db/schema/index.ts";
+import type { CategoryKind } from "../../db/schema/index.ts";
 import { TaulaDades } from "../../components/vista.tsx";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
@@ -25,16 +25,6 @@ const NOMS_KIND: Record<CategoryKind, string> = {
   expense: "Despeses",
   income: "Ingressos",
   transfer: "Traspassos",
-};
-
-const CADENCIES: Record<Cadence, string> = {
-  weekly: "setmanal",
-  biweekly: "quinzenal",
-  monthly: "mensual",
-  bimonthly: "bimensual",
-  quarterly: "trimestral",
-  semiannual: "semestral",
-  annual: "anual",
 };
 
 const ORDRE_KIND: CategoryKind[] = ["expense", "income", "transfer"];
@@ -60,8 +50,6 @@ export function Arbre({ codi, arbre, potEditar, oob = false }: ArbreProps): Html
         <h2>${NOMS_KIND[kind]}</h2>
         ${TaulaDades({
           columnes: html`<th>Categoria</th>
-            <th>Subscripcio</th>
-            <th>Recurrent</th>
             <th class="dreta">Moviments</th>
             <th class="dreta">Total</th>
             ${potEditar ? html`<th></th>` : ""}` as Html,
@@ -97,71 +85,6 @@ export function Fila({ codi, categoria, potEditar, filla }: FilaProps): Html {
         categoria.isSystem
           ? html`<span class="etiqueta etiqueta-suau" title="Ve del pla inicial">sistema</span>`
           : ""
-      }
-    </td>
-    <td>
-      ${
-        potEditar
-          ? html`<input
-            type="checkbox"
-            name="is_subscription"
-            ${categoria.isSubscription ? raw("checked") : ""}
-            aria-label="Marca ${categoria.name} com a subscripcio"
-            hx-post="${base}/subscripcio"
-            hx-target="#categoria-${categoria.id}"
-            hx-swap="outerHTML"
-          />`
-          : categoria.isSubscription
-            ? "Si"
-            : ""
-      }
-    </td>
-    <td>
-      ${
-        potEditar
-          ? html`<div class="recurrent-categoria" id="recurrent-categoria-${categoria.id}">
-            <label class="casella">
-              <input
-                type="checkbox"
-                name="is_recurrent"
-                value="1"
-                ${categoria.isRecurrent ? raw("checked") : ""}
-                aria-label="Marca ${categoria.name} com a recurrent"
-                hx-post="${base}/recurrent"
-                hx-target="#categoria-${categoria.id}"
-                hx-swap="outerHTML"
-                hx-include="#recurrent-categoria-${categoria.id}"
-              />
-            </label>
-            <select
-              name="recurrent_cadence"
-              aria-label="Cadencia declarada de ${categoria.name}"
-              ${categoria.isRecurrent ? "" : raw("disabled")}
-              hx-post="${base}/recurrent"
-              hx-target="#categoria-${categoria.id}"
-              hx-swap="outerHTML"
-              hx-include="#recurrent-categoria-${categoria.id}"
-              hx-trigger="change"
-            >
-              <option value="" ${categoria.recurrentCadence === null ? raw("selected") : ""}>
-                — automatica —
-              </option>
-              ${Object.entries(CADENCIES).map(
-                ([valor, etiqueta]) =>
-                  html`<option
-                    value="${valor}"
-                    ${categoria.recurrentCadence === valor ? raw("selected") : ""}
-                  >
-                    ${etiqueta}
-                  </option>`,
-              )}
-            </select>
-          </div>`
-          : categoria.isRecurrent
-            ? categoria.recurrentCadence
-              ? html`${CADENCIES[categoria.recurrentCadence]}`
-              : "automatica"
-            : html`<span class="text-suau">—</span>`
       }
     </td>
     <td class="dreta">${String(categoria.transactionCount)}</td>
@@ -212,7 +135,7 @@ export function FilaEdicio({
 }): Html {
   const base = `/e/${codi}/categories/${categoria.id}`;
   return html`<tr id="categoria-${categoria.id}" class="editant">
-    <td colspan="6">
+    <td colspan="4">
       <form
         class="linia"
         hx-patch="${base}"
@@ -262,7 +185,7 @@ export function FormReassignacio({
   grups,
 }: FormReassignacioProps): Html {
   return html`<tr id="categoria-${categoria.id}" class="reassignant">
-    <td colspan="6">
+    <td colspan="4">
       <form
         class="linia"
         hx-delete="/e/${codi}/categories/${categoria.id}"
