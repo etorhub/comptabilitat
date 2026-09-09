@@ -134,7 +134,6 @@ export async function seedCategories(ledgerId: number): Promise<number> {
             color,
             icon: "",
             isSystem: true,
-            isSubscription: false,
             position: posicio,
             parentId: null,
           })
@@ -156,7 +155,6 @@ export async function seedCategories(ledgerId: number): Promise<number> {
           color,
           icon: "",
           isSystem: true,
-          isSubscription: false,
           position: posicio,
           parentId: idPare,
         });

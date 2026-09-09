@@ -8,19 +8,13 @@
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-import { cadenceSchema, categories, categoryKindSchema } from "../../db/schema/index.ts";
+import { categories, categoryKindSchema } from "../../db/schema/index.ts";
 
 /** Un enter que ve d'un camp de formulari, on el buit vol dir «cap». */
 const idOpcional = z
   .union([z.literal(""), z.coerce.number().int().positive()])
   .optional()
   .transform((v) => (v === "" || v === undefined ? null : v));
-
-/** Les caselles arriben com a "on" quan estan marcades, i no arriben quan no. */
-const casella = z
-  .union([z.literal("on"), z.literal("1"), z.literal("true")])
-  .optional()
-  .transform((v) => v !== undefined);
 
 const base = createInsertSchema(categories, {
   name: (s) => s.trim().min(1, "Cal un nom").max(120, "El nom es massa llarg"),
@@ -40,10 +34,9 @@ export const categoryCreateSchema = base.pick({ name: true }).extend({
     .regex(/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/, "El color ha de ser un codi hexadecimal")
     .default("#94a3b8"),
   icon: z.string().max(40).default(""),
-  is_subscription: casella,
 });
 
-/** Canvi de nom i de marca de subscripcio des de la fila de la taula. */
+/** Canvi de nom des de la fila de la taula. */
 export const categoryUpdateSchema = z.object({
   name: z.string().trim().min(1, "Cal un nom").max(120, "El nom es massa llarg"),
 });
@@ -51,20 +44,4 @@ export const categoryUpdateSchema = z.object({
 export const categoryDeleteSchema = z.object({
   /** A qui van a parar els moviments que hi hagi. */
   reassign_to: idOpcional,
-});
-
-/**
- * Marcar la categoria com a porta del detector de recurrents. La casella
- * desmarcada no arriba al cos; la cadencia es opcional: buida vol dir que el
- * detector l'ha de deduir sol de la regularitat observada.
- */
-export const categoryRecurrentSchema = z.object({
-  is_recurrent: z
-    .union([z.literal("1"), z.literal("on"), z.literal("true")])
-    .optional()
-    .transform((v) => v !== undefined),
-  recurrent_cadence: z
-    .union([z.literal(""), cadenceSchema])
-    .optional()
-    .transform((v) => (v === "" || v === undefined ? null : v)),
 });

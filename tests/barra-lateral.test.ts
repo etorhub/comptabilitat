@@ -53,7 +53,7 @@ describe("aria-current a la barra lateral", () => {
   test("marca la pagina que s'esta mirant, i nomes una", async () => {
     expect(marcat(await barra("/e/personal/moviments"))).toEqual(["/e/personal/moviments"]);
     // I els del grup de configuracio, que el master va moure a part.
-    expect(marcat(await barra("/e/personal/comercos"))).toEqual(["/e/personal/comercos"]);
+    expect(marcat(await barra("/e/personal/etiquetes"))).toEqual(["/e/personal/etiquetes"]);
     expect(marcat(await barra("/e/personal/categories"))).toEqual(["/e/personal/categories"]);
   });
 

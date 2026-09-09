@@ -1,10 +1,10 @@
 /**
- * Neteja dels conceptes bancaris per obtenir el nom del comerç o de l'actor.
+ * Neteja dels conceptes bancaris per obtenir el nom del comerç.
  *
  * Els conceptes del Santander arriben amb molt de soroll: tipus d'operacio,
  * digits de la targeta, dates, poblacio i referencies internes. Aixo ho
  * redueix a un nom estable que serveix de clau de la memoria de comerços
- * (`normalizeDescription`) o d'actors (`normalizeActorName`).
+ * (`normalizeDescription`).
  *
  * Traduccio de `backend/app/services/normalization.py`. La majoria de casos
  * han de donar el mateix resultat que el Python (vegeu
@@ -340,69 +340,6 @@ export function normalizeDescription(description: string, counterparty = ""): [s
     // comerç: totes les «PAGO MOVIL EN» buides acabarien al mateix lloc.
     if (haTretPrefix) return ["", ""];
     // Sense prefix: millor alguna clau que deixar el moviment sense nom.
-    const fallback = stripAccents(source)
-      .toUpperCase()
-      .split(/\s+/)
-      .filter(Boolean)
-      .join(" ")
-      .slice(0, 200);
-    return [fallback, displayName(fallback)];
-  }
-
-  return [normalized, displayName(normalized)];
-}
-
-/** Nomes els prefixos de transferencia: es l'unica mena de moviment amb actor. */
-const ACTOR_PREFIX_PATTERNS: RegExp[] = [
-  /^TRANSFERENCIA\b(?:\s+(?:IMMEDIATA|URGENTE|ORDINARIA))*(?:\s+(?:RECIBIDA\s+)?(?:DE|A|A\s+FAVOR\s+DE|EMITIDA\s+A)?)?\s*/,
-  /^TRANSF\.?\b(?:\s+(?:DE|A)?)?\s*/,
-];
-
-/**
- * Com `normalizeDescription`, pero per al nom d'un actor (el titular d'una
- * transferencia), no d'un comerç.
- *
- * Comparteix la neteja de soroll (IBAN, NIF, dates, referencies) i
- * `displayName()`, pero nomes treu els prefixos de transferencia i talla a
- * **8** tokens, no 6: un nom i cognoms complets en gasten facilment cinc o
- * sis.
- */
-export function normalizeActorName(description: string, counterparty = ""): [string, string] {
-  const source = counterparty.trim() || description.trim();
-  if (!source) return ["", ""];
-
-  let text = stripAccents(source).toUpperCase();
-
-  for (const pattern of ACTOR_PREFIX_PATTERNS) {
-    const replaced = text.replace(pattern, "");
-    if (replaced !== text) {
-      text = replaced;
-      // Amb un prefix conegut, el que va despres d'una coma sol ser la poblacio.
-      text = text.split(",")[0] ?? "";
-      break;
-    }
-  }
-
-  for (const [pattern, replacement] of NOISE_PATTERNS) {
-    text = text.replace(pattern, replacement);
-  }
-
-  text = text.replace(/[^A-Z0-9&'.\s]/g, " ");
-  const tokens = text.split(/\s+/).filter(Boolean);
-
-  while (tokens.length > 0) {
-    const ultim = tokens[tokens.length - 1] as string;
-    if (TRAILING_NOISE.has(ultim) || esNumero(ultim)) tokens.pop();
-    else break;
-  }
-  while (tokens.length > 0) {
-    const primer = tokens[0] as string;
-    if (esNumero(primer) || LEADING_STOPWORDS.has(primer) || MONTHS.has(primer)) tokens.shift();
-    else break;
-  }
-
-  const normalized = retallaExtrems(tokens.slice(0, 8).join(" ").slice(0, 200), " .");
-  if (!normalized) {
     const fallback = stripAccents(source)
       .toUpperCase()
       .split(/\s+/)

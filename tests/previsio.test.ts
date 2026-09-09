@@ -1,8 +1,8 @@
 /**
  * Previsio de saldo i avis de descobert.
  *
- * Traduccio de la part de `backend/tests/test_recurring_forecast.py` que mira
- * la projeccio.
+ * La previsio nomes mira schedules `active` amb `include_in_forecast`.
+ * No hi ha «despesa variable» residual.
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
@@ -25,10 +25,9 @@ import {
 import {
   comprovaDescoberts,
   construeixPrevisio,
-  despesaDiariaVariable,
   esdevenimentsPrevistos,
 } from "../src/services/forecast.ts";
-import { detectaRecurrents } from "../src/services/recurring.ts";
+import { confirmaSerie, detectaRecurrents } from "../src/services/recurring.ts";
 import { ingressosIDespeses, serieMensual } from "../src/services/reports.ts";
 import { seedCategories } from "../src/services/seed.ts";
 import { addDays, todayLocal } from "../src/lib/time.ts";
@@ -45,6 +44,8 @@ async function moviment(
     transferGroupId: string;
     isExcluded: boolean;
     status: "booked" | "pending";
+    categoryId: number | null;
+    merchantId: number | null;
   }> = {},
 ) {
   const [t] = await db
@@ -62,9 +63,9 @@ async function moviment(
       normalizedDescription: "M",
       counterparty: "",
       bankTransactionCode: "",
-      merchantId: null,
-      categoryId: null,
-      categorySource: "none",
+      merchantId: extra.merchantId ?? null,
+      categoryId: extra.categoryId ?? null,
+      categorySource: extra.categoryId ? "user" : "none",
       needsReview: false,
       transferGroupId: extra.transferGroupId ?? null,
       notes: "",
@@ -74,6 +75,40 @@ async function moviment(
     })
     .returning();
   return t?.id ?? 0;
+}
+
+/** Una serie activa a la previsio, sense passar pel detector. */
+async function serieActiva(opts: {
+  amount: string;
+  intervalDays: number;
+  nextExpectedDate: string;
+  label?: string;
+  categoryId: number;
+  merchantId?: number | null;
+}) {
+  const [serie] = await db
+    .insert(recurringSeries)
+    .values({
+      ledgerId: espai.id,
+      signature: `c${opts.categoryId}|m${opts.merchantId ?? "-"}|out-test-${opts.label ?? opts.amount}`,
+      label: opts.label ?? "Rebut previst",
+      merchantId: opts.merchantId ?? null,
+      categoryId: opts.categoryId,
+      cadence: "monthly",
+      expectedAmount: opts.amount,
+      amountTolerance: "5.00",
+      amountMode: "exact",
+      intervalDays: opts.intervalDays,
+      confidence: 1,
+      occurrencesCount: 3,
+      firstSeenDate: addDays(todayLocal(), -90),
+      lastSeenDate: addDays(todayLocal(), -30),
+      nextExpectedDate: opts.nextExpectedDate,
+      status: "active",
+      includeInForecast: true,
+    })
+    .returning();
+  return serie;
 }
 
 beforeEach(async () => {
@@ -145,31 +180,8 @@ beforeEach(async () => {
   });
 });
 
-describe("la despesa variable", () => {
-  test("es la mitjana diaria de la finestra, no dels dies amb moviment", async () => {
-    // 900 EUR repartits en 9 despeses dins dels ultims 90 dies.
-    for (let i = 0; i < 9; i += 1) {
-      await moviment(`d${i}`, addDays(todayLocal(), -i * 10), "-100.00");
-    }
-    const diaria = await despesaDiariaVariable(espai.id);
-    // 900 / 90 dies = 10 EUR al dia.
-    expect(Number(diaria)).toBeCloseTo(10, 1);
-  });
-
-  test("els traspassos i els exclosos no hi compten", async () => {
-    await moviment("t", addDays(todayLocal(), -5), "-900.00", { transferGroupId: "g" });
-    await moviment("x", addDays(todayLocal(), -5), "-900.00", { isExcluded: true });
-    expect(Number(await despesaDiariaVariable(espai.id))).toBe(0);
-  });
-
-  test("els ingressos tampoc", async () => {
-    await moviment("i", addDays(todayLocal(), -5), "2000.00");
-    expect(Number(await despesaDiariaVariable(espai.id))).toBe(0);
-  });
-});
-
 describe("la projeccio", () => {
-  test("comença al saldo d'avui i baixa amb la despesa variable", async () => {
+  test("sense schedules, la linia es plana al saldo d'avui", async () => {
     for (let i = 0; i < 9; i += 1) {
       await moviment(`d${i}`, addDays(todayLocal(), -i * 10), "-100.00");
     }
@@ -177,57 +189,75 @@ describe("la projeccio", () => {
     const previsio = await construeixPrevisio(espai, 30);
     expect(previsio.punts).toHaveLength(31);
     expect(Number(previsio.punts[0]?.esperat)).toBeCloseTo(1000, 1);
-    // 30 dies × 10 EUR = 300 EUR menys.
-    expect(Number(previsio.punts[30]?.esperat)).toBeCloseTo(700, 1);
-  });
-
-  test("l'optimista va per sobre i la pessimista per sota", async () => {
-    for (let i = 0; i < 9; i += 1) {
-      await moviment(`d${i}`, addDays(todayLocal(), -i * 10), "-100.00");
-    }
-    const previsio = await construeixPrevisio(espai, 30);
-    const ultim = previsio.punts[30];
-
-    expect(money(ultim?.optimista).gt(money(ultim?.esperat))).toBe(true);
-    expect(money(ultim?.pessimista).lt(money(ultim?.esperat))).toBe(true);
-  });
-
-  test("sense despeses, la linia es plana", async () => {
-    const previsio = await construeixPrevisio(espai, 30);
-    expect(Number(previsio.punts[0]?.esperat)).toBeCloseTo(1000, 1);
     expect(Number(previsio.punts[30]?.esperat)).toBeCloseTo(1000, 1);
+    expect(previsio.despesaDiaria).toBe("0.00");
     expect(previsio.primerDescobert).toBeNull();
   });
 
-  test("la tendencia coincideix amb l'esperat si no hi ha dents de serra", async () => {
-    for (let i = 0; i < 9; i += 1) {
-      await moviment(`d${i}`, addDays(todayLocal(), -i * 10), "-100.00");
-    }
-
+  test("sense despesa residual, les bandes coincideixen amb l'esperat", async () => {
     const previsio = await construeixPrevisio(espai, 30);
-    const primer = previsio.punts[0];
     const ultim = previsio.punts[30];
 
-    expect(Number(primer?.tendencia)).toBeCloseTo(Number(primer?.esperat), 1);
-    expect(Number(ultim?.tendencia)).toBeCloseTo(Number(ultim?.esperat), 1);
-    expect(money(ultim?.tendencia).lt(money(primer?.tendencia))).toBe(true);
+    expect(ultim?.optimista).toBe(ultim?.esperat);
+    expect(ultim?.pessimista).toBe(ultim?.esperat);
   });
 
-  test("una categoria anual declarada apareix als esdeveniments previstos", async () => {
+  test("una serie suggested no baixa el saldo; confirmada si", async () => {
     const [comerc] = await db
       .insert(merchants)
       .values({
         ledgerId: espai.id,
-        normalizedName: "ASSEGURANCA CASA",
-        displayName: "Assegurança casa",
+        normalizedName: "NETFLIX",
+        displayName: "Netflix",
         defaultCategoryId: null,
         categorySource: "none",
         isConfirmed: false,
-        transactionCount: 1,
-        lastSeenAt: addDays(todayLocal(), -20),
+        transactionCount: 3,
+        lastSeenAt: addDays(todayLocal(), -30),
       })
       .returning();
 
+    const [categoria] = await db
+      .insert(categories)
+      .values({
+        ledgerId: espai.id,
+        parentId: null,
+        slug: "subscripcions-test",
+        name: "Subscripcions",
+        kind: "expense",
+        color: "#000000",
+        icon: "",
+        isSystem: false,
+        position: 0,
+      })
+      .returning();
+
+    const avui = todayLocal();
+    for (const [i, dies] of [90, 60, 30].entries()) {
+      await moviment(`n${i}`, addDays(avui, -dies), "-12.99", {
+        categoryId: categoria?.id ?? 0,
+        merchantId: comerc?.id ?? 0,
+      });
+    }
+
+    await detectaRecurrents(espai.id);
+
+    const senseConfirmar = await construeixPrevisio(espai, 40);
+    expect(Number(senseConfirmar.punts[40]?.esperat)).toBeCloseTo(1000, 1);
+
+    const [proposta] = await db
+      .select()
+      .from(recurringSeries)
+      .where(eq(recurringSeries.ledgerId, espai.id));
+    expect(proposta).toBeDefined();
+    if (!proposta) throw new Error("calia una proposta");
+    await confirmaSerie(proposta.id, { cadence: "monthly", amountMode: "exact" });
+
+    const ambConfirmar = await construeixPrevisio(espai, 40);
+    expect(money(ambConfirmar.punts[40]?.esperat).lt(money("1000"))).toBe(true);
+  });
+
+  test("una serie activa anual apareix als esdeveniments previstos", async () => {
     const [categoria] = await db
       .insert(categories)
       .values({
@@ -240,36 +270,16 @@ describe("la projeccio", () => {
         icon: "",
         isSystem: false,
         position: 0,
-        isSubscription: false,
-        isRecurrent: true,
-        recurrentCadence: "annual",
       })
       .returning();
 
-    await db.insert(transactions).values({
-      accountId,
-      ledgerId: espai.id,
-      dedupKey: "asseg-anual",
-      source: "manual",
-      bookingDate: addDays(todayLocal(), -20),
+    await serieActiva({
       amount: "-450.00",
-      currency: "EUR",
-      status: "booked",
-      description: "Assegurança",
-      normalizedDescription: "ASSEGURANCA CASA",
-      counterparty: "",
-      bankTransactionCode: "",
-      merchantId: comerc?.id ?? 0,
+      intervalDays: 365,
+      nextExpectedDate: addDays(todayLocal(), 20),
+      label: "Assegurança casa",
       categoryId: categoria?.id ?? 0,
-      categorySource: "user",
-      needsReview: false,
-      notes: "",
-      tags: [],
-      isExcluded: false,
-      raw: {},
     });
-
-    await detectaRecurrents(espai.id);
 
     const horitzo = addDays(todayLocal(), 400);
     const esdeveniments = await esdevenimentsPrevistos(espai.id, horitzo);
@@ -284,11 +294,30 @@ describe("la projeccio", () => {
 });
 
 describe("l'avis de descobert", () => {
-  test("salta quan la projeccio creua el llindar", async () => {
-    // 100 EUR al dia: en 10 dies s'acaben els 1000.
-    for (let i = 0; i < 90; i += 1) {
-      await moviment(`d${i}`, addDays(todayLocal(), -i), "-100.00");
-    }
+  test("salta quan un schedule confirmat creua el llindar", async () => {
+    const [categoria] = await db
+      .insert(categories)
+      .values({
+        ledgerId: espai.id,
+        parentId: null,
+        slug: "lloguer-gran",
+        name: "Lloguer",
+        kind: "expense",
+        color: "#000000",
+        icon: "",
+        isSystem: false,
+        position: 0,
+      })
+      .returning();
+
+    // 200 EUR cada 5 dies: en menys de 60 dies s'acaben els 1000.
+    await serieActiva({
+      amount: "-200.00",
+      intervalDays: 5,
+      nextExpectedDate: addDays(todayLocal(), 1),
+      label: "Lloguer",
+      categoryId: categoria?.id ?? 0,
+    });
 
     const previsio = await construeixPrevisio(espai, 60);
     expect(previsio.primerDescobert).not.toBeNull();
@@ -302,9 +331,29 @@ describe("l'avis de descobert", () => {
   });
 
   test("no es repeteix dins de la mateixa setmana", async () => {
-    for (let i = 0; i < 90; i += 1) {
-      await moviment(`d${i}`, addDays(todayLocal(), -i), "-100.00");
-    }
+    const [categoria] = await db
+      .insert(categories)
+      .values({
+        ledgerId: espai.id,
+        parentId: null,
+        slug: "lloguer-gran-2",
+        name: "Lloguer",
+        kind: "expense",
+        color: "#000000",
+        icon: "",
+        isSystem: false,
+        position: 0,
+      })
+      .returning();
+
+    await serieActiva({
+      amount: "-200.00",
+      intervalDays: 5,
+      nextExpectedDate: addDays(todayLocal(), 1),
+      label: "Lloguer",
+      categoryId: categoria?.id ?? 0,
+    });
+
     await comprovaDescoberts(espai, 60);
     const segon = await comprovaDescoberts(espai, 60);
     expect(segon).toBe(0);

@@ -233,9 +233,9 @@ export function ContingutPrevisio({
         <header class="capçalera">
           <h1>Previsio</h1>
           <p class="text-suau">
-            Al saldo d'avui s'hi sumen els rebuts previstos i s'hi resta la despesa
-            variable dels ultims mesos. Va en tres linies perque la despesa variable
-            no es previsible amb una sola xifra.
+            Al saldo d'avui s'hi sumen els rebuts previstos que has confirmat a
+            Recurrents (import fix o mitjana recent). Serveix per veure si
+            arribaras a la propera nomina sense passar del llindar.
           </p>
         </header>
 
@@ -273,10 +273,6 @@ export function ContingutPrevisio({
 
       <div class="xifres previsio-xifres">
         ${Xifra({ etiqueta: "Saldo d'avui", valor: formatMoney(previsio.saldoInicial) })}
-        ${Xifra({
-          etiqueta: "Despesa variable",
-          valor: `${formatMoney(previsio.despesaDiaria)}/dia`,
-        })}
         ${Xifra({ etiqueta: "Llindar de descobert", valor: formatMoney(previsio.llindar) })}
         ${Xifra({
           etiqueta: `D'aqui a ${previsio.horitzoDies} dies`,

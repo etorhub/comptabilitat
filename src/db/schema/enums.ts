@@ -83,17 +83,6 @@ export const CATEGORY_SOURCES = values("none", "merchant", "rule", "llm", "user"
 export type CategorySource = (typeof CATEGORY_SOURCES)[number];
 export const categorySourceSchema = z.enum(CATEGORY_SOURCES);
 
-// --- Actors ------------------------------------------------------------------
-
-/**
- * Mena d'actor. No classifica res mai (vegeu `services/classification`): un
- * actor identifica qui hi ha a l'altra banda d'una transferencia, no diu de
- * quina categoria es.
- */
-export const ACTOR_KINDS = values("persona", "empresa", "administracio", "desconegut");
-export type ActorKind = (typeof ACTOR_KINDS)[number];
-export const actorKindSchema = z.enum(ACTOR_KINDS);
-
 // --- Regles ----------------------------------------------------------------
 
 export const RULE_SOURCES = values("user", "learned");
@@ -140,9 +129,22 @@ export const CADENCE_DAYS: Record<Cadence, number> = {
   annual: 365,
 };
 
-export const SERIES_STATUSES = values("active", "ended");
+/**
+ * Cicle d'un rebut previst (schedule): el detector nomes **proposa**
+ * (`suggested`); la persona confirma (`active`) o descarta (`dismissed`).
+ * `ended` es quan deixa d'aparèixer.
+ */
+export const SERIES_STATUSES = values("suggested", "active", "ended", "dismissed");
 export type SeriesStatus = (typeof SERIES_STATUSES)[number];
 export const seriesStatusSchema = z.enum(SERIES_STATUSES);
+
+/**
+ * Com s'estima l'import a la previsio: fix confirmat, o mitjana de les
+ * aparicions recents (aigua, llum…).
+ */
+export const AMOUNT_MODES = values("exact", "average");
+export type AmountMode = (typeof AMOUNT_MODES)[number];
+export const amountModeSchema = z.enum(AMOUNT_MODES);
 
 // --- Avisos ----------------------------------------------------------------
 

@@ -196,8 +196,7 @@ describe("el que ha triat una persona", () => {
         icon: "",
         isSystem: false,
         position: 99,
-        isSubscription: false,
-      })
+        })
       .returning();
     const id = await moviment({ categoryId: propia?.id ?? 0, categorySource: "user" });
 

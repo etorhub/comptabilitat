@@ -2,17 +2,18 @@
  * Consulta de les series recurrents, per a la pantalla.
  */
 
-import { and, asc, eq, ne } from "drizzle-orm";
+import { and, asc, eq, inArray, ne } from "drizzle-orm";
 
 import { db } from "../db/client.ts";
 import {
   categories,
   recurringSeries,
+  type AmountMode,
   type Cadence,
   type SeriesStatus,
 } from "../db/schema/index.ts";
 import { NotFoundError } from "../lib/http.ts";
-import { Decimal, money, toMoneyString, type MoneyString } from "../lib/money.ts";
+import { toMoneyString, type MoneyString } from "../lib/money.ts";
 import { costMensual } from "./recurring.ts";
 
 export interface SerieVista {
@@ -23,42 +24,23 @@ export interface SerieVista {
   cadence: Cadence;
   expectedAmount: MoneyString;
   amountTolerance: MoneyString;
+  amountMode: AmountMode;
   intervalDays: number;
-  /** L'import repartit per mes, per poder-les comparar entre elles. */
   monthlyCost: MoneyString;
   confidence: number;
   occurrencesCount: number;
   firstSeenDate: string;
   lastSeenDate: string;
   nextExpectedDate: string | null;
-  isSubscription: boolean;
   status: SeriesStatus;
   includeInForecast: boolean;
-  /** La categoria porta una cadencia declarada, no nomes el detector. */
-  isDeclared: boolean;
 }
 
-export async function llistaSeries(
-  ledgerId: number,
-  nomesSubscripcions: boolean,
-  incloAcabades: boolean,
-): Promise<SerieVista[]> {
-  const parts = [eq(recurringSeries.ledgerId, ledgerId)];
-  if (nomesSubscripcions) parts.push(eq(recurringSeries.isSubscription, true));
-  if (!incloAcabades) parts.push(ne(recurringSeries.status, "ended"));
-
-  const files = await db
-    .select({
-      serie: recurringSeries,
-      categoryName: categories.name,
-      categoryRecurrentCadence: categories.recurrentCadence,
-    })
-    .from(recurringSeries)
-    .innerJoin(categories, eq(categories.id, recurringSeries.categoryId))
-    .where(and(...parts))
-    .orderBy(asc(recurringSeries.nextExpectedDate), asc(recurringSeries.label));
-
-  return files.map(({ serie, categoryName, categoryRecurrentCadence }) => ({
+function aVista(
+  serie: typeof recurringSeries.$inferSelect,
+  categoryName: string | null,
+): SerieVista {
+  return {
     id: serie.id,
     label: serie.label,
     categoryId: serie.categoryId,
@@ -66,6 +48,7 @@ export async function llistaSeries(
     cadence: serie.cadence,
     expectedAmount: serie.expectedAmount,
     amountTolerance: serie.amountTolerance,
+    amountMode: serie.amountMode,
     intervalDays: serie.intervalDays,
     monthlyCost: toMoneyString(costMensual(serie.expectedAmount, serie.intervalDays)),
     confidence: serie.confidence,
@@ -73,11 +56,34 @@ export async function llistaSeries(
     firstSeenDate: serie.firstSeenDate,
     lastSeenDate: serie.lastSeenDate,
     nextExpectedDate: serie.nextExpectedDate,
-    isSubscription: serie.isSubscription,
     status: serie.status,
     includeInForecast: serie.includeInForecast,
-    isDeclared: categoryRecurrentCadence !== null,
-  }));
+  };
+}
+
+export async function llistaSeries(
+  ledgerId: number,
+  opcions: { estats?: SeriesStatus[]; inclouAcabades?: boolean } = {},
+): Promise<SerieVista[]> {
+  const parts = [eq(recurringSeries.ledgerId, ledgerId)];
+  if (opcions.estats && opcions.estats.length > 0) {
+    parts.push(inArray(recurringSeries.status, opcions.estats));
+  } else if (!opcions.inclouAcabades) {
+    parts.push(ne(recurringSeries.status, "ended"));
+    parts.push(ne(recurringSeries.status, "dismissed"));
+  }
+
+  const files = await db
+    .select({
+      serie: recurringSeries,
+      categoryName: categories.name,
+    })
+    .from(recurringSeries)
+    .innerJoin(categories, eq(categories.id, recurringSeries.categoryId))
+    .where(and(...parts))
+    .orderBy(asc(recurringSeries.nextExpectedDate), asc(recurringSeries.label));
+
+  return files.map(({ serie, categoryName }) => aVista(serie, categoryName));
 }
 
 export async function serieDeLespai(id: number, ledgerId: number) {
@@ -91,48 +97,15 @@ export async function serieDeLespai(id: number, ledgerId: number) {
 }
 
 export async function vistaSerie(id: number, ledgerId: number): Promise<SerieVista> {
-  const totes = await llistaSeries(ledgerId, false, true);
-  const trobada = totes.find((s) => s.id === id);
-  if (!trobada) throw new NotFoundError("Aquesta serie no existeix");
-  return trobada;
-}
-
-export interface ResumSubscripcions {
-  mensual: MoneyString;
-  anual: MoneyString;
-}
-
-/**
- * Quant costen les subscripcions.
- *
- * Nomes conta les series actives que treuen diners: una subscripcio que ja
- * s'ha donat de baixa no compta, i un ingres recurrent tampoc.
- */
-export async function resumSubscripcions(ledgerId: number): Promise<ResumSubscripcions> {
-  const series = await db
+  const [fila] = await db
     .select({
-      expectedAmount: recurringSeries.expectedAmount,
-      intervalDays: recurringSeries.intervalDays,
+      serie: recurringSeries,
+      categoryName: categories.name,
     })
     .from(recurringSeries)
-    .where(
-      and(
-        eq(recurringSeries.ledgerId, ledgerId),
-        eq(recurringSeries.status, "active"),
-        eq(recurringSeries.isSubscription, true),
-      ),
-    );
-
-  let mensual = new Decimal(0);
-  for (const serie of series) {
-    const cost = costMensual(serie.expectedAmount, serie.intervalDays);
-    if (cost.isNegative()) mensual = mensual.plus(cost.abs());
-  }
-
-  return {
-    mensual: toMoneyString(mensual),
-    anual: toMoneyString(mensual.times(12)),
-  };
+    .innerJoin(categories, eq(categories.id, recurringSeries.categoryId))
+    .where(and(eq(recurringSeries.id, id), eq(recurringSeries.ledgerId, ledgerId)))
+    .limit(1);
+  if (!fila) throw new NotFoundError("Aquesta serie no existeix");
+  return aVista(fila.serie, fila.categoryName);
 }
-
-export { money };

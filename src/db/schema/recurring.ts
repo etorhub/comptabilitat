@@ -1,8 +1,9 @@
 /**
- * Series recurrents i les seves aparicions.
+ * Rebuts previstos (schedules) i les seves aparicions.
  *
- * Una serie es un rebut o una subscripcio detectats per la regularitat dels
- * intervals i l'estabilitat de l'import. D'aqui surt la previsio de saldo.
+ * El detector nomes proposa (`suggested`). La persona confirma (`active`) o
+ * descarta (`dismissed`). La previsio de saldo nomes mira les series actives
+ * amb `include_in_forecast`.
  */
 
 import {
@@ -19,9 +20,8 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
-import { actors } from "./actors.ts";
 import { domainEnum, money, timestamps } from "./columns.ts";
-import type { Cadence, SeriesStatus } from "./enums.ts";
+import type { AmountMode, Cadence, SeriesStatus } from "./enums.ts";
 import { ledgers } from "./ledgers.ts";
 import { categories, merchants, transactions } from "./transactions.ts";
 
@@ -32,33 +32,24 @@ export const recurringSeries = pgTable(
     ledgerId: integer("ledger_id").notNull(),
     /**
      * Identifica la serie: `categoria|contrapart|sentit`, per exemple
-     * `c12|m34|in` o `c12|a56|out` (vegeu `signatura()` a
-     * `services/recurring.ts`). Abans nomes era el nom normalitzat del
-     * comerç, de manera que reanomenar-lo orfenava la serie; ara son
-     * identificadors, no text.
+     * `c12|m34|in` o `c12|-|out` (vegeu `signatura()` a
+     * `services/recurring.ts`).
      */
     signature: varchar({ length: 220 }).notNull(),
     label: varchar({ length: 200 }).notNull(),
     merchantId: integer("merchant_id"),
-    /** Afegida per la migracio `0002_actors_i_recurrents`. */
-    actorId: integer("actor_id"),
-    /**
-     * Mai nul: des de la migracio `0002_actors_i_recurrents` la categoria es
-     * qui decideix si una serie existeix (`categories.is_recurrent`), i
-     * esborrar-la ha d'esborrar les seves series (per aixo la FK es CASCADE,
-     * no SET NULL com abans).
-     */
     categoryId: integer("category_id").notNull(),
     cadence: domainEnum<Cadence>().notNull(),
     expectedAmount: money("expected_amount").notNull(),
     amountTolerance: money("amount_tolerance").notNull(),
+    /** `exact` = import confirmat; `average` = mitjana de les aparicions. */
+    amountMode: domainEnum<AmountMode>("amount_mode").notNull(),
     intervalDays: integer("interval_days").notNull(),
     confidence: doublePrecision().notNull(),
     occurrencesCount: integer("occurrences_count").notNull(),
     firstSeenDate: date("first_seen_date").notNull(),
     lastSeenDate: date("last_seen_date").notNull(),
     nextExpectedDate: date("next_expected_date"),
-    isSubscription: boolean("is_subscription").notNull(),
     status: domainEnum<SeriesStatus>().notNull(),
     includeInForecast: boolean("include_in_forecast").notNull(),
     ...timestamps,
@@ -81,11 +72,6 @@ export const recurringSeries = pgTable(
       name: "fk_recurring_series_merchant_id_merchants",
       columns: [t.merchantId],
       foreignColumns: [merchants.id],
-    }).onDelete("set null"),
-    foreignKey({
-      name: "fk_recurring_series_actor_id_actors",
-      columns: [t.actorId],
-      foreignColumns: [actors.id],
     }).onDelete("set null"),
     unique("uq_recurring_ledger_signature").on(t.ledgerId, t.signature),
   ],

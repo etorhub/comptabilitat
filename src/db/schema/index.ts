@@ -12,7 +12,6 @@
  * taules que la interficie tracta com a recursos diferents.
  */
 
-export * from "./actors.ts";
 export * from "./alerts.ts";
 export * from "./banking.ts";
 export * from "./columns.ts";

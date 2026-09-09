@@ -157,12 +157,18 @@ retornis codis a mà.
 Quan una mutació canvia alguna cosa que és **fora del seu propi tros**, la torna
 al costat, amb `hx-swap-oob="true"`. Fes servir `withOob()`.
 
-| Objectiu               | De qui és     | Quan canvia                                                                    |
-| ---------------------- | ------------- | ------------------------------------------------------------------------------ |
-| `#toast`               | `lib/http.ts` | qualsevol error o confirmació                                                  |
-| `#comptador-revisio`   | moviments     | es classifica un moviment                                                      |
-| `#comptador-avisos`    | avisos        | es llegeix o es descarta un avís                                               |
-| `#resum-subscripcions` | recurrents    | canvia `include_in_forecast`, o des de categories quan es marca `is_recurrent` |
+| Objectiu               | De qui és     | Quan canvia                                   |
+| ---------------------- | ------------- | --------------------------------------------- |
+| `#toast`               | `lib/http.ts` | qualsevol error o confirmació                 |
+| `#comptador-revisio`   | moviments     | es classifica un moviment                     |
+| `#comptador-avisos`    | avisos        | es llegeix o es descarta un avís              |
+
+Els **rebuts previstos** (`recurring_series`) són schedules: el detector només
+proposa (`suggested`); la persona confirma (`active`) o descarta a
+`/recurrents`. La previsió de saldo només mira les `active` amb
+`include_in_forecast`. No hi ha objectiu fora de banda de resum de
+subscripcions: la llista i el panell de recurrents es tornen a dibuixar amb
+la mutació de la pròpia pàgina.
 
 - **Cada objectiu té un sol amo.** El fragment del recurs propietari l'exporta i
   cap altre recurs no el dibuixa.
