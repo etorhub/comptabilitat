@@ -15,7 +15,6 @@ import { formatMoney } from "../../lib/money.ts";
 import type { GrupCategories } from "../../services/categories.ts";
 import type {
   ItemRevisio,
-  MovimentPrevistVista,
   MovimentVista,
   PaginaMoviments,
 } from "../../services/transactions.ts";
@@ -107,12 +106,9 @@ export function Taula({
         <th>Concepte</th>
         <th>Comerç</th>
         <th>Categoria</th>
-        <th>Recurrent</th>
         <th class="dreta">Import</th>` as Html,
-      files: pagina.items.map((item) =>
-        item.tipus === "previst"
-          ? FilaPrevist({ codi, previst: item, potEditar, filters })
-          : Fila({ codi, moviment: item, grups, potEditar, etiquetesConegudes }),
+      files: pagina.items.map((moviment) =>
+        Fila({ codi, moviment, grups, potEditar, etiquetesConegudes }),
       ),
       buit: "Cap moviment encaixa amb aquests filtres.",
       peu: Paginacio({
@@ -413,6 +409,16 @@ export function Fila({
               >`
               : ""
         }
+        ${
+          moviment.serieId !== null
+            ? html`<a
+              class="etiqueta"
+              href="/e/${codi}/recurrents"
+              title="${moviment.serieLabel ?? "Serie recurrent"}"
+              >recurrent</a
+            >`
+            : ""
+        }
         ${EtiquetesDelMoviment({
           codi,
           moviment,
@@ -431,107 +437,8 @@ export function Fila({
       ${CelCategoria({ codi, moviment, grups, potEditar, editantCategoria })}
     </td>
 
-    <td class="cel-recurrent" data-etiqueta="Recurrent">
-      ${
-        moviment.serieId !== null
-          ? html`<a
-            class="etiqueta"
-            href="/e/${codi}/recurrents"
-            title="${moviment.serieLabel ?? "Serie recurrent"}"
-            >${moviment.serieLabel ?? "Sí"}</a
-          >`
-          : html`<span class="text-suau">—</span>`
-      }
-    </td>
-
     <td class="dreta ${negatiu ? "negatiu" : "positiu"}" data-etiqueta="Import">
       ${formatMoney(moviment.amount)}
-    </td>
-  </tr>` as Html;
-}
-
-/** Fila projectada d'una serie activa a la previsio (no es un moviment del banc). */
-export function FilaPrevist({
-  codi,
-  previst,
-  potEditar,
-  filters,
-}: {
-  codi: string;
-  previst: MovimentPrevistVista & { tipus: "previst" };
-  potEditar: boolean;
-  filters: TransactionFilters;
-}): Html {
-  const negatiu = previst.amount.startsWith("-");
-  const clau = `previst-${previst.seriesId}-${previst.bookingDate}`;
-  const baseSerie = `/e/${codi}/recurrents/${previst.seriesId}`;
-  const taulaUrl = `/e/${codi}/moviments/fragment/taula${transactionFiltersToQuery(filters)}`;
-  const refresca = `if(event.detail.successful) htmx.ajax('GET', '${taulaUrl}', {target:'#taula-moviments', swap:'outerHTML'})`;
-  const importAbsolut = previst.amount.replace(/^-/, "");
-
-  return html`<tr id="${clau}" class="fila-previst">
-    ${potEditar ? html`<td class="tria" data-etiqueta="Tria"></td>` : ""}
-
-    <td class="data" data-etiqueta="Data">
-      <time datetime="${previst.bookingDate}">
-        ${dataCurta.format(new Date(`${previst.bookingDate}T00:00:00`))}
-      </time>
-      <span class="etiqueta etiqueta-suau" title="Projeccio d'una serie recurrent"
-        >previst</span
-      >
-    </td>
-
-    <td class="cel-concepte" data-etiqueta="Concepte">
-      <span>${previst.label}</span>
-    </td>
-
-    <td class="cel-comerc" data-etiqueta="Comerç">
-      <span class="text-suau">—</span>
-    </td>
-
-    <td class="cel-categoria" data-etiqueta="Categoria">
-      ${previst.categoryName ?? html`<span class="text-suau">—</span>`}
-    </td>
-
-    <td class="cel-recurrent" data-etiqueta="Recurrent">
-      <a class="etiqueta" href="/e/${codi}/recurrents" title="Serie recurrent"
-        >${previst.label}</a
-      >
-    </td>
-
-    <td class="dreta ${negatiu ? "negatiu" : "positiu"}" data-etiqueta="Import">
-      ${
-        potEditar
-          ? html`<form
-            class="fila-accions"
-            hx-post="${baseSerie}/import"
-            hx-swap="none"
-            hx-on::after-request="${refresca}"
-          >
-            <label class="camp camp-linia camp-estret">
-              <span class="visualment-ocult">Import</span>
-              <input
-                type="text"
-                name="amount"
-                inputmode="decimal"
-                value="${importAbsolut}"
-                aria-label="Import previst de ${previst.label}"
-              />
-            </label>
-            <button type="submit" class="boto">Desa</button>
-            <button
-              type="button"
-              class="boto"
-              hx-post="${baseSerie}/descarta"
-              hx-confirm="Vols descartar «${previst.label}»? Ja no entrara a la previsio."
-              hx-swap="none"
-              hx-on::after-request="${refresca}"
-            >
-              Descarta
-            </button>
-          </form>`
-          : formatMoney(previst.amount)
-      }
     </td>
   </tr>` as Html;
 }
@@ -787,13 +694,6 @@ export function BarraFiltres({
       valor: "1",
       etiqueta: "Inclou els traspassos",
       marcat: filters.traspassos,
-    })}
-
-    ${Casella({
-      nom: "sense_previstos",
-      valor: "1",
-      etiqueta: "Amaga els previstos",
-      marcat: filters.sense_previstos,
     })}
 
     ${DatalistEtiquetes(etiquetesConegudes)}

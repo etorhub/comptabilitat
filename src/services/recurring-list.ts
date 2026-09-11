@@ -2,18 +2,21 @@
  * Consulta de les series recurrents, per a la pantalla.
  */
 
-import { and, asc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 
 import { db } from "../db/client.ts";
 import {
   categories,
+  recurringOccurrences,
   recurringSeries,
+  transactions,
   type AmountMode,
   type Cadence,
   type SeriesStatus,
 } from "../db/schema/index.ts";
 import { NotFoundError } from "../lib/http.ts";
 import { toMoneyString, type MoneyString } from "../lib/money.ts";
+import { parsejaConcepte } from "./concepte.ts";
 import { costMensual } from "./recurring.ts";
 
 export interface SerieVista {
@@ -34,6 +37,14 @@ export interface SerieVista {
   nextExpectedDate: string | null;
   status: SeriesStatus;
   includeInForecast: boolean;
+}
+
+/** Moviment real enllaçat a una serie (ja emmascarat). */
+export interface AparicioVista {
+  transactionId: number;
+  bookingDate: string;
+  description: string;
+  amount: MoneyString;
 }
 
 function aVista(
@@ -108,4 +119,40 @@ export async function vistaSerie(id: number, ledgerId: number): Promise<SerieVis
     .limit(1);
   if (!fila) throw new NotFoundError("Aquesta serie no existeix");
   return aVista(fila.serie, fila.categoryName);
+}
+
+/**
+ * Moviments del banc enllaçats a la serie. Comprova l'espai i aplica
+ * l'emmascarament del concepte (alias si n'hi ha).
+ */
+export async function aparicionsSerie(
+  serieId: number,
+  ledgerId: number,
+): Promise<AparicioVista[]> {
+  await serieDeLespai(serieId, ledgerId);
+
+  const files = await db
+    .select({
+      transactionId: transactions.id,
+      bookingDate: transactions.bookingDate,
+      description: transactions.description,
+      displayDescription: transactions.displayDescription,
+      amount: transactions.amount,
+    })
+    .from(recurringOccurrences)
+    .innerJoin(transactions, eq(transactions.id, recurringOccurrences.transactionId))
+    .where(and(eq(recurringOccurrences.seriesId, serieId), eq(transactions.ledgerId, ledgerId)))
+    .orderBy(desc(transactions.bookingDate), desc(transactions.id));
+
+  return files.map((f) => {
+    const emmascarat = f.displayDescription !== null && f.displayDescription !== "";
+    return {
+      transactionId: f.transactionId,
+      bookingDate: f.bookingDate,
+      description: emmascarat
+        ? (f.displayDescription ?? "")
+        : parsejaConcepte(f.description).titol,
+      amount: f.amount,
+    };
+  });
 }

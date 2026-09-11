@@ -11,7 +11,7 @@ import type { Html } from "../../lib/html.ts";
 import { formatMoney, money } from "../../lib/money.ts";
 import { formatDate, todayLocal } from "../../lib/time.ts";
 import type { GrupCategories } from "../../services/categories.ts";
-import type { SerieVista } from "../../services/recurring-list.ts";
+import type { AparicioVista, SerieVista } from "../../services/recurring-list.ts";
 import type { CreaSerieInput, RecurringFilters } from "./recurring.schema.ts";
 
 const CADENCIES: Record<Cadence, string> = {
@@ -28,6 +28,40 @@ const MODES: Record<AmountMode, string> = {
   exact: "import fix",
   average: "mitjana recent",
 };
+
+const dataCurta = new Intl.DateTimeFormat("ca-ES", { day: "2-digit", month: "short" });
+
+const iconaLlapis = html`<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="14"
+  height="14"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+>
+  <path d="M12 20h9" />
+  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+</svg>`;
+
+const iconaUll = html`<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="14"
+  height="14"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+>
+  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+  <circle cx="12" cy="12" r="3" />
+</svg>`;
 
 export interface TaulaProps {
   codi: string;
@@ -64,7 +98,7 @@ export function Taula({
             <th class="dreta">Al mes</th>
             <th>Seguent</th>
             <th>A la previsio</th>
-            ${potEditar ? html`<th></th>` : ""}` as Html),
+            <th></th>` as Html),
       files: series.map((serie) =>
         sonPropostes
           ? FilaProposta({ codi, serie, potEditar })
@@ -156,13 +190,20 @@ export function FilaActiva({
   codi,
   serie,
   potEditar,
+  editant = false,
+  aparicions = null,
 }: {
   codi: string;
   serie: SerieVista;
   potEditar: boolean;
+  /** Mode edicio: import + Descarta. */
+  editant?: boolean;
+  /** Si no es null, es mostren els moviments reals enllaçats. */
+  aparicions?: AparicioVista[] | null;
 }): Html {
   const base = `/e/${codi}/recurrents/${serie.id}`;
   const importAbsolut = money(serie.expectedAmount).abs().toFixed(2);
+  const mostrant = aparicions !== null;
 
   return html`<tr id="serie-${serie.id}" class="${serie.status === "ended" ? "inactiva" : ""}">
     <td>
@@ -178,11 +219,31 @@ export function FilaActiva({
           ? html`<br /><small class="text-suau">${serie.categoryName}</small>`
           : ""
       }
+      ${
+        mostrant
+          ? html`<ul class="llista-aparicions">
+            ${
+              aparicions.length === 0
+                ? html`<li class="text-suau">Encara no hi ha cap moviment enllaçat.</li>`
+                : aparicions.map(
+                    (a) =>
+                      html`<li>
+                        <time datetime="${a.bookingDate}">
+                          ${dataCurta.format(new Date(`${a.bookingDate}T00:00:00`))}
+                        </time>
+                        <span>${a.description}</span>
+                        <span class="dreta">${formatMoney(a.amount)}</span>
+                      </li>`,
+                  )
+            }
+          </ul>`
+          : ""
+      }
     </td>
     <td>${CADENCIES[serie.cadence]}</td>
     <td class="dreta">
       ${
-        potEditar && serie.status === "active"
+        potEditar && editant && serie.status === "active"
           ? html`<form
             class="fila-accions"
             hx-post="${base}/import"
@@ -231,27 +292,86 @@ export function FilaActiva({
             : "No"
       }
     </td>
-    ${
-      potEditar
-        ? html`<td>
-          ${
-            serie.status === "active"
-              ? html`<button
-                type="button"
-                class="boto"
-                hx-post="${base}/descarta"
-                hx-target="#serie-${serie.id}"
-                hx-swap="outerHTML"
-                hx-confirm="Vols descartar «${serie.label}»? Ja no entrara a la previsio."
-              >
-                Descarta
-              </button>`
-              : ""
-          }
-        </td>`
-        : ""
-    }
+    <td>
+      ${AccionsSerie({
+        codi,
+        serie,
+        potEditar,
+        editant,
+        mostrant,
+      })}
+    </td>
   </tr>` as Html;
+}
+
+function AccionsSerie({
+  codi,
+  serie,
+  potEditar,
+  editant,
+  mostrant,
+}: {
+  codi: string;
+  serie: SerieVista;
+  potEditar: boolean;
+  editant: boolean;
+  mostrant: boolean;
+}): Html {
+  const base = `/e/${codi}/recurrents/${serie.id}`;
+  const botoMostra = html`<button
+    type="button"
+    class="boto-icona"
+    aria-label="${mostrant ? "Amaga" : "Mostra"} els moviments de ${serie.label}"
+    title="${mostrant ? "Amaga els moviments" : "Mostra els moviments"}"
+    hx-get="${base}/fragment/fila${mostrant ? "" : "?mostra=1"}"
+    hx-target="#serie-${serie.id}"
+    hx-swap="outerHTML"
+  >
+    ${iconaUll}
+  </button>`;
+
+  if (potEditar && serie.status === "active" && editant) {
+    return html`<div class="fila-accions">
+      <button
+        type="button"
+        class="boto"
+        hx-post="${base}/descarta"
+        hx-target="#serie-${serie.id}"
+        hx-swap="outerHTML"
+        hx-confirm="Vols descartar «${serie.label}»? El detector ja no la tornara a proposar."
+      >
+        Descarta
+      </button>
+      <button
+        type="button"
+        class="boto boto-discret"
+        hx-get="${base}/fragment/fila"
+        hx-target="#serie-${serie.id}"
+        hx-swap="outerHTML"
+      >
+        Cancel·la
+      </button>
+    </div>` as Html;
+  }
+
+  if (potEditar && serie.status === "active") {
+    return html`<div class="fila-accions">
+      <button
+        type="button"
+        class="boto-icona"
+        aria-label="Edita ${serie.label}"
+        title="Edita"
+        hx-get="${base}/fragment/fila?editant=1"
+        hx-target="#serie-${serie.id}"
+        hx-swap="outerHTML"
+      >
+        ${iconaLlapis}
+      </button>
+      ${botoMostra}
+    </div>` as Html;
+  }
+
+  return html`<div class="fila-accions">${botoMostra}</div>` as Html;
 }
 
 export interface BarraFiltresProps {

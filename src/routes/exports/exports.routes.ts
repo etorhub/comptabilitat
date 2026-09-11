@@ -74,7 +74,7 @@ async function movimentsPerExportar(ledgerId: number, query: Record<string, stri
     );
   }
 
-  return pagina.items.flatMap((item) => (item.tipus === "banc" ? [item] : []));
+  return pagina.items;
 }
 
 movimentsExportRoutes.get("/moviments.csv", async (c) => {

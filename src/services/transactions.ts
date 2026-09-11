@@ -44,11 +44,8 @@ import {
   type CategorySource,
   type TransactionStatus,
 } from "../db/schema/index.ts";
-import { config } from "../lib/config.ts";
 import { NotFoundError } from "../lib/http.ts";
-import { money, sum as sumaImports, toMoneyString, type MoneyString } from "../lib/money.ts";
-import { addDays, todayLocal } from "../lib/time.ts";
-import { esdevenimentsPrevistos } from "./forecast.ts";
+import type { MoneyString } from "../lib/money.ts";
 
 /**
  * Un moviment tal com es pot ensenyar.
@@ -258,11 +255,6 @@ export interface FiltresMoviments {
   nomesRevisio: boolean;
   nomesSenseClassificar: boolean;
   incloTraspassos: boolean;
-  /**
-   * Inclou files projectades de series actives a la previsio. Nomes te
-   * sentit a la pantalla de moviments; exportacions i etiquetes no ho passen.
-   */
-  inclouPrevistos?: boolean;
   limit: number;
   offset: number;
 }
@@ -401,19 +393,8 @@ function condicions(ledgerId: number, f: FiltresMoviments): SQL | undefined {
   return and(...parts);
 }
 
-export interface MovimentPrevistVista {
-  seriesId: number;
-  bookingDate: string;
-  label: string;
-  amount: MoneyString;
-  categoryName: string | null;
-}
-
-export type ItemLlistaMoviments =
-  ({ tipus: "banc" } & MovimentVista) | ({ tipus: "previst" } & MovimentPrevistVista);
-
 export interface PaginaMoviments {
-  items: ItemLlistaMoviments[];
+  items: MovimentVista[];
   total: number;
   /** Suma dels moviments que encaixen amb els filtres, no nomes de la pagina. */
   totalImport: MoneyString;
@@ -421,78 +402,10 @@ export interface PaginaMoviments {
   offset: number;
 }
 
-/** Els filtres que fan que les projeccions no tinguin sentit a la llista. */
-function previstosCompatibles(f: FiltresMoviments): boolean {
-  if (!f.inclouPrevistos) return false;
-  if (f.accountId !== null) return false;
-  if (f.etiqueta) return false;
-  if (f.tipusOperacio.length > 0) return false;
-  if (f.targetes.length > 0) return false;
-  if (f.nomesRevisio) return false;
-  if (f.nomesSenseClassificar) return false;
-  if (f.merchantId !== null) return false;
-  return true;
-}
-
-async function previstosFiltrats(
-  ledgerId: number,
-  f: FiltresMoviments,
-): Promise<MovimentPrevistVista[]> {
-  if (!previstosCompatibles(f)) return [];
-
-  const avui = todayLocal();
-  const inici = f.dataDes && f.dataDes > avui ? f.dataDes : avui;
-  const horitzoDefecte = addDays(avui, config.forecastHorizonDays);
-  const horitzo = f.dataFins && f.dataFins < horitzoDefecte ? f.dataFins : horitzoDefecte;
-  if (horitzo < inici) return [];
-
-  const esdeveniments = await esdevenimentsPrevistos(ledgerId, horitzo, inici);
-  if (esdeveniments.length === 0) return [];
-
-  const ids = [
-    ...new Set(esdeveniments.map((e) => e.seriesId).filter((id): id is number => id !== null)),
-  ];
-  const categoriesSerie =
-    ids.length === 0
-      ? []
-      : await db
-          .select({
-            id: recurringSeries.id,
-            categoryId: recurringSeries.categoryId,
-            categoryName: categories.name,
-          })
-          .from(recurringSeries)
-          .innerJoin(categories, eq(categories.id, recurringSeries.categoryId))
-          .where(inArray(recurringSeries.id, ids));
-
-  const perSerie = new Map(categoriesSerie.map((s) => [s.id, s]));
-  const cerca = f.cerca.trim().toLowerCase();
-
-  const out: MovimentPrevistVista[] = [];
-  for (const e of esdeveniments) {
-    if (e.seriesId === null) continue;
-    const meta = perSerie.get(e.seriesId);
-    if (!meta) continue;
-    if (f.categoryIds.length > 0 && !f.categoryIds.includes(meta.categoryId)) continue;
-    if (cerca && !e.label.toLowerCase().includes(cerca)) continue;
-    out.push({
-      seriesId: e.seriesId,
-      bookingDate: e.dia,
-      label: e.label,
-      amount: e.amount,
-      categoryName: meta.categoryName,
-    });
-  }
-
-  // Data DESC, com els moviments del banc.
-  out.sort((a, b) => b.bookingDate.localeCompare(a.bookingDate) || b.seriesId - a.seriesId);
-  return out;
-}
-
-async function llistaBanc(
+export async function llistaMoviments(
   ledgerId: number,
   filtres: FiltresMoviments,
-): Promise<{ items: MovimentVista[]; total: number; totalImport: MoneyString }> {
+): Promise<PaginaMoviments> {
   const on = condicions(ledgerId, filtres);
 
   const [resum] = await db
@@ -517,62 +430,6 @@ async function llistaBanc(
     items: files.map(vistaMoviment),
     total: resum?.n ?? 0,
     totalImport: resum?.total ?? "0.00",
-  };
-}
-
-export async function llistaMoviments(
-  ledgerId: number,
-  filtres: FiltresMoviments,
-): Promise<PaginaMoviments> {
-  const previstos = await previstosFiltrats(ledgerId, filtres);
-  const nPrev = previstos.length;
-
-  if (nPrev === 0) {
-    const banc = await llistaBanc(ledgerId, { ...filtres, inclouPrevistos: false });
-    return {
-      items: banc.items.map((m) => ({ tipus: "banc" as const, ...m })),
-      total: banc.total,
-      totalImport: banc.totalImport,
-      limit: filtres.limit,
-      offset: filtres.offset,
-    };
-  }
-
-  const bancResum = await llistaBanc(ledgerId, {
-    ...filtres,
-    limit: 1,
-    offset: 0,
-    inclouPrevistos: false,
-  });
-
-  const sumaPrev = toMoneyString(sumaImports(previstos.map((p) => p.amount)));
-  const items: ItemLlistaMoviments[] = [];
-  let bankLimit = filtres.limit;
-  let bankOffset = filtres.offset;
-
-  if (filtres.offset < nPrev) {
-    const tall = previstos.slice(filtres.offset, filtres.offset + filtres.limit);
-    for (const p of tall) items.push({ tipus: "previst", ...p });
-    bankLimit = filtres.limit - tall.length;
-    bankOffset = 0;
-  } else {
-    bankOffset = filtres.offset - nPrev;
-  }
-
-  if (bankLimit > 0) {
-    const banc = await llistaBanc(ledgerId, {
-      ...filtres,
-      limit: bankLimit,
-      offset: bankOffset,
-      inclouPrevistos: false,
-    });
-    for (const m of banc.items) items.push({ tipus: "banc", ...m });
-  }
-
-  return {
-    items,
-    total: nPrev + bancResum.total,
-    totalImport: toMoneyString(money(bancResum.totalImport).plus(money(sumaPrev))),
     limit: filtres.limit,
     offset: filtres.offset,
   };

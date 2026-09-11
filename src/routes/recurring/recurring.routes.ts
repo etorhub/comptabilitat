@@ -28,7 +28,12 @@ import {
   creaSerieManual,
   descartaSerie,
 } from "../../services/recurring.ts";
-import { llistaSeries, serieDeLespai, vistaSerie } from "../../services/recurring-list.ts";
+import {
+  llistaSeries,
+  serieDeLespai,
+  vistaSerie,
+  aparicionsSerie,
+} from "../../services/recurring-list.ts";
 import { FilaActiva, FormAlta, Taula } from "./recurring.fragment.tsx";
 import { RecurringPage } from "./recurring.page.tsx";
 import {
@@ -103,6 +108,27 @@ recurringRoutes.get("/fragment/actives", async (c) => {
       potEditar: roleAtLeast(currentRole(c), "editor"),
       idContenidor: "taula-recurrents-actives",
       buit: "Encara no hi ha cap rebut confirmat.",
+    }),
+  );
+});
+
+recurringRoutes.get("/:id/fragment/fila", async (c) => {
+  const espai = currentWorkspace(c);
+  const id = idDeLaRuta(c.req.param("id"), "Aquesta serie no existeix");
+  const editant = c.req.query("editant") === "1";
+  const mostra = !editant && c.req.query("mostra") === "1";
+  const potEditar = roleAtLeast(currentRole(c), "editor");
+  const vista = await vistaSerie(id, espai.id);
+  const aparicions = mostra ? await aparicionsSerie(id, espai.id) : null;
+
+  return fragment(
+    c,
+    FilaActiva({
+      codi: espai.code,
+      serie: vista,
+      potEditar,
+      editant: potEditar && editant,
+      aparicions,
     }),
   );
 });
@@ -205,7 +231,7 @@ recurringRoutes.post("/:id/import", requireEditor, async (c) => {
     return fragment(
       c,
       await withOob(
-        FilaActiva({ codi: espai.code, serie: vista, potEditar: true }),
+        FilaActiva({ codi: espai.code, serie: vista, potEditar: true, editant: true }),
         toast(zodErrors(parsed.error).amount?.[0] ?? "Revisa l'import", "error"),
       ),
       422,
