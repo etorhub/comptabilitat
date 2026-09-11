@@ -69,11 +69,20 @@ export function duplicateId(snapshot: Snapshot): Violation[] {
  * (`overrideFormData`). So a row-level `<select name="category_id">` sitting
  * inside a table-wide form does not send its own value: it sends the last
  * row's.
+ *
+ * **Checkboxes and radios are exempt**, because sharing a name is what they are
+ * for: `<input type="checkbox" name="tipus">` five times is a multi-value
+ * filter, not a collision. Without that exemption this rule fires on every
+ * honest filter in the application — and a rule that cries wolf on correct code
+ * is a rule somebody switches off.
  */
+const SHARE_A_NAME = new Set(["checkbox", "radio"]);
+
 export function duplicateFieldInForm(snapshot: Snapshot): Violation[] {
   const byForm = new Map<number, Map<string, number>>();
   for (const field of snapshot.fields) {
     if (field.formIndex === null) continue;
+    if (field.type !== null && SHARE_A_NAME.has(field.type)) continue;
     const names = byForm.get(field.formIndex) ?? new Map<string, number>();
     names.set(field.name, (names.get(field.name) ?? 0) + 1);
     byForm.set(field.formIndex, names);
