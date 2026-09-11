@@ -8,10 +8,10 @@
  * importacio de 24 mesos d'historic es un 502 esperant a passar.
  *
  * Aqui la feina arrenca en segon pla i la ruta contesta de seguida amb la fila
- * de `sync_runs` en estat «running». El fragment que torna porta
- * `hx-trigger="every 2s"` sobre una ruta d'estat i, quan la feina acaba, el
- * fragment nou ja no en porta: el sondeig s'atura sol. **Es un dels dos
- * sondejos de l'aplicacio** (amb el d'en curs a `/feines`) i esta acotat.
+ * de `sync_runs` en estat «running». El fragment que torna sondeja una ruta
+ * d'estat i, quan la feina acaba, el fragment nou ja no duu disparador: el
+ * sondeig s'atura sol. Si la feina no acaba mai, l'atura el compte d'intents.
+ * **Es un dels dos sondejos de l'aplicacio** (amb el d'en curs a `/feines`).
  *
  * No hi ha cua ni intermediari perque no calen: aixo es una instal·lacio d'una
  * sola maquina i el banc nomes deixa unes quantes crides al dia.
@@ -50,6 +50,7 @@ import { acabaAutoritzacio, comencaAutoritzacio } from "../../services/consent.t
 import { jaSincronitza, obreImportacio, portaLaImportacio } from "../../services/sync.ts";
 import { EstatSync, FilaCompte, Llista, type ConnexioVista } from "./connections.fragment.ts";
 import { ConnectionsPage } from "./connections.page.ts";
+import { intentDeLaConsulta, PARAMETRE_INTENT } from "../../lib/sondeig.ts";
 import {
   assignSchema,
   authorizeSchema,
@@ -244,7 +245,10 @@ connectionsRoutes.post("/:id/sincronitza", async (c) => {
 /** L'estat d'una importacio. El fragment s'atura sol quan la feina acaba. */
 connectionsRoutes.get("/:id/fragment/sync", async (c) => {
   const id = idDeLaRuta(c.req.param("id"), "Aquesta connexio no existeix");
-  return fragment(c, EstatSync({ connexioId: id, execucio: await ultimaExecucio(id) }));
+  // El compte d'intents ve a l'adreça: el sondeig te limit i el porta el
+  // servidor, no el client. Vegeu `lib/sondeig.ts`.
+  const intent = intentDeLaConsulta(c.req.query(PARAMETRE_INTENT));
+  return fragment(c, EstatSync({ connexioId: id, execucio: await ultimaExecucio(id), intent }));
 });
 
 // --- Comptes ---------------------------------------------------------------

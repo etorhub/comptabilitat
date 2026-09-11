@@ -240,8 +240,22 @@ la mutació de la pròpia pàgina.
   l'`invalidaEspai()` de l'aplicació de React, que després de cada mutació
   refrescava la llista, el panell i els dos comptadors sense dir-ho.
 - **Excepció única:** l'estat d'una sincronització del banc i el monitoratge
-  de feines en curs a `/feines`, que sí que fan sondeig i s'aturen sols quan
-  la feina acaba.
+  de feines en curs a `/feines`. **Tot sondeig passa per `lib/sondeig.ts`**, i
+  cap no s'escriu a mà: un `hx-trigger="every …"` sense límit declarat fa
+  fallar la regla `unbounded-poll`.
+
+  S'aturen de dues maneres, i totes dues calen. Quan la feina acaba, el
+  fragment nou ja no duu disparador. I si no acaba **mai** —un procés mort
+  enmig deixa la fila en `running` per sempre— el compte d'intents s'exhaureix
+  i la pàgina ho diu. Sense la segona, una importació interrompuda deixava la
+  pàgina preguntant cada dos segons, indefinidament i per a tothom qui la
+  mirés; el marcatge d'un sondeig que s'aturarà i el d'un que no s'aturarà mai
+  eren idèntics.
+
+  El compte viatja **a l'adreça que se sondeja**, no en cap variable de client:
+  cada resposta demana l'intent següent. És la mateixa regla que la dels
+  filtres.
+
 - **`#toast` no fa `hx-swap-oob="true"` com la resta.** Fa
   `hx-swap-oob="innerHTML:#toast"`: es canvia el **contingut**, no el
   contenidor. El `<div id="toast">` neix amb `aria-live="polite"` a

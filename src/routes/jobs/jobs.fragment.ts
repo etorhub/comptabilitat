@@ -16,6 +16,7 @@ import { config } from "../../lib/config.ts";
 import type { Html } from "../../lib/html.ts";
 import type { PaginaHistorial, ResumSalut } from "../../services/job-runs.ts";
 import { atributsOob } from "../../lib/oob.ts";
+import { sondeig, sondeigExhaurit } from "../../lib/sondeig.ts";
 import {
   ETIQUETES_ESTAT,
   ETIQUETES_FEINA,
@@ -251,25 +252,39 @@ export function LlistaFeines({
 /**
  * Feines de primer nivell encara corrent.
  *
- * **Sondeig:** mentre n'hi hagi, el fragment porta `hx-trigger="every 2s"`;
- * quan acaba, el fragment nou ja no en porta i HTMX s'atura.
+ * **Sondeig, amb limit.** Mentre n'hi hagi, el fragment demana l'intent
+ * seguent; quan la feina acaba, el fragment nou ja no duu disparador i HTMX
+ * s'atura. I si no acaba mai —un proces mort enmig deixa la fila en `running`
+ * per sempre— el compte d'intents s'acaba i es diu, en lloc de preguntar-ho
+ * indefinidament. Vegeu `lib/sondeig.ts`.
  */
-export function EnCurs({ runs, oob = false }: { runs: JobRun[]; oob?: boolean }): Html {
+export function EnCurs({
+  runs,
+  intent = 0,
+  oob = false,
+}: {
+  runs: JobRun[];
+  intent?: number;
+  oob?: boolean;
+}): Html {
   const corrent = runs.length > 0;
+  const exhaurit = corrent && sondeigExhaurit(intent);
   return html`<section
     ${atributsOob("en-curs", oob)}
     class="superficie targeta"
-    ${
-      corrent
-        ? raw(
-            `hx-get="/feines/fragment/en-curs" hx-target="#en-curs" hx-swap="outerHTML" hx-trigger="every 2s"`,
-          )
-        : ""
-    }
+    ${corrent ? sondeig({ url: "/feines/fragment/en-curs", objectiu: "#en-curs", intent }) : ""}
     role="status"
     aria-live="polite"
   >
     <h2 class="menu-titol">En curs</h2>
+    ${
+      exhaurit
+        ? html`<p class="text-suau">
+          Fa massa estona que dura; s'ha deixat de comprovar.
+          <a href="/feines">Torna-ho a mirar</a>.
+        </p>`
+        : ""
+    }
     ${
       corrent
         ? html`<ul class="feines-en-curs">

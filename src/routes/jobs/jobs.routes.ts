@@ -55,6 +55,7 @@ import {
   LlistaHistorial,
 } from "./jobs.fragment.ts";
 import { JobsPage } from "./jobs.page.ts";
+import { intentDeLaConsulta, PARAMETRE_INTENT } from "../../lib/sondeig.ts";
 import {
   type FeinaId,
   FEINES,
@@ -224,11 +225,14 @@ jobsRoutes.get("/fragment/historial", async (c) => {
 
 jobsRoutes.get("/fragment/en-curs", async (c) => {
   const dades = await dadesPagina(historialFiltersSchema.parse({}));
+  // El compte d'intents ve a l'adreça: el sondeig te limit i el porta el
+  // servidor, no el client. Vegeu `lib/sondeig.ts`.
+  const intent = intentDeLaConsulta(c.req.query(PARAMETRE_INTENT));
   // El target principal es `#en-curs` (sense oob); la resta va fora de banda.
   return fragment(
     c,
     await withOob(
-      EnCurs({ runs: dades.enCursRuns }),
+      EnCurs({ runs: dades.enCursRuns, intent }),
       AgendaSalut({
         entrades: entradesAgenda(dades.darreres),
         salut: dades.salut,

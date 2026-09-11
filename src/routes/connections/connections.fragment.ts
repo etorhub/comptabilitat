@@ -12,6 +12,7 @@ import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
 import { formatDate } from "../../lib/time.ts";
 import { atributsOob } from "../../lib/oob.ts";
+import { sondeig, sondeigExhaurit } from "../../lib/sondeig.ts";
 
 const ESTATS: Record<ConnectionStatus, { text: string; classe: string }> = {
   pending: { text: "pendent d'autoritzar", classe: "etiqueta-suau" },
@@ -178,22 +179,27 @@ export function FilaCompte({
  * L'estat d'una importacio en curs.
  *
  * **Aquest es un dels dos sondejos de l'aplicacio** (amb el d'en curs a
- * `/feines`), i s'atura sol: mentre la feina corre, el fragment porta
- * `hx-trigger="every 2s"`; quan acaba, el fragment que es torna ja no en
- * porta, i HTMX deixa de preguntar.
+ * `/feines`), i s'atura de dues maneres: quan la feina acaba, el fragment que
+ * es torna ja no duu disparador; i si no acaba mai, el compte d'intents
+ * s'exhaureix i es diu. Aquesta segona xarxa hi es perque la primera no
+ * serveix de res quan el proces mor enmig i la fila es queda en `running` per
+ * sempre. Vegeu `lib/sondeig.ts`.
  */
 export function EstatSync({
   connexioId,
   execucio,
+  intent = 0,
 }: {
   connexioId: number;
   execucio: SyncRun | null;
+  intent?: number;
 }): Html {
   if (execucio === null) {
     return html`<div id="sync-${connexioId}"></div>` as Html;
   }
 
   const acabada = isSyncFinished(execucio.status);
+  const exhaurit = !acabada && sondeigExhaurit(intent);
 
   return html`<div
     id="sync-${connexioId}"
@@ -201,13 +207,24 @@ export function EstatSync({
     ${
       acabada
         ? ""
-        : raw(
-            `hx-get="/connexions/${connexioId}/fragment/sync" hx-target="#sync-${connexioId}" hx-swap="outerHTML" hx-trigger="every 2s"`,
-          )
+        : sondeig({
+            url: `/connexions/${connexioId}/fragment/sync`,
+            objectiu: `#sync-${connexioId}`,
+            intent,
+          })
     }
     role="status"
     aria-live="polite"
   >
+    ${
+      exhaurit
+        ? html`<strong>S'ha deixat de comprovar</strong>
+          <span class="text-suau">
+            Fa massa estona que dura. El manteniment de cada nit tanca les
+            importacions encallades; recarrega la pagina per tornar-hi.
+          </span>`
+        : ""
+    }
     ${
       acabada
         ? html`
