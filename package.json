@@ -25,7 +25,8 @@
     "frontera": "bun run scripts/frontera.ts",
     "docs": "bun run scripts/agents-md.ts",
     "docs:check": "bun run scripts/agents-md.ts --check",
-    "check": "bun run typecheck && bun run lint && bun run format:check && bun run frontera && bun run docs:check",
+    "check": "bun run scripts/comprova.ts",
+    "ok": "bun run check && bun run test:unitat",
     "db:apply": "bun run src/db/migrate.ts"
   },
   "dependencies": {
