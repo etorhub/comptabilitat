@@ -22,6 +22,12 @@
   },
   // Les proves tambe. Si no hi son, `bun run typecheck` no les mira i el
   // «estricte, sense cap `any`» val nomes per a la meitat del codi.
-  "include": ["src/**/*.ts", "tests/**/*.ts", "drizzle.config.ts"],
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts",
+    "htmx-contract/**/*.ts",
+    "scripts/**/*.ts",
+    "drizzle.config.ts"
+  ],
   "exclude": ["node_modules"]
 }
