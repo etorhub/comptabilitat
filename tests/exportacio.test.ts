@@ -106,7 +106,16 @@ describe("CSV", () => {
 describe("XLSX", () => {
   test("el resum porta els dos fulls", async () => {
     const bytes = await resumAXlsx(
-      [{ periode: "2026-01", ingressos: "100.00", despeses: "50.00", net: "50.00" }],
+      [
+        {
+          periode: "2026-01",
+          ingressos: "100.00",
+          despeses: "50.00",
+          despesesFixes: "30.00",
+          despesesVariables: "20.00",
+          net: "50.00",
+        },
+      ],
       [
         {
           categoryId: 1,
@@ -132,7 +141,14 @@ describe("PDF", () => {
       despeses: "400.00",
       net: "600.00",
       mensual: [
-        { periode: "2026-01", ingressos: "1000.00", despeses: "400.00", net: "600.00" },
+        {
+          periode: "2026-01",
+          ingressos: "1000.00",
+          despeses: "400.00",
+          despesesFixes: "250.00",
+          despesesVariables: "150.00",
+          net: "600.00",
+        },
       ],
       categories: [
         {
@@ -156,6 +172,8 @@ describe("PDF", () => {
       periode: `20${20 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`,
       ingressos: "1000.00",
       despeses: "400.00",
+      despesesFixes: "250.00",
+      despesesVariables: "150.00",
       net: "600.00",
     }));
     const categories = Array.from({ length: 40 }, (_, i) => ({

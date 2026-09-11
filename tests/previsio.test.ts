@@ -192,6 +192,10 @@ describe("la projeccio", () => {
     expect(Number(previsio.punts[30]?.esperat)).toBeCloseTo(1000, 1);
     expect(previsio.despesaDiaria).toBe("0.00");
     expect(previsio.primerDescobert).toBeNull();
+    // Mateixa amplada a esquerra (real) i dreta (previsio), amb avui a les dues.
+    expect(previsio.historic.length).toBe(31);
+    expect(previsio.historic[previsio.historic.length - 1]?.dia).toBe(todayLocal());
+    expect(Number(previsio.historic[previsio.historic.length - 1]?.saldo)).toBeCloseTo(1000, 1);
   });
 
   test("sense despesa residual, les bandes coincideixen amb l'esperat", async () => {
@@ -385,9 +389,44 @@ describe("els agregats dels informes", () => {
     expect(serie).toHaveLength(2);
     expect(serie[0]?.periode).toBe("2026-01");
     expect(Number(serie[0]?.despeses)).toBe(100);
+    expect(Number(serie[0]?.despesesVariables)).toBe(100);
+    expect(Number(serie[0]?.despesesFixes)).toBe(0);
     expect(serie[1]?.periode).toBe("2026-02");
     expect(Number(serie[1]?.despeses)).toBe(200);
     expect(Number(serie[1]?.ingressos)).toBe(300);
     expect(Number(serie[1]?.net)).toBe(100);
+  });
+
+  test("la serie mensual separa despeses fixes i variables", async () => {
+    const [categoria] = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(eq(categories.ledgerId, espai.id))
+      .limit(1);
+    const categoryId = categoria?.id ?? 0;
+
+    const fixaId = await moviment("fixa", "2026-03-05", "-80.00", { categoryId });
+    await moviment("variable", "2026-03-12", "-40.00");
+
+    const serie = await serieActiva({
+      amount: "-80.00",
+      intervalDays: 30,
+      nextExpectedDate: addDays(todayLocal(), 20),
+      categoryId,
+      label: "Lloguer",
+    });
+    expect(serie).toBeDefined();
+    await db.insert(recurringOccurrences).values({
+      seriesId: serie?.id ?? 0,
+      transactionId: fixaId,
+      occurredOn: "2026-03-05",
+      amount: "-80.00",
+    });
+
+    const punts = await serieMensual([espai.id], "2026-03-01", "2026-04-01");
+    expect(punts).toHaveLength(1);
+    expect(Number(punts[0]?.despeses)).toBe(120);
+    expect(Number(punts[0]?.despesesFixes)).toBe(80);
+    expect(Number(punts[0]?.despesesVariables)).toBe(40);
   });
 });

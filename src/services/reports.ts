@@ -76,11 +76,22 @@ export async function ingressosIDespeses(
 export interface PuntMensual {
   periode: string;
   ingressos: MoneyString;
+  /** Total de despeses (= fixes + variables). */
   despeses: MoneyString;
+  /** Despeses lligades a una aparicio de serie recurrent. */
+  despesesFixes: MoneyString;
+  /** Despeses que no son d'una serie recurrent. */
+  despesesVariables: MoneyString;
   net: MoneyString;
 }
 
-/** Ingressos, despeses i resultat de cada mes. */
+/** El moviment te almenys una aparicio a `recurring_occurrences`. */
+const esDespesaFixa = sql`exists (
+  select 1 from recurring_occurrences
+  where recurring_occurrences.transaction_id = ${transactions.id}
+)`;
+
+/** Ingressos, despeses (fixes / variables) i resultat de cada mes. */
 export async function serieMensual(
   ledgerIds: number[],
   dataDes: string,
@@ -95,6 +106,8 @@ export async function serieMensual(
       periode,
       ingressos: sql<string>`coalesce(sum(case when ${transactions.amount} > 0 then ${transactions.amount} else 0 end), 0)`,
       despeses: sql<string>`coalesce(sum(case when ${transactions.amount} < 0 then -${transactions.amount} else 0 end), 0)`,
+      despesesFixes: sql<string>`coalesce(sum(case when ${transactions.amount} < 0 and ${esDespesaFixa} then -${transactions.amount} else 0 end), 0)`,
+      despesesVariables: sql<string>`coalesce(sum(case when ${transactions.amount} < 0 and not ${esDespesaFixa} then -${transactions.amount} else 0 end), 0)`,
     })
     .from(transactions)
     .where(filtreBase(ledgerIds, dataDes, dataFins))
@@ -108,6 +121,8 @@ export async function serieMensual(
       periode: f.periode,
       ingressos: toMoneyString(ingressos),
       despeses: toMoneyString(despeses),
+      despesesFixes: toMoneyString(money(f.despesesFixes)),
+      despesesVariables: toMoneyString(money(f.despesesVariables)),
       net: toMoneyString(ingressos.minus(despeses)),
     };
   });

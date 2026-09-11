@@ -70,7 +70,7 @@
   }
 
   var constructors = {
-    /** Ingressos i despeses mes a mes. */
+    /** Ingressos i despeses (fixes a baix, variables a damunt) mes a mes. */
     mensual: function (dades, c) {
       var opcions = base(c);
       opcions.tooltip.trigger = "axis";
@@ -97,11 +97,26 @@
           }),
         },
         {
-          name: "Despeses",
+          name: "Fixes",
           type: "bar",
+          stack: "despeses",
+          itemStyle: { color: c.avis },
+          data: dades.map(function (d) {
+            return {
+              value: d.despesesFixes,
+              itemStyle: {
+                borderRadius: d.despesesVariables > 0 ? 0 : [3, 3, 0, 0],
+              },
+            };
+          }),
+        },
+        {
+          name: "Variables",
+          type: "bar",
+          stack: "despeses",
           itemStyle: { color: c.negatiu, borderRadius: [3, 3, 0, 0] },
           data: dades.map(function (d) {
-            return d.despeses;
+            return d.despesesVariables;
           }),
         },
         {
@@ -119,16 +134,23 @@
       return opcions;
     },
 
-    /** Repartiment de la despesa per categoria. */
+    /** Repartiment de la despesa per categoria (llegenda clicable). */
     categories: function (dades, c) {
       var opcions = base(c);
       opcions.tooltip.trigger = "item";
       opcions.tooltip.formatter = "{b}: {c} € ({d}%)";
-      opcions.legend = { show: false };
+      opcions.legend = {
+        show: true,
+        type: "scroll",
+        orient: "horizontal",
+        top: 0,
+        textStyle: { color: c.suau },
+      };
       opcions.series = [
         {
           type: "pie",
-          radius: ["45%", "72%"],
+          radius: ["40%", "68%"],
+          center: ["50%", "58%"],
           itemStyle: { borderColor: c.superficie, borderWidth: 2 },
           label: { color: c.suau },
           data: dades.map(function (d) {
@@ -177,15 +199,45 @@
       return opcions;
     },
 
-    /** Previsió: banda optimista, esperada i pessimista, amb el llindar. */
+    /**
+     * Previsió: saldo real a l'esquerra, projecció a la dreta.
+     * Avui es el punt de junta: Real acaba i Esperat comença.
+     */
     previsio: function (dades, c) {
       var opcions = base(c);
       opcions.tooltip.trigger = "axis";
+
+      var historic = dades.historic || [];
+      var punts = dades.punts || [];
+      var avui = punts.length > 0 ? punts[0].dia : null;
+
+      var eixX = [];
+      var vist = {};
+      historic.forEach(function (h) {
+        if (!vist[h.dia]) {
+          vist[h.dia] = true;
+          eixX.push(h.dia);
+        }
+      });
+      punts.forEach(function (p) {
+        if (!vist[p.dia]) {
+          vist[p.dia] = true;
+          eixX.push(p.dia);
+        }
+      });
+
+      var saldoPerDia = {};
+      historic.forEach(function (h) {
+        saldoPerDia[h.dia] = h.saldo;
+      });
+      var previsPerDia = {};
+      punts.forEach(function (p) {
+        previsPerDia[p.dia] = p;
+      });
+
       opcions.xAxis = {
         type: "category",
-        data: dades.punts.map(function (p) {
-          return p.dia;
-        }),
+        data: eixX,
         axisLine: { lineStyle: { color: c.vora } },
         axisLabel: { color: c.suau },
       };
@@ -198,9 +250,7 @@
 
       var markPoint = null;
       if (dades.primerDescobert) {
-        var puntDescobert = dades.punts.find(function (p) {
-          return p.dia === dades.primerDescobert;
-        });
+        var puntDescobert = previsPerDia[dades.primerDescobert];
         if (puntDescobert) {
           markPoint = {
             silent: true,
@@ -211,7 +261,7 @@
             data: [
               {
                 name: "Descobert",
-                coord: [puntDescobert.dia, puntDescobert.esperat],
+                coord: [dades.primerDescobert, puntDescobert.esperat],
               },
             ],
           };
@@ -219,16 +269,22 @@
       }
 
       var diesRebut = dades.diesRebut || [];
-      var perDia = {};
-      dades.punts.forEach(function (p) {
-        perDia[p.dia] = p;
-      });
       var puntsRebut = diesRebut
         .map(function (dia) {
-          var p = perDia[dia];
+          var p = previsPerDia[dia];
           return p ? [dia, p.esperat] : null;
         })
         .filter(Boolean);
+
+      function valorReal(dia) {
+        if (avui && dia > avui) return null;
+        return saldoPerDia[dia] != null ? saldoPerDia[dia] : null;
+      }
+      function valorPrevis(dia, camp) {
+        if (avui && dia < avui) return null;
+        var p = previsPerDia[dia];
+        return p ? p[camp] : null;
+      }
 
       var serieEsperat = {
         name: "Esperat",
@@ -237,8 +293,8 @@
         showSymbol: false,
         lineStyle: { color: c.accent, width: 2 },
         areaStyle: { color: c.accent, opacity: 0.1 },
-        data: dades.punts.map(function (p) {
-          return p.esperat;
+        data: eixX.map(function (dia) {
+          return valorPrevis(dia, "esperat");
         }),
         markLine: {
           silent: true,
@@ -252,13 +308,22 @@
 
       opcions.series = [
         {
+          name: "Real",
+          type: "line",
+          smooth: true,
+          showSymbol: false,
+          lineStyle: { color: c.suau, width: 2 },
+          areaStyle: { color: c.suau, opacity: 0.12 },
+          data: eixX.map(valorReal),
+        },
+        {
           name: "Optimista",
           type: "line",
           smooth: true,
           showSymbol: false,
           lineStyle: { color: c.positiu, type: "dashed", width: 1 },
-          data: dades.punts.map(function (p) {
-            return p.optimista;
+          data: eixX.map(function (dia) {
+            return valorPrevis(dia, "optimista");
           }),
         },
         serieEsperat,
@@ -268,8 +333,8 @@
           smooth: true,
           showSymbol: false,
           lineStyle: { color: c.avis, type: "dashed", width: 1 },
-          data: dades.punts.map(function (p) {
-            return p.pessimista;
+          data: eixX.map(function (dia) {
+            return valorPrevis(dia, "pessimista");
           }),
         },
         {
@@ -277,9 +342,9 @@
           type: "line",
           smooth: false,
           showSymbol: false,
-          lineStyle: { color: c.suau, width: 1.5 },
-          data: dades.punts.map(function (p) {
-            return p.tendencia;
+          lineStyle: { color: c.suau, width: 1.5, type: "dotted" },
+          data: eixX.map(function (dia) {
+            return valorPrevis(dia, "tendencia");
           }),
         },
       ];
