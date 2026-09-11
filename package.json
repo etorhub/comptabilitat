@@ -20,7 +20,8 @@
     "lint": "oxlint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "bun run typecheck && bun run lint && bun run format:check",
+    "frontera": "bun run scripts/frontera.ts",
+    "check": "bun run typecheck && bun run lint && bun run format:check && bun run frontera",
     "db:apply": "bun run src/db/migrate.ts"
   },
   "dependencies": {

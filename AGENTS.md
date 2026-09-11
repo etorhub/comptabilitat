@@ -27,6 +27,22 @@ que torna un tros d'HTML que HTMX enganxa al seu lloc.
 Idioma del codi: **català**, com fins ara. Identificadors, comentaris i text de
 la interfície.
 
+**L'excepció són els directoris que han de marxar.** `htmx-contract/` no és
+d'aquesta aplicació: és una peça que s'ha de poder endur a un paquet seu amb un
+`git mv`, i per això és **en anglès** i no importa res de `src/` ni de `tests/`.
+Canviar-li els noms el dia que marxi voldria dir llençar l'historial que la
+mudança existeix per conservar.
+
+La frontera no és una bona intenció: `bun run frontera` (dins de `bun run
+check`) comprova que aquests directoris no importin res de fora ni cap paquet
+que no sigui a la seva llista blanca, i avisa dels identificadors que semblen
+catalans. Els comentaris i els textos no es miren: un comentari que cita el
+títol d'un commit és en català amb tota la raó, i el marcatge dels fixtures és
+una còpia del que dibuixa l'aplicació.
+
+Si una peça extraïble sembla que necessita alguna cosa de `src/`, està mal
+tallada: passa-li el que necessiti com a argument.
+
 ---
 
 ## D'on ve això
