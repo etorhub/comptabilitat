@@ -7,7 +7,7 @@ import { html } from "hono/html";
 import type { Html } from "../../lib/html.ts";
 import type { GrupCategories } from "../../services/categories.ts";
 import type { SerieVista } from "../../services/recurring-list.ts";
-import { BarraFiltres, FormAlta, Taula } from "./recurring.fragment.tsx";
+import { BarraFiltres, FormAlta, Taula } from "./recurring.fragment.ts";
 import type { RecurringFilters } from "./recurring.schema.ts";
 
 export interface RecurringPageProps {

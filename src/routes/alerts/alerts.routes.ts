@@ -17,7 +17,7 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { ComptadorAvisos } from "../../components/layout.tsx";
+import { ComptadorAvisos } from "../../components/layout.ts";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { alerts } from "../../db/schema/index.ts";
@@ -32,8 +32,8 @@ import {
 } from "../../lib/http.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
 import { comptaAvisosNous } from "../../services/comptadors.ts";
-import { LlistaAvisos, TargetaAvis } from "./alerts.fragment.tsx";
-import { AlertsPage } from "./alerts.page.tsx";
+import { LlistaAvisos, TargetaAvis } from "./alerts.fragment.ts";
+import { AlertsPage } from "./alerts.page.ts";
 import { alertFiltersSchema, alertFiltersToQuery } from "./alerts.schema.ts";
 
 export const alertsRoutes = new Hono();

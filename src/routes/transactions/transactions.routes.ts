@@ -8,7 +8,7 @@
 import { and, eq, ne } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { ComptadorRevisio } from "../../components/layout.tsx";
+import { ComptadorRevisio } from "../../components/layout.ts";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { accounts, categories, roleAtLeast, transactions } from "../../db/schema/index.ts";
@@ -50,8 +50,8 @@ import {
   FiltreTargetes,
   RevisioFeta,
   Taula,
-} from "./transactions.fragment.tsx";
-import { ReviewPage, TransactionsPage } from "./transactions.page.tsx";
+} from "./transactions.fragment.ts";
+import { ReviewPage, TransactionsPage } from "./transactions.page.ts";
 import {
   bulkCategorizeSchema,
   bulkTagSchema,

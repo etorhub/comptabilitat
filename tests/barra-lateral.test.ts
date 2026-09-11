@@ -15,7 +15,7 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { Layout } from "../src/components/layout.tsx";
+import { Layout } from "../src/components/layout.ts";
 import { clearToast, toast } from "../src/lib/http.ts";
 import type { Ledger, LedgerRole, User } from "../src/db/schema/index.ts";
 

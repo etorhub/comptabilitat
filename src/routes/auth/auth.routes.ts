@@ -6,11 +6,11 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 
-import { PasswordForm } from "./auth.fragment.tsx";
-import { LoginPage, PasswordPage } from "./auth.page.tsx";
+import { PasswordForm } from "./auth.fragment.ts";
+import { LoginPage, PasswordPage } from "./auth.page.ts";
 import { loginSchema, passwordChangeSchema } from "./auth.schema.ts";
-import { Layout } from "../../components/layout.tsx";
-import { zodErrors } from "../../components/form.tsx";
+import { Layout } from "../../components/layout.ts";
+import { zodErrors } from "../../components/form.ts";
 import { db } from "../../db/client.ts";
 import { users } from "../../db/schema/index.ts";
 import {

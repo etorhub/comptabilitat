@@ -9,7 +9,7 @@
 import { Hono } from "hono";
 import { html } from "hono/html";
 
-import { Layout } from "../../components/layout.tsx";
+import { Layout } from "../../components/layout.ts";
 import { page } from "../../lib/http.ts";
 import { currentUser, requireUser } from "../../middleware/session.ts";
 import { myWorkspaces } from "../../middleware/workspace.ts";

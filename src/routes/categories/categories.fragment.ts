@@ -10,9 +10,9 @@
 
 import { html, raw } from "hono/html";
 
-import { Tria } from "../../components/form.tsx";
+import { Tria } from "../../components/form.ts";
 import type { CategoryKind } from "../../db/schema/index.ts";
-import { TaulaDades } from "../../components/vista.tsx";
+import { TaulaDades } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
 import type {

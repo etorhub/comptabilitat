@@ -9,8 +9,8 @@
 
 import { html, raw } from "hono/html";
 
-import { Camp, Tria } from "../../components/form.tsx";
-import { TaulaDades } from "../../components/vista.tsx";
+import { Camp, Tria } from "../../components/form.ts";
+import { TaulaDades } from "../../components/vista.ts";
 import type { JobRun, JobStatus, SyncRun } from "../../db/schema/index.ts";
 import { config } from "../../lib/config.ts";
 import type { Html } from "../../lib/html.ts";

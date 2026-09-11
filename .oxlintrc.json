@@ -33,12 +33,6 @@
       "rules": {
         "unicorn/consistent-function-scoping": "off"
       }
-    },
-    {
-      "files": ["tests/**/*.ts"],
-      "rules": {
-        "unicorn/consistent-function-scoping": "off"
-      }
     }
   ],
   "ignorePatterns": ["node_modules", "public/htmx.min.js", "public/echarts.min.js", "drizzle"]

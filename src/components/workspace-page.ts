@@ -8,7 +8,7 @@
 
 import type { Context } from "hono";
 
-import { Layout } from "./layout.tsx";
+import { Layout } from "./layout.ts";
 import type { Html } from "../lib/html.ts";
 import { comptadors } from "../services/comptadors.ts";
 import { currentUser } from "../middleware/session.ts";

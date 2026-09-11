@@ -9,8 +9,8 @@
 import { html } from "hono/html";
 
 import type { Alert, AlertSeverity } from "../../db/schema/index.ts";
-import { Casella } from "../../components/form.tsx";
-import { EstatBuit } from "../../components/vista.tsx";
+import { Casella } from "../../components/form.ts";
+import { EstatBuit } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 import { alertFiltersToQuery, type AlertFilters } from "./alerts.schema.ts";
 

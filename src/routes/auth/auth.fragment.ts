@@ -13,7 +13,7 @@
 import { html, raw } from "hono/html";
 import type { Html } from "../../lib/html.ts";
 
-import { Camp, ErrorGeneral, type FieldErrors } from "../../components/form.tsx";
+import { Camp, ErrorGeneral, type FieldErrors } from "../../components/form.ts";
 import { CSRF_FIELD } from "../../lib/csrf.ts";
 
 export interface LoginFormProps {

@@ -31,7 +31,7 @@ import {
   DashboardPage,
   ForecastPage,
   ReportsPage,
-} from "./analytics.page.tsx";
+} from "./analytics.page.ts";
 import {
   dashboardSchema,
   forecastSchema,

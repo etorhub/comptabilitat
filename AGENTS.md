@@ -1,7 +1,13 @@
 # AGENTS.md
 
-Regles de la casa per a `comptabilitat`, ara sobre **Bun + Hono + `hono/jsx` +
+Regles de la casa per a `comptabilitat`, ara sobre **Bun + Hono + `hono/html` +
 HTMX + Drizzle**.
+
+Les plantilles son l'etiqueta `html` de `hono/html`, que retorna cadenes: **no
+hi ha JSX enlloc**, i els fitxers son `.ts` com la resta. Hi va haver una
+temporada en que aquest document deia `hono/jsx` i el `tsconfig.json` el tenia
+configurat, pero cap fitxer no n'ha fet servir mai. Que les plantilles siguin
+cadenes es el que fa que un fragment es pugui provar sense navegador ni DOM.
 
 Estan escrites com a regles, no com a consells: on hi digui **sempre** o **mai**,
 és sempre o mai. Si te'n vols apartar, canvia primer aquest fitxer i després tots
@@ -42,8 +48,8 @@ res només perquè ho fos.
 src/
   routes/<recurs>/
     <recurs>.routes.ts      registre de rutes i guardes
-    <recurs>.page.tsx       pàgina sencera (GET)
-    <recurs>.fragment.tsx   fragments d'HTMX i els seus intercanvis fora de banda
+    <recurs>.page.ts        pàgina sencera (GET)
+    <recurs>.fragment.ts    fragments d'HTMX i els seus intercanvis fora de banda
     <recurs>.schema.ts      Zod
   db/schema/                per agregat, no per recurs
   db/client.ts
@@ -105,7 +111,7 @@ L'aplicació de Python **no en tenia cap defensa**. Ara sí, i funciona així:
 - El testimoni és `HMAC-SHA256(SECRET_KEY, resum_del_testimoni_de_sessió)`. No
   cal cap taula: va lligat a la sessió, gira amb ella i mor amb ella.
 - Es publica **un sol cop**, com a `hx-headers` del `<body>` a
-  `components/layout.tsx`. Totes les peticions d'HTMX l'hereten.
+  `components/layout.ts`. Totes les peticions d'HTMX l'hereten.
 - **Mai** posis un testimoni per formulari. L'única excepció de tota
   l'aplicació és el formulari d'entrada, que encara no té sessió i duu un camp
   ocult `_csrf` derivat d'una galeta llavor d'un sol ús.
@@ -145,7 +151,7 @@ retornis codis a mà.
   font de veritat i el Zod en surt**, no al revés.
 - Quan `safeParse` falla: torna a dibuixar **el fragment del formulari** amb
   `errors`, amb codi **422**.
-- Els errors per camp es dibuixen amb els components de `components/form.tsx`,
+- Els errors per camp es dibuixen amb els components de `components/form.ts`,
   que ja posen `aria-invalid` i `aria-describedby`.
 - **Els valors que ha escrit la persona es tornen sempre.** Un formulari que
   s'esborra quan falla la validació és una manera de fer enfadar la gent.
@@ -181,7 +187,7 @@ la mutació de la pròpia pàgina.
 - **`#toast` no fa `hx-swap-oob="true"` com la resta.** Fa
   `hx-swap-oob="innerHTML:#toast"`: es canvia el **contingut**, no el
   contenidor. El `<div id="toast">` neix amb `aria-live="polite"` a
-  `components/layout.tsx`; si es reemplacés el node sencer, el de recanvi
+  `components/layout.ts`; si es reemplacés el node sencer, el de recanvi
   hauria de dur el mateix atribut o deixaria de ser una regió viva a partir
   del primer avís.
 - **El saldo de la capçalera del panell (`#saldo-capcalera`) no és cap
@@ -248,7 +254,7 @@ Dues garanties del producte, no detalls d'implementació:
   comptabilitat això és un error de correcció, no una preferència d'estil.
 - `number` només per als grafics, que són només per mirar (`toChartNumber()`).
   La conversió es fa **al fragment que construeix el paquet del grafic**
-  (`Grafic*()` a `routes/analytics/analytics.fragment.tsx`), no al servei: la
+  (`Grafic*()` a `routes/analytics/analytics.fragment.ts`), no al servei: la
   mateixa fila sovint també alimenta una taula amb `formatMoney()`, que no
   accepta `number`. El client (`public/grafics.js`) ja no fa cap `Number()`;
   el que rep del `<script type="application/json">` ja son numeros.

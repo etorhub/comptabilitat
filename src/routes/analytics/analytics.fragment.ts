@@ -10,7 +10,7 @@
 
 import { html } from "hono/html";
 
-import { TaulaDades } from "../../components/vista.tsx";
+import { TaulaDades } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 import { jsonScript } from "../../lib/http.ts";
 import { formatMoney, toChartNumber } from "../../lib/money.ts";

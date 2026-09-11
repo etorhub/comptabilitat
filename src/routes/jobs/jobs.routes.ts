@@ -11,7 +11,7 @@
 
 import { Hono } from "hono";
 
-import { Layout } from "../../components/layout.tsx";
+import { Layout } from "../../components/layout.ts";
 import { config } from "../../lib/config.ts";
 import {
   AppError,
@@ -53,8 +53,8 @@ import {
   type EntradaFeina,
   LlistaFeines,
   LlistaHistorial,
-} from "./jobs.fragment.tsx";
-import { JobsPage } from "./jobs.page.tsx";
+} from "./jobs.fragment.ts";
+import { JobsPage } from "./jobs.page.ts";
 import {
   type FeinaId,
   FEINES,

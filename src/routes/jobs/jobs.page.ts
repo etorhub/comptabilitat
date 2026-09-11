@@ -14,7 +14,7 @@ import {
   type EntradaFeina,
   LlistaFeines,
   LlistaHistorial,
-} from "./jobs.fragment.tsx";
+} from "./jobs.fragment.ts";
 import type { HistorialFilters } from "./jobs.schema.ts";
 
 export interface JobsPageProps {

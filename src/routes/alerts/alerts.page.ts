@@ -6,7 +6,7 @@ import { html } from "hono/html";
 
 import type { Alert } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
-import { BarraFiltres, LlistaAvisos } from "./alerts.fragment.tsx";
+import { BarraFiltres, LlistaAvisos } from "./alerts.fragment.ts";
 import type { AlertFilters } from "./alerts.schema.ts";
 
 export interface AlertsPageProps {

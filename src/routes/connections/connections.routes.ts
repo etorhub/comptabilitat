@@ -20,7 +20,7 @@
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { Layout } from "../../components/layout.tsx";
+import { Layout } from "../../components/layout.ts";
 import { db } from "../../db/client.ts";
 import {
   accounts,
@@ -48,8 +48,8 @@ import { mouCompteDEspai, type ResumMoviment } from "../../services/accounts.ts"
 import { ultimSaldo } from "../../services/balances.ts";
 import { acabaAutoritzacio, comencaAutoritzacio } from "../../services/consent.ts";
 import { jaSincronitza, obreImportacio, portaLaImportacio } from "../../services/sync.ts";
-import { EstatSync, FilaCompte, Llista, type ConnexioVista } from "./connections.fragment.tsx";
-import { ConnectionsPage } from "./connections.page.tsx";
+import { EstatSync, FilaCompte, Llista, type ConnexioVista } from "./connections.fragment.ts";
+import { ConnectionsPage } from "./connections.page.ts";
 import {
   assignSchema,
   authorizeSchema,

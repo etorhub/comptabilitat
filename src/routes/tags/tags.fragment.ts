@@ -9,7 +9,7 @@ import { formatMoney } from "../../lib/money.ts";
 import type { GrupCategories } from "../../services/categories.ts";
 import type { ResumEtiqueta } from "../../services/tags.ts";
 import type { PaginaMoviments } from "../../services/transactions.ts";
-import { Fila } from "../transactions/transactions.fragment.tsx";
+import { Fila } from "../transactions/transactions.fragment.ts";
 import { PER_PAGINA, type TagDetailQuery } from "./tags.schema.ts";
 
 export function LlistaEtiquetes({

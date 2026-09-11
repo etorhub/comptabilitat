@@ -22,8 +22,8 @@ import {
   resumEtiqueta,
 } from "../../services/tags.ts";
 import { llistaMoviments } from "../../services/transactions.ts";
-import { TaulaDetall } from "./tags.fragment.tsx";
-import { TagDetailPage, TagsPage } from "./tags.page.tsx";
+import { TaulaDetall } from "./tags.fragment.ts";
+import { TagDetailPage, TagsPage } from "./tags.page.ts";
 import {
   nomDeLaRuta,
   PER_PAGINA,

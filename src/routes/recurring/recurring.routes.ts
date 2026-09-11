@@ -5,7 +5,7 @@
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { zodErrors } from "../../components/form.tsx";
+import { zodErrors } from "../../components/form.ts";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { recurringSeries, roleAtLeast } from "../../db/schema/index.ts";
@@ -34,8 +34,8 @@ import {
   vistaSerie,
   aparicionsSerie,
 } from "../../services/recurring-list.ts";
-import { FilaActiva, FormAlta, Taula } from "./recurring.fragment.tsx";
-import { RecurringPage } from "./recurring.page.tsx";
+import { FilaActiva, FormAlta, Taula } from "./recurring.fragment.ts";
+import { RecurringPage } from "./recurring.page.ts";
 import {
   actualitzaImportSchema,
   confirmaSerieSchema,

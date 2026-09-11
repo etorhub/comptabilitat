@@ -7,7 +7,7 @@ import { html, raw } from "hono/html";
 import type { Html } from "../../lib/html.ts";
 import type { GrupCategories } from "../../services/categories.ts";
 import type { ItemRevisio, PaginaMoviments } from "../../services/transactions.ts";
-import { BarraFiltres, CuaRevisio, Taula } from "./transactions.fragment.tsx";
+import { BarraFiltres, CuaRevisio, Taula } from "./transactions.fragment.ts";
 import {
   teFiltresActius,
   transactionFiltersToQuery,

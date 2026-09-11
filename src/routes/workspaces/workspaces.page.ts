@@ -6,7 +6,7 @@ import { html } from "hono/html";
 
 import type { Ledger } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
-import { FormEspai, TaulaMembres, type MembreVista } from "./workspaces.fragment.tsx";
+import { FormEspai, TaulaMembres, type MembreVista } from "./workspaces.fragment.ts";
 
 export interface WorkspacePageProps {
   espai: Ledger;

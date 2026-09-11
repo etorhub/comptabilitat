@@ -7,7 +7,7 @@ import { html } from "hono/html";
 import type { CategoryKind } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
 import type { GrupCategories, NodeCategoria } from "../../services/categories.ts";
-import { Arbre, FormAlta } from "./categories.fragment.tsx";
+import { Arbre, FormAlta } from "./categories.fragment.ts";
 
 export interface CategoriesPageProps {
   codi: string;

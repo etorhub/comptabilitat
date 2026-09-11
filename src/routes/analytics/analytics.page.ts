@@ -25,7 +25,7 @@ import {
   TaulaCategories,
   TaulaEsdeveniments,
   Xifra,
-} from "./analytics.fragment.tsx";
+} from "./analytics.fragment.ts";
 import type { ReportFilters } from "./analytics.schema.ts";
 
 export interface DashboardPageProps {

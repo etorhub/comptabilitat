@@ -15,7 +15,7 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { Taula } from "../src/routes/transactions/transactions.fragment.tsx";
+import { Taula } from "../src/routes/transactions/transactions.fragment.ts";
 import type { GrupCategories } from "../src/services/categories.ts";
 import type { MovimentVista } from "../src/services/transactions.ts";
 import { transactionFiltersSchema } from "../src/routes/transactions/transactions.schema.ts";

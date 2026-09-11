@@ -11,7 +11,7 @@ import type { Context } from "hono";
 import { serveStatic } from "hono/bun";
 import { logger } from "hono/logger";
 
-import { ErrorPage, NotFoundPage } from "./components/shell.tsx";
+import { ErrorPage, NotFoundPage } from "./components/shell.ts";
 import { config, validateConfig } from "./lib/config.ts";
 import { describeError, toastOnly } from "./lib/http.ts";
 import { csrfMiddleware } from "./middleware/csrf.ts";

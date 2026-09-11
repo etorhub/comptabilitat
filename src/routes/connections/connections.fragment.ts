@@ -4,10 +4,10 @@
 
 import { html, raw } from "hono/html";
 
-import { Tria } from "../../components/form.tsx";
+import { Tria } from "../../components/form.ts";
 import type { ConnectionStatus, Ledger, SyncRun } from "../../db/schema/index.ts";
 import { isSyncFinished } from "../../db/schema/index.ts";
-import { EstatBuit, Filador, TaulaDades } from "../../components/vista.tsx";
+import { EstatBuit, Filador, TaulaDades } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
 import { formatDate } from "../../lib/time.ts";

@@ -7,9 +7,9 @@
 
 import { html, raw } from "hono/html";
 
-import { Casella, Tria } from "../../components/form.tsx";
+import { Casella, Tria } from "../../components/form.ts";
 import type { CategorySource } from "../../db/schema/index.ts";
-import { Filador, Paginacio, TaulaDades } from "../../components/vista.tsx";
+import { Filador, Paginacio, TaulaDades } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
 import type { GrupCategories } from "../../services/categories.ts";

@@ -5,8 +5,8 @@
 import { html, raw } from "hono/html";
 
 import type { AmountMode, Cadence } from "../../db/schema/index.ts";
-import { Camp, Casella, Tria, type FieldErrors } from "../../components/form.tsx";
-import { TaulaDades } from "../../components/vista.tsx";
+import { Camp, Casella, Tria, type FieldErrors } from "../../components/form.ts";
+import { TaulaDades } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney, money } from "../../lib/money.ts";
 import { formatDate, todayLocal } from "../../lib/time.ts";

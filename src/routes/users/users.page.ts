@@ -6,7 +6,7 @@ import { html } from "hono/html";
 
 import type { Ledger } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
-import { FormAlta, Llista, type UsuariVista } from "./users.fragment.tsx";
+import { FormAlta, Llista, type UsuariVista } from "./users.fragment.ts";
 
 export interface UsersPageProps {
   usuaris: UsuariVista[];

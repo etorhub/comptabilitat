@@ -6,7 +6,7 @@ import { html } from "hono/html";
 
 import type { Ledger } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
-import { FormConnecta, Llista, type ConnexioVista } from "./connections.fragment.tsx";
+import { FormConnecta, Llista, type ConnexioVista } from "./connections.fragment.ts";
 
 export interface ConnectionsPageProps {
   connexions: ConnexioVista[];

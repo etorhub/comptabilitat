@@ -9,8 +9,8 @@
 import { and, asc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { zodErrors } from "../../components/form.tsx";
-import { Layout } from "../../components/layout.tsx";
+import { zodErrors } from "../../components/form.ts";
+import { Layout } from "../../components/layout.ts";
 import { db } from "../../db/client.ts";
 import { ledgers, userLedgerPermissions, users } from "../../db/schema/index.ts";
 import { destroyAllSessions, destroyOtherSessions, hashPassword } from "../../lib/auth.ts";
@@ -26,8 +26,8 @@ import {
 } from "../../lib/http.ts";
 import { currentUser } from "../../middleware/session.ts";
 import { myWorkspaces } from "../../middleware/workspace.ts";
-import { FormAlta, Llista, Targeta, type UsuariVista } from "./users.fragment.tsx";
-import { UsersPage } from "./users.page.tsx";
+import { FormAlta, Llista, Targeta, type UsuariVista } from "./users.fragment.ts";
+import { UsersPage } from "./users.page.ts";
 import {
   grantSchema,
   passwordResetSchema,

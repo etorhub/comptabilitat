@@ -4,14 +4,14 @@
 
 import { html, raw } from "hono/html";
 
-import { Camp, Casella, ErrorGeneral, type FieldErrors } from "../../components/form.tsx";
+import { Camp, Casella, ErrorGeneral, type FieldErrors } from "../../components/form.ts";
 import {
   LEDGER_ROLES,
   type Ledger,
   type LedgerRole,
   type User,
 } from "../../db/schema/index.ts";
-import { TaulaDades } from "../../components/vista.tsx";
+import { TaulaDades } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 
 const NOMS_ROL: Record<LedgerRole, string> = {

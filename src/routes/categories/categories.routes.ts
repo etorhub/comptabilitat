@@ -8,7 +8,7 @@
 
 import { Hono } from "hono";
 
-import { zodErrors } from "../../components/form.tsx";
+import { zodErrors } from "../../components/form.ts";
 import { workspacePage } from "../../components/workspace-page.ts";
 import {
   ConflictError,
@@ -37,8 +37,8 @@ import {
   FilaEsborrada,
   FormAlta,
   FormReassignacio,
-} from "./categories.fragment.tsx";
-import { CategoriesPage } from "./categories.page.tsx";
+} from "./categories.fragment.ts";
+import { CategoriesPage } from "./categories.page.ts";
 import {
   categoryCreateSchema,
   categoryDeleteSchema,

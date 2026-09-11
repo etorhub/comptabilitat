@@ -17,7 +17,7 @@ import {
   users,
 } from "../src/db/schema/index.ts";
 import { hashPassword } from "../src/lib/auth.ts";
-import { BarraFiltres } from "../src/routes/transactions/transactions.fragment.tsx";
+import { BarraFiltres } from "../src/routes/transactions/transactions.fragment.ts";
 import {
   transactionFiltersSchema,
   transactionFiltersToQuery,

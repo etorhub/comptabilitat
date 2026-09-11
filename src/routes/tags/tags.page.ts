@@ -8,7 +8,7 @@ import type { Html } from "../../lib/html.ts";
 import type { GrupCategories } from "../../services/categories.ts";
 import type { ResumEtiqueta } from "../../services/tags.ts";
 import type { PaginaMoviments } from "../../services/transactions.ts";
-import { CapçaleraDetall, LlistaEtiquetes, TaulaDetall } from "./tags.fragment.tsx";
+import { CapçaleraDetall, LlistaEtiquetes, TaulaDetall } from "./tags.fragment.ts";
 import type { TagDetailQuery } from "./tags.schema.ts";
 
 export function TagsPage({

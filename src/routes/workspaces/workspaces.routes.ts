@@ -9,7 +9,7 @@
 import { asc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { zodErrors } from "../../components/form.tsx";
+import { zodErrors } from "../../components/form.ts";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { ledgers, roleAtLeast, userLedgerPermissions, users } from "../../db/schema/index.ts";
@@ -19,8 +19,8 @@ import {
   currentWorkspace,
   requireWorkspaceAdmin,
 } from "../../middleware/workspace.ts";
-import { FormEspai, type MembreVista } from "./workspaces.fragment.tsx";
-import { WorkspacePage } from "./workspaces.page.tsx";
+import { FormEspai, type MembreVista } from "./workspaces.fragment.ts";
+import { WorkspacePage } from "./workspaces.page.ts";
 import { workspaceUpdateSchema } from "./workspaces.schema.ts";
 
 export const workspacesRoutes = new Hono();
