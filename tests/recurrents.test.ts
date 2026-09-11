@@ -24,11 +24,16 @@ import {
   type CategoryKind,
 } from "../src/db/schema/index.ts";
 import {
+  actualitzaImportSerie,
   comprovaRebutsQueFalten,
   confirmaSerie,
+  creaSerieManual,
+  descartaSerie,
   detectaRecurrents,
 } from "../src/services/recurring.ts";
 import { llistaSeries } from "../src/services/recurring-list.ts";
+import { llistaMoviments } from "../src/services/transactions.ts";
+import { ConflictError } from "../src/lib/http.ts";
 import { seedCategories } from "../src/services/seed.ts";
 import { addDays, todayLocal } from "../src/lib/time.ts";
 
@@ -410,5 +415,158 @@ describe("rebuts que falten", () => {
       .where(eq(recurringSeries.ledgerId, ledgerId));
     // Exactes confirmades es queden actives; nomes avisen.
     expect(serie?.status).toBe("active");
+  });
+});
+
+describe("CRUD manual", () => {
+  test("creaSerieManual fa una serie active a la previsio", async () => {
+    const c = await categoria("lloguer");
+    const id = await creaSerieManual(ledgerId, {
+      label: "Lloguer pis",
+      categoryId: c,
+      cadence: "monthly",
+      expectedAmount: "-850.00",
+      nextExpectedDate: addDays(todayLocal(), 5),
+    });
+
+    const [serie] = await llistaSeries(ledgerId, { estats: ["active"] });
+    expect(serie?.id).toBe(id);
+    expect(serie?.label).toBe("Lloguer pis");
+    expect(serie?.expectedAmount).toBe("-850.00");
+    expect(serie?.includeInForecast).toBe(true);
+    expect(serie?.amountMode).toBe("exact");
+  });
+
+  test("reviu una serie descartada amb la mateixa signatura", async () => {
+    const c = await categoria("lloguer");
+    const id = await creaSerieManual(ledgerId, {
+      label: "Lloguer",
+      categoryId: c,
+      cadence: "monthly",
+      expectedAmount: "-800.00",
+      nextExpectedDate: todayLocal(),
+    });
+    await descartaSerie(id);
+
+    const revifada = await creaSerieManual(ledgerId, {
+      label: "Lloguer nou",
+      categoryId: c,
+      cadence: "monthly",
+      expectedAmount: "-900.00",
+      nextExpectedDate: addDays(todayLocal(), 10),
+    });
+    expect(revifada).toBe(id);
+
+    const [serie] = await llistaSeries(ledgerId, { estats: ["active"] });
+    expect(serie?.label).toBe("Lloguer nou");
+    expect(serie?.expectedAmount).toBe("-900.00");
+    expect(serie?.status).toBe("active");
+  });
+
+  test("conflicto si ja n'hi ha una d'activa", async () => {
+    const c = await categoria("lloguer");
+    await creaSerieManual(ledgerId, {
+      label: "Lloguer",
+      categoryId: c,
+      cadence: "monthly",
+      expectedAmount: "-800.00",
+      nextExpectedDate: todayLocal(),
+    });
+
+    await expect(
+      creaSerieManual(ledgerId, {
+        label: "Un altre",
+        categoryId: c,
+        cadence: "monthly",
+        expectedAmount: "-700.00",
+        nextExpectedDate: todayLocal(),
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  test("actualitzaImportSerie deixa l'import fix", async () => {
+    const c = await categoria("subscripcions");
+    const id = await creaSerieManual(ledgerId, {
+      label: "Netflix",
+      categoryId: c,
+      cadence: "monthly",
+      expectedAmount: "-12.99",
+      nextExpectedDate: todayLocal(),
+    });
+
+    await actualitzaImportSerie(id, "-15.00");
+    const [serie] = await llistaSeries(ledgerId, { estats: ["active"] });
+    expect(serie?.expectedAmount).toBe("-15.00");
+    expect(serie?.amountMode).toBe("exact");
+  });
+
+  test("descartaSerie treu una activa de la llista", async () => {
+    const c = await categoria("lloguer");
+    const id = await creaSerieManual(ledgerId, {
+      label: "Lloguer",
+      categoryId: c,
+      cadence: "monthly",
+      expectedAmount: "-800.00",
+      nextExpectedDate: todayLocal(),
+    });
+    await descartaSerie(id);
+    expect(await llistaSeries(ledgerId, { estats: ["active"] })).toHaveLength(0);
+  });
+});
+
+describe("moviments i recurrents", () => {
+  const filtreBase = {
+    accountId: null as number | null,
+    dataDes: null as string | null,
+    dataFins: null as string | null,
+    categoryIds: [] as number[],
+    merchantId: null as number | null,
+    cerca: "",
+    etiqueta: null as string | null,
+    tipusOperacio: [] as [],
+    targetes: [] as string[],
+    nomesRevisio: false,
+    nomesSenseClassificar: false,
+    incloTraspassos: true,
+    limit: 50,
+    offset: 0,
+  };
+
+  test("un moviment enllaçat duu serieId", async () => {
+    const c = await categoria("subscripcions");
+    const netflix = await comerc("NETFLIX");
+    const avui = todayLocal();
+    for (const [i, dies] of [90, 60, 30].entries()) {
+      await moviment(`n${i}`, addDays(avui, -dies), "-12.99", c, netflix);
+    }
+    await detectaRecurrents(ledgerId);
+
+    const pagina = await llistaMoviments(ledgerId, {
+      ...filtreBase,
+      inclouPrevistos: false,
+    });
+    const banc = pagina.items.filter((i) => i.tipus === "banc");
+    expect(banc.length).toBe(3);
+    expect(banc.every((i) => i.serieId !== null)).toBe(true);
+  });
+
+  test("amb previstos surten files projectades a la primera pagina", async () => {
+    const c = await categoria("lloguer");
+    await creaSerieManual(ledgerId, {
+      label: "Lloguer pis",
+      categoryId: c,
+      cadence: "monthly",
+      expectedAmount: "-850.00",
+      nextExpectedDate: addDays(todayLocal(), 3),
+    });
+
+    const pagina = await llistaMoviments(ledgerId, {
+      ...filtreBase,
+      inclouPrevistos: true,
+    });
+    const previstos = pagina.items.filter((i) => i.tipus === "previst");
+    expect(previstos.length).toBeGreaterThan(0);
+    expect(previstos[0]?.label).toBe("Lloguer pis");
+    expect(pagina.total).toBeGreaterThanOrEqual(previstos.length);
   });
 });

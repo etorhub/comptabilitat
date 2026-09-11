@@ -52,11 +52,16 @@ function moviment(id: number): MovimentVista {
     accountId: 1,
     accountName: "Compte",
     isMasked: false,
+    serieId: null,
+    serieLabel: null,
   };
 }
 
 async function taula(potEditar: boolean, quantes = 3): Promise<string> {
-  const items = Array.from({ length: quantes }, (_, i) => moviment(i + 1));
+  const items = Array.from({ length: quantes }, (_, i) => ({
+    tipus: "banc" as const,
+    ...moviment(i + 1),
+  }));
   return String(
     await Taula({
       codi: "personal",
@@ -157,7 +162,7 @@ describe("la taula de moviments", () => {
       await Taula({
         codi: "personal",
         pagina: {
-          items: [ambTargeta],
+          items: [{ tipus: "banc" as const, ...ambTargeta }],
           total: 1,
           offset: 0,
           limit: 50,
@@ -185,7 +190,7 @@ describe("la taula de moviments", () => {
       await Taula({
         codi: "personal",
         pagina: {
-          items: [transferencia],
+          items: [{ tipus: "banc" as const, ...transferencia }],
           total: 1,
           offset: 0,
           limit: 50,

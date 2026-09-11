@@ -63,6 +63,8 @@ export const transactionFiltersSchema = z.object({
   sense_classificar: casella,
   revisio: casella,
   traspassos: casella,
+  /** Si es marca, amaga les files projectades de recurrents. Per defecte es mostren. */
+  sense_previstos: casella,
   pagina: z.coerce.number().int().min(0).default(0),
 });
 
@@ -90,7 +92,8 @@ export function teFiltresActius(f: TransactionFilters): boolean {
     f.targeta.length > 0 ||
     f.sense_classificar ||
     f.revisio ||
-    f.traspassos,
+    f.traspassos ||
+    f.sense_previstos,
   );
 }
 
@@ -107,6 +110,7 @@ export function transactionFiltersToQuery(f: TransactionFilters): string {
   if (f.sense_classificar) p.set("sense_classificar", "1");
   if (f.revisio) p.set("revisio", "1");
   if (f.traspassos) p.set("traspassos", "1");
+  if (f.sense_previstos) p.set("sense_previstos", "1");
   if (f.pagina > 0) p.set("pagina", String(f.pagina));
   const q = p.toString();
   return q ? `?${q}` : "";

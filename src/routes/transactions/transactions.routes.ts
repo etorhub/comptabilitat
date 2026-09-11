@@ -82,6 +82,7 @@ async function dades(ledgerId: number, query: Record<string, string | string[]>)
       nomesRevisio: filters.revisio,
       nomesSenseClassificar: filters.sense_classificar,
       incloTraspassos: filters.traspassos,
+      inclouPrevistos: !filters.sense_previstos,
       limit: PER_PAGINA,
       offset: filters.pagina * PER_PAGINA,
     }),

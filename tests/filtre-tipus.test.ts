@@ -170,8 +170,11 @@ describe("filtre per tipus d'operacio", () => {
       tipusOperacio: ["transferencia"],
     });
     expect(pagina.items).toHaveLength(1);
-    expect(pagina.items[0]?.description).toBe("Maria Lopez");
-    expect(pagina.items[0]?.tipusOperacio).toBe("transferencia");
+    expect(pagina.items[0]?.tipus).toBe("banc");
+    if (pagina.items[0]?.tipus === "banc") {
+      expect(pagina.items[0].description).toBe("Maria Lopez");
+      expect(pagina.items[0].tipusOperacio).toBe("transferencia");
+    }
   });
 
   test("targeta o bizum (OR)", async () => {
@@ -179,7 +182,10 @@ describe("filtre per tipus d'operacio", () => {
       ...baseFiltre,
       tipusOperacio: ["targeta", "bizum"],
     });
-    const descs = pagina.items.map((i) => i.description).toSorted();
+    const descs = pagina.items
+      .filter((i) => i.tipus === "banc")
+      .map((i) => i.description)
+      .toSorted();
     expect(descs).toEqual(["Joan", "Mercadona"]);
   });
 
@@ -189,7 +195,10 @@ describe("filtre per tipus d'operacio", () => {
       tipusOperacio: ["altres"],
     });
     expect(pagina.items).toHaveLength(1);
-    expect(pagina.items[0]?.description).toMatch(/Intereses|Liquidacion/i);
+    expect(pagina.items[0]?.tipus).toBe("banc");
+    if (pagina.items[0]?.tipus === "banc") {
+      expect(pagina.items[0].description).toMatch(/Intereses|Liquidacion/i);
+    }
   });
 });
 
@@ -200,7 +209,10 @@ describe("filtre per targeta concreta", () => {
       targetes: ["1234"],
     });
     expect(pagina.items).toHaveLength(1);
-    expect(pagina.items[0]?.description).toBe("Mercadona");
+    expect(pagina.items[0]?.tipus).toBe("banc");
+    if (pagina.items[0]?.tipus === "banc") {
+      expect(pagina.items[0].description).toBe("Mercadona");
+    }
   });
 
   test("cap targeta seleccionada no filtra res", async () => {
