@@ -30,11 +30,12 @@ import { join, resolve } from "node:path";
 import { OBJECTIUS_OOB } from "../src/lib/oob.ts";
 
 const ARREL = resolve(import.meta.dir, "..");
-const AGENTS = join(ARREL, "AGENTS.md");
 
 interface Seccio {
   /** El nom que surt a les marques: `<!-- generat:<nom> -->`. */
   nom: string;
+  /** En quin fitxer viu, relatiu a l'arrel. */
+  fitxer: string;
   genera: () => Promise<string> | string;
 }
 
@@ -83,9 +84,17 @@ async function taulaRecursos(): Promise<string> {
   ].join("\n");
 }
 
+/**
+ * Les seccions generades viuen a `docs/`, no a l'`AGENTS.md`.
+ *
+ * L'`AGENTS.md` es el que ha de caber a la finestra de qui treballa; aquestes
+ * dues taules son material de consulta i sumen mes de cent linies. Qui necessiti
+ * la llista sencera d'objectius fora de banda la te aqui —i, sobretot, la te al
+ * `src/lib/oob.ts`, que es on el `tsc` l'hi dira.
+ */
 const SECCIONS: Seccio[] = [
-  { nom: "oob", genera: taulaOob },
-  { nom: "recursos", genera: taulaRecursos },
+  { nom: "oob", fitxer: "docs/referencia.md", genera: taulaOob },
+  { nom: "recursos", fitxer: "docs/referencia.md", genera: taulaRecursos },
 ];
 
 function marques(nom: string): { inici: string; fi: string } {
@@ -115,18 +124,18 @@ async function ambPrettier(text: string): Promise<string> {
   return sortida;
 }
 
-/** L'`AGENTS.md` amb totes les seccions generades al dia. */
-export async function agentsMdAlDia(original: string): Promise<string> {
+/** Un fitxer amb les seves seccions generades al dia. */
+export async function alDia(original: string, seccions: Seccio[]): Promise<string> {
   let text = original;
 
-  for (const seccio of SECCIONS) {
+  for (const seccio of seccions) {
     const { inici, fi } = marques(seccio.nom);
     const desde = text.indexOf(inici);
     const fins = text.indexOf(fi);
 
     if (desde === -1 || fins === -1 || fins < desde) {
       throw new Error(
-        `A l'AGENTS.md hi falten les marques de la seccio "${seccio.nom}".\n` +
+        `A ${seccio.fitxer} hi falten les marques de la seccio "${seccio.nom}".\n` +
           `Han de ser-hi totes dues, en aquest ordre:\n  ${inici}\n  ${fi}`,
       );
     }
@@ -140,22 +149,36 @@ export async function agentsMdAlDia(original: string): Promise<string> {
 
 async function principal(): Promise<void> {
   const comprova = process.argv.includes("--check");
-  const original = await Bun.file(AGENTS).text();
-  const alDia = await agentsMdAlDia(original);
 
-  if (original === alDia) {
-    console.log("[docs] les seccions generades de l'AGENTS.md son al dia.");
-    return;
+  const perFitxer = new Map<string, Seccio[]>();
+  for (const seccio of SECCIONS) {
+    perFitxer.set(seccio.fitxer, [...(perFitxer.get(seccio.fitxer) ?? []), seccio]);
   }
 
-  if (!comprova) {
-    await Bun.write(AGENTS, alDia);
-    console.log("[docs] AGENTS.md actualitzat.");
+  const endarrerits: string[] = [];
+
+  for (const [fitxer, seccions] of perFitxer) {
+    const cami = join(ARREL, fitxer);
+    const original = await Bun.file(cami).text();
+    const nou = await alDia(original, seccions);
+    if (original === nou) continue;
+
+    if (comprova) {
+      endarrerits.push(fitxer);
+      continue;
+    }
+    await Bun.write(cami, nou);
+    console.log(`[docs] ${fitxer} actualitzat.`);
+  }
+
+  if (endarrerits.length === 0) {
+    if (!comprova) console.log("[docs] les seccions generades son al dia.");
+    else console.log("[docs] les seccions generades son al dia.");
     return;
   }
 
   console.error(
-    "[docs] les seccions generades de l'AGENTS.md no encaixen amb el codi.\n\n" +
+    `[docs] les seccions generades no encaixen amb el codi: ${endarrerits.join(", ")}\n\n` +
       "Surten de `src/lib/oob.ts` i de `src/routes/`; no s'editen a ma.\n" +
       "Passa-hi `bun run docs` i torna a comprovar.",
   );

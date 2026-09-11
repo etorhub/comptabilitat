@@ -23,14 +23,16 @@ Qui no té accés a un espai no en veu res, ni tan sols que existeixi.
 | `src/workers/`   | El planificador i les cinc feines programades                              |
 | `public/`        | HTMX, ECharts, el full d'estil compilat i el fitxer de les gràfiques       |
 | `deploy/`        | Stacks de Docker Compose (producció i local), túnel de Cloudflare i còpies |
-| `docs/`          | Espais, provar-ho en local, Enable Banking, desplegament i operació        |
+| `docs/`          | Regles i motius, espais, provar-ho en local, desplegament i operació       |
 
 **Una sola cosa que córrer.** El servidor genera l'HTML i serveix els seus
 estàtics; no hi ha ni empaquetador, ni API JSON per al navegador, ni estat de
 client. La interactivitat és HTMX: el servidor torna el tros de pàgina que ha
 canviat. Les úniques línies de JavaScript pròpies són les gràfiques d'ECharts,
 que llegeixen les dades d'un `<script type="application/json">` que ha escrit
-el servidor. Detalls i convencions, a [`AGENTS.md`](AGENTS.md).
+el servidor. Les regles de la casa són a [`AGENTS.md`](AGENTS.md), i el perquè de cadascuna
+—amb les històries dels errors que la van fer necessària— a
+[`docs/perque.md`](docs/perque.md).
 
 ## Com funciona
 
@@ -86,12 +88,13 @@ Els detalls, i com fer-ho sense Docker, a [`docs/provar-en-local.md`](docs/prova
 
 ## Proves
 
-Hi ha dues tandes, i la primera no vol res:
+Després de qualsevol canvi, una sola ordre:
 
 ```bash
-bun run test:unitat   # sense base de dades, menys d'un segon
-bun run check         # tipus, estil, format i la frontera de les peces extraibles
+bun run ok    # comprovacions + la tanda que no vol base de dades. Un segon
 ```
+
+Si falla, diu quina passa ha fallat i què has de fer.
 
 `test:unitat` són `htmx-contract/` i `tests/unitat/`: el marcatge, la
 normalització, les exportacions i el contracte d'HTMX. No toquen la base de
