@@ -12,8 +12,8 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { dedupKey, parseTransaction } from "../src/lib/enablebanking/parsing.ts";
-import casos from "./fixtures/enablebanking.json";
+import { dedupKey, parseTransaction } from "../../src/lib/enablebanking/parsing.ts";
+import casos from "../fixtures/enablebanking.json";
 
 interface Cas {
   cru: Record<string, unknown>;

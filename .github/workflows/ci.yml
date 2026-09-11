@@ -14,6 +14,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  rapides:
+    # Sense cap servei de base de dades i sense DATABASE_URL: si una prova
+    # d'aquesta tanda arriba a fer una consulta, aqui peta. Es el que manté
+    # honesta la separacio, i el que demostra que `htmx-contract/` es pot
+    # endur a un paquet seu.
+    runs-on: ubuntu-latest
+
+    env:
+      SECRET_KEY: una-clau-de-proves-de-32-caracters-o-mes
+      PUBLIC_BASE_URL: http://localhost:8000
+      COOKIE_SECURE: "false"
+      ENVIRONMENT: local
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3"
+
+      - run: bun install --frozen-lockfile
+
+      - name: Proves sense base de dades
+        run: bun run test:unitat
+
   comprova:
     runs-on: ubuntu-latest
 
@@ -33,7 +58,9 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://comptabilitat:comptabilitat@127.0.0.1:5432/comptabilitat_test
-      # Nomes per a les proves: no obre res, pero la configuracio l'exigeix.
+      # Nomes per a les proves: no obre res. La configuracio te un valor per
+      # defecte i `validateConfig()` nomes peta amb ENVIRONMENT=production, pero
+      # val mes que les proves no depenguin del valor de per defecte.
       SECRET_KEY: una-clau-de-proves-de-32-caracters-o-mes
       PUBLIC_BASE_URL: http://localhost:8000
       COOKIE_SECURE: "false"
@@ -57,6 +84,9 @@ jobs:
 
       - name: Format
         run: bun run format:check
+
+      - name: Frontera de les peces extraibles
+        run: bun run frontera
 
       # L'esquema surt de les migracions, com a produccio.
       - name: Migracions

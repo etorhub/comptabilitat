@@ -9,8 +9,8 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { app } from "../src/server.ts";
-import { hrefEstatic } from "../src/lib/estatics.ts";
+import { app } from "../../src/server.ts";
+import { hrefEstatic } from "../../src/lib/estatics.ts";
 
 describe("estatics", () => {
   test("GET /htmx.min.js duu Cache-Control immutable", async () => {

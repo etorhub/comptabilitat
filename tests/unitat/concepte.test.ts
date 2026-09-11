@@ -7,7 +7,7 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { parsejaConcepte } from "../src/services/concepte.ts";
+import { parsejaConcepte } from "../../src/services/concepte.ts";
 
 describe("parsejaConcepte", () => {
   test("compra amb TARJ. emmascarada", () => {

@@ -86,17 +86,33 @@ Els detalls, i com fer-ho sense Docker, a [`docs/provar-en-local.md`](docs/prova
 
 ## Proves
 
+Hi ha dues tandes, i la primera no vol res:
+
 ```bash
-bun test              # cal un PostgreSQL accessible
-bun run typecheck     # estricte, sense cap `any`
+bun run test:unitat   # sense base de dades, menys d'un segon
+bun run check         # tipus, estil, format i la frontera de les peces extraibles
 ```
 
-Les proves volen una base de dades a part; la URL es dona amb `DATABASE_URL`:
+`test:unitat` són `htmx-contract/` i `tests/unitat/`: el marcatge, la
+normalització, les exportacions i el contracte d'HTMX. No toquen la base de
+dades, i a la integració contínua corren en una feina **sense cap servei de
+PostgreSQL**, que és el que manté honesta la separació.
+
+La resta de proves sí que en volen una, a part:
 
 ```bash
 createdb comptabilitat_test
-DATABASE_URL=postgresql://comptabilitat:comptabilitat@127.0.0.1:5432/comptabilitat_test bun test
+export DATABASE_URL=postgresql://comptabilitat:comptabilitat@127.0.0.1:5432/comptabilitat_test
+bun run test:bd
 ```
+
+**Fes servir `bun run test:bd`, no `bun test` a seques.** Les migracions
+s'apliquen en importar `src/server.ts`, i deu fitxers de proves l'importen: en
+una base de dades acabada de crear, es posen a migrar tots alhora i xoquen entre
+ells. El resultat és una primera passada amb una dotzena d'errors que no tenen
+res a veure amb el teu canvi. `test:bd` fa el que fa la integració contínua
+—aplicar les migracions primer i després `SKIP_MIGRATIONS=true`—, i llavors surt
+verd. Amb la base de dades ja migrada, `bun test` també va.
 
 Cap prova no toca res de fora: el banc, el servidor de correu i el model local
 són servidors locals muntats per la prova mateixa.

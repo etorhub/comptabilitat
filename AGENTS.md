@@ -320,14 +320,31 @@ N'hi ha molt poc i ha de continuar sent així.
 ## Proves
 
 ```bash
-bun run check          # typecheck + lint + format:check (el mateix que el CI)
-bun test
+bun run check          # typecheck + lint + format:check + frontera (el mateix que el CI)
+bun run test:unitat    # sense base de dades, menys d'un segon
+bun run test:bd        # la resta; cal un PostgreSQL accessible
 ```
 
 `bun run check` és **obligatori abans d'empènyer**. El CI falla si Prettier,
-oxlint o `tsc` no estan nets; no empentis esperant que el CI ho digui. Si el
-format falla, `bun run format` i torna a comprovar.
+oxlint, `tsc` o la frontera no estan nets; no empentis esperant que el CI ho
+digui. Si el format falla, `bun run format` i torna a comprovar.
 
+**Dues tandes, i la primera no vol res.** `tests/unitat/` i `htmx-contract/` no
+toquen la base de dades; a la integració contínua corren en una feina **sense
+cap servei de PostgreSQL**, i és això el que manté honesta la separació. Una
+prova nova que no necessiti base de dades va a `tests/unitat/`; si en necessita,
+es queda a `tests/`.
+
+**Per a la tanda amb base de dades, `bun run test:bd`, no `bun test` a seques.**
+Les migracions s'apliquen en importar `src/server.ts`, i deu fitxers de proves
+l'importen: en una base de dades acabada de crear es posen a migrar tots alhora
+i xoquen. Surten una dotzena d'errors que no tenen res a veure amb el teu canvi,
+i quatre proves que ni tan sols arrenquen. `test:bd` fa el que fa el CI —migrar
+primer, `SKIP_MIGRATIONS=true` després—, i llavors surt verd.
+
+- `tests/contracte.test.ts` demana **cada pàgina** de l'aplicació i la passa pel
+  contracte d'HTMX. La seva taula ha de cobrir tot `src/routes/`, i hi ha una
+  prova que ho comprova: si afegeixes un recurs, afegeix-hi l'entrada.
 - `tests/espais.test.ts` és la més important: comprova les dues garanties dels
   espais estancs. **No la toquis per fer passar res.**
 - Cap prova no toca res de fora. El banc, el servidor de correu i el model

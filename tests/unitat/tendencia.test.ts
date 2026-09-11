@@ -4,8 +4,8 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { money } from "../src/lib/money.ts";
-import { rectaMinimsQuadrats } from "../src/services/forecast.ts";
+import { money } from "../../src/lib/money.ts";
+import { rectaMinimsQuadrats } from "../../src/services/forecast.ts";
 
 describe("rectaMinimsQuadrats", () => {
   test("una serie lineal pura recupera els extrems", () => {

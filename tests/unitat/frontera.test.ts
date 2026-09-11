@@ -14,7 +14,7 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { comprovaFrontera } from "../scripts/frontera.ts";
+import { comprovaFrontera } from "../../scripts/frontera.ts";
 
 let arrel = "";
 const EXTRAIBLES = [{ dir: "paquet", paquets: ["bun:test"] }];
@@ -46,7 +46,7 @@ describe("importacions", () => {
   test("importar de fora del directori es un problema", async () => {
     await escriu(
       "index.ts",
-      `import { config } from "../src/config.ts";\nexport const v = config;\n`,
+      `import { config } from "../../src/config.ts";\nexport const v = config;\n`,
     );
     const problemes = await comprovaFrontera(EXTRAIBLES, arrel);
     expect(problemes).toHaveLength(1);
@@ -67,7 +67,7 @@ describe("importacions", () => {
   });
 
   test("un `export ... from` compta igual que un `import`", async () => {
-    await escriu("index.ts", `export { config } from "../src/config.ts";\n`);
+    await escriu("index.ts", `export { config } from "../../src/config.ts";\n`);
     const problemes = await comprovaFrontera(EXTRAIBLES, arrel);
     expect(problemes).toHaveLength(1);
     expect(problemes[0]?.motiu).toContain("es fora de paquet/");
@@ -76,7 +76,7 @@ describe("importacions", () => {
   test("una importacio dins d'un comentari no compta", async () => {
     await escriu(
       "index.ts",
-      `// import { config } from "../src/config.ts";\nexport const v = 1;\n`,
+      `// import { config } from "../../src/config.ts";\nexport const v = 1;\n`,
     );
     expect(await comprovaFrontera(EXTRAIBLES, arrel)).toEqual([]);
   });

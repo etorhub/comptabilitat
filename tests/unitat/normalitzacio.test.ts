@@ -19,8 +19,8 @@ import {
   displayName,
   normalizeDescription,
   stripAccents,
-} from "../src/services/normalization.ts";
-import casos from "./fixtures/normalitzacio.json";
+} from "../../src/services/normalization.ts";
+import casos from "../fixtures/normalitzacio.json";
 
 interface Cas {
   description: string;

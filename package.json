@@ -9,6 +9,8 @@
     "worker": "bun run src/workers/scheduler.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
+    "test:unitat": "SKIP_MIGRATIONS=true bun test htmx-contract tests/unitat",
+    "test:bd": "bun run db:apply && SKIP_MIGRATIONS=true bun test",
     "css": "tailwindcss -i src/styles/app.css -o public/app.css",
     "css:watch": "tailwindcss -i src/styles/app.css -o public/app.css --watch",
     "db:pull": "drizzle-kit pull",
