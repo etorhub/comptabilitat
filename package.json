@@ -27,7 +27,8 @@
     "docs:check": "bun run scripts/agents-md.ts --check",
     "check": "bun run scripts/comprova.ts",
     "ok": "bun run check && bun run test:unitat",
-    "db:apply": "bun run src/db/migrate.ts"
+    "db:apply": "bun run src/db/migrate.ts",
+    "nou-recurs": "bun run scripts/nou-recurs.ts"
   },
   "dependencies": {
     "croner": "^10.0.1",
