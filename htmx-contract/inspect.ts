@@ -54,6 +54,15 @@ export interface HxElement {
 export interface FormField {
   name: string;
   /**
+   * The `type` attribute, lowercased, for inputs; null for select and textarea.
+   *
+   * It matters because `checkbox` and `radio` are the two kinds of control that
+   * are *supposed* to share a name — that is how HTML spells "several values
+   * for one field" and "one of these". Without this, every multi-value filter
+   * in the application looks like the bug in `f5b8e9b`.
+   */
+  type: string | null;
+  /**
    * Which `<form>` encloses it, or null when it stands alone.
    *
    * Forms are numbered in document order. Two fields sharing a name only
@@ -166,10 +175,12 @@ export async function inspect(html: string): Promise<Snapshot> {
       element(el) {
         const name = el.getAttribute("name");
         if (name === null || name === "") return;
+        const tag = el.tagName.toLowerCase();
         fields.push({
           name,
+          type: tag === "input" ? (el.getAttribute("type") ?? "text").toLowerCase() : null,
           formIndex: openForms.at(-1) ?? null,
-          tag: el.tagName.toLowerCase(),
+          tag,
         });
       },
     })
@@ -269,6 +280,32 @@ export function outerHtmlOf(html: string, selector: string, index = 0): Promise<
 
 export function innerHtmlOf(html: string, selector: string, index = 0): Promise<string | null> {
   return fenced(html, selector, index, "inner");
+}
+
+/**
+ * One attribute of the first element matching `selector`.
+ *
+ * Small, but it replaces the usual regex over markup, which gets the answer
+ * right until the day an attribute moves or a quote style changes.
+ */
+export async function attributeOf(
+  html: string,
+  selector: string,
+  attribute: string,
+): Promise<string | null> {
+  let value: string | null = null;
+  let found = false;
+  await new HTMLRewriter()
+    .on(selector, {
+      element(el) {
+        if (found) return;
+        found = true;
+        value = el.getAttribute(attribute);
+      },
+    })
+    .transform(new Response(html))
+    .text();
+  return value;
 }
 
 /** The document with every `hx-swap-oob` element taken out, as htmx would. */

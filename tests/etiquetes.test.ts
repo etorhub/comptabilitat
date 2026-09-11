@@ -29,8 +29,7 @@ import {
   treuEtiqueta,
 } from "../src/services/tags.ts";
 import { app } from "../src/server.ts";
-
-const CONTRASENYA = "provaprovaprova";
+import { CONTRASENYA, entra } from "./ajuda.ts";
 
 let personalId = 0;
 let calellaId = 0;
@@ -41,23 +40,6 @@ let movimentCalella = 0;
 let sessioEditor = { cookie: "", csrf: "" };
 let sessioViewer = { cookie: "", csrf: "" };
 let sessioAdmin = { cookie: "", csrf: "" };
-
-async function entra(email: string): Promise<{ cookie: string; csrf: string }> {
-  const getEntrada = await app.request("/entrada");
-  const htmlEntrada = await getEntrada.text();
-  const seedCookie = (getEntrada.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
-  const camp = /name="_csrf" value="([^"]+)"/.exec(htmlEntrada)?.[1] ?? "";
-
-  const res = await app.request("/entrada", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
-    body: new URLSearchParams({ _csrf: camp, email, password: CONTRASENYA }).toString(),
-  });
-  const cookie = (res.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
-  const pagina = await app.request("/contrasenya", { headers: { Cookie: cookie } });
-  const csrf = /X-CSRF-Token": "([^"]+)"/.exec(await pagina.text())?.[1] ?? "";
-  return { cookie, csrf };
-}
 
 async function envia(
   url: string,

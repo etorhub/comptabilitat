@@ -24,6 +24,7 @@
  */
 
 export {
+  attributeOf,
   BOUNDED_POLL_ATTR,
   innerHtmlOf,
   inspect,

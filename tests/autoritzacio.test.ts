@@ -22,8 +22,7 @@ import {
 import { hashPassword } from "../src/lib/auth.ts";
 import { config } from "../src/lib/config.ts";
 import { app } from "../src/server.ts";
-
-const CONTRASENYA = "provaprovaprova";
+import { CONTRASENYA, entra } from "./ajuda.ts";
 
 const SESSIO = {
   session_id: "sessio-abc",
@@ -75,23 +74,6 @@ async function clauRsaPem(): Promise<string> {
     .toString("base64")
     .replace(/(.{64})/g, "$1\n");
   return `-----BEGIN PRIVATE KEY-----\n${base64}\n-----END PRIVATE KEY-----\n`;
-}
-
-async function entra(email: string): Promise<{ cookie: string; csrf: string }> {
-  const getEntrada = await app.request("/entrada");
-  const htmlEntrada = await getEntrada.text();
-  const seedCookie = (getEntrada.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
-  const camp = /name="_csrf" value="([^"]+)"/.exec(htmlEntrada)?.[1] ?? "";
-
-  const res = await app.request("/entrada", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
-    body: new URLSearchParams({ _csrf: camp, email, password: CONTRASENYA }).toString(),
-  });
-  const cookie = (res.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
-  const pagina = await app.request("/contrasenya", { headers: { Cookie: cookie } });
-  const csrf = /X-CSRF-Token": "([^"]+)"/.exec(await pagina.text())?.[1] ?? "";
-  return { cookie, csrf };
 }
 
 async function autoritza(

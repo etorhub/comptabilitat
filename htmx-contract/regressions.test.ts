@@ -110,6 +110,33 @@ describe("f5b8e9b — the table saved the category to the wrong row", () => {
     );
     expect(rules(found)).not.toContain("duplicate-field-in-form");
   });
+
+  test("checkboxes sharing a name are a multi-value filter, not a collision", async () => {
+    // The application's type filter is five checkboxes named `tipus` inside the
+    // filter form. That is how HTML spells "several values for one field", and
+    // this rule flagged every one of them until it learned the difference.
+    const caselles = ["ingres", "despesa", "transferencia", "targeta", "altres"]
+      .map((v) => `<input type="checkbox" name="tipus" value="${v}">`)
+      .join("");
+    const found = await checkDocument(`<form>${caselles}</form>`, { fragment: true });
+    expect(rules(found)).not.toContain("duplicate-field-in-form");
+  });
+
+  test("radios sharing a name are how you pick one of several", async () => {
+    const found = await checkDocument(
+      `<form><input type="radio" name="mode" value="a"><input type="radio" name="mode" value="b"></form>`,
+      { fragment: true },
+    );
+    expect(rules(found)).not.toContain("duplicate-field-in-form");
+  });
+
+  test("but a checkbox and a select sharing a name still collide", async () => {
+    const found = await checkDocument(
+      `<form><input type="checkbox" name="q" value="1"><select name="q"></select><select name="q"></select></form>`,
+      { fragment: true },
+    );
+    expect(rules(found)).toContain("duplicate-field-in-form");
+  });
 });
 
 describe("da64cb1 — deleting the last row left a header over nothing", () => {

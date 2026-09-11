@@ -25,8 +25,7 @@ import {
 import { seedCategories } from "../src/services/seed.ts";
 import { llistaMoviments, targetesDisponibles } from "../src/services/transactions.ts";
 import { app } from "../src/server.ts";
-
-const CONTRASENYA = "provaprovaprova";
+import { CONTRASENYA, entra } from "./ajuda.ts";
 
 let ledgerId = 0;
 let accountId = 0;
@@ -303,19 +302,6 @@ describe("schema de filtres tipus", () => {
   });
 });
 
-async function entra(email: string): Promise<string> {
-  const getEntrada = await app.request("/entrada");
-  const htmlEntrada = await getEntrada.text();
-  const seedCookie = (getEntrada.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
-  const camp = /name="_csrf" value="([^"]+)"/.exec(htmlEntrada)?.[1] ?? "";
-  const res = await app.request("/entrada", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
-    body: new URLSearchParams({ _csrf: camp, email, password: CONTRASENYA }).toString(),
-  });
-  return (res.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
-}
-
 describe("ruta de moviments amb filtre tipus", () => {
   test("la pagina i el fragment no tornen el mateix, i el push guarda tipus", async () => {
     const [usuari] = await db
@@ -333,7 +319,7 @@ describe("ruta de moviments amb filtre tipus", () => {
       ledgerId,
       role: "editor",
     });
-    const cookie = await entra("filtre-tipus@exemple.cat");
+    const { cookie } = await entra("filtre-tipus@exemple.cat");
 
     const pagina = await app.request("/e/personal/moviments?tipus=transferencia", {
       headers: { Cookie: cookie },
@@ -373,7 +359,7 @@ describe("ruta de moviments amb filtre tipus", () => {
       ledgerId,
       role: "editor",
     });
-    const cookie = await entra("filtre-targeta@exemple.cat");
+    const { cookie } = await entra("filtre-targeta@exemple.cat");
 
     const frag = await app.request("/e/personal/moviments/fragment/taula?targeta=1234", {
       headers: { Cookie: cookie },

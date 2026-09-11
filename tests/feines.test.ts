@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 
 import { app } from "../src/server.ts";
+import { CONTRASENYA, entra } from "./ajuda.ts";
 import { db } from "../src/db/client.ts";
 import {
   categories,
@@ -21,26 +22,6 @@ import {
 import { hashPassword } from "../src/lib/auth.ts";
 import { executaFeina } from "../src/services/job-runs.ts";
 import { seedCategories } from "../src/services/seed.ts";
-
-const CONTRASENYA = "provaprovaprova";
-
-async function entra(email: string): Promise<{ cookie: string; csrf: string }> {
-  const get = await app.request("/entrada");
-  const htmlEntrada = await get.text();
-  const seed = (get.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
-  const camp = /name="_csrf" value="([^"]+)"/.exec(htmlEntrada)?.[1] ?? "";
-
-  const res = await app.request("/entrada", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seed },
-    body: new URLSearchParams({ _csrf: camp, email, password: CONTRASENYA }).toString(),
-  });
-  const cookie = (res.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
-
-  const pagina = await app.request("/contrasenya", { headers: { Cookie: cookie } });
-  const csrf = /X-CSRF-Token": "([^"]+)"/.exec(await pagina.text())?.[1] ?? "";
-  return { cookie, csrf };
-}
 
 async function esperaTerminal(jobName: string, timeoutMs = 10_000): Promise<void> {
   const inici = Date.now();

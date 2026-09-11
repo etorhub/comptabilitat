@@ -12,44 +12,11 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 
 import { app } from "../src/server.ts";
+import { CONTRASENYA, entra } from "./ajuda.ts";
 import { db } from "../src/db/client.ts";
 import { alerts, ledgers, userLedgerPermissions, users } from "../src/db/schema/index.ts";
 import { hashPassword } from "../src/lib/auth.ts";
 import { eq } from "drizzle-orm";
-
-const CONTRASENYA = "provaprovaprova";
-
-interface Sessio {
-  cookie: string;
-  csrf: string;
-}
-
-/** Entra i torna la galeta de sessio i el testimoni CSRF que li correspon. */
-async function entra(email: string): Promise<Sessio> {
-  const getEntrada = await app.request("/entrada");
-  const htmlEntrada = await getEntrada.text();
-  const llavor = getEntrada.headers.get("set-cookie") ?? "";
-  const seedCookie = llavor.split(";")[0] ?? "";
-  const csrfCamp = /name="_csrf" value="([^"]+)"/.exec(htmlEntrada)?.[1] ?? "";
-
-  const res = await app.request("/entrada", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Cookie: seedCookie,
-    },
-    body: new URLSearchParams({ _csrf: csrfCamp, email, password: CONTRASENYA }).toString(),
-  });
-
-  const setCookie = res.headers.get("set-cookie") ?? "";
-  const cookie = setCookie.split(";")[0] ?? "";
-
-  // El testimoni CSRF de la sessio surt al `hx-headers` de qualsevol pagina.
-  const pagina = await app.request("/contrasenya", { headers: { Cookie: cookie } });
-  const csrf = /X-CSRF-Token": "([^"]+)"/.exec(await pagina.text())?.[1] ?? "";
-
-  return { cookie, csrf };
-}
 
 let idCalella = 0;
 let idAvisCalella = 0;
