@@ -166,8 +166,16 @@ export function TaulaDetall({
                 </tr>
               </thead>
               <tbody>
-                ${pagina.items.map((moviment) =>
-                  Fila({ codi, moviment, grups, potEditar, etiquetesConegudes }),
+                ${pagina.items.map((item) =>
+                  item.tipus === "banc"
+                    ? Fila({
+                        codi,
+                        moviment: item,
+                        grups,
+                        potEditar,
+                        etiquetesConegudes,
+                      })
+                    : "",
                 )}
               </tbody>
             </table>

@@ -23,9 +23,11 @@ import {
   type AmountMode,
   type Cadence,
 } from "../db/schema/index.ts";
+import { ConflictError } from "../lib/http.ts";
 import { addDays, daysBetween, todayLocal } from "../lib/time.ts";
-import { Decimal, money, toMoneyString } from "../lib/money.ts";
+import { Decimal, money, toMoneyString, type MoneyString } from "../lib/money.ts";
 import { creaAvis } from "./alerts.ts";
+import { categoriaDeLespai } from "./categories.ts";
 
 const CADENCE_TOLERANCE_DAYS: Record<Cadence, number> = {
   weekly: 2,
@@ -376,11 +378,147 @@ export async function confirmaSerie(
     .where(eq(recurringSeries.id, serieId));
 }
 
-/** Descarta una proposta: el detector ja no la tornarà a crear (mateixa signatura). */
+/** Descarta una serie: el detector ja no la tornarà a crear (mateixa signatura). */
 export async function descartaSerie(serieId: number, connexio: Transactor = db): Promise<void> {
   await connexio
     .update(recurringSeries)
     .set({ status: "dismissed", includeInForecast: false })
+    .where(eq(recurringSeries.id, serieId));
+}
+
+export interface DadesSerieManual {
+  label: string;
+  categoryId: number;
+  merchantId?: number | null;
+  cadence: Cadence;
+  /** Amb signe: positiu = ingrés, negatiu = despesa. */
+  expectedAmount: MoneyString;
+  nextExpectedDate: string;
+}
+
+function signaturaManual(
+  categoryId: number,
+  merchantId: number | null,
+  expectedAmount: MoneyString,
+): string {
+  return signatura({
+    id: 0,
+    bookingDate: "",
+    amount: expectedAmount,
+    categoryId,
+    merchantId,
+    merchantDisplay: null,
+    normalizedDescription: "",
+    description: "",
+    displayDescription: null,
+  });
+}
+
+/**
+ * Crea una serie activa a ma (o reviu una de descartada amb la mateixa
+ * signatura). Si ja n'hi ha una d'activa o suggerida, 409.
+ */
+export async function creaSerieManual(
+  ledgerId: number,
+  dades: DadesSerieManual,
+  connexio: Transactor = db,
+): Promise<number> {
+  await categoriaDeLespai(dades.categoryId, ledgerId);
+
+  const importEsperat = money(dades.expectedAmount);
+  if (importEsperat.isZero()) {
+    throw new ConflictError("L'import no pot ser zero");
+  }
+
+  const merchantId = dades.merchantId ?? null;
+  const signature = signaturaManual(dades.categoryId, merchantId, dades.expectedAmount);
+  const intervalDays = CADENCE_DAYS[dades.cadence];
+  const amount = toMoneyString(importEsperat);
+  const amountTolerance = toMoneyString(toleranciaDimport(importEsperat));
+  const dia = dades.nextExpectedDate;
+
+  const [existent] = await connexio
+    .select()
+    .from(recurringSeries)
+    .where(
+      and(eq(recurringSeries.ledgerId, ledgerId), eq(recurringSeries.signature, signature)),
+    )
+    .limit(1);
+
+  if (existent) {
+    if (existent.status !== "dismissed") {
+      throw new ConflictError("Ja hi ha una serie amb la mateixa categoria, comerç i sentit");
+    }
+
+    await connexio
+      .update(recurringSeries)
+      .set({
+        label: dades.label,
+        merchantId,
+        categoryId: dades.categoryId,
+        cadence: dades.cadence,
+        expectedAmount: amount,
+        amountTolerance,
+        amountMode: "exact",
+        intervalDays,
+        confidence: 1,
+        occurrencesCount: 0,
+        firstSeenDate: dia,
+        lastSeenDate: dia,
+        nextExpectedDate: dia,
+        status: "active",
+        includeInForecast: true,
+      })
+      .where(eq(recurringSeries.id, existent.id));
+
+    return existent.id;
+  }
+
+  const [creada] = await connexio
+    .insert(recurringSeries)
+    .values({
+      ledgerId,
+      signature,
+      label: dades.label,
+      merchantId,
+      categoryId: dades.categoryId,
+      cadence: dades.cadence,
+      expectedAmount: amount,
+      amountTolerance,
+      amountMode: "exact",
+      intervalDays,
+      confidence: 1,
+      occurrencesCount: 0,
+      firstSeenDate: dia,
+      lastSeenDate: dia,
+      nextExpectedDate: dia,
+      status: "active",
+      includeInForecast: true,
+    })
+    .returning({ id: recurringSeries.id });
+
+  if (!creada) throw new ConflictError("No s'ha pogut crear la serie");
+  return creada.id;
+}
+
+/** Canvia l'import esperat i el deixa fix perquè el detector no l'escrigui. */
+export async function actualitzaImportSerie(
+  serieId: number,
+  expectedAmount: MoneyString,
+  connexio: Transactor = db,
+): Promise<void> {
+  const importEsperat = money(expectedAmount);
+  if (importEsperat.isZero()) {
+    throw new ConflictError("L'import no pot ser zero");
+  }
+
+  await connexio
+    .update(recurringSeries)
+    .set({
+      expectedAmount: toMoneyString(importEsperat),
+      amountTolerance: toMoneyString(toleranciaDimport(importEsperat)),
+      amountMode: "exact",
+    })
     .where(eq(recurringSeries.id, serieId));
 }
 

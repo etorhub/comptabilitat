@@ -5,13 +5,14 @@
 import { html, raw } from "hono/html";
 
 import type { AmountMode, Cadence } from "../../db/schema/index.ts";
-import { Casella, Tria } from "../../components/form.tsx";
+import { Camp, Casella, Tria, type FieldErrors } from "../../components/form.tsx";
 import { TaulaDades } from "../../components/vista.tsx";
 import type { Html } from "../../lib/html.ts";
-import { formatMoney } from "../../lib/money.ts";
-import { formatDate } from "../../lib/time.ts";
+import { formatMoney, money } from "../../lib/money.ts";
+import { formatDate, todayLocal } from "../../lib/time.ts";
+import type { GrupCategories } from "../../services/categories.ts";
 import type { SerieVista } from "../../services/recurring-list.ts";
-import type { RecurringFilters } from "./recurring.schema.ts";
+import type { CreaSerieInput, RecurringFilters } from "./recurring.schema.ts";
 
 const CADENCIES: Record<Cadence, string> = {
   weekly: "setmanal",
@@ -62,7 +63,8 @@ export function Taula({
             <th class="dreta">Import</th>
             <th class="dreta">Al mes</th>
             <th>Seguent</th>
-            <th>A la previsio</th>` as Html),
+            <th>A la previsio</th>
+            ${potEditar ? html`<th></th>` : ""}` as Html),
       files: series.map((serie) =>
         sonPropostes
           ? FilaProposta({ codi, serie, potEditar })
@@ -160,6 +162,7 @@ export function FilaActiva({
   potEditar: boolean;
 }): Html {
   const base = `/e/${codi}/recurrents/${serie.id}`;
+  const importAbsolut = money(serie.expectedAmount).abs().toFixed(2);
 
   return html`<tr id="serie-${serie.id}" class="${serie.status === "ended" ? "inactiva" : ""}">
     <td>
@@ -177,7 +180,30 @@ export function FilaActiva({
       }
     </td>
     <td>${CADENCIES[serie.cadence]}</td>
-    <td class="dreta">${formatMoney(serie.expectedAmount)}</td>
+    <td class="dreta">
+      ${
+        potEditar && serie.status === "active"
+          ? html`<form
+            class="fila-accions"
+            hx-post="${base}/import"
+            hx-target="#serie-${serie.id}"
+            hx-swap="outerHTML"
+          >
+            <label class="camp camp-linia camp-estret">
+              <span class="visualment-ocult">Import</span>
+              <input
+                type="text"
+                name="amount"
+                inputmode="decimal"
+                value="${importAbsolut}"
+                aria-label="Import de ${serie.label}"
+              />
+            </label>
+            <button type="submit" class="boto">Desa</button>
+          </form>`
+          : formatMoney(serie.expectedAmount)
+      }
+    </td>
     <td class="dreta">${formatMoney(serie.monthlyCost)}</td>
     <td>
       ${
@@ -205,6 +231,26 @@ export function FilaActiva({
             : "No"
       }
     </td>
+    ${
+      potEditar
+        ? html`<td>
+          ${
+            serie.status === "active"
+              ? html`<button
+                type="button"
+                class="boto"
+                hx-post="${base}/descarta"
+                hx-target="#serie-${serie.id}"
+                hx-swap="outerHTML"
+                hx-confirm="Vols descartar «${serie.label}»? Ja no entrara a la previsio."
+              >
+                Descarta
+              </button>`
+              : ""
+          }
+        </td>`
+        : ""
+    }
   </tr>` as Html;
 }
 
@@ -219,13 +265,90 @@ export function BarraFiltres({ codi, filters }: BarraFiltresProps): Html {
     hx-get="/e/${codi}/recurrents/fragment/actives"
     hx-target="#taula-recurrents-actives"
     hx-swap="outerHTML"
-    hx-trigger="change"
+    hx-push-url="false"
   >
     ${Casella({
       nom: "inclou_acabades",
-      valor: "1",
       etiqueta: "Inclou les acabades",
       marcat: filters.inclou_acabades,
+      valor: "1",
+      atributs: 'onchange="this.form.requestSubmit()"',
     })}
+  </form>` as Html;
+}
+
+export interface FormAltaProps {
+  codi: string;
+  grups: GrupCategories[];
+  valors?: Partial<CreaSerieInput> & { amount?: string };
+  errors?: FieldErrors;
+}
+
+/** Formulari per afegir una serie activa a ma. */
+export function FormAlta({ codi, grups, valors = {}, errors }: FormAltaProps): Html {
+  return html`<form
+    id="form-recurrent-nou"
+    class="filtres"
+    hx-post="/e/${codi}/recurrents"
+    hx-target="#form-recurrent-nou"
+    hx-swap="outerHTML"
+  >
+    ${Camp({
+      nom: "label",
+      etiqueta: "Nom",
+      valor: valors.label ?? "",
+      errors,
+      requerit: true,
+      maxlength: 200,
+    })}
+    ${Tria({
+      nom: "category_id",
+      etiqueta: "Categoria",
+      valor: valors.category_id ?? "",
+      grups: grups.map((g) => ({
+        etiqueta: g.etiqueta,
+        opcions: g.opcions.map((o) => ({ valor: o.valor, text: o.text })),
+      })),
+      buit: "Tria’n una",
+      errors,
+    })}
+    ${Tria({
+      nom: "cadence",
+      etiqueta: "Cadencia",
+      valor: valors.cadence ?? "monthly",
+      opcions: (Object.keys(CADENCIES) as Cadence[]).map((c) => ({
+        valor: c,
+        text: CADENCIES[c],
+      })),
+      errors,
+    })}
+    ${Camp({
+      nom: "amount",
+      etiqueta: "Import",
+      valor: valors.amount ?? "",
+      errors,
+      requerit: true,
+      step: "0.01",
+      placeholder: "12.99",
+    })}
+    ${Tria({
+      nom: "sentit",
+      etiqueta: "Sentit",
+      valor: valors.sentit ?? "out",
+      opcions: [
+        { valor: "out", text: "Despesa" },
+        { valor: "in", text: "Ingres" },
+      ],
+      errors,
+    })}
+    ${Camp({
+      nom: "next_expected_date",
+      etiqueta: "Proxima data",
+      tipus: "date",
+      valor: valors.next_expected_date ?? todayLocal(),
+      errors,
+      requerit: true,
+    })}
+    <button type="submit" class="boto boto-primari">Afegeix</button>
   </form>` as Html;
 }

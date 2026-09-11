@@ -5,8 +5,9 @@
 import { html } from "hono/html";
 
 import type { Html } from "../../lib/html.ts";
+import type { GrupCategories } from "../../services/categories.ts";
 import type { SerieVista } from "../../services/recurring-list.ts";
-import { BarraFiltres, Taula } from "./recurring.fragment.tsx";
+import { BarraFiltres, FormAlta, Taula } from "./recurring.fragment.tsx";
 import type { RecurringFilters } from "./recurring.schema.ts";
 
 export interface RecurringPageProps {
@@ -15,10 +16,11 @@ export interface RecurringPageProps {
   actives: SerieVista[];
   filters: RecurringFilters;
   potEditar: boolean;
+  grups: GrupCategories[];
 }
 
 export function RecurringPage(props: RecurringPageProps): Html {
-  const { codi, propostes, actives, filters, potEditar } = props;
+  const { codi, propostes, actives, filters, potEditar, grups } = props;
 
   return html`
     <header class="capçalera">
@@ -27,8 +29,18 @@ export function RecurringPage(props: RecurringPageProps): Html {
         Rebuts previstos per a la previsio de saldo. El sistema en proposa a
         partir de l'historic; cal confirmar-los abans que entri a la previsio.
         L'import pot ser fix (lloguer, sou) o la mitjana recent (aigua, llum).
+        Tambe se'n pot afegir un a ma.
       </p>
     </header>
+
+    ${
+      potEditar
+        ? html`<section class="superficie targeta">
+          <h2>Afegeix un recurrent</h2>
+          ${FormAlta({ codi, grups })}
+        </section>`
+        : ""
+    }
 
     <section class="superficie targeta">
       <h2>Propostes</h2>
@@ -50,7 +62,7 @@ export function RecurringPage(props: RecurringPageProps): Html {
         series: actives,
         potEditar,
         idContenidor: "taula-recurrents-actives",
-        buit: "Encara no hi ha cap rebut confirmat. Confirma una proposta de dalt.",
+        buit: "Encara no hi ha cap rebut confirmat. Confirma una proposta de dalt o afegeix-ne un a ma.",
       })}
     </section>
   ` as Html;

@@ -37,6 +37,8 @@ const normal: MovimentVista = {
   tags: ["salut"],
   isExcluded: false,
   isMasked: false,
+  serieId: null,
+  serieLabel: null,
 };
 
 /** El mateix moviment, ja passat per `vistaMoviment()` amb alies. */
