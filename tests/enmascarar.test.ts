@@ -221,13 +221,12 @@ describe("la cerca", () => {
     const pagina = await llistaMoviments(ledgerId, { ...CAP_FILTRE, cerca: "CLINICA" });
     // Nomes hi ha de sortir el que no esta amagat.
     expect(pagina.items).toHaveLength(1);
-    expect(pagina.items[0]?.tipus).toBe("banc");
-    if (pagina.items[0]?.tipus === "banc") expect(pagina.items[0].id).toBe(idNormal);
+    expect(pagina.items[0]?.id).toBe(idNormal);
   });
 
   test("tampoc per la contrapart", async () => {
     const pagina = await llistaMoviments(ledgerId, { ...CAP_FILTRE, cerca: "Discreta SL" });
-    expect(pagina.items.every((t) => t.tipus !== "banc" || t.id !== idAmagat)).toBe(true);
+    expect(pagina.items.every((t) => t.id !== idAmagat)).toBe(true);
   });
 
   test("si que el troba per l'alies", async () => {
@@ -236,8 +235,7 @@ describe("la cerca", () => {
       cerca: "Despesa personal",
     });
     expect(pagina.items).toHaveLength(1);
-    expect(pagina.items[0]?.tipus).toBe("banc");
-    if (pagina.items[0]?.tipus === "banc") expect(pagina.items[0].id).toBe(idAmagat);
+    expect(pagina.items[0]?.id).toBe(idAmagat);
   });
 
   test("i per les notes", async () => {
@@ -248,8 +246,7 @@ describe("la cerca", () => {
 
     const pagina = await llistaMoviments(ledgerId, { ...CAP_FILTRE, cerca: "recordatori" });
     expect(pagina.items).toHaveLength(1);
-    expect(pagina.items[0]?.tipus).toBe("banc");
-    if (pagina.items[0]?.tipus === "banc") expect(pagina.items[0].id).toBe(idAmagat);
+    expect(pagina.items[0]?.id).toBe(idAmagat);
   });
 });
 

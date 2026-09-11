@@ -31,7 +31,7 @@ import {
   descartaSerie,
   detectaRecurrents,
 } from "../src/services/recurring.ts";
-import { llistaSeries } from "../src/services/recurring-list.ts";
+import { aparicionsSerie, llistaSeries } from "../src/services/recurring-list.ts";
 import { llistaMoviments } from "../src/services/transactions.ts";
 import { ConflictError } from "../src/lib/http.ts";
 import { seedCategories } from "../src/services/seed.ts";
@@ -541,16 +541,12 @@ describe("moviments i recurrents", () => {
     }
     await detectaRecurrents(ledgerId);
 
-    const pagina = await llistaMoviments(ledgerId, {
-      ...filtreBase,
-      inclouPrevistos: false,
-    });
-    const banc = pagina.items.filter((i) => i.tipus === "banc");
-    expect(banc.length).toBe(3);
-    expect(banc.every((i) => i.serieId !== null)).toBe(true);
+    const pagina = await llistaMoviments(ledgerId, filtreBase);
+    expect(pagina.items).toHaveLength(3);
+    expect(pagina.items.every((i) => i.serieId !== null)).toBe(true);
   });
 
-  test("amb previstos surten files projectades a la primera pagina", async () => {
+  test("els previstos no surten a la llista de moviments", async () => {
     const c = await categoria("lloguer");
     await creaSerieManual(ledgerId, {
       label: "Lloguer pis",
@@ -560,13 +556,24 @@ describe("moviments i recurrents", () => {
       nextExpectedDate: addDays(todayLocal(), 3),
     });
 
-    const pagina = await llistaMoviments(ledgerId, {
-      ...filtreBase,
-      inclouPrevistos: true,
-    });
-    const previstos = pagina.items.filter((i) => i.tipus === "previst");
-    expect(previstos.length).toBeGreaterThan(0);
-    expect(previstos[0]?.label).toBe("Lloguer pis");
-    expect(pagina.total).toBeGreaterThanOrEqual(previstos.length);
+    const pagina = await llistaMoviments(ledgerId, filtreBase);
+    expect(pagina.items.every((i) => i.serieId === null || i.id > 0)).toBe(true);
+    expect(pagina.items.some((i) => i.description === "Lloguer pis")).toBe(false);
+  });
+
+  test("aparicionsSerie torna els moviments enllaçats", async () => {
+    const c = await categoria("subscripcions");
+    const spotify = await comerc("SPOTIFY");
+    const avui = todayLocal();
+    for (const [i, dies] of [90, 60, 30].entries()) {
+      await moviment(`s${i}`, addDays(avui, -dies), "-9.99", c, spotify);
+    }
+    await detectaRecurrents(ledgerId);
+    const [serie] = await llistaSeries(ledgerId, { estats: ["suggested"] });
+    expect(serie).toBeDefined();
+    if (!serie) return;
+
+    const aparicions = await aparicionsSerie(serie.id, ledgerId);
+    expect(aparicions).toHaveLength(3);
   });
 });

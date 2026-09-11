@@ -926,6 +926,32 @@ tr.inactiva {
   opacity: 0.6;
 }
 
+.llista-aparicions {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+}
+
+.llista-aparicions li {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr auto;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+  color: var(--text-suau);
+}
+
+.llista-aparicions time {
+  font-variant-numeric: tabular-nums;
+}
+
+.fila-accions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .condicions-camp {
   border: 1px solid var(--vora);
   border-radius: 0.5rem;
