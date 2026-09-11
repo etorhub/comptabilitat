@@ -89,6 +89,29 @@ src/
 - **`db/schema/` va per agregat, no per recurs.** Les claus foranes es creuen
   entre taules que la interfície tracta com a recursos diferents.
 
+Quins recursos hi ha ara mateix, i quins dels quatre fitxers té cadascun. Surt
+de `src/routes/`; no s'edita a mà.
+
+<!-- generat:recursos -->
+
+| Recurs          | `.routes` | `.page` | `.fragment` | `.schema` |
+| --------------- | --------- | ------- | ----------- | --------- |
+| `alerts/`       | sí        | sí      | sí          | sí        |
+| `analytics/`    | sí        | sí      | sí          | sí        |
+| `auth/`         | sí        | sí      | sí          | sí        |
+| `categories/`   | sí        | sí      | sí          | sí        |
+| `connections/`  | sí        | sí      | sí          | sí        |
+| `exports/`      | sí        | —       | —           | sí        |
+| `home/`         | sí        | —       | —           | —         |
+| `jobs/`         | sí        | sí      | sí          | sí        |
+| `recurring/`    | sí        | sí      | sí          | sí        |
+| `tags/`         | sí        | sí      | sí          | sí        |
+| `transactions/` | sí        | sí      | sí          | sí        |
+| `users/`        | sí        | sí      | sí          | sí        |
+| `workspaces/`   | sí        | sí      | sí          | sí        |
+
+<!-- /generat:recursos -->
+
 ---
 
 ## Pàgina o fragment
@@ -179,11 +202,30 @@ retornis codis a mà.
 Quan una mutació canvia alguna cosa que és **fora del seu propi tros**, la torna
 al costat, amb `hx-swap-oob="true"`. Fes servir `withOob()`.
 
-| Objectiu             | De qui és     | Quan canvia                      |
-| -------------------- | ------------- | -------------------------------- |
-| `#toast`             | `lib/http.ts` | qualsevol error o confirmació    |
-| `#comptador-revisio` | moviments     | es classifica un moviment        |
-| `#comptador-avisos`  | avisos        | es llegeix o es descarta un avís |
+**Aquesta taula surt de `src/lib/oob.ts`; no s'edita a mà.** Hi va haver una
+temporada que en llistava tres mentre el codi en dibuixava tretze, i això
+després d'un commit dedicat a reconciliar-la. Ara la genera `bun run docs` i
+`bun run check` falla si no encaixa.
+
+<!-- generat:oob -->
+
+| Objectiu                      | De qui és            | Quan canvia                                    |
+| ----------------------------- | -------------------- | ---------------------------------------------- |
+| `#toast` _(contingut)_        | lib/http.ts          | qualsevol error o confirmacio                  |
+| `#comptador-revisio`          | components/layout.ts | es classifica un moviment                      |
+| `#comptador-avisos`           | components/layout.ts | es llegeix o es descarta un avis               |
+| `#arbre-categories`           | routes/categories    | es crea, es canvia o s'esborra una categoria   |
+| `#filtre-targetes`            | routes/transactions  | canvien les targetes conegudes de l'espai      |
+| `#taula-recurrents-propostes` | routes/recurring     | es confirma o es descarta una proposta         |
+| `#taula-recurrents-actives`   | routes/recurring     | es confirma, es canvia o es descarta una serie |
+| `#llista-connexions`          | routes/connections   | es connecta, es mou o s'esborra un compte      |
+| `#llista-usuaris`             | routes/users         | es crea, es canvia o s'esborra un usuari       |
+| `#llista-feines`              | routes/jobs          | canvia la configuracio d'una feina             |
+| `#historial-feines`           | routes/jobs          | acaba una execucio                             |
+| `#en-curs`                    | routes/jobs          | arrenca o acaba una feina                      |
+| `#agenda-salut`               | routes/jobs          | canvia l'estat del planificador                |
+
+<!-- /generat:oob -->
 
 Els **rebuts previstos** (`recurring_series`) són schedules: el detector només
 proposa (`suggested`); la persona confirma (`active`) o descarta a

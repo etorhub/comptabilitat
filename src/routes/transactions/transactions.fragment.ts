@@ -12,6 +12,7 @@ import type { CategorySource } from "../../db/schema/index.ts";
 import { Filador, Paginacio, TaulaDades } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
+import { atributsOob } from "../../lib/oob.ts";
 import type { GrupCategories } from "../../services/categories.ts";
 import type {
   ItemRevisio,
@@ -572,9 +573,8 @@ export function FiltreTargetes({
 }): Html {
   if (targetes.length === 0) return html`` as Html;
   return html`<fieldset
-    id="filtre-targetes"
+    ${atributsOob("filtre-targetes", oob)}
     class="filtre-tipus filtre-targetes"
-    ${oob ? raw('hx-swap-oob="true"') : ""}
   >
     <legend class="camp-etiqueta">Targeta</legend>
     ${targetes.map((t) =>

@@ -13,6 +13,7 @@ import {
 } from "../../db/schema/index.ts";
 import { TaulaDades } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
+import { atributsOob } from "../../lib/oob.ts";
 
 const NOMS_ROL: Record<LedgerRole, string> = {
   viewer: "Pot mirar",
@@ -33,7 +34,7 @@ export interface LlistaProps {
 }
 
 export function Llista({ usuaris, espais, jo, oob = false }: LlistaProps): Html {
-  return html`<div id="llista-usuaris" ${oob ? raw('hx-swap-oob="true"') : ""}>
+  return html`<div ${atributsOob("llista-usuaris", oob)}>
     ${usuaris.map((usuari) => Targeta({ usuari, espais, jo }))}
   </div>` as Html;
 }

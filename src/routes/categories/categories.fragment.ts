@@ -15,6 +15,7 @@ import type { CategoryKind } from "../../db/schema/index.ts";
 import { TaulaDades } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
+import { atributsOob } from "../../lib/oob.ts";
 import type {
   CategoriaVista,
   GrupCategories,
@@ -38,11 +39,7 @@ export interface ArbreProps {
 }
 
 export function Arbre({ codi, arbre, potEditar, oob = false }: ArbreProps): Html {
-  return html`<div
-    id="arbre-categories"
-    class="arbre"
-    ${oob ? raw('hx-swap-oob="true"') : ""}
-  >
+  return html`<div ${atributsOob("arbre-categories", oob)} class="arbre">
     ${ORDRE_KIND.map((kind) => {
       const nodes = arbre[kind];
       if (nodes.length === 0) return "";

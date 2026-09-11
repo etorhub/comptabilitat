@@ -17,6 +17,7 @@ import type { Html } from "../lib/html.ts";
 import type { Ledger, LedgerRole, User } from "../db/schema/index.ts";
 import { CSRF_HEADER } from "../lib/csrf.ts";
 import { hrefEstatic } from "../lib/estatics.ts";
+import { atributsOob } from "../lib/oob.ts";
 
 export interface LayoutProps {
   titol: string;
@@ -317,18 +318,16 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous, ruta }: SidebarP
  */
 export function ComptadorRevisio(n: number, oob = false) {
   return html`<span
-    id="comptador-revisio"
+    ${atributsOob("comptador-revisio", oob)}
     class="comptador ${n > 0 ? "comptador-actiu" : ""}"
-    ${oob ? raw('hx-swap-oob="true"') : ""}
     >${n > 0 ? String(n) : ""}</span
   >`;
 }
 
 export function ComptadorAvisos(n: number, oob = false) {
   return html`<span
-    id="comptador-avisos"
+    ${atributsOob("comptador-avisos", oob)}
     class="comptador ${n > 0 ? "comptador-avis" : ""}"
-    ${oob ? raw('hx-swap-oob="true"') : ""}
     >${n > 0 ? String(n) : ""}</span
   >`;
 }

@@ -15,6 +15,7 @@ import type { JobRun, JobStatus, SyncRun } from "../../db/schema/index.ts";
 import { config } from "../../lib/config.ts";
 import type { Html } from "../../lib/html.ts";
 import type { PaginaHistorial, ResumSalut } from "../../services/job-runs.ts";
+import { atributsOob } from "../../lib/oob.ts";
 import {
   ETIQUETES_ESTAT,
   ETIQUETES_FEINA,
@@ -105,9 +106,8 @@ export function AgendaSalut({
 }): Html {
   const passada = salut.darreraPassadaDiaria;
   return html`<section
-    id="agenda-salut"
+    ${atributsOob("agenda-salut", oob)}
     class="superficie targeta"
-    ${oob ? raw('hx-swap-oob="true"') : ""}
   >
     <h2 class="menu-titol">Agenda i salut</h2>
     <div class="feines-comptadors">
@@ -224,7 +224,7 @@ export function LlistaFeines({
   enCurs: Set<string>;
   oob?: boolean;
 }): Html {
-  return html`<div id="llista-feines" ${oob ? raw('hx-swap-oob="true"') : ""}>
+  return html`<div ${atributsOob("llista-feines", oob)}>
     <section>
       <h2 class="menu-titol">Passades</h2>
       ${passades.map((feina) =>
@@ -257,9 +257,8 @@ export function LlistaFeines({
 export function EnCurs({ runs, oob = false }: { runs: JobRun[]; oob?: boolean }): Html {
   const corrent = runs.length > 0;
   return html`<section
-    id="en-curs"
+    ${atributsOob("en-curs", oob)}
     class="superficie targeta"
-    ${oob ? raw('hx-swap-oob="true"') : ""}
     ${
       corrent
         ? raw(
@@ -436,7 +435,7 @@ export function LlistaHistorial({
   const desde = pagina.total === 0 ? 0 : pagina.pagina * pagina.limit + 1;
   const fins = Math.min((pagina.pagina + 1) * pagina.limit, pagina.total);
 
-  return html`<div id="historial-feines" ${oob ? raw('hx-swap-oob="true"') : ""}>
+  return html`<div ${atributsOob("historial-feines", oob)}>
     ${BarraFiltresHistorial({ filters })}
     ${TaulaDades({
       columnes:

@@ -23,7 +23,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "frontera": "bun run scripts/frontera.ts",
-    "check": "bun run typecheck && bun run lint && bun run format:check && bun run frontera",
+    "docs": "bun run scripts/agents-md.ts",
+    "docs:check": "bun run scripts/agents-md.ts --check",
+    "check": "bun run typecheck && bun run lint && bun run format:check && bun run frontera && bun run docs:check",
     "db:apply": "bun run src/db/migrate.ts"
   },
   "dependencies": {

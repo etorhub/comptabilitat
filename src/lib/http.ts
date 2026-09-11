@@ -19,6 +19,7 @@ import { html, raw } from "hono/html";
 import type { HtmlEscapedString } from "hono/utils/html";
 
 import type { Html } from "./html.ts";
+import { embolcallOob } from "./oob.ts";
 
 /** Error del domini que sap amb quin codi HTTP s'ha de contestar. */
 export class AppError extends Error {
@@ -129,7 +130,7 @@ const TONES: Record<ToastTone, { classe: string; etiqueta: string }> = {
  */
 export function toast(missatge: string, tone: ToastTone = "error", detall?: string) {
   const { classe, etiqueta } = TONES[tone];
-  return html`<div hx-swap-oob="innerHTML:#toast">
+  return html`<div ${embolcallOob("toast")}>
     <div class="toast ${classe}" role="${tone === "error" ? "alert" : "status"}">
       <div class="toast-cos">
         <strong>${etiqueta}</strong>
@@ -150,7 +151,7 @@ export function toast(missatge: string, tone: ToastTone = "error", detall?: stri
 
 /** El `#toast` buit que va a totes les respostes correctes, per netejar l'anterior. */
 export function clearToast() {
-  return html`<div hx-swap-oob="innerHTML:#toast"></div>`;
+  return html`<div ${embolcallOob("toast")}></div>`;
 }
 
 /**

@@ -13,6 +13,7 @@ import { formatDate, todayLocal } from "../../lib/time.ts";
 import type { GrupCategories } from "../../services/categories.ts";
 import type { AparicioVista, SerieVista } from "../../services/recurring-list.ts";
 import type { CreaSerieInput, RecurringFilters } from "./recurring.schema.ts";
+import { atributsOob, type IdOob } from "../../lib/oob.ts";
 
 const CADENCIES: Record<Cadence, string> = {
   weekly: "setmanal",
@@ -68,7 +69,7 @@ export interface TaulaProps {
   series: SerieVista[];
   potEditar: boolean;
   /** Id del contenidor HTMX (suggestions vs actives). */
-  idContenidor: string;
+  idContenidor: IdOob;
   buit: Html | string;
   /** Si true, mostra el formulari de confirmar/descartar. */
   sonPropostes?: boolean;
@@ -83,7 +84,7 @@ export function Taula({
   sonPropostes = false,
   oob = false,
 }: TaulaProps & { oob?: boolean }): Html {
-  return html`<div id="${idContenidor}" ${oob ? raw('hx-swap-oob="true"') : ""}>
+  return html`<div ${atributsOob(idContenidor, oob)}>
     ${TaulaDades({
       columnes: sonPropostes
         ? (html`<th>Proposta</th>

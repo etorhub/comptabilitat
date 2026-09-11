@@ -11,6 +11,7 @@ import { EstatBuit, Filador, TaulaDades } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
 import { formatDate } from "../../lib/time.ts";
+import { atributsOob } from "../../lib/oob.ts";
 
 const ESTATS: Record<ConnectionStatus, { text: string; classe: string }> = {
   pending: { text: "pendent d'autoritzar", classe: "etiqueta-suau" },
@@ -49,7 +50,7 @@ export interface LlistaProps {
 }
 
 export function Llista({ connexions, espais, oob = false }: LlistaProps): Html {
-  return html`<div id="llista-connexions" ${oob ? raw('hx-swap-oob="true"') : ""}>
+  return html`<div ${atributsOob("llista-connexions", oob)}>
     ${
       connexions.length === 0
         ? EstatBuit("Encara no hi ha cap banc connectat.")
