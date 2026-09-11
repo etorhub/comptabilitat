@@ -1,2 +1,5 @@
 # Passada de format a tot el codi; no hi ha cap canvi de comportament.
 4096ab4b67d8b983ab4a32b1b0957ed2c2c01b01
+
+# Els .tsx passen a .ts (no hi havia JSX enlloc); no hi ha cap canvi de comportament.
+ac0421e9568adf49a8751058a8d21776ae8e94f7
