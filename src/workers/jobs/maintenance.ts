@@ -9,6 +9,7 @@
  */
 
 import { purgeExpiredSessions } from "../../lib/auth.ts";
+import { tancaFeinesPenjades } from "../../services/job-runs.ts";
 import { reassignaNormalitzacio } from "../../services/merchants.ts";
 import { tancaImportacionsPenjades } from "../../services/sync.ts";
 
@@ -20,11 +21,13 @@ export async function feinaManteniment(): Promise<string> {
   // I una importacio que es va quedar a mitges deixa la pagina de connexions
   // sondejant cada dos segons per sempre.
   const penjades = await tancaImportacionsPenjades();
+  const feinesPenjades = await tancaFeinesPenjades();
   const reassignacio = await reassignaNormalitzacio();
 
   return (
     `${esborrades} sessions caducades esborrades; ` +
     `${penjades} importacions penjades tancades; ` +
+    `${feinesPenjades} feines penjades tancades; ` +
     `normalitzacio: ${reassignacio.canviats} de ${reassignacio.revisats} moviments reassignats`
   );
 }

@@ -175,8 +175,9 @@ la mutació de la pròpia pàgina.
 - **Mai facis sondeig** ni tornis a demanar-ho tot. Això substitueix
   l'`invalidaEspai()` de l'aplicació de React, que després de cada mutació
   refrescava la llista, el panell i els dos comptadors sense dir-ho.
-- **Excepció única:** l'estat d'una sincronització del banc, que sí que fa
-  sondeig i s'atura sol quan la feina acaba.
+- **Excepció única:** l'estat d'una sincronització del banc i el monitoratge
+  de feines en curs a `/feines`, que sí que fan sondeig i s'aturen sols quan
+  la feina acaba.
 - **`#toast` no fa `hx-swap-oob="true"` com la resta.** Fa
   `hx-swap-oob="innerHTML:#toast"`: es canvia el **contingut**, no el
   contenidor. El `<div id="toast">` neix amb `aria-live="polite"` a

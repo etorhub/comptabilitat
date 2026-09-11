@@ -10,8 +10,8 @@
  * Aqui la feina arrenca en segon pla i la ruta contesta de seguida amb la fila
  * de `sync_runs` en estat «running». El fragment que torna porta
  * `hx-trigger="every 2s"` sobre una ruta d'estat i, quan la feina acaba, el
- * fragment nou ja no en porta: el sondeig s'atura sol. **Es l'unic sondeig de
- * tota l'aplicacio i esta acotat.**
+ * fragment nou ja no en porta: el sondeig s'atura sol. **Es un dels dos
+ * sondejos de l'aplicacio** (amb el d'en curs a `/feines`) i esta acotat.
  *
  * No hi ha cua ni intermediari perque no calen: aixo es una instal·lacio d'una
  * sola maquina i el banc nomes deixa unes quantes crides al dia.
