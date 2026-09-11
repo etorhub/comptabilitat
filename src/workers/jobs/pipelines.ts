@@ -5,9 +5,13 @@
  * importar-se: la UI i el CLI no el poden tocar. L'ordre importa: no te
  * sentit classificar abans d'haver importat, ni analitzar recurrents abans
  * d'haver classificat.
+ *
+ * Cada pas passa per `executaPas` quan corre dins d'`executaFeina`, de
+ * manera que l'historial mostra la passada i els fills.
  */
 
 import { config } from "../../lib/config.ts";
+import { executaPas } from "../../services/job-runs.ts";
 import { feinaAnalisi } from "./analyze.ts";
 import { feinaClassificacio } from "./classify.ts";
 import { feinaModelLocal } from "./llm.ts";
@@ -18,9 +22,9 @@ import { feinaSincronitzacio } from "./sync.ts";
 /** Importar, classificar i analitzar, en aquest ordre. */
 export async function passadaDiaria(): Promise<string> {
   const trossos: string[] = [];
-  trossos.push(await feinaSincronitzacio());
-  trossos.push(await feinaClassificacio());
-  trossos.push(await feinaAnalisi());
+  trossos.push(await executaPas("sync", () => feinaSincronitzacio()));
+  trossos.push(await executaPas("classify", feinaClassificacio));
+  trossos.push(await executaPas("analyze", feinaAnalisi));
   return trossos.join("\n");
 }
 
@@ -29,8 +33,8 @@ export async function passadaDiaria(): Promise<string> {
  * ja sense model, per escampar el que hagi proposat.
  */
 export async function passadaNocturna(): Promise<string> {
-  const model = await feinaModelLocal();
-  const classificacio = await feinaClassificacio();
+  const model = await executaPas("llm", () => feinaModelLocal());
+  const classificacio = await executaPas("classify", feinaClassificacio);
   return `${model}\n${classificacio}`;
 }
 
@@ -45,11 +49,11 @@ export async function passadaTotes(
   ambModelLocal: boolean = config.ollamaEnabled,
 ): Promise<string> {
   const trossos: string[] = [];
-  trossos.push(await passadaDiaria());
+  trossos.push(await executaPas("passada-diaria", passadaDiaria));
   if (ambModelLocal) {
-    trossos.push(await passadaNocturna());
+    trossos.push(await executaPas("passada-nocturna", passadaNocturna));
   }
-  trossos.push(await feinaAvisos());
-  trossos.push(await feinaManteniment());
+  trossos.push(await executaPas("notify", feinaAvisos));
+  trossos.push(await executaPas("maintenance", feinaManteniment));
   return trossos.join("\n");
 }

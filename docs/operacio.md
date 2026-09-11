@@ -27,6 +27,13 @@ docker compose exec worker bun run jobs maintenance # esborra les sessions caduc
 
 `sync` accepta `--connexio 1` i `--dies 30`; `notify`, `--urgents`.
 
+La pagina `/feines` ja no es nomes un panell de botons: hi ha l'agenda del
+cron, les feines en curs (amb sondeig mentre n'hi ha), i l'historial de cada
+execució (origen, durada, resum i errors), tant si ve del planificador, de la
+UI o del CLI. Els registres del contenidor (`docker compose logs -f worker`)
+continuen sent utils per al detall brut, pero el monitoratge del dia a dia es
+fa des de la pagina.
+
 ## Com es classifiquen els moviments
 
 Tot passa **dins d'un espai**: les regles, els comerços i les categories d'un espai no

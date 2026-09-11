@@ -59,6 +59,23 @@ export const SYNC_TRIGGERS = values("scheduled", "manual", "initial");
 export type SyncTrigger = (typeof SYNC_TRIGGERS)[number];
 export const syncTriggerSchema = z.enum(SYNC_TRIGGERS);
 
+// --- Feines del planificador -----------------------------------------------
+
+/** Mateixos valors que `SyncStatus`: una execució de feina té el mateix cicle. */
+export const JOB_STATUSES = SYNC_STATUSES;
+export type JobStatus = SyncStatus;
+export const jobStatusSchema = syncStatusSchema;
+
+export const TERMINAL_JOB_STATUSES = TERMINAL_SYNC_STATUSES;
+export function isJobFinished(status: JobStatus): boolean {
+  return isSyncFinished(status);
+}
+
+/** D'on s'ha engegat la feina. `manual` = UI d'administració. */
+export const JOB_TRIGGERS = values("scheduled", "manual", "cli");
+export type JobTrigger = (typeof JOB_TRIGGERS)[number];
+export const jobTriggerSchema = z.enum(JOB_TRIGGERS);
+
 // --- Moviments -------------------------------------------------------------
 
 export const TRANSACTION_STATUSES = values("booked", "pending");

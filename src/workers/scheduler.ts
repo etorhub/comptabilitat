@@ -17,6 +17,7 @@ import { Cron } from "croner";
 
 import { closeDb } from "../db/client.ts";
 import { config, validateConfig } from "../lib/config.ts";
+import { executaFeina } from "../services/job-runs.ts";
 import { feinaAnalisi } from "./jobs/analyze.ts";
 import { feinaManteniment } from "./jobs/maintenance.ts";
 import { feinaAvisos, feinaAvisosUrgents } from "./jobs/notify.ts";
@@ -28,12 +29,12 @@ validateConfig();
  * Executa una feina sense deixar que un error se'n dugui el planificador.
  *
  * Es el `_run()` del Python: una feina que peta es registra i prou; les altres
- * han de continuar corrent.
+ * han de continuar corrent. El resultat queda a `job_runs`.
  */
 async function corre(nom: string, feina: () => Promise<string>): Promise<void> {
   const començat = Date.now();
   try {
-    const resum = await feina();
+    const resum = await executaFeina(nom, "scheduled", feina);
     console.info(`[${nom}] fet en ${Math.round((Date.now() - començat) / 1000)}s\n${resum}`);
   } catch (error) {
     console.error(`[${nom}] ha fallat:`, error);
@@ -60,7 +61,7 @@ function main(): void {
   // Una analisi a banda, per si durant el dia s'ha classificat a ma.
   feines.push(
     new Cron(`45 ${config.analysisCronHour} * * *`, opcions, () =>
-      corre("analisi", feinaAnalisi),
+      corre("analyze", feinaAnalisi),
     ),
   );
 
@@ -69,23 +70,23 @@ function main(): void {
   if (config.ollamaEnabled) {
     feines.push(
       new Cron(`15 ${config.classifyCronHour} * * *`, opcions, () =>
-        corre("model-local", passadaNocturna),
+        corre("passada-nocturna", passadaNocturna),
       ),
     );
   }
 
   // El resum d'avisos, un cop al dia.
   feines.push(
-    new Cron(`0 ${config.notifyCronHour} * * *`, opcions, () => corre("avisos", feinaAvisos)),
+    new Cron(`0 ${config.notifyCronHour} * * *`, opcions, () => corre("notify", feinaAvisos)),
   );
 
   // Els urgents, cada hora: un descobert previst no pot esperar al resum.
   feines.push(
-    new Cron("5 * * * *", opcions, () => corre("avisos-urgents", feinaAvisosUrgents)),
+    new Cron("5 * * * *", opcions, () => corre("notify-urgents", feinaAvisosUrgents)),
   );
 
   // Manteniment: esborra les sessions caducades.
-  feines.push(new Cron("30 4 * * *", opcions, () => corre("manteniment", feinaManteniment)));
+  feines.push(new Cron("30 4 * * *", opcions, () => corre("maintenance", feinaManteniment)));
 
   console.info(
     `[planificador] a punt (${config.timezone}). Passada diaria a les ` +

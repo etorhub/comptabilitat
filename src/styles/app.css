@@ -1643,3 +1643,69 @@ tr.exclos {
   outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
   border-style: solid;
 }
+
+/* --- Feines / monitoratge ------------------------------------------------- */
+
+.feines-comptadors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem 2rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.feines-comptadors p {
+  margin: 0;
+}
+
+.feines-agenda {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.feines-agenda li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.feines-en-curs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.feines-en-curs li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.feines-fills {
+  margin-top: 0.35rem;
+}
+
+.feines-fills ul {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0 0 0 0.75rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.feines-resum {
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.85rem;
+  background: color-mix(in srgb, var(--text-suau) 8%, transparent);
+  border-radius: 0.4rem;
+  overflow-x: auto;
+}

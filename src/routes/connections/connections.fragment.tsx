@@ -176,9 +176,10 @@ export function FilaCompte({
 /**
  * L'estat d'una importacio en curs.
  *
- * **Aquest es l'unic sondeig de tota l'aplicacio**, i s'atura sol: mentre la
- * feina corre, el fragment porta `hx-trigger="every 2s"`; quan acaba, el
- * fragment que es torna ja no en porta, i HTMX deixa de preguntar.
+ * **Aquest es un dels dos sondejos de l'aplicacio** (amb el d'en curs a
+ * `/feines`), i s'atura sol: mentre la feina corre, el fragment porta
+ * `hx-trigger="every 2s"`; quan acaba, el fragment que es torna ja no en
+ * porta, i HTMX deixa de preguntar.
  */
 export function EstatSync({
   connexioId,

@@ -10,9 +10,11 @@
  *   bun run src/workers/cli.ts reassign-normalization [--espai 1]
  *
  * Equival al `python -m app.cli sync|classify|analyze|notify` d'abans.
+ * Les feines amb historial passen per `executaFeina` (origen `cli`).
  */
 
 import { closeDb } from "../db/client.ts";
+import { executaFeina } from "../services/job-runs.ts";
 import { reassignaNormalitzacio } from "../services/merchants.ts";
 import { feinaAnalisi } from "./jobs/analyze.ts";
 import { feinaClassificacio } from "./jobs/classify.ts";
@@ -32,12 +34,18 @@ const enter = (nom: string): number | null => {
 };
 
 const feines: Record<string, () => Promise<string>> = {
-  sync: () => feinaSincronitzacio({ connectionId: enter("connexio"), daysBack: enter("dies") }),
-  classify: feinaClassificacio,
-  llm: () => feinaModelLocal(enter("limit") ?? 50),
-  analyze: feinaAnalisi,
-  notify: () => (process.argv.includes("--urgents") ? feinaAvisosUrgents() : feinaAvisos()),
-  maintenance: feinaManteniment,
+  sync: () =>
+    executaFeina("sync", "cli", () =>
+      feinaSincronitzacio({ connectionId: enter("connexio"), daysBack: enter("dies") }),
+    ),
+  classify: () => executaFeina("classify", "cli", feinaClassificacio),
+  llm: () => executaFeina("llm", "cli", () => feinaModelLocal(enter("limit") ?? 50)),
+  analyze: () => executaFeina("analyze", "cli", feinaAnalisi),
+  notify: () =>
+    executaFeina(process.argv.includes("--urgents") ? "notify-urgents" : "notify", "cli", () =>
+      process.argv.includes("--urgents") ? feinaAvisosUrgents() : feinaAvisos(),
+    ),
+  maintenance: () => executaFeina("maintenance", "cli", feinaManteniment),
   "reassign-normalization": async () => {
     const espai = enter("espai");
     const r = await reassignaNormalitzacio(espai ?? undefined);
