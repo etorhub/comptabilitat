@@ -99,9 +99,19 @@ export function Layout(props: LayoutProps): Html {
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="color-scheme" content="light dark" />
+        <!--
+          Nomes hi ha una paleta (paper i tinta), com un full imprès: no hi
+          ha cap interruptor ni variant fosca. Vegeu styles/app.css.
+        -->
+        <meta name="color-scheme" content="light" />
         <title>${titol} · Comptabilitat</title>
         <link rel="icon" href="${hrefEstatic("favicon.svg")}" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap"
+        />
         <link rel="stylesheet" href="${hrefEstatic("app.css")}" />
         <script src="${hrefEstatic("htmx.min.js")}" defer></script>
         <!--
