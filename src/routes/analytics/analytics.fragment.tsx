@@ -72,11 +72,12 @@ export function GraficMensual(dades: PuntMensual[]): Html {
     tipus: "mensual",
     id: "grafic-mensual",
     titol: "Mes a mes",
-    descripcio: "Ingressos, despeses i resultat de cada mes",
+    descripcio: "Ingressos, despeses fixes i variables, i resultat de cada mes",
     dades: dades.map((d) => ({
       periode: d.periode,
       ingressos: toChartNumber(d.ingressos),
-      despeses: toChartNumber(d.despeses),
+      despesesFixes: toChartNumber(d.despesesFixes),
+      despesesVariables: toChartNumber(d.despesesVariables),
       net: toChartNumber(d.net),
     })),
   });
@@ -126,8 +127,12 @@ export function GraficPrevisio(previsio: Previsio): Html {
     tipus: "previsio",
     id: "grafic-previsio",
     titol: "Saldo previst",
-    descripcio: `Projeccio del saldo a ${previsio.horitzoDies} dies, en banda optimista, esperada i pessimista, amb la tendencia de conjunt`,
+    descripcio: `Saldo real dels darrers ${previsio.horitzoDies} dies i projeccio a ${previsio.horitzoDies} dies`,
     dades: {
+      historic: previsio.historic.map((p) => ({
+        dia: p.dia,
+        saldo: toChartNumber(p.saldo),
+      })),
       punts: previsio.punts.map((p) => ({
         dia: p.dia,
         esperat: toChartNumber(p.esperat),

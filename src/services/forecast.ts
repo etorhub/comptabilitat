@@ -14,7 +14,7 @@ import { config } from "../lib/config.ts";
 import { Decimal, money, toMoneyString, ZERO, type MoneyString } from "../lib/money.ts";
 import { addDays, daysBetween, todayLocal } from "../lib/time.ts";
 import { creaAvis } from "./alerts.ts";
-import { saldoEspai } from "./balances.ts";
+import { saldoEspai, serieSaldos, type PuntSaldo } from "./balances.ts";
 
 export interface EsdevenimentPrevist {
   dia: string;
@@ -41,6 +41,8 @@ export interface Previsio {
   horitzoDies: number;
   /** Sempre zero: es conserva al tipus per no trencar la UI dels grafics. */
   despesaDiaria: MoneyString;
+  /** Saldo real reconstruit cap enrere (mateixa amplada que l'horitzo). */
+  historic: PuntSaldo[];
   punts: PuntPrevisio[];
   esdeveniments: EsdevenimentPrevist[];
   primerDescobert: string | null;
@@ -96,8 +98,12 @@ export async function construeixPrevisio(
   const inici = todayLocal();
   const horitzo = addDays(inici, dies);
 
-  const { total: saldo } = await saldoEspai(espai.id);
-  const esdeveniments = await esdevenimentsPrevistos(espai.id, horitzo, inici);
+  const [{ total: saldo }, esdeveniments, historic] = await Promise.all([
+    saldoEspai(espai.id),
+    esdevenimentsPrevistos(espai.id, horitzo, inici),
+    // Mateixa amplada a esquerra i dreta del grafic.
+    serieSaldos([espai.id], addDays(inici, -dies), inici),
+  ]);
 
   const perDia = new Map<string, Decimal>();
   for (const e of esdeveniments) {
@@ -144,6 +150,7 @@ export async function construeixPrevisio(
     llindar: espai.overdraftThreshold,
     horitzoDies: dies,
     despesaDiaria: "0.00",
+    historic,
     punts,
     esdeveniments,
     primerDescobert,
