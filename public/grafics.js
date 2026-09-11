@@ -17,21 +17,25 @@
 
   var instancies = new WeakMap();
 
-  /** Els colors surten dels mateixos testimonis CSS que la resta de la pàgina. */
+  /**
+   * Els colors surten dels mateixos testimonis CSS que la resta de la
+   * pàgina. Nomes tinta i un accent: cap serie de cap gràfic fa servir
+   * vermell/verd/taronja. Vegeu `handoff/README.md`, seccio 4, «Charts».
+   */
   function colors() {
     var estil = getComputedStyle(document.documentElement);
     function token(nom, defecte) {
       return (estil.getPropertyValue(nom) || defecte).trim();
     }
     return {
-      text: token("--text", "#0f172a"),
-      suau: token("--text-suau", "#64748b"),
-      vora: token("--vora", "#e2e8f0"),
-      accent: token("--accent", "#2563eb"),
-      positiu: token("--positiu", "#16a34a"),
-      negatiu: token("--negatiu", "#dc2626"),
-      avis: token("--avis", "#d97706"),
-      superficie: token("--superficie", "#ffffff"),
+      text: token("--ink", "#201e1d"),
+      fort: token("--ink-70", "#444141"),
+      suau: token("--ink-55", "#605d5d"),
+      fluix: token("--ink-40", "#7d7979"),
+      vora: token("--rule", "rgba(32,30,29,0.16)"),
+      accent: token("--accent", "#0088b0"),
+      alerta: token("--alert", "#d6006c"),
+      paper: token("--paper", "#f3f2f2"),
     };
   }
 
@@ -61,9 +65,9 @@
       textStyle: { fontFamily: "inherit", color: c.text },
       grid: { left: 8, right: 12, top: 28, bottom: 8, containLabel: true },
       tooltip: {
-        backgroundColor: c.superficie,
-        borderColor: c.vora,
-        textStyle: { color: c.text },
+        backgroundColor: c.text,
+        borderColor: c.text,
+        textStyle: { color: c.paper },
       },
       legend: { textStyle: { color: c.suau }, top: 0 },
     };
@@ -91,7 +95,7 @@
         {
           name: "Ingressos",
           type: "bar",
-          itemStyle: { color: c.positiu, borderRadius: [3, 3, 0, 0] },
+          itemStyle: { color: c.text },
           data: dades.map(function (d) {
             return d.ingressos;
           }),
@@ -100,21 +104,16 @@
           name: "Fixes",
           type: "bar",
           stack: "despeses",
-          itemStyle: { color: c.avis },
+          itemStyle: { color: c.fort },
           data: dades.map(function (d) {
-            return {
-              value: d.despesesFixes,
-              itemStyle: {
-                borderRadius: d.despesesVariables > 0 ? 0 : [3, 3, 0, 0],
-              },
-            };
+            return d.despesesFixes;
           }),
         },
         {
           name: "Variables",
           type: "bar",
           stack: "despeses",
-          itemStyle: { color: c.negatiu, borderRadius: [3, 3, 0, 0] },
+          itemStyle: { color: c.fluix },
           data: dades.map(function (d) {
             return d.despesesVariables;
           }),
@@ -151,7 +150,7 @@
           type: "pie",
           radius: ["40%", "68%"],
           center: ["50%", "58%"],
-          itemStyle: { borderColor: c.superficie, borderWidth: 2 },
+          itemStyle: { borderColor: c.paper, borderWidth: 2 },
           label: { color: c.suau },
           data: dades.map(function (d) {
             return {
@@ -189,8 +188,8 @@
           type: "line",
           smooth: true,
           showSymbol: false,
-          lineStyle: { color: c.accent },
-          areaStyle: { color: c.accent, opacity: 0.12 },
+          lineStyle: { color: c.accent, width: 2 },
+          itemStyle: { color: c.accent },
           data: dades.map(function (d) {
             return d.saldo;
           }),
@@ -256,8 +255,8 @@
             silent: true,
             symbol: "pin",
             symbolSize: 42,
-            itemStyle: { color: c.negatiu },
-            label: { formatter: "Descobert", color: "#fff", fontSize: 10 },
+            itemStyle: { color: c.alerta },
+            label: { formatter: "Descobert", color: c.paper, fontSize: 10 },
             data: [
               {
                 name: "Descobert",
@@ -292,15 +291,15 @@
         smooth: true,
         showSymbol: false,
         lineStyle: { color: c.accent, width: 2 },
-        areaStyle: { color: c.accent, opacity: 0.1 },
+        itemStyle: { color: c.accent },
         data: eixX.map(function (dia) {
           return valorPrevis(dia, "esperat");
         }),
         markLine: {
           silent: true,
           symbol: "none",
-          lineStyle: { color: c.negatiu, type: "dashed" },
-          label: { formatter: "Llindar", color: c.negatiu },
+          lineStyle: { color: c.alerta, type: "dashed" },
+          label: { formatter: "Llindar", color: c.alerta },
           data: [{ yAxis: dades.llindar }],
         },
       };
@@ -312,8 +311,8 @@
           type: "line",
           smooth: true,
           showSymbol: false,
-          lineStyle: { color: c.suau, width: 2 },
-          areaStyle: { color: c.suau, opacity: 0.12 },
+          lineStyle: { color: c.text, width: 2 },
+          itemStyle: { color: c.text },
           data: eixX.map(valorReal),
         },
         {
@@ -321,7 +320,8 @@
           type: "line",
           smooth: true,
           showSymbol: false,
-          lineStyle: { color: c.positiu, type: "dashed", width: 1 },
+          lineStyle: { color: c.fluix, type: "dashed", width: 1 },
+          itemStyle: { color: c.fluix },
           data: eixX.map(function (dia) {
             return valorPrevis(dia, "optimista");
           }),
@@ -332,7 +332,8 @@
           type: "line",
           smooth: true,
           showSymbol: false,
-          lineStyle: { color: c.avis, type: "dashed", width: 1 },
+          lineStyle: { color: c.fluix, type: "dashed", width: 1 },
+          itemStyle: { color: c.fluix },
           data: eixX.map(function (dia) {
             return valorPrevis(dia, "pessimista");
           }),
@@ -343,6 +344,7 @@
           smooth: false,
           showSymbol: false,
           lineStyle: { color: c.suau, width: 1.5, type: "dotted" },
+          itemStyle: { color: c.suau },
           data: eixX.map(function (dia) {
             return valorPrevis(dia, "tendencia");
           }),
@@ -354,7 +356,7 @@
           name: "Rebuts",
           type: "scatter",
           symbolSize: 9,
-          itemStyle: { color: c.accent, borderColor: c.superficie, borderWidth: 1 },
+          itemStyle: { color: c.accent, borderColor: c.paper, borderWidth: 1 },
           data: puntsRebut,
           z: 5,
         });
@@ -386,7 +388,7 @@
       opcions.series = [
         {
           type: "bar",
-          itemStyle: { color: c.accent, borderRadius: [0, 3, 3, 0] },
+          itemStyle: { color: c.accent },
           data: dades.map(function (d) {
             return d.amount;
           }),
@@ -440,9 +442,4 @@
 
   document.addEventListener("DOMContentLoaded", dibuixaTots);
   window.addEventListener("resize", dibuixaTots);
-  // El mode fosc el decideix el sistema: quan canvia, els colors dels gràfics
-  // també han de canviar.
-  if (window.matchMedia) {
-    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", dibuixaTots);
-  }
 })();

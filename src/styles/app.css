@@ -1,60 +1,127 @@
 @import "tailwindcss";
 
 /*
- * Els testimonis de color venen tal qual de l'aplicacio anterior
- * (`frontend/src/index.css`): es defineixen en clar i es reescriuen en fosc.
- * El mode fosc el decideix el sistema operatiu; no hi ha cap interruptor, com
- * fins ara.
+ * Redisseny "paper i tinta" (direcció 1C del document de disseny). Un
+ * diari financer, no un tauler de SaaS: paper i tinta, filets prims en
+ * comptes de caixes amb ombra, serif per tot arreu (també els números), i
+ * un sol color interactiu (el cian). El magenta es reserva per als
+ * comptadors d'avís i les confirmacions destructives, i no surt mai dos
+ * cops a la mateixa pantalla.
  *
- * Les classes d'aqui son les que fan servir les plantilles de `hono/jsx`.
- * Tailwind cobreix la disposicio; aixo cobreix el que ha de ser consistent a
- * tota l'aplicacio.
+ * Tot color, mida i espai ha de sortir d'aquests testimonis. Si en falta
+ * algun, és un senyal de reaprofitar-ne un que ja hi és, no d'inventar-ne
+ * un altre. El document complet és a `handoff/README.md` del projecte de
+ * disseny «Comptabilitat».
+ *
+ * No hi ha mode fosc: el testimoni és una sola paleta (paper clar, tinta
+ * fosca), com un full imprès. `<meta name="color-scheme">` es va deixar en
+ * "light" a `components/layout.tsx` i `components/shell.tsx` en fer aquest
+ * canvi.
  */
 
 @theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Source Serif 4", Georgia, "Times New Roman", serif;
 }
 
 :root {
-  --fons: #f8fafc;
-  --superficie: #ffffff;
-  --vora: #e2e8f0;
-  --text: #0f172a;
-  --text-suau: #64748b;
-  --accent: #2563eb;
-  --positiu: #16a34a;
-  --negatiu: #dc2626;
-  --avis: #d97706;
-}
+  /* ---- Paper i tinta ---------------------------------------------------- */
+  --paper: #f3f2f2; /* superficie de l'app, taules, capçaleres de fons */
+  --paper-sunken: #eae9e9; /* barra lateral, capçal de taula, grups */
+  --paper-raised: #f8f4f4; /* hover de fila, franges de grup per dia */
+  --ink: #201e1d; /* text principal, filets forts */
+  --ink-70: #444141; /* text secundari, elements de navegacio */
+  --ink-55: #605d5d; /* text de metadades, peus, comptadors */
+  --ink-40: #7d7979; /* etiquetes, eyebrows, inactiu */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --fons: #0b1120;
-    --superficie: #111827;
-    --vora: #1f2937;
-    --text: #e5e7eb;
-    --text-suau: #94a3b8;
-    --accent: #60a5fa;
-    --positiu: #4ade80;
-    --negatiu: #f87171;
-    --avis: #fbbf24;
-  }
+  /* ---- Filets i vores ----------------------------------------------------- */
+  --rule-strong: #201e1d; /* 1px, sota el capçal de taula */
+  --rule: rgba(32, 30, 29, 0.16); /* marc, camps, xapes */
+  --rule-soft: rgba(32, 30, 29, 0.1); /* entre files de taula */
+  --rule-control: rgba(32, 30, 29, 0.3); /* vora del boto secundari */
+
+  /* ---- Accent: cian. L'UNIC color interactiu. ----------------------------- */
+  --accent: #0088b0; /* fons del boto primari, marcador de navegacio actiu */
+  --accent-ink: #006786; /* enllaços, text d'accent sobre paper (4.5:1) */
+  --accent-wash: #e9f8ff; /* fons de la xapa d'etiqueta */
+  --accent-line: #cbeeff; /* vora de la xapa d'etiqueta */
+  --accent-bright: #62c5ee; /* accent sobre superficies de tinta */
+
+  /* ---- Avis: magenta. Reservat. Comptadors i accions destructives. ------- */
+  --alert: #d6006c;
+  --on-accent: #f3f2f2;
+  --on-ink: #f3f2f2;
+
+  /* Els imports son tinta, no vermell/verd: el signe menys ja ho diu.
+     Els ingressos poden fer servir --amount-positive. Mai els dos colors
+     alhora a la mateixa xifra. */
+  --amount: var(--ink);
+  --amount-positive: var(--accent-ink);
+
+  /* ---- Tipografia ---------------------------------------------------------- */
+  --font: "Source Serif 4", Georgia, "Times New Roman", serif;
+  /* Els numeros SEMPRE amb font-variant-numeric: tabular-nums. Sense excepcions. */
+
+  --text-display: 34px; /* titol de pagina (h1 al principal)   600 / 1.05 */
+  --text-title: 26px; /* titol de seccio                     600 / 1.1  */
+  --text-figure: 27px; /* xifra grossa, tabular               400 / 1    */
+  --text-amount: 17px; /* import de taula, tabular             400       */
+  --text-body: 16px; /* files, navegacio, camps              400 / 1.45 */
+  --text-meta: 15px; /* cel·les secundaries, peus            400       */
+  --text-small: 13px; /* subratlla d'una fila                 400       */
+  --text-label: 11px; /* eyebrow / capçal de columna: 400, majuscules,
+                             lletrejat .15em, color --ink-40 */
+
+  --weight-regular: 400;
+  --weight-semibold: 600; /* l'unic gruixut. Cap 700. */
+
+  /* ---- Espai (base 4px) ---------------------------------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  --pad-page-x: 34px;
+  --pad-page-y: 30px;
+  --row-y: 12px; /* farciment vertical d'una fila de taula */
+  --sidebar-w: 236px;
+
+  /* ---- Forma ---------------------------------------------------------------- */
+  --radius: 0; /* quadrat per defecte: botons, camps, xapes, targetes */
+  --radius-badge: 9px; /* nomes els comptadors */
+  --shadow-raised: 0 1px 2px rgba(45, 43, 43, 0.14); /* element de navegacio actiu */
+  --shadow-float: 0 12px 32px rgba(45, 43, 43, 0.18); /* menus, calaix mobil */
+
+  /* ---- Tacte ------------------------------------------------------------------ */
+  --touch-min: 44px; /* cada objectiu de tacte a l'iOS/mobil */
 }
 
 body {
-  background: var(--fons);
-  color: var(--text);
-  font-family: var(--font-sans);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--text-body);
+  line-height: 1.45;
   margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: var(--weight-semibold);
+  line-height: 1.1;
 }
 
 .text-suau {
-  color: var(--text-suau);
+  color: var(--ink-55);
 }
 
 .superficie {
-  background: var(--superficie);
-  border: 1px solid var(--vora);
+  background: var(--paper);
 }
 
 /* --- Salt de navegacio --------------------------------------------------- */
@@ -62,10 +129,9 @@ body {
 .salta {
   position: absolute;
   left: -9999px;
-  background: var(--accent);
-  color: white;
+  background: var(--ink);
+  color: var(--on-ink);
   padding: 0.6rem 1rem;
-  border-radius: 0 0 0.5rem 0;
   z-index: 100;
 }
 
@@ -90,7 +156,7 @@ body {
 
 .disposicio {
   display: grid;
-  grid-template-columns: 16rem 1fr;
+  grid-template-columns: var(--sidebar-w) 1fr;
   min-height: 100vh;
 }
 
@@ -102,22 +168,22 @@ body {
 
 .principal {
   /* Els 2rem dels costats es mengen mitja pantalla d'un telefon. */
-  padding: 1.5rem clamp(0.75rem, 4vw, 2rem) 4rem;
+  padding: var(--pad-page-y) clamp(0.75rem, 4vw, var(--pad-page-x)) 4rem;
   min-width: 0;
 }
 
 .barra {
-  background: var(--superficie);
-  border-right: 1px solid var(--vora);
-  padding: 1rem;
+  background: var(--paper-sunken);
+  border-right: 1px solid var(--rule);
+  padding: var(--space-6) var(--space-5) var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-5);
 }
 
 .marca {
-  font-weight: 700;
-  font-size: 1.05rem;
+  font-weight: var(--weight-semibold);
+  font-size: 20px;
 }
 
 .menu {
@@ -126,72 +192,78 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: 2px;
 }
 
 .menu a {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.45rem 0.6rem;
-  border-radius: 0.5rem;
-  color: var(--text);
+  gap: var(--space-2);
+  padding: 7px 11px;
+  margin: 0 -11px;
+  color: var(--ink-70);
+  font-size: var(--text-body);
   text-decoration: none;
 }
 
 .menu a:hover {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--ink);
 }
 
 .menu a[aria-current="page"] {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  font-weight: 600;
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: var(--weight-semibold);
+  box-shadow: var(--shadow-raised);
 }
 
 .menu-titol {
-  font-size: 0.7rem;
+  font-size: var(--text-label);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-suau);
-  margin: 0 0 0.35rem 0.6rem;
+  letter-spacing: 0.15em;
+  color: var(--ink-40);
+  margin: 0 0 6px 0.6rem;
 }
 
 .barra-peu {
   margin-top: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  border-top: 1px solid var(--vora);
-  padding-top: 0.75rem;
+  gap: var(--space-2);
+  border-top: 1px solid var(--rule);
+  padding-top: var(--space-3);
 }
 
 .usuari {
-  font-size: 0.85rem;
-  color: var(--text-suau);
+  font-size: var(--text-meta);
+  color: var(--ink-55);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* Comptadors: nomes «Avisos» es un avis de debo (magenta). «Per revisar» es
+   un recompte informatiu i prou -- el magenta no surt mai dos cops a la
+   mateixa pantalla. Vegeu `handoff/README.md`, seccio 3.2. */
 .comptador {
-  font-size: 0.72rem;
+  font-size: var(--text-small);
   min-width: 1.4rem;
   text-align: center;
-  border-radius: 999px;
-  padding: 0 0.35rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .comptador-actiu {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  color: var(--accent);
-  font-weight: 600;
+  color: var(--ink-55);
+  font-weight: var(--weight-semibold);
 }
 
 .comptador-avis {
-  background: color-mix(in srgb, var(--avis) 22%, transparent);
-  color: var(--avis);
-  font-weight: 600;
+  background: var(--alert);
+  color: var(--on-ink);
+  border-radius: var(--radius-badge);
+  padding: 1px 7px;
+  font-weight: var(--weight-semibold);
 }
 
 /* --- Mobil: barra de dalt i calaix ---------------------------------------- */
@@ -212,15 +284,15 @@ body {
 .barra-mobil {
   display: none;
   align-items: center;
-  gap: 0.6rem;
+  gap: var(--space-3);
   padding: 0.5rem 0.75rem;
-  background: var(--superficie);
-  border-bottom: 1px solid var(--vora);
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
 }
 
 .barra-mobil-espai {
   margin-left: auto;
-  font-size: 0.85rem;
+  font-size: var(--text-meta);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -234,19 +306,18 @@ body {
   min-width: 2.75rem;
   min-height: 2.75rem;
   margin: -0.5rem 0;
-  border-radius: 0.5rem;
-  color: var(--text);
+  color: var(--ink);
   cursor: pointer;
 }
 
 .boto-menu:hover,
 .tanca-menu:hover {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent-ink);
 }
 
 /* El `<label>` no rep el focus del teclat sol; la casella si, i esta al costat. */
 .toggle-menu:focus-visible + .barra-mobil .boto-menu {
-  outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  outline: 2px solid var(--accent-ink);
   outline-offset: 1px;
 }
 
@@ -273,7 +344,7 @@ body {
     overscroll-behavior: contain;
     transform: translateX(-100%);
     transition: transform 180ms ease;
-    box-shadow: 0 0 24px rgb(0 0 0 / 18%);
+    box-shadow: var(--shadow-float);
   }
 
   #menu-obert:checked ~ .disposicio .barra {
@@ -284,7 +355,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
+    gap: var(--space-2);
   }
 
   .tanca-menu {
@@ -315,12 +386,11 @@ body {
   padding: 1rem;
 }
 
+/* Cap targeta, cap fons: nomes una columna centrada. Vegeu
+   `handoff/README.md`, seccio 5, «Login». */
 .targeta-centrada {
-  background: var(--superficie);
-  border: 1px solid var(--vora);
-  border-radius: 0.75rem;
-  padding: clamp(1.25rem, 5vw, 2rem);
-  width: min(26rem, 100%);
+  width: min(360px, 100%);
+  padding: 0;
 }
 
 /* --- Formularis ---------------------------------------------------------- */
@@ -328,68 +398,69 @@ body {
 .camp {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  margin-bottom: 0.9rem;
+  gap: 6px;
+  margin-bottom: var(--space-4);
 }
 
 .camp-etiqueta {
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-size: var(--text-label);
+  font-weight: var(--weight-regular);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--ink-40);
 }
 
 .camp-etiqueta abbr {
-  color: var(--negatiu);
+  color: var(--alert);
   text-decoration: none;
   margin-left: 0.15rem;
 }
 
 .camp-ajuda {
-  color: var(--text-suau);
-  font-size: 0.78rem;
+  color: var(--ink-55);
+  font-size: var(--text-small);
 }
 
 .camp-error,
 .form-error {
-  color: var(--negatiu);
-  font-size: 0.8rem;
+  color: var(--alert);
+  font-size: var(--text-small);
   margin: 0;
 }
 
 .form-error {
-  background: color-mix(in srgb, var(--negatiu) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--negatiu) 35%, transparent);
-  border-radius: 0.5rem;
+  border: 1px solid var(--alert);
   padding: 0.6rem 0.75rem;
-  margin-bottom: 0.9rem;
+  margin-bottom: var(--space-4);
 }
 
 .casella {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.88rem;
+  font-size: var(--text-meta);
 }
 
 .recurrent-comerc {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .recurrent-comerc select {
-  font-size: 0.85rem;
+  font-size: var(--text-small);
   padding: 0.25rem 0.4rem;
 }
 
 input,
 select,
 textarea {
-  background: var(--superficie);
-  border: 1px solid var(--vora);
-  border-radius: 0.5rem;
-  padding: 0.4rem 0.6rem;
-  color: var(--text);
-  font: inherit;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 8px 11px;
+  color: var(--ink);
+  font: var(--text-body) / 1.4 var(--font);
 }
 
 input:focus-visible,
@@ -398,13 +469,13 @@ textarea:focus-visible,
 button:focus-visible,
 a:focus-visible,
 label.boto:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
-  outline-offset: 1px;
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
 }
 
 input[aria-invalid="true"],
 select[aria-invalid="true"] {
-  border-color: var(--negatiu);
+  border-color: var(--alert);
 }
 
 /*
@@ -435,45 +506,63 @@ select[aria-invalid="true"] {
   .boto-icona,
   .boto-xapa,
   .toast-tanca {
-    min-width: 2.75rem;
-    min-height: 2.75rem;
+    min-width: var(--touch-min);
+    min-height: var(--touch-min);
     display: inline-flex;
     align-items: center;
     justify-content: center;
   }
 }
 
+/*
+ * Botons: primari (un per regio de pantalla), secundari (la resta),
+ * discret/quiet (accions de fila, `.boto-icona`) i destructiu
+ * (confirmacions d'esborrar). El nom historic de la classe base es `.boto`
+ * i fa de primari; `.boto-discret` es el secundari. Vegeu
+ * `handoff/README.md`, seccio 4, «Buttons».
+ */
 .boto {
   display: inline-block;
   background: var(--accent);
-  color: white;
+  color: var(--on-accent);
   border: 1px solid transparent;
-  border-radius: 0.5rem;
-  padding: 0.45rem 0.9rem;
-  font: inherit;
-  font-weight: 500;
+  border-radius: var(--radius);
+  padding: 9px 17px;
+  font: var(--text-meta) var(--font);
+  font-weight: var(--weight-regular);
   cursor: pointer;
   text-decoration: none;
-  transition: filter 120ms ease;
 }
 
 .boto:hover {
-  filter: brightness(1.08);
+  background: var(--accent-ink);
 }
 
 .boto[disabled] {
-  opacity: 0.55;
+  background: var(--paper);
+  color: var(--ink-40);
+  border-color: var(--rule);
   cursor: not-allowed;
 }
 
 .boto-discret {
   background: transparent;
-  color: var(--text-suau);
-  border-color: var(--vora);
+  color: var(--ink);
+  border-color: var(--rule-control);
+}
+
+.boto-discret:hover {
+  background: var(--paper-sunken);
 }
 
 .boto-perill {
-  background: var(--negatiu);
+  background: var(--alert);
+  color: var(--on-ink);
+  border-color: var(--alert);
+}
+
+.boto-perill:hover {
+  background: #a80056;
 }
 
 /* --- Taules -------------------------------------------------------------- */
@@ -481,28 +570,37 @@ select[aria-invalid="true"] {
 table.dades {
   width: 100%;
   border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
 }
 
 table.dades th {
   text-align: left;
-  font-weight: 600;
-  font-size: 0.75rem;
+  font-weight: var(--weight-regular);
+  font-size: var(--text-label);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-suau);
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--vora);
+  letter-spacing: 0.15em;
+  color: var(--ink-40);
+  padding: 0 0.75rem var(--space-2);
+  border-bottom: 1px solid var(--rule-strong);
   white-space: nowrap;
 }
 
+/* `table.dades th` te mes especificitat que `.dreta` sola i li guanyava
+   l'alineacio: la capçalera «Import» queia a l'esquerra amb la resta de
+   columnes numeriques a la dreta. */
+table.dades th.dreta {
+  text-align: right;
+}
+
 table.dades td {
-  padding: 0.6rem 0.75rem;
-  border-bottom: 1px solid var(--vora);
+  padding: var(--row-y) 0.75rem;
+  border-bottom: 1px solid var(--rule-soft);
   vertical-align: top;
+  font-size: var(--text-meta);
 }
 
 table.dades tbody tr:hover {
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  background: var(--paper-raised);
 }
 
 /* Qualsevol cosa ampla (taules, grafics) es desplaça dins seu, mai la pagina. */
@@ -515,14 +613,15 @@ table.dades tbody tr:hover {
   overscroll-behavior-x: contain;
   /*
    * Que es vegi que allo es desplaça. Dues ombres enganxades al contingut
-   * (`local`) i dos degradats blancs enganxats al marc (`scroll`): quan hi ha
-   * mes taula cap a un costat, l'ombra d'aquell costat es destapa. Nomes CSS.
+   * (`local`) i dos degradats de paper enganxats al marc (`scroll`): quan hi
+   * ha mes taula cap a un costat, l'ombra d'aquell costat es destapa. Nomes
+   * CSS.
    */
   background:
-    linear-gradient(to right, var(--fons) 30%, transparent),
-    linear-gradient(to left, var(--fons) 30%, transparent) 100% 0,
-    radial-gradient(farthest-side at 0 50%, rgb(0 0 0 / 16%), transparent),
-    radial-gradient(farthest-side at 100% 50%, rgb(0 0 0 / 16%), transparent) 100% 0;
+    linear-gradient(to right, var(--paper) 30%, transparent),
+    linear-gradient(to left, var(--paper) 30%, transparent) 100% 0,
+    radial-gradient(farthest-side at 0 50%, rgb(0 0 0 / 14%), transparent),
+    radial-gradient(farthest-side at 100% 50%, rgb(0 0 0 / 14%), transparent) 100% 0;
   background-repeat: no-repeat;
   background-size:
     2.5rem 100%,
@@ -541,63 +640,59 @@ table.dades tbody tr:hover {
   z-index: 60;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-2);
   max-width: min(26rem, calc(100vw - 2rem));
 }
 
+/* Fons de tinta, text de paper, quadrat: l'unic element de la interficie
+   que trenca deliberadament el registre «paper», perque ha de destacar per
+   sobre de tot. Vegeu `handoff/README.md`, seccio 4, «Modals & toasts». */
 .toast {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
-  background: var(--superficie);
-  border: 1px solid var(--vora);
-  border-left-width: 4px;
-  border-radius: 0.5rem;
+  gap: var(--space-3);
+  background: var(--ink);
+  color: var(--on-ink);
+  border-radius: var(--radius);
   padding: 0.7rem 0.9rem;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+  box-shadow: var(--shadow-float);
 }
 
 .toast-cos {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  font-size: 0.88rem;
+  font-size: var(--text-meta);
 }
 
 .toast-cos small {
-  color: var(--text-suau);
+  color: var(--rule-control);
+  opacity: 0.85;
 }
 
-.toast-error {
-  border-left-color: var(--negatiu);
-}
 .toast-error strong {
-  color: var(--negatiu);
+  color: var(--accent-bright);
 }
 
-.toast-success {
-  border-left-color: var(--positiu);
-}
-.toast-success strong {
-  color: var(--positiu);
-}
-
-.toast-info {
-  border-left-color: var(--accent);
-}
+.toast-success strong,
 .toast-info strong {
-  color: var(--accent);
+  color: var(--accent-bright);
 }
 
 .toast-tanca {
   background: none;
   border: none;
-  color: var(--text-suau);
+  color: var(--on-ink);
+  opacity: 0.7;
   cursor: pointer;
   font-size: 1.1rem;
   line-height: 1;
   padding: 0;
   margin-left: auto;
+}
+
+.toast-tanca:hover {
+  opacity: 1;
 }
 
 /* --- Indicador de peticio en curs ---------------------------------------- */
@@ -620,24 +715,25 @@ table.dades tbody tr:hover {
 /* --- Capçaleres i targetes ----------------------------------------------- */
 
 .capçalera {
-  margin-bottom: 1.25rem;
+  margin-bottom: var(--space-5);
 }
 
 .capçalera h1 {
-  margin: 0 0 0.25rem;
-  font-size: clamp(1.25rem, 4vw, 1.5rem);
+  margin: 0 0 6px;
+  font-size: clamp(26px, 5vw, var(--text-display));
 }
 
 .capçalera p {
   margin: 0;
   max-width: 60ch;
+  color: var(--ink-55);
 }
 
 .capçalera-fila {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--space-4);
   flex-wrap: wrap;
 }
 
@@ -648,7 +744,7 @@ table.dades tbody tr:hover {
 .capçalera-accions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
@@ -657,20 +753,27 @@ table.dades tbody tr:hover {
   display: none;
 }
 
+/*
+ * «Rules, not cards»: cap seccio va dins d'una caixa amb vora, ombra i
+ * farciment. `.superficie` i `.targeta` es conserven perque encara marquen
+ * quines plantilles agrupaven contingut, pero ara nomes separen amb espai i,
+ * quan cal, un filet superior -- mai un fons ni una vora sencera.
+ * Vegeu `handoff/README.md`, seccio 3, regla 5.
+ */
 .targeta {
-  border-radius: 0.75rem;
-  padding: clamp(0.9rem, 3vw, 1.25rem);
-  margin-bottom: 1.25rem;
+  padding: 0;
+  margin-bottom: var(--space-6);
 }
 
 .targeta h2 {
-  margin: 0 0 0.75rem;
-  font-size: 1.05rem;
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-title);
 }
 
 .buit {
-  padding: 2rem 0;
+  padding: var(--space-8) 0;
   text-align: center;
+  color: var(--ink-55);
 }
 
 /* --- Formularis en línia -------------------------------------------------- */
@@ -680,7 +783,7 @@ table.dades tbody tr:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 
 .form-linia .camp,
@@ -712,19 +815,21 @@ table.dades tbody tr:hover {
 }
 
 .form-ok {
-  background: color-mix(in srgb, var(--positiu) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--positiu) 35%, transparent);
-  border-radius: 0.5rem;
+  color: var(--accent-ink);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-wash);
   padding: 0.6rem 0.75rem;
-  margin: 0 0 0.9rem;
+  margin: 0 0 var(--space-4);
 }
 
 .filtres {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: var(--space-4);
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--rule);
 }
 
 .filtre-tipus {
@@ -733,14 +838,18 @@ table.dades tbody tr:hover {
   align-items: center;
   gap: 0.5rem 0.75rem;
   margin: 0;
-  padding: 0.35rem 0.6rem;
-  border: 1px solid var(--vora);
-  border-radius: 0.5rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
   min-width: 0;
 }
 
 .filtre-tipus legend {
   padding: 0 0.25rem;
+  font-size: var(--text-label);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--ink-40);
 }
 
 .filtre-targetes {
@@ -753,20 +862,30 @@ table.dades tbody tr:hover {
 
 /* --- Etiquetes ------------------------------------------------------------ */
 
+/*
+ * Una sola classe fa de xapa d'estat («recurrent», «per revisar», «pendent»)
+ * i de xapa d'etiqueta de debo. Totes fan servir la mateixa xapa d'accent
+ * quadrada del document de disseny; `.etiqueta-suau` es la variant discreta
+ * per a metadades (origen, «traspas», «pendent»).
+ */
 .etiqueta {
-  display: inline-block;
-  font-size: 0.72rem;
-  font-weight: 600;
-  border-radius: 999px;
-  padding: 0.1rem 0.5rem;
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: var(--weight-regular);
+  border-radius: var(--radius);
+  padding: 1px 8px;
+  background: var(--accent-wash);
+  border: 1px solid var(--accent-line);
+  color: var(--accent-ink);
+  white-space: nowrap;
 }
 
 .etiqueta-suau {
-  background: color-mix(in srgb, var(--text-suau) 18%, transparent);
-  color: var(--text-suau);
-  font-weight: 500;
+  background: transparent;
+  border-color: var(--rule);
+  color: var(--ink-55);
+  font-weight: var(--weight-regular);
   margin-left: 0.4rem;
 }
 
@@ -782,16 +901,16 @@ table.dades tbody tr:hover {
 }
 
 .sagnat {
-  color: var(--text-suau);
+  color: var(--ink-55);
   margin-right: 0.3rem;
 }
 
 tr.filla .nom {
-  color: var(--text-suau);
+  color: var(--ink-55);
 }
 
 tr.pare .nom {
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .dreta {
@@ -808,7 +927,7 @@ tr.pare .nom {
 
 tr.editant td,
 tr.reassignant td {
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  background: var(--paper-raised);
 }
 
 .reassignant-text {
@@ -824,26 +943,23 @@ tr.reassignant td {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
 }
 
 .avis {
-  background: var(--superficie);
-  border: 1px solid var(--vora);
-  border-left-width: 4px;
-  border-radius: 0.75rem;
-  padding: 1rem;
+  border-top: 1px solid var(--rule-soft);
+  border-left: 3px solid var(--rule-control);
+  padding: var(--space-4) 0 var(--space-4) var(--space-4);
 }
 
 .avis-nou {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+  border-left-color: var(--accent);
 }
 
 .avis-critic {
-  border-left-color: var(--negatiu);
+  border-left-color: var(--alert);
 }
 .avis-atencio {
-  border-left-color: var(--avis);
+  border-left-color: var(--ink);
 }
 .avis-info {
   border-left-color: var(--accent);
@@ -852,24 +968,25 @@ tr.reassignant td {
 .avis-cap {
   display: flex;
   align-items: baseline;
-  gap: 0.6rem;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
 .avis-titol {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
 }
 
 .avis-cos {
   margin: 0.5rem 0 0;
-  color: var(--text-suau);
+  color: var(--ink-55);
 }
 
 .avis-accions {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 .avis-fora {
@@ -879,13 +996,13 @@ tr.reassignant td {
 /* --- Barra lateral, restes ------------------------------------------------ */
 
 .barra-cap {
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--vora);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule);
 }
 
 .menu-seccio {
-  border-top: 1px solid var(--vora);
-  padding-top: 0.75rem;
+  border-top: 1px solid var(--rule);
+  padding-top: var(--space-3);
 }
 
 .selector-espai {
@@ -898,14 +1015,16 @@ tr.reassignant td {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem 0.25rem;
+  gap: var(--space-4);
+  padding: var(--space-3) 0.25rem;
   flex-wrap: wrap;
+  font-size: var(--text-meta);
+  color: var(--ink-55);
 }
 
 .passos {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 /* --- Regles --------------------------------------------------------------- */
@@ -914,8 +1033,8 @@ tr.reassignant td {
   list-style: none;
   margin: 0.35rem 0 0;
   padding: 0;
-  font-size: 0.82rem;
-  color: var(--text-suau);
+  font-size: var(--text-small);
+  color: var(--ink-55);
 }
 
 .condicions li::before {
@@ -930,7 +1049,7 @@ tr.inactiva {
   margin: 0.5rem 0 0;
   padding: 0;
   list-style: none;
-  font-size: 0.9rem;
+  font-size: var(--text-meta);
 }
 
 .llista-aparicions li {
@@ -938,7 +1057,7 @@ tr.inactiva {
   grid-template-columns: 4.5rem 1fr auto;
   gap: 0.5rem;
   padding: 0.15rem 0;
-  color: var(--text-suau);
+  color: var(--ink-55);
 }
 
 .llista-aparicions time {
@@ -953,15 +1072,17 @@ tr.inactiva {
 }
 
 .condicions-camp {
-  border: 1px solid var(--vora);
-  border-radius: 0.5rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
   padding: 0.75rem 1rem 1rem;
-  margin: 0 0 0.9rem;
+  margin: 0 0 var(--space-4);
 }
 
 .condicions-camp legend {
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-size: var(--text-label);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--ink-40);
   padding: 0 0.35rem;
 }
 
@@ -982,18 +1103,18 @@ tr.inactiva {
 
 .form-accions {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 0.9rem;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
 }
 
 .form-edicio {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--vora);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule);
 }
 
 .form-edicio .menu-titol {
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-2);
 }
 
 .etiquetes {
@@ -1008,6 +1129,7 @@ tr.inactiva {
 .taula-moviments .data {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  color: var(--ink-55);
 }
 
 .taula-moviments .tria {
@@ -1022,11 +1144,11 @@ tr.inactiva {
   color: inherit;
   text-align: left;
   cursor: pointer;
-  border-bottom: 1px dashed var(--vora);
+  border-bottom: 1px dashed var(--rule-control);
 }
 
 .concepte:hover {
-  border-bottom-color: var(--accent);
+  border-bottom-color: var(--accent-ink);
 }
 
 .nota {
@@ -1038,21 +1160,22 @@ tr.inactiva {
   margin-left: 0.35rem;
 }
 
+/* Els imports son tinta, mai vermell/verd: el signe menys ja diu que es una
+   despesa. Els ingressos poden fer servir l'accent. */
 .negatiu {
-  color: var(--negatiu);
+  color: var(--amount);
 }
 
 .positiu {
-  color: var(--positiu);
+  color: var(--amount-positive);
 }
 
-/* A la taula de moviments els imports son mes suaus. */
 .taula-moviments .negatiu {
-  color: var(--text);
+  color: var(--amount);
 }
 
 .taula-moviments .positiu {
-  color: var(--accent);
+  color: var(--amount-positive);
 }
 
 tr.exclos {
@@ -1062,13 +1185,12 @@ tr.exclos {
 .barra-bloc {
   display: none;
   align-items: flex-end;
-  gap: 0.75rem;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  padding: 0.75rem;
-  margin-bottom: 0.5rem;
-  border: 1px solid var(--vora);
-  border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+  border: 1px solid var(--rule);
+  background: var(--accent-wash);
 }
 
 #taula-moviments:has(input[name="moviment"]:checked) .barra-bloc {
@@ -1107,15 +1229,13 @@ tr.exclos {
   justify-content: center;
   padding: 0.2rem;
   border: none;
-  border-radius: 0.35rem;
   background: transparent;
-  color: var(--text-suau);
+  color: var(--ink-55);
   cursor: pointer;
 }
 
 .boto-icona:hover {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent-ink);
 }
 
 .visualment-ocult {
@@ -1176,11 +1296,9 @@ tr.exclos {
       "categoria categoria categoria";
     align-items: baseline;
     gap: 0.15rem 0.5rem;
-    background: var(--superficie);
-    border: 1px solid var(--vora);
-    border-radius: 0.75rem;
-    padding: 0.75rem;
-    margin-bottom: 0.6rem;
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+    padding: var(--space-4) 0;
   }
 
   /*
@@ -1196,11 +1314,10 @@ tr.exclos {
   /* El nom de la columna, ara que no hi ha capçal que el digui. */
   .taula-fitxes td::before {
     content: attr(data-etiqueta);
-    font-size: 0.7rem;
-    font-weight: 600;
+    font-size: var(--text-label);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-suau);
+    letter-spacing: 0.15em;
+    color: var(--ink-40);
   }
 
   /* La data, l'import i el concepte s'expliquen sols. */
@@ -1222,7 +1339,8 @@ tr.exclos {
 
   .taula-fitxes .dreta {
     grid-area: import;
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
+    font-size: var(--text-amount);
   }
 
   table.taula-fitxes .cel-concepte {
@@ -1268,9 +1386,9 @@ tr.exclos {
    *
    * Es dibuixa **abans** de la taula, i marcar moviments es justament el que
    * es fa baixant per la llista: en flux et queda a dalt de tot i has de
-   * tornar a pujar per aplicar res. `position: sticky` no serveix —nomes
+   * tornar a pujar per aplicar res. `position: sticky` no serveix --nomes
    * reté un element, mai l'empeny per sota de la seva posicio natural, i la
-   * seva es al capdamunt d'un contenidor de milers de pixels—, de manera que
+   * seva es al capdamunt d'un contenidor de milers de pixels--, de manera que
    * es `fixed`. Nomes existeix quan hi ha alguna casella marcada (el `:has`
    * de mes amunt), aixi que no tapa res quan no fa falta.
    */
@@ -1282,9 +1400,8 @@ tr.exclos {
     padding: 0.6rem 0.75rem;
     gap: 0.5rem;
     border-width: 1px 0 0;
-    border-radius: 0;
-    background: var(--superficie);
-    box-shadow: 0 -6px 18px rgb(0 0 0 / 14%);
+    background: var(--paper);
+    box-shadow: var(--shadow-float);
   }
 
   /* Dins la barra els camps no s'estiren: han de cabre-hi de dos en dos. */
@@ -1309,13 +1426,14 @@ tr.exclos {
 }
 
 .item-revisio {
-  margin-bottom: 0.75rem;
+  border-top: 1px solid var(--rule-soft);
+  padding: var(--space-4) 0;
 }
 
 .item-cap {
   display: flex;
   align-items: baseline;
-  gap: 0.75rem;
+  gap: var(--space-3);
   flex-wrap: wrap;
   margin-bottom: 0.35rem;
 }
@@ -1325,8 +1443,8 @@ tr.exclos {
 }
 
 .proposta {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  border-radius: 0.5rem;
+  background: var(--accent-wash);
+  border: 1px solid var(--accent-line);
   padding: 0.5rem 0.75rem;
   margin: 0.5rem 0;
   display: flex;
@@ -1341,22 +1459,33 @@ tr.exclos {
 
 /* --- Xifres grosses -------------------------------------------------------- */
 
+/*
+ * Una filera de parells apilats, no targetes: separats per espai i
+ * delimitats per un filet gruixut de tinta a dalt i un de prim a baix.
+ * Vegeu `handoff/README.md`, seccio 4, «KPI figures».
+ */
 .xifres {
   display: flex;
-  gap: 1rem;
+  gap: var(--space-6) var(--space-8);
   flex-wrap: wrap;
-  margin-bottom: 1.25rem;
+  border-top: 2px solid var(--ink);
+  border-bottom: 1px solid var(--rule);
+  padding: var(--space-4) 0;
+  margin-bottom: var(--space-6);
 }
 
 .xifra {
-  background: var(--superficie);
-  border: 1px solid var(--vora);
-  border-radius: 0.75rem;
-  padding: 0.9rem 1.1rem;
-  min-width: 11rem;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 4px;
+  min-width: 8rem;
+  flex: 1 1 auto;
+  color: inherit;
+  text-decoration: none;
+}
+
+.xifra-enllac:hover .xifra-valor {
+  color: var(--accent-ink);
 }
 
 /*
@@ -1365,23 +1494,25 @@ tr.exclos {
  */
 @media (max-width: 40rem) {
   .xifres {
-    gap: 0.6rem;
+    gap: var(--space-4) var(--space-6);
   }
 
   .xifra {
-    flex: 1 1 calc(50% - 0.6rem);
-    min-width: calc(50% - 0.6rem);
-    padding: 0.7rem 0.8rem;
+    flex: 1 1 calc(50% - var(--space-6));
+    min-width: calc(50% - var(--space-6));
   }
 }
 
 .xifra-etiqueta {
-  font-size: 0.78rem;
-  color: var(--text-suau);
+  font-size: var(--text-label);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--ink-40);
 }
 
 .xifra-valor {
-  font-size: 1.35rem;
+  font-size: var(--text-figure);
+  font-weight: var(--weight-regular);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1411,18 +1542,18 @@ tr.exclos {
   display: grid;
   place-items: center;
   height: 100%;
-  color: var(--text-suau);
-  font-size: 0.9rem;
+  color: var(--ink-55);
+  font-size: var(--text-meta);
 }
 
 .dues-columnes {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1.25rem;
+  gap: var(--space-6);
 }
 
 .previsio-cap {
-  margin-bottom: 1.25rem;
+  margin-bottom: var(--space-6);
   align-items: start;
   grid-template-columns: minmax(16rem, 1fr) minmax(0, 2fr);
 }
@@ -1458,33 +1589,26 @@ tr.exclos {
 }
 
 .xifra-enllac {
-  text-decoration: none;
-  color: inherit;
-  transition: border-color 120ms ease;
-}
-
-.xifra-enllac:hover {
-  border-color: var(--accent);
+  transition: none;
 }
 
 .avis-fort {
-  background: color-mix(in srgb, var(--negatiu) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--negatiu) 35%, transparent);
-  border-radius: 0.75rem;
+  color: var(--ink);
+  border: 1px solid var(--alert);
   padding: 0.9rem 1.1rem;
-  margin: 0 0 1.25rem;
+  margin: 0 0 var(--space-6);
 }
 
 .descarregues {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
   margin-left: auto;
 }
 
 .descarregues-linia {
   display: flex;
-  gap: 0.5rem;
-  margin: 0 0 1rem;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
 }
 
 /* --- Estat d'una importacio ------------------------------------------------ */
@@ -1494,12 +1618,10 @@ tr.exclos {
   align-items: center;
   gap: 0.6rem;
   flex-wrap: wrap;
-  margin: 0.75rem 0;
+  margin: var(--space-4) 0;
   padding: 0.6rem 0.9rem;
-  border: 1px solid var(--vora);
-  border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
-  font-size: 0.9rem;
+  border: 1px solid var(--rule);
+  font-size: var(--text-meta);
 }
 
 .sync-estat small {
@@ -1513,7 +1635,7 @@ tr.exclos {
 .filador {
   width: 0.9rem;
   height: 0.9rem;
-  border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border: 2px solid var(--accent-line);
   border-top-color: var(--accent);
   border-radius: 999px;
   animation: gira 0.8s linear infinite;
@@ -1532,8 +1654,9 @@ tr.exclos {
 }
 
 .etiqueta-perill {
-  background: color-mix(in srgb, var(--negatiu) 15%, transparent);
-  color: var(--negatiu);
+  background: var(--paper);
+  border-color: var(--alert);
+  color: var(--alert);
 }
 
 /* --- Etiquetes de moviments ----------------------------------------------- */
@@ -1549,12 +1672,11 @@ tr.exclos {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 500;
+  font-size: var(--text-small);
+  font-weight: var(--weight-regular);
   font-variant-numeric: tabular-nums;
-  color: var(--text-suau);
-  background: color-mix(in srgb, var(--text-suau) 12%, transparent);
-  border-radius: 999px;
+  color: var(--ink-55);
+  border: 1px solid var(--rule);
   padding: 0.1rem 0.45rem 0.1rem 0.3rem;
   line-height: 1.2;
   white-space: nowrap;
@@ -1587,7 +1709,8 @@ tr.exclos {
 }
 
 .etiqueta-dada:hover {
-  text-decoration: underline;
+  color: var(--alert);
+  border-color: var(--alert);
 }
 
 .xapa-etiqueta {
@@ -1609,17 +1732,15 @@ tr.exclos {
   margin-left: 0.1rem;
   padding: 0;
   border: 0;
-  border-radius: 999px;
   background: transparent;
-  color: var(--text-suau);
+  color: var(--ink-55);
   font-size: 0.85rem;
   line-height: 1;
   cursor: pointer;
 }
 
 .boto-xapa:hover {
-  background: color-mix(in srgb, var(--negatiu) 15%, transparent);
-  color: var(--negatiu);
+  color: var(--alert);
 }
 
 .alta-etiqueta {
@@ -1633,14 +1754,13 @@ tr.exclos {
   width: 4.5rem;
   min-width: 0;
   padding: 0.1rem 0.35rem;
-  font-size: 0.75rem;
-  border: 1px dashed var(--vora);
-  border-radius: 999px;
+  font-size: var(--text-small);
+  border: 1px dashed var(--rule-control);
   background: transparent;
 }
 
 .alta-etiqueta input:focus {
-  outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  outline: 2px solid var(--accent-ink);
   border-style: solid;
 }
 
@@ -1649,8 +1769,8 @@ tr.exclos {
 .feines-comptadors {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.25rem 2rem;
-  margin: 0.75rem 0 1rem;
+  gap: var(--space-5) var(--space-8);
+  margin: var(--space-3) 0 var(--space-4);
 }
 
 .feines-comptadors p {
@@ -1662,7 +1782,7 @@ tr.exclos {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .feines-agenda li {
@@ -1700,12 +1820,11 @@ tr.exclos {
 }
 
 .feines-resum {
-  margin: 0.75rem 0;
+  margin: var(--space-4) 0;
   padding: 0.75rem 1rem;
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: 0.85rem;
-  background: color-mix(in srgb, var(--text-suau) 8%, transparent);
-  border-radius: 0.4rem;
+  font-size: var(--text-small);
+  background: var(--paper-sunken);
   overflow-x: auto;
 }
