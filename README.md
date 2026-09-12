@@ -7,16 +7,24 @@ other, so nothing checks it. `hx-target="#row-7"` is text. A type checker cannot
 tell you the target is gone; a linter cannot tell you the response body empties
 itself once the out-of-band nodes are lifted out; a test that asserts on a
 response body cannot tell you the swap deletes the element the user was
-touching. Each of those shipped at least once in this repository, and each was
-found by a person in a browser, counting rows.
+touching. Each of those shipped at least once in the application this was built
+for, and each was found by a person in a browser, counting rows.
 
 Zero dependencies. Built on Bun's `HTMLRewriter`. Knows nothing about the
 application it is checking, and imports nothing from it.
 
+## Install
+
+```bash
+bun add -d htmx-contract
+```
+
+Bun only, for now: it is built on Bun's `HTMLRewriter`.
+
 ## Use
 
 ```ts
-import { checkDocument, checkResponse, swapAndCheck, formatViolations } from "../htmx-contract/index.ts";
+import { checkDocument, checkResponse, swapAndCheck, formatViolations } from "htmx-contract";
 
 // Is this rendered page self-consistent?
 const onPage = await checkDocument(html);
@@ -93,12 +101,15 @@ seconds. The trade taken here is: catch the class of bug that has actually
 shipped, in a tier fast enough that nobody is tempted to skip it, and write down
 plainly what that leaves uncovered rather than implying the seam is now safe.
 
-## Extraction
+## Where it came from
 
-This directory imports nothing from `src/` or `tests/`, and its tests run with
-`DATABASE_URL` unset. `scripts/boundary.ts` enforces both. Lifting it into its
-own package is `git mv` plus a `package.json`.
+This began as a directory inside a personal accounting application, written from
+the start to be liftable: it imported nothing from the app, and a boundary check
+in CI enforced that on every commit. It was split out with
+`git subtree split`, so the five commits that explain why each rule exists came
+with it — `git log` still answers "why does `duplicate-field-in-form` exempt
+checkboxes?".
 
-It is written in English while the rest of the repository is in Catalan, for the
-same reason: it is meant to leave, and renaming at that point would throw away
-the history the move exists to preserve.
+It is the checker for [PLEYN](https://github.com/etorhub/pleyn), a stack of
+Bun, Hono, `hono/html`, htmx, Drizzle and PostgreSQL. It has no dependency on
+any of that, though. If you return HTML and htmx swaps it, this applies.

@@ -1,0 +1,54 @@
+{
+  "name": "htmx-contract",
+  "version": "0.1.0",
+  "description": "Checks the seam between the HTML a route returns and the DOM that receives it. Zero dependencies, built on Bun's HTMLRewriter.",
+  "type": "module",
+  "license": "MIT",
+  "author": "etorhub",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/etorhub/htmx-contract.git"
+  },
+  "homepage": "https://github.com/etorhub/htmx-contract#readme",
+  "bugs": "https://github.com/etorhub/htmx-contract/issues",
+  "keywords": [
+    "htmx",
+    "hypermedia",
+    "html",
+    "testing",
+    "contract",
+    "out-of-band",
+    "bun",
+    "htmlrewriter",
+    "pleyn"
+  ],
+  "exports": {
+    ".": "./index.ts",
+    "./inspect": "./inspect.ts",
+    "./rules": "./rules.ts",
+    "./swap": "./swap.ts",
+    "./poll": "./poll.ts",
+    "./fixtures": "./fixtures.ts"
+  },
+  "files": [
+    "index.ts",
+    "inspect.ts",
+    "rules.ts",
+    "swap.ts",
+    "poll.ts",
+    "fixtures.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "bun": ">=1.2.0"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "typescript": "^5.7.2"
+  }
+}
