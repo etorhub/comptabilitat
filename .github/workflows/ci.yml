@@ -1,24 +1,24 @@
 name: CI
 
 on:
-  # Nomes la branca principal: la resta ja les cobreix `pull_request`. Si les
-  # dues escoltessin totes les branques, cada empenta amb una PR oberta
-  # llançaria dues execucions identiques.
+  # The main branch only: `pull_request` already covers the rest. If both
+  # listened to every branch, each push with an open PR would launch two
+  # identical runs.
   push:
     branches: [master]
   pull_request:
 
-# Una empenta nova deixa sense sentit la que s'estigui executant.
+# A new push makes whatever is still running pointless.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  rapides:
-    # Sense cap servei de base de dades i sense DATABASE_URL: si una prova
-    # d'aquesta tanda arriba a fer una consulta, aqui peta. Es el que manté
-    # honesta la separacio, i el que demostra que `htmx-contract/` es pot
-    # endur a un paquet seu.
+  fast:
+    # No database service and no DATABASE_URL: if a test in this round gets as
+    # far as making a query, it fails here. That is what keeps the separation
+    # honest, and what proves `htmx-contract/` can be lifted into a package of
+    # its own.
     runs-on: ubuntu-latest
 
     env:
@@ -36,10 +36,10 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - name: Proves sense base de dades
+      - name: Tests with no database
         run: bun run test:unit
 
-  comprova:
+  check:
     runs-on: ubuntu-latest
 
     services:
@@ -58,9 +58,9 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://comptabilitat:comptabilitat@127.0.0.1:5432/comptabilitat_test
-      # Nomes per a les proves: no obre res. La configuracio te un valor per
-      # defecte i `validateConfig()` nomes peta amb ENVIRONMENT=production, pero
-      # val mes que les proves no depenguin del valor de per defecte.
+      # For the tests only: it opens nothing. The configuration has a default and
+      # `validateConfig()` only throws with ENVIRONMENT=production, but better
+      # that the tests do not depend on the default value.
       SECRET_KEY: una-clau-de-proves-de-32-caracters-o-mes
       PUBLIC_BASE_URL: http://localhost:8000
       COOKIE_SECURE: "false"
@@ -75,24 +75,30 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      # Els tipus primer: es el que falla mes de pressa i el que mes diu.
-      - name: Tipus (src i tests)
+      # The types first: it is what fails fastest and says the most.
+      - name: Types (src and tests)
         run: bun run typecheck
 
-      - name: Estil
+      - name: Lint
         run: bun run lint
 
       - name: Format
         run: bun run format:check
 
-      - name: Frontera de les peces extraibles
+      - name: Boundary of the extractable pieces
         run: bun run boundary
 
-      # L'esquema surt de les migracions, com a produccio.
-      - name: Migracions
+      # The generated tables come from `src/lib/oob.ts` and `src/routes/`. This
+      # is the step that stops the documentation drifting away from the code,
+      # which is the whole reason it is generated.
+      - name: Generated documentation
+        run: bun run docs:check
+
+      # The schema comes from the migrations, as in production.
+      - name: Migrations
         run: bun run db:apply
 
-      - name: Proves
+      - name: Tests
         run: bun test
         env:
           SKIP_MIGRATIONS: "true"

@@ -26,6 +26,12 @@ form field names** (`cerca`, `pagina`, `compte`, `nova_etiqueta`, …): they are
 the wire format, and renaming one breaks links and bookmarks that already
 exist.
 
+The same goes for what is **typed by hand on the machine**: the `make` targets
+(`make usuari`) and the CLI flags (`--espai`, `--rol`, `--codi`, `--descripcio`).
+They are Catalan on purpose, they are written down in `docs/operacio.md`, and
+renaming them buys nothing. Everything else under `.github/` and `scripts/` is
+code and is English.
+
 `htmx-contract/` is English like the rest, and on top of that it imports
 nothing from `src/`: it has to be liftable into a package of its own. If an
 extractable piece looks like it needs something from `src/`, it is cut wrong:
