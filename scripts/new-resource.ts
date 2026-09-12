@@ -1,13 +1,13 @@
 /**
  * Scaffolds a new resource.
  *
- *   bun run nou-recurs projects
- *   bun run nou-recurs projects --ruta projectes --titol "Projectes"
- *   bun run nou-recurs backups --admin
+ *   bun run new-resource projects
+ *   bun run new-resource projects --ruta projectes --titol "Projectes"
+ *   bun run new-resource backups --admin
  *
  * **Why it exists.** Adding a resource means six things at once: the four
  * files of the rule, the registration in `src/routes/index.ts` and the entry
- * in the table of `tests/contracte.test.ts`. And it means getting the depth of
+ * in the table of `tests/contract.test.ts`. And it means getting the depth of
  * the relative imports right (`../../`), which is exactly the kind of thing
  * that goes wrong one time in three.
  *
@@ -42,10 +42,10 @@ interface Options {
 }
 
 function help(message?: string): never {
-  if (message) console.error(`\n[nou-recurs] ${message}\n`);
+  if (message) console.error(`\n[new-resource] ${message}\n`);
   console.error(
     "Us:\n" +
-      "  bun run nou-recurs <nom> [--ruta <segment>] [--titol <Titol>] [--admin]\n\n" +
+      "  bun run new-resource <nom> [--ruta <segment>] [--titol <Titol>] [--admin]\n\n" +
       "  <nom>      el directori de src/routes/, en angles i en plural (projects)\n" +
       "  --ruta     el segment de l'adreça, en catala (projectes). Per defecte, <nom>\n" +
       "  --titol    el que surt a la pagina. Per defecte, <ruta> amb majuscula\n" +
@@ -148,7 +148,7 @@ function fileFragment(o: Options): string {
 
 import { html } from "hono/html";
 
-import { DataTable } from "../../components/vista.ts";
+import { DataTable } from "../../components/views.ts";
 import type { Html } from "../../lib/html.ts";
 
 export interface ${inPascal(o.dir)}View {
@@ -171,7 +171,7 @@ export function List({
           <td>\${item.name}</td>
         </tr>\` as Html,
       ),
-      // The rows and the empty state go together on purpose: see components/vista.ts.
+      // The rows and the empty state go together on purpose: see components/views.ts.
       empty: "Encara no hi ha res.",
     })}
     <!-- \${code} is the workspace code; use it in the HTMX URLs. -->
@@ -369,7 +369,7 @@ function registerContract(source: string, o: Options): string {
   const anchor = `];\n\n/**\n * The resources that have no page`;
 
   if (!source.includes(anchor)) {
-    throw new Error("No trobo la taula Pages a tests/contracte.test.ts");
+    throw new Error("No trobo la taula Pages a tests/contract.test.ts");
   }
   return source.replace(anchor, `${line}\n${anchor}`);
 }
@@ -380,7 +380,7 @@ const options = readOptions(Bun.argv.slice(2));
 const base = join(Root, "src", "routes", options.dir);
 
 if (await Bun.file(join(base, `${options.dir}.routes.ts`)).exists()) {
-  console.error(`\n[nou-recurs] «${options.dir}» ja existeix. No toco res.\n`);
+  console.error(`\n[new-resource] «${options.dir}» ja existeix. No toco res.\n`);
   process.exit(1);
 }
 
@@ -390,7 +390,9 @@ const existing = new Set(
     .map((e) => e.name),
 );
 if (existing.has(options.dir)) {
-  console.error(`\n[nou-recurs] el directori «${options.dir}» ja hi es pero esta a mitges.\n`);
+  console.error(
+    `\n[new-resource] el directori «${options.dir}» ja hi es pero esta a mitges.\n`,
+  );
   process.exit(1);
 }
 
@@ -403,7 +405,7 @@ await Bun.write(join(base, `${options.dir}.schema.ts`), fileSchema(options));
 const indexPath = join(Root, "src", "routes", "index.ts");
 await Bun.write(indexPath, registerRoute(await Bun.file(indexPath).text(), options));
 
-const contractPath = join(Root, "tests", "contracte.test.ts");
+const contractPath = join(Root, "tests", "contract.test.ts");
 await Bun.write(contractPath, registerContract(await Bun.file(contractPath).text(), options));
 
 // Prettier does the formatting, not me: that way the templates need not be
@@ -421,7 +423,7 @@ for (const command of [
 
 const url = options.admin ? `/${options.segment}` : `/e/<espai>/${options.segment}`;
 console.log(`
-[nou-recurs] fet. «${options.dir}» ja es dibuixa a ${url}.
+[new-resource] fet. «${options.dir}» ja es dibuixa a ${url}.
 
   src/routes/${options.dir}/${options.dir}.routes.ts     rutes i guardes
   src/routes/${options.dir}/${options.dir}.page.ts       la pagina sencera
@@ -429,7 +431,7 @@ console.log(`
   src/routes/${options.dir}/${options.dir}.schema.ts     els esquemes de Zod
 
   src/routes/index.ts        hi queda registrat
-  tests/contracte.test.ts    hi queda a la taula de pagines
+  tests/contract.test.ts    hi queda a la taula de pagines
 
 Ara:
   1. Fes el servei a src/services/${options.dir}.ts i canvia-hi \`list()\`.

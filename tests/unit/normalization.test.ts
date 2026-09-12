@@ -20,7 +20,7 @@ import {
   normalizeDescription,
   stripAccents,
 } from "../../src/services/normalization.ts";
-import cases from "../fixtures/normalitzacio.json";
+import cases from "../fixtures/normalization.json";
 
 interface Case {
   description: string;

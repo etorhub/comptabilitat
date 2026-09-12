@@ -12,7 +12,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 
 import { app } from "../src/server.ts";
-import { PASSWORD, signIn } from "./ajuda.ts";
+import { PASSWORD, signIn } from "./helpers.ts";
 import { db } from "../src/db/client.ts";
 import { alerts, ledgers, userLedgerPermissions, users } from "../src/db/schema/index.ts";
 import { hashPassword } from "../src/lib/auth.ts";

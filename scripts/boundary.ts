@@ -94,7 +94,7 @@ export interface Extractable {
 /**
  * Checks a list of extractable directories against a root.
  *
- * Exported, with both parameters outside, so `tests/frontera.test.ts` can call
+ * Exported, with both parameters outside, so `tests/boundary.test.ts` can call
  * it with a made-up directory. A check that cannot be tested is not a check:
  * this one once reported that everything was fine while it was not looking at
  * the imports at all.
@@ -144,11 +144,11 @@ async function main(): Promise<void> {
 
   if (problems.length === 0) {
     const names = EXTRACTABLE.map((e) => `${e.dir}/`).join(", ");
-    console.log(`[frontera] ${names} can be lifted out as it stands.`);
+    console.log(`[boundary] ${names} can be lifted out as it stands.`);
     return;
   }
 
-  console.error("[frontera] the extractable directories' boundary is not respected:\n");
+  console.error("[boundary] the extractable directories' boundary is not respected:\n");
   for (const problem of problems) {
     console.error(`  ${problem.file}:${problem.line}  ${problem.reason}`);
   }

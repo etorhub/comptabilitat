@@ -16,7 +16,7 @@ import {
 } from "../db/schema/index.ts";
 import { NotFoundError } from "../lib/http.ts";
 import { toMoneyString, type MoneyString } from "../lib/money.ts";
-import { parseDescription } from "./concepte.ts";
+import { parseDescription } from "./concept.ts";
 import { monthlyCost } from "./recurring.ts";
 
 export interface SeriesView {

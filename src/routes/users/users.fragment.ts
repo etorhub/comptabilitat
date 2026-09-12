@@ -11,7 +11,7 @@ import {
   type LedgerRole,
   type User,
 } from "../../db/schema/index.ts";
-import { DataTable } from "../../components/vista.ts";
+import { DataTable } from "../../components/views.ts";
 import type { Html } from "../../lib/html.ts";
 import { oobAttributes } from "../../lib/oob.ts";
 

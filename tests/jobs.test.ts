@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 
 import { app } from "../src/server.ts";
-import { PASSWORD, signIn } from "./ajuda.ts";
+import { PASSWORD, signIn } from "./helpers.ts";
 import { db } from "../src/db/client.ts";
 import {
   categories,

@@ -10,7 +10,7 @@
 
 import { html } from "hono/html";
 
-import { DataTable } from "../../components/vista.ts";
+import { DataTable } from "../../components/views.ts";
 import type { Html } from "../../lib/html.ts";
 import { jsonScript } from "../../lib/http.ts";
 import { formatMoney, toChartNumber } from "../../lib/money.ts";

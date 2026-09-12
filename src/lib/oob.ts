@@ -1,7 +1,7 @@
 /**
  * The out-of-band swap targets.
  *
- * **This file is the source of truth, and the table in `docs/referencia.md`
+ * **This file is the source of truth, and the table in `docs/reference.md`
  * comes out of it.** `bun run docs` rewrites that table and `bun run docs:check`
  * (inside `bun run check`) fails CI when it no longer matches. The documentation
  * cannot fall behind, because it does not exist separately: nobody has to

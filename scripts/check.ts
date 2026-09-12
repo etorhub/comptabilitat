@@ -36,7 +36,7 @@ const STEPS: Step[] = [
   },
   {
     name: "boundary",
-    command: ["bun", "run", "frontera"],
+    command: ["bun", "run", "boundary"],
     fix: "`htmx-contract/` may not import from the application. See AGENTS.md.",
   },
   {
@@ -55,11 +55,11 @@ for (const step of STEPS) {
 }
 
 if (failed.length === 0) {
-  console.log("\n[comprova] all clean.");
+  console.log("\n[check] all clean.");
   process.exit(0);
 }
 
-console.error(`\n[comprova] failed: ${failed.map((f) => f.name).join(", ")}\n`);
+console.error(`\n[check] failed: ${failed.map((f) => f.name).join(", ")}\n`);
 for (const step of failed) {
   console.error(`  ${step.name}: ${step.fix}`);
 }

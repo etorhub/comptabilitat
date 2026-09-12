@@ -14,7 +14,7 @@ import { describe, expect, test } from "bun:test";
 import { checkDocument, type RuleName, type Violation } from "../../htmx-contract/index.ts";
 import { SyncState } from "../../src/routes/connections/connections.fragment.ts";
 import { Running } from "../../src/routes/jobs/jobs.fragment.ts";
-import { MAX_ATTEMPTS } from "../../src/lib/sondeig.ts";
+import { MAX_ATTEMPTS } from "../../src/lib/polling.ts";
 import type { JobRun, SyncRun } from "../../src/db/schema/index.ts";
 
 function rules(violations: Violation[]): RuleName[] {

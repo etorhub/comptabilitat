@@ -8,13 +8,13 @@
  *
  * A translation of `backend/app/services/normalization.py`. Most cases have
  * to give the same result as the Python (see
- * `tests/fixtures/normalitzacio.json`), but the old decision to treat
+ * `tests/fixtures/normalization.json`), but the old decision to treat
  * `COMISION` / `CAJERO` anywhere in the concept as a special bucket, or to
  * recycle the raw prefix when no token is left, is **not taken as correct**.
  * Those transactions have to be reassigned with `reassignNormalization`.
  *
  * **`normalizeDescription` is never changed lightly**: the recorded Python
- * output is compared against it in `tests/unitat/normalitzacio.test.ts`, and
+ * output is compared against it in `tests/unit/normalization.test.ts`, and
  * changing it would regroup every `merchants.normalized_name` that already
  * exists.
  */

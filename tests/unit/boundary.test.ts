@@ -1,7 +1,7 @@
 /**
  * The boundary check, against made-up directories.
  *
- * It exists because `scripts/frontera.ts` once reported that everything was
+ * It exists because `scripts/boundary.ts` once reported that everything was
  * fine while it searched for imports in a source it had just stripped the
  * string literals from — that is, where it could not find a single one. A
  * check that is not tested is just a way of feeling reassured.
@@ -14,7 +14,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { checkBoundary } from "../../scripts/frontera.ts";
+import { checkBoundary } from "../../scripts/boundary.ts";
 
 let root = "";
 const EXTRACTABLE = [{ dir: "package", packages: ["bun:test"] }];
@@ -24,7 +24,7 @@ async function write(name: string, content: string): Promise<void> {
 }
 
 beforeAll(async () => {
-  root = await mkdtemp(join(tmpdir(), "frontera-"));
+  root = await mkdtemp(join(tmpdir(), "boundary-"));
   await mkdir(join(root, "package"), { recursive: true });
   await mkdir(join(root, "src"), { recursive: true });
 });

@@ -39,7 +39,7 @@ import {
 } from "../src/db/schema/index.ts";
 import { app } from "../src/server.ts";
 import { fillForTests } from "../src/services/demo.ts";
-import { PASSWORD, requestAs, signIn, type Session } from "./ajuda.ts";
+import { PASSWORD, requestAs, signIn, type Session } from "./helpers.ts";
 
 /**
  * The pages, and which resource they belong to.

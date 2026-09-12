@@ -25,7 +25,7 @@ import {
 import { seedCategories } from "../src/services/seed.ts";
 import { listTransactions, cardsAvailable } from "../src/services/transactions.ts";
 import { app } from "../src/server.ts";
-import { PASSWORD, signIn } from "./ajuda.ts";
+import { PASSWORD, signIn } from "./helpers.ts";
 
 let ledgerId = 0;
 let accountId = 0;

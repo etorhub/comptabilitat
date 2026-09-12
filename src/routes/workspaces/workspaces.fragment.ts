@@ -6,7 +6,7 @@ import { html, raw } from "hono/html";
 
 import { Field, FormError, type FieldErrors } from "../../components/form.ts";
 import { LEDGER_ROLES, type Ledger, type LedgerRole } from "../../db/schema/index.ts";
-import { DataTable } from "../../components/vista.ts";
+import { DataTable } from "../../components/views.ts";
 import type { Html } from "../../lib/html.ts";
 
 const NAMES_ROL: Record<LedgerRole, string> = {

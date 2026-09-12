@@ -164,7 +164,7 @@ estigui desendreçada; és que menteix, i algú hi treballa a sobre.
 ## Per què hi ha una tanda de proves sense base de dades
 
 Dotze fitxers ja eren independents de la base de dades sense que ho digués
-enlloc, i el que no es diu es fa malbé sol. Ara són a `tests/unitat/` i corren en
+enlloc, i el que no es diu es fa malbé sol. Ara són a `tests/unit/` i corren en
 **900 mil·lisegons sense PostgreSQL**; a la integració contínua són una feina a
 part **sense cap servei de base de dades**, que és el que ho manté honest.
 
@@ -190,7 +190,7 @@ els noms el dia que marxi voldria dir llençar l'historial que la mudança
 existeix per conservar.
 
 La frontera que de debò ho impedeix no és l'idioma sinó les importacions, i
-aquesta es comprova del tot (`bun run frontera`). L'idioma és una heurística
+aquesta es comprova del tot (`bun run boundary`). L'idioma és una heurística
 declarada: busca noms com `comprovaResposta`, que és el que surt per inèrcia. No
 mira ni comentaris ni textos, perquè un comentari que cita el títol d'un commit
 és en català amb tota la raó.

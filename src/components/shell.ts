@@ -7,7 +7,7 @@
  */
 
 import { html } from "hono/html";
-import { staticHref } from "../lib/estatics.ts";
+import { staticHref } from "../lib/static-files.ts";
 import type { Html } from "../lib/html.ts";
 
 export interface ShellProps {

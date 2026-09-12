@@ -10,13 +10,13 @@
 import { html, raw } from "hono/html";
 
 import { Field, Select } from "../../components/form.ts";
-import { DataTable } from "../../components/vista.ts";
+import { DataTable } from "../../components/views.ts";
 import type { JobRun, JobStatus, SyncRun } from "../../db/schema/index.ts";
 import { config } from "../../lib/config.ts";
 import type { Html } from "../../lib/html.ts";
 import type { HistoryPage, HealthSummary } from "../../services/job-runs.ts";
 import { oobAttributes } from "../../lib/oob.ts";
-import { poll, pollExhausted } from "../../lib/sondeig.ts";
+import { poll, pollExhausted } from "../../lib/polling.ts";
 import {
   STATUS_LABELS,
   JOB_LABELS,
@@ -256,7 +256,7 @@ export function JobsList({
  * next attempt; when the job finishes, the new fragment no longer carries a
  * trigger and HTMX stops. And if it never finishes —a process that dies
  * halfway leaves the row `running` forever— the attempt count runs out and
- * says so, instead of asking indefinitely. See `lib/sondeig.ts`.
+ * says so, instead of asking indefinitely. See `lib/polling.ts`.
  */
 export function Running({
   runs,

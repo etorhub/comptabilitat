@@ -30,7 +30,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 
-import { parseDescription, type OperationType } from "./concepte.ts";
+import { parseDescription, type OperationType } from "./concept.ts";
 import { hasTag } from "./tags.ts";
 
 import { db } from "../db/client.ts";

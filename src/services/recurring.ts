@@ -12,7 +12,7 @@
 
 import { and, asc, eq, isNotNull } from "drizzle-orm";
 
-import { countableTransactions } from "./filtres.ts";
+import { countableTransactions } from "./filters.ts";
 import { db, type Transactor } from "../db/client.ts";
 import {
   CADENCE_DAYS,

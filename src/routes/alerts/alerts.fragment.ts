@@ -10,7 +10,7 @@ import { html } from "hono/html";
 
 import type { Alert, AlertSeverity } from "../../db/schema/index.ts";
 import { Checkbox } from "../../components/form.ts";
-import { EmptyState } from "../../components/vista.ts";
+import { EmptyState } from "../../components/views.ts";
 import type { Html } from "../../lib/html.ts";
 import { alertFiltersToQuery, type AlertFilters } from "./alerts.schema.ts";
 

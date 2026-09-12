@@ -22,7 +22,7 @@ import {
 import { hashPassword } from "../src/lib/auth.ts";
 import { config } from "../src/lib/config.ts";
 import { app } from "../src/server.ts";
-import { PASSWORD, signIn } from "./ajuda.ts";
+import { PASSWORD, signIn } from "./helpers.ts";
 
 const Session = {
   session_id: "sessio-abc",

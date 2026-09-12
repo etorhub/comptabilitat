@@ -4,7 +4,7 @@ Regles de la casa per a `comptabilitat`. On hi digui **sempre** o **mai**, és
 sempre o mai. Si te'n vols apartar, canvia primer aquest fitxer.
 
 Això són **les regles**. El perquè de cadascuna, amb les històries dels errors
-que la van fer necessària, és a [`docs/perque.md`](docs/perque.md). Quan una
+que la van fer necessària, és a [`docs/why.md`](docs/why.md). Quan una
 regla et sembli arbitrària, mira-hi abans de canviar-la: gairebé totes venen
 d'una cosa que va passar de debò.
 
@@ -27,24 +27,24 @@ argument.
 
 ```bash
 bun run ok        # després de qualsevol canvi. No cal base de dades: 1 segon
-bun run test:bd   # abans d'empènyer, si has tocat rutes o base de dades
+bun run test:db   # abans d'empènyer, si has tocat rutes o base de dades
 ```
 
 `bun run ok` és **obligatori abans d'empènyer**. Si falla, et diu quina passa ha
 fallat i què has de fer. No empenyis esperant que el CI t'ho digui.
 
 `bun test` a seques, sobre una base de dades acabada de crear, dona una dotzena
-d'errors que no són teus: fes servir `test:bd`.
+d'errors que no són teus: fes servir `test:db`.
 
 ## Per començar un recurs
 
 ```bash
-bun run nou-recurs <nom>          # dins d'un espai
-bun run nou-recurs <nom> --admin  # administració de la instal·lació
+bun run new-resource <nom>          # dins d'un espai
+bun run new-resource <nom> --admin  # administració de la instal·lació
 ```
 
 Fa els quatre fitxers, els registra a `src/routes/index.ts` i els afegeix a la
-taula de `tests/contracte.test.ts`. El que surt passa el `bun run ok` tal com
+taula de `tests/contract.test.ts`. El que surt passa el `bun run ok` tal com
 està.
 
 Per veure'n un de fet del tot: **`src/routes/tags/`** (llista i detall) i
@@ -64,7 +64,7 @@ un és més segur que recordar-se de la convenció.
 - **`db/schema/` va per agregat, no per recurs.** Les claus foranes es creuen
   entre taules que la interfície tracta com a recursos diferents.
 
-Quins recursos hi ha ara: [`docs/referencia.md`](docs/referencia.md).
+Quins recursos hi ha ara: [`docs/reference.md`](docs/reference.md).
 
 ## Pàgina o fragment
 
@@ -90,7 +90,7 @@ Fes servir sempre els ajudants de `lib/http.ts` —`page()`, `fragment()`,
   conté **només** el `#toast` fora de banda.
 - Fes servir `toastOnly()` de `lib/http.ts`, que hi posa `HX-Reswap: none`.
   **Sense aquesta capçalera l'intercanvi esborra l'element que l'usuari estava
-  tocant** ([per què](docs/perque.md#e5dd962--un-error-senduia-la-fila-que-estaves-tocant)).
+  tocant** ([per què](docs/why.md#e5dd962--un-error-senduia-la-fila-que-estaves-tocant)).
 - **Cap ruta no s'inventa el seu propi lloc per als errors.**
 - Llança `AppError`, `NotFoundError`, `ForbiddenError` o `ConflictError`; no
   retornis codis a mà.
@@ -116,14 +116,14 @@ Fes servir sempre els ajudants de `lib/http.ts` —`page()`, `fragment()`,
   cap altre el dibuixa.
 - **Mai facis sondeig** ni tornis a demanar-ho tot després d'una mutació.
 
-La llista: [`docs/referencia.md`](docs/referencia.md).
+La llista: [`docs/reference.md`](docs/reference.md).
 
 ## Sondeig
 
 L'excepció de la regla anterior: l'estat d'una sincronització i les feines en
 curs a `/feines`.
 
-- **Tot sondeig passa per `lib/sondeig.ts`.** Cap no s'escriu a mà: un
+- **Tot sondeig passa per `lib/polling.ts`.** Cap no s'escriu a mà: un
   `hx-trigger="every …"` sense límit declarat fa fallar la regla
   `unbounded-poll`.
 - S'atura de dues maneres, i totes dues calen: quan la feina acaba, el fragment
@@ -200,14 +200,14 @@ N'hi ha molt poc i ha de continuar sent així.
 
 ## Proves
 
-- **`tests/unitat/` no toca la base de dades.** Una prova nova que no en
+- **`tests/unit/` no toca la base de dades.** Una prova nova que no en
   necessiti va aquí; si en necessita, es queda a `tests/`. A la integració
   contínua la primera tanda corre sense cap servei de PostgreSQL, i és això el
   que ho manté honest.
-- **`tests/contracte.test.ts` demana cada pàgina** i la passa pel contracte
+- **`tests/contract.test.ts` demana cada pàgina** i la passa pel contracte
   d'HTMX. La seva taula ha de cobrir tot `src/routes/`, i hi ha una prova que ho
   comprova.
-- **`tests/espais.test.ts` és la més important**: comprova les dues garanties
+- **`tests/workspaces.test.ts` és la més important**: comprova les dues garanties
   dels espais estancs. **No la toquis per fer passar res.**
 - Cap prova no toca res de fora: el banc, el correu i el model local són
   servidors locals que munta la prova mateixa.
@@ -217,7 +217,7 @@ N'hi ha molt poc i ha de continuar sent així.
 ## En acabar
 
 1. `bun run ok` net.
-2. `bun run test:bd` verd si has tocat rutes o base de dades.
+2. `bun run test:db` verd si has tocat rutes o base de dades.
 3. Comprova que cada objectiu fora de banda que toca el recurs s'actualitza de
    debò, mutant des d'una pàgina que no el conté.
 4. Només aleshores, el commit.

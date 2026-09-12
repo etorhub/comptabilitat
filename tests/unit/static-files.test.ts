@@ -10,7 +10,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { app } from "../../src/server.ts";
-import { staticHref } from "../../src/lib/estatics.ts";
+import { staticHref } from "../../src/lib/static-files.ts";
 
 describe("static files", () => {
   test("GET /htmx.min.js carries Cache-Control immutable", async () => {

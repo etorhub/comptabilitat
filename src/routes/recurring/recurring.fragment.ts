@@ -6,7 +6,7 @@ import { html, raw } from "hono/html";
 
 import type { AmountMode, Cadence } from "../../db/schema/index.ts";
 import { Field, Checkbox, Select, type FieldErrors } from "../../components/form.ts";
-import { DataTable } from "../../components/vista.ts";
+import { DataTable } from "../../components/views.ts";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney, money } from "../../lib/money.ts";
 import { formatDate, todayLocal } from "../../lib/time.ts";

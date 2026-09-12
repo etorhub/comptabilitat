@@ -7,12 +7,12 @@ import { html, raw } from "hono/html";
 import { Select } from "../../components/form.ts";
 import type { ConnectionStatus, Ledger, SyncRun } from "../../db/schema/index.ts";
 import { isSyncFinished } from "../../db/schema/index.ts";
-import { EmptyState, Spinner, DataTable } from "../../components/vista.ts";
+import { EmptyState, Spinner, DataTable } from "../../components/views.ts";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
 import { formatDate } from "../../lib/time.ts";
 import { oobAttributes } from "../../lib/oob.ts";
-import { poll, pollExhausted } from "../../lib/sondeig.ts";
+import { poll, pollExhausted } from "../../lib/polling.ts";
 
 const STATES: Record<ConnectionStatus, { text: string; cssClass: string }> = {
   pending: { text: "pendent d'autoritzar", cssClass: "etiqueta-suau" },
@@ -183,7 +183,7 @@ export function AccountRow({
  * finishes, the fragment that comes back no longer carries a trigger; and if
  * it never finishes, the attempt counter runs out and says so. That second
  * net is there because the first is no use when the process dies halfway and
- * the row stays `running` forever. See `lib/sondeig.ts`.
+ * the row stays `running` forever. See `lib/polling.ts`.
  */
 export function SyncState({
   connectionId,

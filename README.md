@@ -32,7 +32,7 @@ canviat. Les úniques línies de JavaScript pròpies són les gràfiques d'EChar
 que llegeixen les dades d'un `<script type="application/json">` que ha escrit
 el servidor. Les regles de la casa són a [`AGENTS.md`](AGENTS.md), i el perquè de cadascuna
 —amb les històries dels errors que la van fer necessària— a
-[`docs/perque.md`](docs/perque.md).
+[`docs/why.md`](docs/why.md).
 
 ## Com funciona
 
@@ -96,7 +96,7 @@ bun run ok    # comprovacions + la tanda que no vol base de dades. Un segon
 
 Si falla, diu quina passa ha fallat i què has de fer.
 
-`test:unitat` són `htmx-contract/` i `tests/unitat/`: el marcatge, la
+`test:unit` són `htmx-contract/` i `tests/unit/`: el marcatge, la
 normalització, les exportacions i el contracte d'HTMX. No toquen la base de
 dades, i a la integració contínua corren en una feina **sense cap servei de
 PostgreSQL**, que és el que manté honesta la separació.
@@ -106,14 +106,14 @@ La resta de proves sí que en volen una, a part:
 ```bash
 createdb comptabilitat_test
 export DATABASE_URL=postgresql://comptabilitat:comptabilitat@127.0.0.1:5432/comptabilitat_test
-bun run test:bd
+bun run test:db
 ```
 
-**Fes servir `bun run test:bd`, no `bun test` a seques.** Les migracions
+**Fes servir `bun run test:db`, no `bun test` a seques.** Les migracions
 s'apliquen en importar `src/server.ts`, i deu fitxers de proves l'importen: en
 una base de dades acabada de crear, es posen a migrar tots alhora i xoquen entre
 ells. El resultat és una primera passada amb una dotzena d'errors que no tenen
-res a veure amb el teu canvi. `test:bd` fa el que fa la integració contínua
+res a veure amb el teu canvi. `test:db` fa el que fa la integració contínua
 —aplicar les migracions primer i després `SKIP_MIGRATIONS=true`—, i llavors surt
 verd. Amb la base de dades ja migrada, `bun test` també va.
 
@@ -123,5 +123,5 @@ són servidors locals muntats per la prova mateixa.
 Les que valen més són les que fixen el comportament que costaria de
 redescobrir: la normalització dels conceptes i les claus de deduplicació es
 comproven contra la sortida gravada de la implementació anterior, i
-`tests/espais.test.ts` comprova que qui no té accés a un espai rep exactament
+`tests/workspaces.test.ts` comprova que qui no té accés a un espai rep exactament
 la mateixa resposta que si no existís.

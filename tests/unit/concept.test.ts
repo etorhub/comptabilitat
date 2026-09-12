@@ -7,7 +7,7 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { parseDescription } from "../../src/services/concepte.ts";
+import { parseDescription } from "../../src/services/concept.ts";
 
 describe("parseDescription", () => {
   test("purchase with a masked TARJ.", () => {

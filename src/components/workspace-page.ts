@@ -10,7 +10,7 @@ import type { Context } from "hono";
 
 import { Layout } from "./layout.ts";
 import type { Html } from "../lib/html.ts";
-import { counters } from "../services/comptadors.ts";
+import { counters } from "../services/counters.ts";
 import { currentUser } from "../middleware/session.ts";
 import { currentWorkspace, myWorkspaces } from "../middleware/workspace.ts";
 

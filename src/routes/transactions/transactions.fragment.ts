@@ -9,7 +9,7 @@ import { html, raw } from "hono/html";
 
 import { Checkbox, Select } from "../../components/form.ts";
 import type { CategorySource } from "../../db/schema/index.ts";
-import { Spinner, Pagination, DataTable } from "../../components/vista.ts";
+import { Spinner, Pagination, DataTable } from "../../components/views.ts";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
 import { oobAttributes } from "../../lib/oob.ts";

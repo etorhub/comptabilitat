@@ -24,7 +24,7 @@ validateConfig();
 // that already exists.
 //
 // Careful: this import-time migration is also why `bun test` races on a fresh
-// database when several test files import `app`. Use `bun run test:bd`.
+// database when several test files import `app`. Use `bun run test:db`.
 if (process.env.SKIP_MIGRATIONS !== "true") {
   const { applyMigrations } = await import("./db/migrate.ts");
   await applyMigrations();
@@ -41,7 +41,7 @@ if (config.debug) {
 // the stack change, the nginx that served the React interface is gone.
 //
 // A one-year `immutable`: the browser does not ask again. Templates append
-// `?v=<digest>` (see `lib/estatics.ts`) so a deployment does not leave stale
+// `?v=<digest>` (see `lib/static-files.ts`) so a deployment does not leave stale
 // bytes in the cache.
 const staticCache = (_path: string, c: Context) => {
   c.header("Cache-Control", "public, max-age=31536000, immutable");

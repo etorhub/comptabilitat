@@ -14,7 +14,7 @@
 
 import { asc, eq } from "drizzle-orm";
 
-import { countableTransactions } from "./filtres.ts";
+import { countableTransactions } from "./filters.ts";
 import { db } from "../db/client.ts";
 import { transactions } from "../db/schema/index.ts";
 import { money } from "../lib/money.ts";

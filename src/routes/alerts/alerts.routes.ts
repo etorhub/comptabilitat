@@ -31,7 +31,7 @@ import {
   withOob,
 } from "../../lib/http.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
-import { countNewAlerts } from "../../services/comptadors.ts";
+import { countNewAlerts } from "../../services/counters.ts";
 import { AlertsList, AlertCard } from "./alerts.fragment.ts";
 import { AlertsPage } from "./alerts.page.ts";
 import { alertFiltersSchema, alertFiltersToQuery } from "./alerts.schema.ts";

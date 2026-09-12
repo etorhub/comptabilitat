@@ -92,8 +92,8 @@ async function resourcesTable(): Promise<string> {
  * all, has it in `src/lib/oob.ts`, which is where `tsc` will tell them.
  */
 const SECTIONS: Section[] = [
-  { name: "oob", file: "docs/referencia.md", generate: oobTable },
-  { name: "recursos", file: "docs/referencia.md", generate: resourcesTable },
+  { name: "oob", file: "docs/reference.md", generate: oobTable },
+  { name: "recursos", file: "docs/reference.md", generate: resourcesTable },
 ];
 
 function markers(name: string): { start: string; end: string } {

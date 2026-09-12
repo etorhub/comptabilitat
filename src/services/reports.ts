@@ -17,9 +17,9 @@ import { db } from "../db/client.ts";
 import { categories, merchants, transactions } from "../db/schema/index.ts";
 import { Decimal, money, toMoneyString, type MoneyString } from "../lib/money.ts";
 import { todayLocal } from "../lib/time.ts";
-import { countableTransactions } from "./filtres.ts";
+import { countableTransactions } from "./filters.ts";
 
-/** See `services/filtres.ts`: the definition lives in one place. */
+/** See `services/filters.ts`: the definition lives in one place. */
 function baseFilter(
   ledgerIds: number[],
   dateFrom: string | null,

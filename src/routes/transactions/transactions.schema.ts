@@ -4,7 +4,7 @@
 
 import { z } from "zod/v4";
 
-import { OPERATION_TYPES, type OperationType } from "../../services/concepte.ts";
+import { OPERATION_TYPES, type OperationType } from "../../services/concept.ts";
 
 export const PER_PAGE = 50;
 

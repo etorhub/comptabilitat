@@ -37,7 +37,7 @@ jobs:
       - run: bun install --frozen-lockfile
 
       - name: Proves sense base de dades
-        run: bun run test:unitat
+        run: bun run test:unit
 
   comprova:
     runs-on: ubuntu-latest
@@ -86,7 +86,7 @@ jobs:
         run: bun run format:check
 
       - name: Frontera de les peces extraibles
-        run: bun run frontera
+        run: bun run boundary
 
       # L'esquema surt de les migracions, com a produccio.
       - name: Migracions

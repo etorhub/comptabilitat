@@ -29,8 +29,8 @@ import {
   categorizeBulk,
   categorizeTransaction,
   confirmFromReview,
-} from "../../services/categoritzacio.ts";
-import { countToReview } from "../../services/comptadors.ts";
+} from "../../services/categorization.ts";
+import { countToReview } from "../../services/counters.ts";
 import { addTag, addTagBulk, workspaceTags, removeTag } from "../../services/tags.ts";
 import {
   transactionRow,

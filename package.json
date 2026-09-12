@@ -9,8 +9,8 @@
     "worker": "bun run src/workers/scheduler.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "test:unitat": "SKIP_MIGRATIONS=true bun test htmx-contract tests/unitat",
-    "test:bd": "bun run db:apply && SKIP_MIGRATIONS=true bun test",
+    "test:unit": "SKIP_MIGRATIONS=true bun test htmx-contract tests/unit",
+    "test:db": "bun run db:apply && SKIP_MIGRATIONS=true bun test",
     "css": "tailwindcss -i src/styles/app.css -o public/app.css",
     "css:watch": "tailwindcss -i src/styles/app.css -o public/app.css --watch",
     "db:pull": "drizzle-kit pull",
@@ -22,13 +22,13 @@
     "lint": "oxlint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "frontera": "bun run scripts/frontera.ts",
+    "boundary": "bun run scripts/boundary.ts",
     "docs": "bun run scripts/agents-md.ts",
     "docs:check": "bun run scripts/agents-md.ts --check",
-    "check": "bun run scripts/comprova.ts",
-    "ok": "bun run check && bun run test:unitat",
+    "check": "bun run scripts/check.ts",
+    "ok": "bun run check && bun run test:unit",
     "db:apply": "bun run src/db/migrate.ts",
-    "nou-recurs": "bun run scripts/nou-recurs.ts"
+    "new-resource": "bun run scripts/new-resource.ts"
   },
   "dependencies": {
     "croner": "^10.0.1",

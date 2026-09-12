@@ -55,7 +55,7 @@ import {
   HistoryList,
 } from "./jobs.fragment.ts";
 import { JobsPage } from "./jobs.page.ts";
-import { attemptFromQuery, ATTEMPT_PARAM } from "../../lib/sondeig.ts";
+import { attemptFromQuery, ATTEMPT_PARAM } from "../../lib/polling.ts";
 import {
   type JobId,
   JOBS,
@@ -226,7 +226,7 @@ jobsRoutes.get("/fragment/historial", async (c) => {
 jobsRoutes.get("/fragment/en-curs", async (c) => {
   const data = await pageData(historyFiltersSchema.parse({}));
   // The attempt counter comes in the URL: the poll has a limit and the server
-  // holds it, not the client. See `lib/sondeig.ts`.
+  // holds it, not the client. See `lib/polling.ts`.
   const attempt = attemptFromQuery(c.req.query(ATTEMPT_PARAM));
   // The main target is `#en-curs` (no oob); the rest goes out of band.
   return fragment(

@@ -7,7 +7,7 @@
  * nothing. When something is copied seven times, the eighth person who needs
  * it writes yet another slightly different version.
  *
- * It is not a test file (`ajuda.ts`, not `ajuda.test.ts`): `bun test` only
+ * It is not a test file (`helpers.ts`, not `ajuda.test.ts`): `bun test` only
  * picks up `*.test.ts`.
  *
  * **The tokens are read from the markup, not with a regular expression.** The

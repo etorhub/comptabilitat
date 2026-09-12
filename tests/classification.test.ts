@@ -27,7 +27,7 @@ import { hashPassword } from "../src/lib/auth.ts";
 import { classifyTransaction, classifyPending } from "../src/services/classification.ts";
 import { seedCategories } from "../src/services/seed.ts";
 import { app } from "../src/server.ts";
-import { PASSWORD, signIn } from "./ajuda.ts";
+import { PASSWORD, signIn } from "./helpers.ts";
 
 const Today = "2026-02-10";
 

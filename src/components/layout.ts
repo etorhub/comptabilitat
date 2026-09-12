@@ -15,7 +15,7 @@ import type { Html } from "../lib/html.ts";
 
 import type { Ledger, LedgerRole, User } from "../db/schema/index.ts";
 import { CSRF_HEADER } from "../lib/csrf.ts";
-import { staticHref } from "../lib/estatics.ts";
+import { staticHref } from "../lib/static-files.ts";
 import { oobAttributes } from "../lib/oob.ts";
 
 export interface LayoutProps {

@@ -51,7 +51,7 @@ import { finishAuthorization, beginAuthorization } from "../../services/consent.
 import { alreadySyncing, openImport, runTheImport } from "../../services/sync.ts";
 import { SyncState, AccountRow, List, type ConnectionView } from "./connections.fragment.ts";
 import { ConnectionsPage } from "./connections.page.ts";
-import { attemptFromQuery, ATTEMPT_PARAM } from "../../lib/sondeig.ts";
+import { attemptFromQuery, ATTEMPT_PARAM } from "../../lib/polling.ts";
 import {
   assignSchema,
   authorizeSchema,
@@ -249,7 +249,7 @@ connectionsRoutes.post("/:id/sincronitza", async (c) => {
 connectionsRoutes.get("/:id/fragment/sync", async (c) => {
   const id = idFromRoute(c.req.param("id"), "Aquesta connexio no existeix");
   // The attempt counter comes in the URL: the poll has a limit and the server
-  // holds it, not the client. See `lib/sondeig.ts`.
+  // holds it, not the client. See `lib/polling.ts`.
   const attempt = attemptFromQuery(c.req.query(ATTEMPT_PARAM));
   return fragment(c, SyncState({ connectionId: id, run: await lastRun(id), attempt }));
 });

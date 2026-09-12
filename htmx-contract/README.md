@@ -96,7 +96,7 @@ plainly what that leaves uncovered rather than implying the seam is now safe.
 ## Extraction
 
 This directory imports nothing from `src/` or `tests/`, and its tests run with
-`DATABASE_URL` unset. `scripts/frontera.ts` enforces both. Lifting it into its
+`DATABASE_URL` unset. `scripts/boundary.ts` enforces both. Lifting it into its
 own package is `git mv` plus a `package.json`.
 
 It is written in English while the rest of the repository is in Catalan, for the

@@ -15,7 +15,7 @@
 import { describe, expect, test } from "bun:test";
 import { html } from "hono/html";
 
-import { EmptyState, Pagination, DataTable } from "../../src/components/vista.ts";
+import { EmptyState, Pagination, DataTable } from "../../src/components/views.ts";
 import type { Html } from "../../src/lib/html.ts";
 
 const COLUMNES = html`<th>Nom</th>

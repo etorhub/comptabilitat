@@ -29,7 +29,7 @@ import {
   removeTag,
 } from "../src/services/tags.ts";
 import { app } from "../src/server.ts";
-import { PASSWORD, signIn } from "./ajuda.ts";
+import { PASSWORD, signIn } from "./helpers.ts";
 
 let personalId = 0;
 let calellaId = 0;
