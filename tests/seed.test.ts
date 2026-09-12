@@ -43,13 +43,13 @@ beforeAll(async () => {
   await seedCategories(ledgerId);
 });
 
-describe("el pla de categories", () => {
-  test("crea les 81 categories del pla", async () => {
+describe("the category plan", () => {
+  test("creates the 81 categories of the plan", async () => {
     const all = await db.select().from(categories).where(eq(categories.ledgerId, ledgerId));
     expect(all).toHaveLength(81);
   });
 
-  test("nomes te dos nivells", async () => {
+  test("has two levels only", async () => {
     const all = await db.select().from(categories).where(eq(categories.ledgerId, ledgerId));
     const perId = new Map(all.map((c) => [c.id, c]));
     for (const category of all) {
@@ -58,7 +58,7 @@ describe("el pla de categories", () => {
     }
   });
 
-  test("conté els tres pendents dels quals depen el codi", async () => {
+  test("contains the three slugs the code depends on", async () => {
     const all = await db.select().from(categories).where(eq(categories.ledgerId, ledgerId));
     const slugs = new Set(all.map((c) => c.slug));
 
@@ -67,7 +67,7 @@ describe("el pla de categories", () => {
     expect(slugs).toContain(SLUG_CASH_WITHDRAWAL);
   });
 
-  test("les categories protegides existeixen i son del sistema", async () => {
+  test("the protected categories exist and are system ones", async () => {
     for (const slug of PROTECTED_SLUGS) {
       const [category] = await db
         .select()
@@ -79,7 +79,7 @@ describe("el pla de categories", () => {
     }
   });
 
-  test("tornar-hi no duplica res", async () => {
+  test("running it again duplicates nothing", async () => {
     const creades = await seedCategories(ledgerId);
     expect(creades).toBe(0);
     const all = await db.select().from(categories).where(eq(categories.ledgerId, ledgerId));

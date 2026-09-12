@@ -234,8 +234,8 @@ beforeEach(async () => {
   session = await signIn("anna@exemple.cat");
 });
 
-describe("la memoria de comerços", () => {
-  test("classifica a partir del comerç", async () => {
+describe("the merchant memory", () => {
+  test("classifies from the merchant", async () => {
     const supermercat = await category(personalId);
     const merchantId = await merchant("MERCADONA", {
       defaultCategoryId: supermercat.id,
@@ -251,7 +251,7 @@ describe("la memoria de comerços", () => {
     expect(row.needsReview).toBe(false);
   });
 
-  test("un comerç no confirmat es marca per revisar", async () => {
+  test("an unconfirmed merchant is marked for review", async () => {
     const supermercat = await category(personalId);
     const merchantId = await merchant("MERCADONA", {
       defaultCategoryId: supermercat.id,
@@ -265,8 +265,8 @@ describe("la memoria de comerços", () => {
   });
 });
 
-describe("el que decideix una persona", () => {
-  test("no es sobreescriu mai, ni per un comerç", async () => {
+describe("what a person decides", () => {
+  test("is never overwritten, not even by a merchant", async () => {
     const supermercat = await category(personalId);
     const restaurants = await category(personalId, "restauracio-restaurants");
     const merchantId = await merchant("MERCADONA", {
@@ -285,8 +285,8 @@ describe("el que decideix una persona", () => {
   });
 });
 
-describe("la cua de revisio", () => {
-  test("els moviments sense res queden per revisar", async () => {
+describe("the review queue", () => {
+  test("transactions with nothing are left for review", async () => {
     const id = await transaction({ normalized: "ALGUNA COSA RARA" });
 
     const stats = await classifyPending(personalId);
@@ -295,7 +295,7 @@ describe("la cua de revisio", () => {
     expect((await read(id)).needsReview).toBe(true);
   });
 
-  test("la pagina de revisio nomes llista els pendents", async () => {
+  test("the review page only lists the pending ones", async () => {
     await transaction({ needsReview: true });
     await transaction({ amount: "-10.00", day: "2026-02-08" });
 
@@ -310,8 +310,8 @@ describe("la cua de revisio", () => {
   });
 });
 
-describe("corregir una categoria", () => {
-  test("recorda el comerç i ho propaga als seus moviments", async () => {
+describe("correcting a category", () => {
+  test("remembers the merchant and propagates it to its transactions", async () => {
     const merchantId = await merchant();
     const first = await transaction({ merchantId: merchantId });
     const segon = await transaction({
@@ -333,15 +333,15 @@ describe("corregir una categoria", () => {
   });
 });
 
-describe("l'identificador de l'adreça", () => {
-  test("una cosa que no es un numero dona 404, no 500", async () => {
+describe("the id in the URL", () => {
+  test("something that is not a number gives 404, not 500", async () => {
     const res = await send("/e/personal/moviments/no-soc-un-numero/categoria", {
       category_id: "1",
     });
     expect(res.status).toBe(404);
   });
 
-  test("i un numero amb cua enganxada, tambe", async () => {
+  test("and so does a number with a tail glued on", async () => {
     // `Number.parseInt("12abc")` returns 12: this used to be a valid URL that
     // ended up on transaction 12.
     const id = await transaction();
@@ -354,14 +354,14 @@ describe("l'identificador de l'adreça", () => {
   });
 });
 
-describe("quan una peticio falla", () => {
+describe("when a request fails", () => {
   /**
    * A body carrying only the `#toast` is left empty when HTMX takes the
    * out-of-band swaps out of it, and then HTMX would swap that emptiness into
    * the `hx-target`. With `hx-swap="outerHTML"` that deletes the row the user
    * was touching. `HX-Reswap: none` prevents it.
    */
-  test("l'error no s'endu la fila: hi ha d'anar `HX-Reswap: none`", async () => {
+  test("the error does not take the row with it: `HX-Reswap: none` has to be there", async () => {
     const id = await transaction();
     const alie = await category(calellaId);
 
@@ -378,7 +378,7 @@ describe("quan una peticio falla", () => {
     expect(body).toContain('hx-swap-oob="innerHTML:#toast"');
   });
 
-  test("tambe quan no es troba res", async () => {
+  test("also when nothing is found", async () => {
     const res = await send("/e/personal/moviments/999999/categoria", {
       category_id: String((await category(personalId)).id),
     });
@@ -387,7 +387,7 @@ describe("quan una peticio falla", () => {
     expect(res.headers.get("HX-Reswap")).toBe("none");
   });
 
-  test("i quan la seleccio en bloc porta un moviment de fora", async () => {
+  test("and when the bulk selection carries a transaction from outside", async () => {
     const meu = await transaction();
     const alie = await transaction({ accountId: accountCalella, ledgerId: calellaId });
 
@@ -401,8 +401,8 @@ describe("quan una peticio falla", () => {
   });
 });
 
-describe("la recategoritzacio en lot", () => {
-  test("aplica la categoria a tots els triats", async () => {
+describe("bulk recategorization", () => {
+  test("applies the category to all the selected ones", async () => {
     const first = await transaction();
     const segon = await transaction({ amount: "-40.00", day: "2026-02-09" });
     const supermercat = await category(personalId);
@@ -417,7 +417,7 @@ describe("la recategoritzacio en lot", () => {
     expect((await read(segon)).categoryId).toBe(supermercat.id);
   });
 
-  test("si algun moviment no es de l'espai, no se n'aplica cap", async () => {
+  test("if any transaction is not from the workspace, none is applied", async () => {
     const meu = await transaction();
     const alie = await transaction({ accountId: accountCalella, ledgerId: calellaId });
     const supermercat = await category(personalId);

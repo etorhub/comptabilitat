@@ -20,39 +20,39 @@ import {
   normalizeDescription,
   stripAccents,
 } from "../../src/services/normalization.ts";
-import casos from "../fixtures/normalitzacio.json";
+import cases from "../fixtures/normalitzacio.json";
 
-interface Cas {
+interface Case {
   description: string;
   counterparty: string;
   expected: [string, string];
 }
 
-describe("es comporta igual que la implementacio de Python", () => {
-  test(`${(casos as Cas[]).length} conceptes gravats donen el mateix`, () => {
-    for (const cas of casos as Cas[]) {
-      const obtingut = normalizeDescription(cas.description, cas.counterparty);
-      expect({ login: cas.description, output: obtingut }).toEqual({
-        login: cas.description,
-        output: cas.expected as [string, string],
+describe("behaves the same as the Python implementation", () => {
+  test(`${(cases as Case[]).length} recorded concepts give the same`, () => {
+    for (const testCase of cases as Case[]) {
+      const got = normalizeDescription(testCase.description, testCase.counterparty);
+      expect({ input: testCase.description, output: got }).toEqual({
+        input: testCase.description,
+        output: testCase.expected as [string, string],
       });
     }
   });
 });
 
-describe("el que fa, explicat", () => {
-  test("treu el prefix del tipus d'operacio i la poblacio de despres de la coma", () => {
+describe("what it does, explained", () => {
+  test("removes the operation type prefix and the town after the comma", () => {
     const [key] = normalizeDescription("COMPRA TARJ. MERCADONA BARCELONA, BARCELONA");
     expect(key).toBe("MERCADONA BARCELONA");
   });
 
-  test("les operacions sense comerç tenen un nom fix", () => {
+  test("operations with no merchant have a fixed name", () => {
     expect(normalizeDescription("REINTEGRO EN CAJERO 4B")[0]).toBe("REINTEGRO EFECTIU");
     expect(normalizeDescription("COMISION DE MANTENIMIENTO")[0]).toBe("COMISSIO BANCARIA");
     expect(normalizeDescription("TRASPASO A CUENTA")[0]).toBe("TRASPAS ENTRE COMPTES");
   });
 
-  test("una comissio al final d'una compra no es el comerç", () => {
+  test("a commission at the end of a purchase is not the merchant", () => {
     // Santander adds «COMISION 0,00» to many purchases; before, they all fell
     // into the COMISSIO BANCARIA bucket.
     const [key] = normalizeDescription(
@@ -64,54 +64,54 @@ describe("el que fa, explicat", () => {
     );
   });
 
-  test("un prefix d'operacio sense resta no es un comerç", () => {
+  test("an operation prefix with nothing after it is not a merchant", () => {
     expect(normalizeDescription("PAGO MOVIL EN")[0]).toBe("");
     expect(normalizeDescription("COMPRA")[0]).toBe("");
     expect(normalizeDescription("RECIBO")[0]).toBe("");
     expect(normalizeDescription("TRANSFERENCIA")[0]).toBe("");
   });
 
-  test("la contrapart que dona el banc mana sobre el concepte lliure", () => {
+  test("the counterparty the bank gives outranks the free concept", () => {
     const [key] = normalizeDescription("COMPRA TARJ. QUALSEVOL COSA", "Mercadona S.A.");
     // The final dot goes, but the one inside the acronym stays: it is what the
     // Python does, and what is stored in `merchants.normalized_name`.
     expect(key).toBe("MERCADONA S.A");
   });
 
-  test("treu targetes, dates, IBAN i referencies", () => {
+  test("removes cards, dates, IBANs and references", () => {
     const [key] = normalizeDescription(
       "COMPRA TARJ. 5402XXXXXXXX1234 LLIBRERIA 12/03/2026 REF: 99887766",
     );
     expect(key).toBe("LLIBRERIA");
   });
 
-  test("no es queda mai en blanc si hi havia text", () => {
+  test("never comes out blank if there was text", () => {
     const [key] = normalizeDescription("12/03/2026 987654321");
     expect(key.length).toBeGreaterThan(0);
   });
 
-  test("el nom per mostrar es llegible", () => {
+  test("the display name is readable", () => {
     expect(displayName("COMUNITAT DE PROPIETARIS")).toBe("Comunitat de Propietaris");
     expect(displayName("ENDESA ENERGIA SA")).toBe("Endesa Energia SA");
     // «Bar» is a word, not an acronym.
     expect(displayName("BAR CAN PEPE")).toBe("Bar Can Pepe");
   });
 
-  test("treu els accents per a la clau", () => {
+  test("strips the accents for the key", () => {
     expect(stripAccents("AIGÜES DE BARCELONA")).toBe("AIGUES DE BARCELONA");
     expect(normalizeDescription("FARMACIA NÚRIA")[0]).toBe("FARMACIA NURIA");
   });
 });
 
-describe("detectaTipusOperacio decideix on va la contrapart", () => {
-  test("una transferencia ho es, un Bizum no", () => {
+describe("detectOperationType decides where the counterparty goes", () => {
+  test("a transfer is one, a Bizum is not", () => {
     expect(detectOperationType("TRANSFERENCIA DE JOAN GARCIA PEREZ")).toBe("transferencia");
     expect(detectOperationType("TRANSF. A MARIA LOPEZ")).toBe("transferencia");
     expect(detectOperationType("BIZUM DE JOAN GARCIA")).toBe("bizum");
     expect(detectOperationType("ENVIO BIZUM A MARIA")).toBe("bizum");
   });
 
-  test("compres, rebuts i la resta no son transferencia", () => {
+  test("purchases, direct debits and the rest are not transfers", () => {
     expect(detectOperationType("COMPRA TARJ. MERCADONA")).toBe("targeta");
     expect(detectOperationType("RECIBO NETFLIX")).toBe("rebut");
     expect(detectOperationType("ADEUDO POR DOMICILIACION DE ENDESA")).toBe("rebut");

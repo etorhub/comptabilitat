@@ -13,35 +13,35 @@
 import { describe, expect, test } from "bun:test";
 
 import { dedupKey, parseTransaction } from "../../src/lib/enablebanking/parsing.ts";
-import casos from "../fixtures/enablebanking.json";
+import cases from "../fixtures/enablebanking.json";
 
-interface Cas {
+interface Case {
   raw: Record<string, unknown>;
   expected: Record<string, unknown> | null;
 }
 
-describe("es comporta igual que la implementacio de Python", () => {
-  test(`${(casos as Cas[]).length} respostes gravades donen el mateix`, () => {
-    for (const cas of casos as Cas[]) {
-      const obtingut = parseTransaction(cas.raw);
+describe("behaves the same as the Python implementation", () => {
+  test(`${(cases as Case[]).length} recorded responses give the same`, () => {
+    for (const testCase of cases as Case[]) {
+      const got = parseTransaction(testCase.raw);
 
-      if (cas.expected === null) {
-        expect(obtingut).toBeNull();
+      if (testCase.expected === null) {
+        expect(got).toBeNull();
         continue;
       }
 
-      expect(obtingut).not.toBeNull();
-      const { raw, ...resta } = obtingut as NonNullable<typeof obtingut>;
+      expect(got).not.toBeNull();
+      const { raw, ...rest } = got as NonNullable<typeof got>;
       void raw;
       expect({
-        ...resta,
-        dedupKey: dedupKey(obtingut as NonNullable<typeof obtingut>),
-      }).toEqual(cas.expected as never);
+        ...rest,
+        dedupKey: dedupKey(got as NonNullable<typeof got>),
+      }).toEqual(testCase.expected as never);
     }
   });
 });
 
-describe("la clau de deduplicacio", () => {
+describe("the deduplication key", () => {
   const base = {
     entryReference: null,
     transactionId: null,
@@ -56,37 +56,37 @@ describe("la clau de deduplicacio", () => {
     raw: {},
   };
 
-  test("fa servir la referencia del banc quan n'hi ha", () => {
+  test("uses the bank's reference when there is one", () => {
     const key = dedupKey({ ...base, entryReference: "REF-123" });
     expect(key).toBe("ref:REF-123");
   });
 
-  test("sense referencia, es un resum estable", () => {
+  test("with no reference, it is a stable digest", () => {
     expect(dedupKey(base)).toBe(dedupKey({ ...base }));
     expect(dedupKey(base).startsWith("h:")).toBe(true);
   });
 
-  test("no depen de majuscules ni d'espais als extrems", () => {
+  test("does not depend on case or on spaces at the ends", () => {
     expect(dedupKey(base)).toBe(
       dedupKey({ ...base, description: "  compra mercadona  ", counterparty: " MERCADONA " }),
     );
   });
 
-  test("canvia si canvia l'import, la data o la moneda", () => {
+  test("changes if the amount, the date or the currency changes", () => {
     expect(dedupKey({ ...base, amount: "-45.21" })).not.toBe(dedupKey(base));
     expect(dedupKey({ ...base, bookingDate: "2026-03-02" })).not.toBe(dedupKey(base));
     expect(dedupKey({ ...base, currency: "USD" })).not.toBe(dedupKey(base));
   });
 
-  test("mai passa dels 64 carácters de la columna", () => {
+  test("never goes past the column's 64 characters", () => {
     const llarga = dedupKey({ ...base, entryReference: "R".repeat(200) });
     expect(llarga.length).toBeLessThanOrEqual(64);
     expect(dedupKey(base).length).toBeLessThanOrEqual(64);
   });
 });
 
-describe("el que es descarta", () => {
-  test("els estats que no son ni definitiu ni pendent", () => {
+describe("what is discarded", () => {
+  test("the states that are neither booked nor pending", () => {
     expect(
       parseTransaction({
         status: "RJCT",
@@ -96,7 +96,7 @@ describe("el que es descarta", () => {
     ).toBeNull();
   });
 
-  test("els que no duen import o data", () => {
+  test("those carrying no amount or date", () => {
     expect(parseTransaction({ status: "BOOK", booking_date: "2026-03-10" })).toBeNull();
     expect(
       parseTransaction({ status: "BOOK", transaction_amount: { amount: "5.00" } }),
@@ -104,8 +104,8 @@ describe("el que es descarta", () => {
   });
 });
 
-describe("el signe de l'import", () => {
-  test("un deute surt negatiu i un abonament positiu", () => {
+describe("the sign of the amount", () => {
+  test("a debit comes out negative and a credit positive", () => {
     const deute = parseTransaction({
       status: "BOOK",
       transaction_amount: { amount: "45.20", currency: "EUR" },

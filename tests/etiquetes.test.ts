@@ -272,24 +272,24 @@ beforeEach(async () => {
   adminSession = await signIn("admin@exemple.cat");
 });
 
-describe("normalitzaEtiqueta", () => {
-  test("retalla i col·lapsa espais", () => {
+describe("normalizeTag", () => {
+  test("trims and collapses spaces", () => {
     expect(normalizeTag("  casament  ")).toBe("casament");
     expect(normalizeTag("projecte   X")).toBe("projecte X");
   });
 
-  test("rebutja comes i buits", () => {
+  test("rejects commas and empties", () => {
     expect(() => normalizeTag("a,b")).toThrow();
     expect(() => normalizeTag("   ")).toThrow();
   });
 
-  test("compara sense majuscules", () => {
+  test("compares case-insensitively", () => {
     expect(sameTag("Casament", "casament")).toBe(true);
   });
 });
 
-describe("servei d'etiquetes", () => {
-  test("afegeix i treu d'un moviment", async () => {
+describe("tag service", () => {
+  test("adds to and removes from a transaction", async () => {
     await addTag(transactionPersonal, personalId, "casament");
     const [row] = await db
       .select({ tags: transactions.tags })
@@ -305,7 +305,7 @@ describe("servei d'etiquetes", () => {
     expect(despres?.tags).toEqual([]);
   });
 
-  test("no duplica si canvia la majuscula", async () => {
+  test("does not duplicate when only the case changes", async () => {
     await addTag(transactionPersonal, personalId, "casament");
     await addTag(transactionPersonal, personalId, "Casament");
     const [row] = await db
@@ -315,7 +315,7 @@ describe("servei d'etiquetes", () => {
     expect(row?.tags).toEqual(["casament"]);
   });
 
-  test("suma ingressos i despeses amb Decimal", async () => {
+  test("sums income and expenses with Decimal", async () => {
     const segon = (
       await db
         .select({ id: transactions.id })
@@ -349,7 +349,7 @@ describe("servei d'etiquetes", () => {
     ).toBe("-130.00");
   });
 
-  test("esborra de tot l'espai", async () => {
+  test("deletes from the whole workspace", async () => {
     const segon = (
       await db
         .select({ id: transactions.id })
@@ -365,8 +365,8 @@ describe("servei d'etiquetes", () => {
   });
 });
 
-describe("rutes d'etiquetes", () => {
-  test("afegeix des de la fila", async () => {
+describe("tag routes", () => {
+  test("adds from the row", async () => {
     const res = await send(`/e/personal/moviments/${transactionPersonal}/etiquetes`, {
       nova_etiqueta: "casament",
     });
@@ -376,7 +376,7 @@ describe("rutes d'etiquetes", () => {
     expect(html).toContain(`id="moviment-${transactionPersonal}"`);
   });
 
-  test("la pagina i el fragment no son la mateixa adreça", async () => {
+  test("the page and the fragment are not the same URL", async () => {
     await addTag(transactionPersonal, personalId, "casament");
 
     const page = await app.request("/e/personal/etiquetes/casament", {
@@ -395,7 +395,7 @@ describe("rutes d'etiquetes", () => {
     expect(htmlFragment).toContain('id="taula-etiqueta"');
   });
 
-  test("l'index mostra la suma", async () => {
+  test("the index shows the total", async () => {
     await addTag(transactionPersonal, personalId, "casament");
     const res = await app.request("/e/personal/etiquetes", {
       headers: { Cookie: adminSession.cookie },
@@ -406,14 +406,14 @@ describe("rutes d'etiquetes", () => {
     expect(html).toContain("100,00");
   });
 
-  test("qui no es administrador no veu les pagines d'etiquetes", async () => {
+  test("a non-administrator does not see the tag pages", async () => {
     const res = await app.request("/e/personal/etiquetes", {
       headers: { Cookie: editorSession.cookie },
     });
     expect(res.status).toBe(404);
   });
 
-  test("un viewer no pot mutar", async () => {
+  test("a viewer cannot mutate", async () => {
     const res = await send(
       `/e/personal/moviments/${transactionPersonal}/etiquetes`,
       { nova_etiqueta: "casament" },
@@ -422,7 +422,7 @@ describe("rutes d'etiquetes", () => {
     expect(res.status).toBe(403);
   });
 
-  test("no es pot etiquetar un moviment d'un altre espai", async () => {
+  test("a transaction of another workspace cannot be tagged", async () => {
     const res = await send(`/e/personal/moviments/${transactionCalella}/etiquetes`, {
       nova_etiqueta: "casament",
     });

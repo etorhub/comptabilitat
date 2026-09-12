@@ -126,21 +126,21 @@ beforeEach(async () => {
   account = acc as Account;
 });
 
-describe("importar", () => {
-  test("desa els moviments nous", async () => {
+describe("importing", () => {
+  test("stores the new transactions", async () => {
     await importa([raw(), raw({ entry_reference: "R2", booking_date: "2026-03-02" })]);
     const desats = await db.select().from(transactions);
     expect(desats).toHaveLength(2);
   });
 
-  test("no els duplica si es torna a importar el mateix", async () => {
+  test("does not duplicate them when the same is imported again", async () => {
     const items = [raw({ entry_reference: "R1" }), raw({ entry_reference: "R2" })];
     await importa(items);
     await importa(items);
     expect(await db.select().from(transactions)).toHaveLength(2);
   });
 
-  test("els classifica i els dona un comerç", async () => {
+  test("classifies them and gives them a merchant", async () => {
     await importa([raw({ entry_reference: "R1" })]);
     const [t] = await db.select().from(transactions);
 
@@ -154,7 +154,7 @@ describe("importar", () => {
     expect(merchant?.displayName).toBe("Mercadona S.A");
   });
 
-  test("apunta fins on ha arribat l'historic", async () => {
+  test("notes how far back the history got", async () => {
     await importa([
       raw({ entry_reference: "R1", booking_date: "2026-01-15" }),
       raw({ entry_reference: "R2", booking_date: "2026-03-20" }),
@@ -165,8 +165,8 @@ describe("importar", () => {
   });
 });
 
-describe("un apunt pendent que es consolida", () => {
-  test("no es duplica: es reaprofita la fila", async () => {
+describe("a pending entry that is booked", () => {
+  test("is not duplicated: the row is reused", async () => {
     await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
 
@@ -181,7 +181,7 @@ describe("un apunt pendent que es consolida", () => {
     expect(desats[0]?.entryReference).toBe("R-DEF");
   });
 
-  test("i conserva la categoria que hi havia posat una persona", async () => {
+  test("and keeps the category a person had set", async () => {
     await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
 
     const [category] = await db
@@ -209,7 +209,7 @@ describe("un apunt pendent que es consolida", () => {
     expect(t?.categorySource).toBe("user");
   });
 
-  test("massa lluny en el temps, no s'aparella", async () => {
+  test("too far apart in time, no pairing", async () => {
     await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     // Nine days later: outside the five-day window.
     await importa([
@@ -218,7 +218,7 @@ describe("un apunt pendent que es consolida", () => {
     expect(await db.select().from(transactions)).toHaveLength(2);
   });
 
-  test("amb un import diferent, tampoc", async () => {
+  test("with a different amount, neither", async () => {
     const pendent = raw({ status: "PDNG", booking_date: "2026-03-01" });
     await importa([pendent]);
 
@@ -239,7 +239,7 @@ describe("un apunt pendent que es consolida", () => {
     expect(desats.filter((t) => t.status === "pending")).toHaveLength(1);
   });
 
-  test("un pendent que el banc deixa de reportar desapareix", async () => {
+  test("a pending entry the bank stops reporting disappears", async () => {
     await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
 
@@ -259,7 +259,7 @@ describe("un apunt pendent que es consolida", () => {
     expect(desats[0]?.entryReference).toBe("R-ALTRE");
   });
 
-  test("pero no si la llista del banc ve escapçada", async () => {
+  test("but not if the bank's list comes truncated", async () => {
     await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
 
@@ -282,8 +282,8 @@ describe("un apunt pendent que es consolida", () => {
   });
 });
 
-describe("els pendents que el banc ja no reporta", () => {
-  test("s'esborren", async () => {
+describe("the pending entries the bank no longer reports", () => {
+  test("are deleted", async () => {
     await importa([
       raw({ status: "PDNG", booking_date: "2026-03-01" }),
       raw({
@@ -300,8 +300,8 @@ describe("els pendents que el banc ja no reporta", () => {
   });
 });
 
-describe("el que el banc canvia d'un moviment que ja teniem", () => {
-  test("s'actualitza sense duplicar", async () => {
+describe("what the bank changes on a transaction we already had", () => {
+  test("is updated without duplicating", async () => {
     await importa([raw({ entry_reference: "R1", booking_date: "2026-03-01" })]);
     await importa([
       raw({
@@ -317,8 +317,8 @@ describe("el que el banc canvia d'un moviment que ja teniem", () => {
   });
 });
 
-describe("la clau de deduplicacio", () => {
-  test("la que es desa es la que calcula el parser", async () => {
+describe("the deduplication key", () => {
+  test("the one stored is the one the parser computes", async () => {
     const item = raw({ entry_reference: "R-CLAU" });
     await importa([item]);
     const analyzed = parseTransaction(item);

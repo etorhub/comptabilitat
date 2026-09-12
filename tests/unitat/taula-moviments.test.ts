@@ -80,8 +80,8 @@ function fieldsPerForm(markup: string): string[][] {
   return formularis;
 }
 
-describe("la taula de moviments", () => {
-  test("hi ha una tria de categoria per fila, mes la de la barra", async () => {
+describe("the transaction table", () => {
+  test("there is one category picker per row, plus the bar's", async () => {
     // This checks nothing on its own: it is here so that the two tests below
     // cannot pass by having found nothing to look at.
     const markup = await table(true, 5);
@@ -89,14 +89,14 @@ describe("la taula de moviments", () => {
     expect([...markup.matchAll(/name="moviment"/g)]).toHaveLength(5);
   });
 
-  test("cap formulari no duu dos cops el mateix camp", async () => {
+  test("no form carries the same field twice", async () => {
     const formularis = fieldsPerForm(await table(true, 5));
     for (const camps of formularis) {
       expect(new Set(camps).size).toBe(camps.length);
     }
   });
 
-  test("les tries de categoria no comparteixen cap formulari", async () => {
+  test("the category pickers share no form", async () => {
     // This is the crux of it: if they are all inside the same `<form>`, HTMX
     // sends them all and the last one shadows the one you touched.
     const markup = await table(true, 5);
@@ -105,7 +105,7 @@ describe("la taula de moviments", () => {
     }
   });
 
-  test("el camp d'etiqueta de fila no comparteix formulari amb la barra", async () => {
+  test("the row's tag field shares no form with the bar", async () => {
     const markup = await table(true, 3);
     for (const camps of fieldsPerForm(markup)) {
       const teFila = camps.includes("nova_etiqueta");
@@ -124,13 +124,13 @@ describe("la taula de moviments", () => {
     expect(markup).toContain('name="etiqueta_bloc"');
   });
 
-  test("cada tria de categoria te el seu propi identificador", async () => {
+  test("each category picker has its own id", async () => {
     const markup = await table(true, 5);
     const ids = [...markup.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1] as string);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  test("la seleccio en bloc s'endu nomes el que toca", async () => {
+  test("the bulk selection takes only what it should", async () => {
     const markup = await table(true, 3);
     expect(markup).toContain(
       `hx-include="#bloc-categoria, #taula-moviments input[name='moviment']:checked"`,
@@ -140,14 +140,14 @@ describe("la taula de moviments", () => {
     );
   });
 
-  test("qui nomes mira no veu ni caselles ni tries", async () => {
+  test("whoever only looks sees neither checkboxes nor pickers", async () => {
     const markup = await table(false, 3);
     expect(markup).not.toContain('name="moviment"');
     expect(markup).not.toContain('name="category_id"');
     expect(markup).not.toContain('name="nova_etiqueta"');
   });
 
-  test("el xip de targeta mostra els darrers 4 i mai el PAN", async () => {
+  test("the card chip shows the last 4 and never the PAN", async () => {
     const ambTargeta: TransactionView = {
       ...transaction(9),
       description: "Amazon",
@@ -176,7 +176,7 @@ describe("la taula de moviments", () => {
     expect(markup).not.toContain("5489010385484017");
   });
 
-  test("una transferencia mostra l'etiqueta sense ser traspas propi", async () => {
+  test("a transfer shows the label without being an own-account transfer", async () => {
     const transferencia: TransactionView = {
       ...transaction(10),
       description: "María Lourdes Cortés Braña",
@@ -212,12 +212,12 @@ describe("la taula de moviments", () => {
  * phone, and on a desktop browser it cannot be seen at all. That is why it is
  * checked here and not by eye.
  */
-describe("la taula de moviments en fitxes", () => {
-  test("la taula demana el dibuix en fitxes", async () => {
+describe("the transaction table as cards", () => {
+  test("the table asks to be drawn as cards", async () => {
     expect(await table(true, 2)).toContain('class="dades taula-moviments taula-fitxes"');
   });
 
-  test("cada cella duu el nom de la seva columna", async () => {
+  test("each cell carries its column's name", async () => {
     const markup = await table(true, 2);
 
     for (const name of ["Tria", "Data", "Concepte", "Comerç", "Categoria", "Import"]) {
@@ -225,7 +225,7 @@ describe("la taula de moviments en fitxes", () => {
     }
   });
 
-  test("no hi ha cap cella sense nom", async () => {
+  test("there is no cell without a name", async () => {
     // Only the rows, not the header: the `<th>`s already say their names.
     const celles = [...(await table(true, 3)).matchAll(/<td\b[^>]*>/g)].map((m) => m[0]);
 
@@ -235,7 +235,7 @@ describe("la taula de moviments en fitxes", () => {
     }
   });
 
-  test("qui nomes mira te fitxa igualment, sense la cella de tria", async () => {
+  test("whoever only looks gets a card all the same, without the picker cell", async () => {
     const markup = await table(false, 2);
 
     expect(markup).toContain('data-etiqueta="Data"');

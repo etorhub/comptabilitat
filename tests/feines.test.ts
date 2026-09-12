@@ -89,8 +89,8 @@ beforeEach(async () => {
     .values({ userId: pau?.id ?? 0, ledgerId: personal?.id ?? 0, role: "editor" });
 });
 
-describe("la pantalla de feines", () => {
-  test("un administrador hi entra i veu agenda, passades i historial", async () => {
+describe("the jobs screen", () => {
+  test("an administrator gets in and sees the schedule, passes and history", async () => {
     const { cookie } = await signIn("arrel@exemple.cat");
     const res = await app.request("/feines", { headers: { Cookie: cookie } });
     expect(res.status).toBe(200);
@@ -104,7 +104,7 @@ describe("la pantalla de feines", () => {
     expect(html).not.toContain('hx-trigger="every 2s"');
   });
 
-  test("qui no ho es rep un 404, no un 403", async () => {
+  test("whoever is not gets a 404, not a 403", async () => {
     const { cookie, csrf } = await signIn("pau@exemple.cat");
     expect((await app.request("/feines", { headers: { Cookie: cookie } })).status).toBe(404);
     expect(
@@ -126,7 +126,7 @@ describe("la pantalla de feines", () => {
     ).toBe(404);
   });
 
-  test("una feina desconeguda torna 422", async () => {
+  test("an unknown job returns 422", async () => {
     const { cookie, csrf } = await signIn("arrel@exemple.cat");
     const res = await app.request("/feines", {
       method: "POST",
@@ -142,7 +142,7 @@ describe("la pantalla de feines", () => {
     expect(await res.text()).toContain("Aquesta feina no existeix");
   });
 
-  test("engega una feina, la registra i contesta amb toast i fragments", async () => {
+  test("starts a job, records it and answers with a toast and fragments", async () => {
     const { cookie, csrf } = await signIn("arrel@exemple.cat");
     const res = await app.request("/feines", {
       method: "POST",
@@ -171,7 +171,7 @@ describe("la pantalla de feines", () => {
     expect(acabada?.summary).toContain("sessions");
   });
 
-  test("un segon POST mentre corre torna 409", async () => {
+  test("a second POST while it runs returns 409", async () => {
     const { cookie, csrf } = await signIn("arrel@exemple.cat");
     await db.insert(jobRuns).values({
       jobName: "maintenance",
@@ -197,7 +197,7 @@ describe("la pantalla de feines", () => {
     expect(await res.text()).toContain("ja esta corrent");
   });
 
-  test("el fragment d'en curs porta sondeig nomes si n'hi ha", async () => {
+  test("the in-progress fragment carries a poll only if there is one", async () => {
     const { cookie } = await signIn("arrel@exemple.cat");
 
     const empty = await app.request("/feines/fragment/en-curs", {
@@ -224,7 +224,7 @@ describe("la pantalla de feines", () => {
     expect(html).toContain("Analisi");
   });
 
-  test("el fragment d'historial respecta els filtres i fa push-url", async () => {
+  test("the history fragment respects the filters and does a push-url", async () => {
     const { cookie } = await signIn("arrel@exemple.cat");
     await db.insert(jobRuns).values([
       {
@@ -262,8 +262,8 @@ describe("la pantalla de feines", () => {
   });
 });
 
-describe("executaFeina", () => {
-  test("registra exit i error", async () => {
+describe("runJob", () => {
+  test("records success and failure", async () => {
     const summary = await runJob("classify", "cli", async () => "3 classificats");
     expect(summary).toBe("3 classificats");
     const [ok] = await db.select().from(jobRuns).where(eq(jobRuns.jobName, "classify"));

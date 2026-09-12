@@ -195,8 +195,8 @@ afterEach(() => {
   ajustos.ollamaEnabled = false;
 });
 
-describe("el cataleg que veu el model", () => {
-  test("nomes porta categories fulla, i cap traspas", async () => {
+describe("the catalogue the model sees", () => {
+  test("carries leaf categories only, and no transfer", async () => {
     const catalog = await categoryCatalog(ledgerId);
     const slugs = new Set(catalog.map((c) => c.slug));
 
@@ -206,8 +206,8 @@ describe("el cataleg que veu el model", () => {
   });
 });
 
-describe("el model proposa, no decideix", () => {
-  test("amb confiança alta s'aplica, pero queda per revisar", async () => {
+describe("the model proposes, it does not decide", () => {
+  test("with high confidence it is applied, but left for review", async () => {
     const merchantId = await merchantWithTransaction("MERCADONA");
     const supermercat = await categoryBySlug("alimentacio-supermercat");
 
@@ -236,7 +236,7 @@ describe("el model proposa, no decideix", () => {
     expect(transaction?.needsReview).toBe(true);
   });
 
-  test("amb poca confiança no s'aplica, pero el suggeriment queda desat", async () => {
+  test("with low confidence it is not applied, but the suggestion is stored", async () => {
     const merchantId = await merchantWithTransaction("COSA RARA");
 
     const stats = await classifyMerchants(ledgerId, {
@@ -256,7 +256,7 @@ describe("el model proposa, no decideix", () => {
     expect((await db.select().from(llmSuggestions)).length).toBe(1);
   });
 
-  test("una categoria inventada no s'accepta", async () => {
+  test("a made-up category is not accepted", async () => {
     const merchantId = await merchantWithTransaction("MERCADONA");
 
     const stats = await classifyMerchants(ledgerId, {
@@ -273,8 +273,8 @@ describe("el model proposa, no decideix", () => {
   });
 });
 
-describe("quan no hi ha res a fer o el model no hi es", () => {
-  test("els comerços ja confirmats no es tornen a mirar", async () => {
+describe("when there is nothing to do or the model is not there", () => {
+  test("already confirmed merchants are not looked at again", async () => {
     const merchantId = await merchantWithTransaction("MERCADONA");
     const supermercat = await categoryBySlug("alimentacio-supermercat");
     await db
@@ -289,7 +289,7 @@ describe("quan no hi ha res a fer o el model no hi es", () => {
     expect(stats.omitted).toContain("no hi ha cap comerç nou");
   });
 
-  test("si el model no esta disponible no es trenca res", async () => {
+  test("if the model is unavailable nothing breaks", async () => {
     await merchantWithTransaction("MERCADONA");
 
     const stats = await classifyMerchants(ledgerId, {
@@ -301,7 +301,7 @@ describe("quan no hi ha res a fer o el model no hi es", () => {
     expect(transaction?.categoryId).toBeNull();
   });
 
-  test("un error del model no atura la resta", async () => {
+  test("an error from the model does not stop the rest", async () => {
     await merchantWithTransaction("MERCADONA");
     await merchantWithTransaction("NETFLIX", "-12.99");
 
@@ -313,7 +313,7 @@ describe("quan no hi ha res a fer o el model no hi es", () => {
     expect(stats.errors).toBe(2);
   });
 
-  test("amb el model desactivat no es fa res", async () => {
+  test("with the model disabled nothing is done", async () => {
     ajustos.ollamaEnabled = false;
     await merchantWithTransaction("MERCADONA");
 
@@ -329,7 +329,7 @@ describe("quan no hi ha res a fer o el model no hi es", () => {
  * The client against a fake server: what in Python was done with `respx`.
  * Only reading the response is tested, not the model.
  */
-describe("el client d'Ollama", () => {
+describe("the Ollama client", () => {
   async function withServer<T>(
     gestor: (req: Request) => Response,
     prova: (baseUrl: string) => Promise<T>,
@@ -342,7 +342,7 @@ describe("el client d'Ollama", () => {
     }
   }
 
-  test("interpreta la resposta d'Ollama", async () => {
+  test("reads Ollama's response", async () => {
     await withServer(
       (req) =>
         new URL(req.url).pathname === "/api/tags"
@@ -379,7 +379,7 @@ describe("el client d'Ollama", () => {
     );
   });
 
-  test("una resposta il·legible dona error", async () => {
+  test("an unreadable response gives an error", async () => {
     await withServer(
       () => Response.json({ message: { content: "no soc json" } }),
       async (baseUrl) => {
@@ -400,7 +400,7 @@ describe("el client d'Ollama", () => {
     );
   });
 
-  test("si falta el model no es dona per disponible", async () => {
+  test("if the model is missing it is not taken as available", async () => {
     await withServer(
       () => Response.json({ models: [{ name: "llama3.2:3b" }] }),
       async (baseUrl) => {

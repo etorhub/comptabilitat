@@ -161,20 +161,20 @@ beforeEach(async () => {
   idAmagat = created.find((t) => t.dedupKey === "amagat")?.id ?? 0;
 });
 
-describe("un moviment emmascarat", () => {
-  test("ensenya l'alies en lloc del concepte del banc", async () => {
+describe("a masked transaction", () => {
+  test("shows the alias instead of the bank's concept", async () => {
     const transaction = await transactionInWorkspace(idAmagat, ledgerId);
     expect(transaction.description).toBe("Despesa personal");
     expect(transaction.isMasked).toBe(true);
   });
 
-  test("no ensenya ni la contrapart ni el comerç", async () => {
+  test("shows neither the counterparty nor the merchant", async () => {
     const transaction = await transactionInWorkspace(idAmagat, ledgerId);
     expect(transaction.counterparty).toBe("");
     expect(transaction.merchantName).toBeNull();
   });
 
-  test("no deixa rastre del concepte del banc enlloc de la vista", async () => {
+  test("leaves no trace of the bank's concept anywhere in the view", async () => {
     const transaction = await transactionInWorkspace(idAmagat, ledgerId);
     const serialitzat = JSON.stringify(transaction);
 
@@ -185,7 +185,7 @@ describe("un moviment emmascarat", () => {
     expect(serialitzat).not.toContain("aixo no ha de sortir mai");
   });
 
-  test("un moviment amb PAN no el deixa a la vista", async () => {
+  test("a transaction with a PAN does not leave it in the view", async () => {
     await db
       .update(transactions)
       .set({
@@ -201,7 +201,7 @@ describe("un moviment emmascarat", () => {
     expect(serialitzat).not.toContain("5489010385484017");
   });
 
-  test("un moviment normal si que els ensenya", async () => {
+  test("an ordinary transaction does show them", async () => {
     const transaction = await transactionInWorkspace(idNormal, ledgerId);
     expect(transaction.description).toBe("Clinica Discreta");
     expect(transaction.darrers4).toBeNull();
@@ -209,27 +209,27 @@ describe("un moviment emmascarat", () => {
     expect(transaction.isMasked).toBe(false);
   });
 
-  test("un moviment amagat no porta xip de targeta", async () => {
+  test("a hidden transaction carries no card chip", async () => {
     const transaction = await transactionInWorkspace(idAmagat, ledgerId);
     expect(transaction.darrers4).toBeNull();
     expect(transaction.descriptionHint).toBeNull();
   });
 });
 
-describe("la cerca", () => {
-  test("no troba un moviment amagat pel concepte del banc", async () => {
+describe("the search", () => {
+  test("does not find a hidden transaction by the bank's concept", async () => {
     const page = await listTransactions(ledgerId, { ...CAP_FILTER, search: "CLINICA" });
     // Only what is not hidden may come out.
     expect(page.items).toHaveLength(1);
     expect(page.items[0]?.id).toBe(idNormal);
   });
 
-  test("tampoc per la contrapart", async () => {
+  test("nor by the counterparty", async () => {
     const page = await listTransactions(ledgerId, { ...CAP_FILTER, search: "Discreta SL" });
     expect(page.items.every((t) => t.id !== idAmagat)).toBe(true);
   });
 
-  test("si que el troba per l'alies", async () => {
+  test("it does find it by the alias", async () => {
     const page = await listTransactions(ledgerId, {
       ...CAP_FILTER,
       search: "Despesa personal",
@@ -238,7 +238,7 @@ describe("la cerca", () => {
     expect(page.items[0]?.id).toBe(idAmagat);
   });
 
-  test("i per les notes", async () => {
+  test("and by the notes", async () => {
     await db
       .update(transactions)
       .set({ notes: "recordatori meu" })
@@ -250,8 +250,8 @@ describe("la cerca", () => {
   });
 });
 
-describe("treure l'alies", () => {
-  test("torna a ensenyar el concepte del banc", async () => {
+describe("removing the alias", () => {
+  test("shows the bank's concept again", async () => {
     await db
       .update(transactions)
       .set({ displayDescription: null })
@@ -264,8 +264,8 @@ describe("treure l'alies", () => {
   });
 });
 
-describe("cap consulta no torna la resposta crua del banc", () => {
-  test("ni a la llista ni al detall", async () => {
+describe("no query returns the bank's raw response", () => {
+  test("neither in the list nor in the detail", async () => {
     const page = await listTransactions(ledgerId, CAP_FILTER);
     for (const transaction of page.items) {
       expect(Object.keys(transaction)).not.toContain("raw");

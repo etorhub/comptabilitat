@@ -123,8 +123,8 @@ beforeAll(async () => {
   accountId = account?.id ?? 0;
 });
 
-describe("crear categories", () => {
-  test("una subcategoria hereta el tipus del pare", async () => {
+describe("creating categories", () => {
+  test("a subcategory inherits the parent's type", async () => {
     const parent = await categoryBySlug("ingressos-del-treball");
     const filla = await createCategory(ledgerId, {
       name: "Bonus",
@@ -140,7 +140,7 @@ describe("crear categories", () => {
     expect(filla.isSystem).toBe(false);
   });
 
-  test("no s'admet un tercer nivell", async () => {
+  test("a third level is not allowed", async () => {
     const filla = await categoryBySlug("ingressos-del-treball-bonus");
     await expect(
       createCategory(ledgerId, {
@@ -153,7 +153,7 @@ describe("crear categories", () => {
     ).rejects.toThrow(AppError);
   });
 
-  test("dos noms iguals donen pendents diferents", async () => {
+  test("two equal names give different slugs", async () => {
     const parent = await categoryBySlug("rendes");
     const a = await createCategory(ledgerId, {
       name: "Extra",
@@ -174,7 +174,7 @@ describe("crear categories", () => {
     expect(b.slug).toBe("rendes-extra-2");
   });
 
-  test("no es pot penjar d'un pare d'un altre espai", async () => {
+  test("it cannot hang off a parent of another workspace", async () => {
     const forana = await categoryBySlug("habitatge", altreLedgerId);
     await expect(
       createCategory(ledgerId, {
@@ -188,8 +188,8 @@ describe("crear categories", () => {
   });
 });
 
-describe("esborrar categories", () => {
-  test("una de buida se'n va sense mes", async () => {
+describe("deleting categories", () => {
+  test("an empty one goes without more ado", async () => {
     const c = await createCategory(ledgerId, {
       name: "Efimera",
       kind: "expense",
@@ -201,18 +201,18 @@ describe("esborrar categories", () => {
     await expect(categoryInWorkspace(c.id, ledgerId)).rejects.toThrow();
   });
 
-  test("les del sistema protegides no es poden esborrar", async () => {
+  test("the protected system ones cannot be deleted", async () => {
     const c = await categoryBySlug(SLUG_UNCATEGORIZED);
     await expect(deleteCategory(c.id, ledgerId, null)).rejects.toThrow(AppError);
     expect(await categoryInWorkspace(c.id, ledgerId)).toBeDefined();
   });
 
-  test("una amb subcategories demana que primer les moguis", async () => {
+  test("one with subcategories asks you to move them first", async () => {
     const parent = await categoryBySlug("habitatge");
     await expect(deleteCategory(parent.id, ledgerId, null)).rejects.toThrow(AppError);
   });
 
-  test("una amb moviments i sense desti es un 409", async () => {
+  test("one with transactions and no destination is a 409", async () => {
     const c = await categoryBySlug("restauracio-restaurants");
     await db.insert(transactions).values({
       accountId,
@@ -245,7 +245,7 @@ describe("esborrar categories", () => {
     expect(queden).toHaveLength(1);
   });
 
-  test("amb desti, els moviments hi van i no se'n perd cap", async () => {
+  test("with a destination, the transactions go there and none is lost", async () => {
     const origin = await categoryBySlug("restauracio-restaurants");
     const desti = await categoryBySlug("restauracio-bars-i-cafeteries");
 
@@ -283,7 +283,7 @@ describe("esborrar categories", () => {
     expect(regles[0]?.setCategoryId).toBe(desti.id);
   });
 
-  test("no es pot reassignar a una categoria d'un altre espai", async () => {
+  test("it cannot be reassigned to a category of another workspace", async () => {
     const c = await createCategory(ledgerId, {
       name: "Amb moviment",
       kind: "expense",
@@ -321,8 +321,8 @@ describe("esborrar categories", () => {
   });
 });
 
-describe("les opcions del selector", () => {
-  test("van en grups de dos nivells", async () => {
+describe("the picker's options", () => {
+  test("they go in two-level groups", async () => {
     const groups = await categoryOptions(ledgerId);
     expect(groups.length).toBeGreaterThan(0);
     for (const group of groups) {
@@ -330,14 +330,14 @@ describe("les opcions del selector", () => {
     }
   });
 
-  test("es poden excloure categories", async () => {
+  test("categories can be excluded", async () => {
     const c = await categoryBySlug("habitatge");
     const groups = await categoryOptions(ledgerId, [c.id]);
     const ids = groups.flatMap((g) => g.options.map((o) => o.value));
     expect(ids).not.toContain(c.id);
   });
 
-  test("nomes hi surten les d'aquest espai", async () => {
+  test("only this workspace's appear", async () => {
     const groups = await categoryOptions(ledgerId);
     const ids = groups.flatMap((g) => g.options.map((o) => o.value));
     const foranes = await db

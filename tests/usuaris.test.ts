@@ -78,22 +78,22 @@ beforeEach(async () => {
     .values({ userId: pau?.id ?? 0, ledgerId: idPersonal, role: "editor" });
 });
 
-describe("la pantalla d'usuaris", () => {
-  test("un administrador hi entra", async () => {
+describe("the users screen", () => {
+  test("an administrator gets in", async () => {
     const { cookie } = await signIn("arrel@exemple.cat");
     const res = await app.request("/usuaris", { headers: { Cookie: cookie } });
     expect(res.status).toBe(200);
   });
 
-  test("qui no ho es rep un 404, no un 403", async () => {
+  test("whoever is not gets a 404, not a 403", async () => {
     const { cookie } = await signIn("pau@exemple.cat");
     const res = await app.request("/usuaris", { headers: { Cookie: cookie } });
     expect(res.status).toBe(404);
   });
 });
 
-describe("la guarda d'administracio no tanca la resta del programa", () => {
-  test("qui no es administrador continua entrant al seu espai", async () => {
+describe("the administration guard does not close off the rest of the program", () => {
+  test("a non-administrator still gets into their workspace", async () => {
     const { cookie } = await signIn("pau@exemple.cat");
 
     for (const path of [
@@ -108,14 +108,14 @@ describe("la guarda d'administracio no tanca la resta del programa", () => {
     }
   });
 
-  test("i tambe a les seves pagines de fora dels espais", async () => {
+  test("and also into their pages outside the workspaces", async () => {
     const { cookie } = await signIn("pau@exemple.cat");
     const res = await app.request("/contrasenya", { headers: { Cookie: cookie } });
     expect(res.status).toBe(200);
   });
 });
 
-describe("la configuracio de l'espai nomes per a administradors", () => {
+describe("the workspace configuration, administrators only", () => {
   const configPaths = [
     "/e/personal/configuracio",
     "/e/personal/categories",
@@ -123,7 +123,7 @@ describe("la configuracio de l'espai nomes per a administradors", () => {
     "/e/personal/avisos",
   ];
 
-  test("qui no ho es rep un 404 a cada ruta", async () => {
+  test("whoever is not gets a 404 on every route", async () => {
     const { cookie } = await signIn("pau@exemple.cat");
 
     for (const path of configPaths) {
@@ -132,7 +132,7 @@ describe("la configuracio de l'espai nomes per a administradors", () => {
     }
   });
 
-  test("no veu la seccio Configuracio a la barra", async () => {
+  test("does not see the Configuracio section in the sidebar", async () => {
     const { cookie } = await signIn("pau@exemple.cat");
     const html = await (
       await app.request("/e/personal", { headers: { Cookie: cookie } })
@@ -145,7 +145,7 @@ describe("la configuracio de l'espai nomes per a administradors", () => {
     expect(bar).not.toContain("/e/personal/avisos");
   });
 
-  test("un administrador amb acces hi entra i veu les seccions", async () => {
+  test("an administrator with access gets in and sees the sections", async () => {
     const [root] = await db.select().from(users).where(eq(users.email, "arrel@exemple.cat"));
     await db.insert(userLedgerPermissions).values({
       userId: root?.id ?? 0,
@@ -183,8 +183,8 @@ describe("la configuracio de l'espai nomes per a administradors", () => {
   });
 });
 
-describe("donar acces a un espai", () => {
-  test("no en te fins que algu l'hi dona", async () => {
+describe("granting access to a workspace", () => {
+  test("they do not have it until somebody gives it to them", async () => {
     const passwordHash = await hashPassword(PASSWORD);
     const [fresh] = await db
       .insert(users)
@@ -222,7 +222,7 @@ describe("donar acces a un espai", () => {
     ).toBe(200);
   });
 
-  test("treure'l el torna a deixar fora", async () => {
+  test("removing it leaves them out again", async () => {
     const [pau] = await db.select().from(users).where(eq(users.email, "pau@exemple.cat"));
     const session = await signIn("pau@exemple.cat");
     const admin = await signIn("arrel@exemple.cat");
@@ -244,8 +244,8 @@ describe("donar acces a un espai", () => {
   });
 });
 
-describe("desactivar un usuari", () => {
-  test("li tanca les sessions obertes", async () => {
+describe("deactivating a user", () => {
+  test("closes their open sessions", async () => {
     const [pau] = await db.select().from(users).where(eq(users.email, "pau@exemple.cat"));
     const session = await signIn("pau@exemple.cat");
     expect(
@@ -263,7 +263,7 @@ describe("desactivar un usuari", () => {
     expect(res.status).toBe(303);
   });
 
-  test("un administrador no es pot desactivar ell mateix", async () => {
+  test("an administrator cannot deactivate themselves", async () => {
     const [root] = await db.select().from(users).where(eq(users.email, "arrel@exemple.cat"));
     const admin = await signIn("arrel@exemple.cat");
 
@@ -281,8 +281,8 @@ describe("desactivar un usuari", () => {
   });
 });
 
-describe("editar un usuari", () => {
-  test("canvia el nom i el rol d'instal·lacio", async () => {
+describe("editing a user", () => {
+  test("changes the name and the installation role", async () => {
     const [pau] = await db.select().from(users).where(eq(users.email, "pau@exemple.cat"));
     const admin = await signIn("arrel@exemple.cat");
 
@@ -306,7 +306,7 @@ describe("editar un usuari", () => {
     expect(actualitzat?.isAdmin).toBe(true);
   });
 
-  test("un administrador no es pot treure a ell mateix l'admin", async () => {
+  test("an administrator cannot take admin away from themselves", async () => {
     const [root] = await db.select().from(users).where(eq(users.email, "arrel@exemple.cat"));
     const admin = await signIn("arrel@exemple.cat");
 
@@ -330,8 +330,8 @@ describe("editar un usuari", () => {
   });
 });
 
-describe("reiniciar la contrasenya", () => {
-  test("li tanca les sessions i deixa entrar amb la nova", async () => {
+describe("resetting the password", () => {
+  test("closes their sessions and lets them in with the new one", async () => {
     const [pau] = await db.select().from(users).where(eq(users.email, "pau@exemple.cat"));
     const session = await signIn("pau@exemple.cat");
     const admin = await signIn("arrel@exemple.cat");
@@ -371,7 +371,7 @@ describe("reiniciar la contrasenya", () => {
     expect(login.status).toBe(303);
   });
 
-  test("una massa curta torna errors al formulari", async () => {
+  test("one that is too short returns errors in the form", async () => {
     const [pau] = await db.select().from(users).where(eq(users.email, "pau@exemple.cat"));
     const admin = await signIn("arrel@exemple.cat");
 

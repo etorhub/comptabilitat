@@ -9,8 +9,8 @@ import { describe, expect, test } from "bun:test";
 
 import { parseDescription } from "../../src/services/concepte.ts";
 
-describe("parsejaConcepte", () => {
-  test("compra amb TARJ. emmascarada", () => {
+describe("parseDescription", () => {
+  test("purchase with a masked TARJ.", () => {
     const r = parseDescription("COMPRA INTERNET EN APP ESTACIONAME, LLANÑA ES, TARJ. :*484017");
     expect(r.title).toBe("App Estacioname");
     expect(r.darrers4).toBe("4017");
@@ -18,13 +18,13 @@ describe("parsejaConcepte", () => {
     expect(r.cleanedOriginal).not.toContain("484017");
   });
 
-  test("pagament mobil amb cua de lloc", () => {
+  test("mobile payment with a place tail", () => {
     const r = parseDescription("PAGO MOVIL EN IMAKO SUSHI, CALELLA PALAFES, TARJ. :*900522");
     expect(r.title).toBe("Imako Sushi");
     expect(r.darrers4).toBe("0522");
   });
 
-  test("farmacia amb TARJ.", () => {
+  test("pharmacy with TARJ.", () => {
     const r = parseDescription(
       "COMPRA INTERNET EN FARMACIA LUIS M, SEVILLA ES, TARJ. :*900522",
     );
@@ -32,7 +32,7 @@ describe("parsejaConcepte", () => {
     expect(r.darrers4).toBe("0522");
   });
 
-  test("Amazon amb PAN sencer i comissio: el PAN no surt", () => {
+  test("Amazon with a full PAN and a commission: the PAN does not come out", () => {
     const r = parseDescription(
       "COMPRA WWW.AMAZON*QE6I19905, LUXEMBOURG, TARJETA 5489010385484017 , COMISION 0,00",
     );
@@ -43,21 +43,21 @@ describe("parsejaConcepte", () => {
     expect(r.cleanedOriginal).not.toMatch(/COMISI/i);
   });
 
-  test("transferencia conserva accents i casing", () => {
+  test("a transfer keeps accents and casing", () => {
     const r = parseDescription("TRANSFERENCIA A FAVOR DE María Lourdes Cortés Braña");
     expect(r.title).toBe("María Lourdes Cortés Braña");
     expect(r.darrers4).toBeNull();
     expect(r.type).toBe("transferencia");
   });
 
-  test("transferencia immediata treu el prefix sencer", () => {
+  test("an immediate transfer removes the whole prefix", () => {
     const r = parseDescription("TRANSFERENCIA IMMEDIATA A FAVOR DE María Lourdes Cortés Braña");
     expect(r.title).toBe("María Lourdes Cortés Braña");
     expect(r.type).toBe("transferencia");
     expect(r.title).not.toMatch(/FAVOR/i);
   });
 
-  test("rebut amb concepto: queda el que es huma", () => {
+  test("a direct debit with concepto: leaves what is human", () => {
     const r = parseDescription(
       "RECIBO AJUNTAMENT DE BARCELONA, concepto: IBI+TM2026-3T/RCAD:1162401DF3816C0006ES/Torre dels Pardals,0066, P0202 Q.IBI 95,25/Q.TM 6,51/07746",
     );
@@ -68,30 +68,30 @@ describe("parsejaConcepte", () => {
     expect(r.title).not.toContain("Q.IBI");
   });
 
-  test("compra es tipus targeta", () => {
+  test("a purchase is of type card", () => {
     const r = parseDescription("COMPRA INTERNET EN APP ESTACIONAME, LLANÑA ES, TARJ. :*484017");
     expect(r.type).toBe("targeta");
   });
 
-  test("bizum es tipus bizum", () => {
+  test("a bizum is of type bizum", () => {
     const r = parseDescription("BIZUM ENVIADO A JOAN GARCIA");
     expect(r.type).toBe("bizum");
   });
 
-  test("text desconegut es conserva sense targeta", () => {
+  test("unknown text is kept without a card", () => {
     const r = parseDescription("COSA ESTRANYA DEL BANC XYZ, TARJ. :*123456");
     expect(r.darrers4).toBe("3456");
     expect(r.title).not.toContain("123456");
     expect(r.title.length).toBeGreaterThan(0);
   });
 
-  test("COMPRA TARJ. sense digits de targeta", () => {
+  test("COMPRA TARJ. with no card digits", () => {
     const r = parseDescription("COMPRA TARJ. CLINICA DISCRETA");
     expect(r.title).toBe("Clinica Discreta");
     expect(r.darrers4).toBeNull();
   });
 
-  test("PAN emmascarat amb X: 5402XXXXXXXX1234", () => {
+  test("PAN masked with X: 5402XXXXXXXX1234", () => {
     const r = parseDescription("COMPRA TARJ. 5402XXXXXXXX1234 EN MERCADONA, BARCELONA");
     expect(r.title).toBe("Mercadona");
     expect(r.darrers4).toBe("1234");

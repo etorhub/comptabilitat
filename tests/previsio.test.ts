@@ -176,8 +176,8 @@ beforeEach(async () => {
   });
 });
 
-describe("la projeccio", () => {
-  test("sense schedules, la linia es plana al saldo d'avui", async () => {
+describe("the projection", () => {
+  test("with no schedules, the line is flat at today's balance", async () => {
     for (let i = 0; i < 9; i += 1) {
       await transaction(`d${i}`, addDays(todayLocal(), -i * 10), "-100.00");
     }
@@ -197,7 +197,7 @@ describe("la projeccio", () => {
     );
   });
 
-  test("sense despesa residual, les bandes coincideixen amb l'esperat", async () => {
+  test("with no residual expense, the bands coincide with the expected value", async () => {
     const forecast = await buildForecast(workspace, 30);
     const last = forecast.points[30];
 
@@ -205,7 +205,7 @@ describe("la projeccio", () => {
     expect(last?.pessimista).toBe(last?.esperat);
   });
 
-  test("una serie suggested no baixa el saldo; confirmada si", async () => {
+  test("a suggested series does not lower the balance; a confirmed one does", async () => {
     const [merchant] = await db
       .insert(merchants)
       .values({
@@ -260,7 +260,7 @@ describe("la projeccio", () => {
     expect(money(withConfirm.points[40]?.esperat).lt(money("1000"))).toBe(true);
   });
 
-  test("una serie activa anual apareix als esdeveniments previstos", async () => {
+  test("an active yearly series appears in the expected events", async () => {
     const [category] = await db
       .insert(categories)
       .values({
@@ -296,8 +296,8 @@ describe("la projeccio", () => {
   });
 });
 
-describe("l'avis de descobert", () => {
-  test("salta quan un schedule confirmat creua el llindar", async () => {
+describe("the overdraft alert", () => {
+  test("fires when a confirmed schedule crosses the threshold", async () => {
     const [category] = await db
       .insert(categories)
       .values({
@@ -336,7 +336,7 @@ describe("l'avis de descobert", () => {
     expect(alert?.ledgerId).toBe(workspace.id);
   });
 
-  test("no es repeteix dins de la mateixa setmana", async () => {
+  test("is not repeated within the same week", async () => {
     const [category] = await db
       .insert(categories)
       .values({
@@ -365,13 +365,13 @@ describe("l'avis de descobert", () => {
     expect(segon).toBe(0);
   });
 
-  test("no salta si el saldo aguanta", async () => {
+  test("does not fire if the balance holds", async () => {
     expect(await checkOverdrafts(workspace, 60)).toBe(0);
   });
 });
 
-describe("els agregats dels informes", () => {
-  test("els traspassos i els exclosos no son ni ingres ni despesa", async () => {
+describe("the report aggregates", () => {
+  test("transfers and excluded ones are neither income nor expense", async () => {
     const today = todayLocal();
     await transaction("normal", today, "-50.00");
     await transaction("traspas", today, "-500.00", { transferGroupId: "g1" });
@@ -382,7 +382,7 @@ describe("els agregats dels informes", () => {
     expect(Number(totals.expenses)).toBe(50);
   });
 
-  test("la serie mensual separa els mesos", async () => {
+  test("the monthly series separates the months", async () => {
     await transaction("a", "2026-01-15", "-100.00");
     await transaction("b", "2026-02-10", "-200.00");
     await transaction("c", "2026-02-20", "300.00");
@@ -399,7 +399,7 @@ describe("els agregats dels informes", () => {
     expect(Number(series[1]?.cleaned)).toBe(100);
   });
 
-  test("la serie mensual separa despeses fixes i variables", async () => {
+  test("the monthly series separates fixed and variable expenses", async () => {
     const [category] = await db
       .select({ id: categories.id })
       .from(categories)

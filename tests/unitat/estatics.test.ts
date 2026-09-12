@@ -12,8 +12,8 @@ import { describe, expect, test } from "bun:test";
 import { app } from "../../src/server.ts";
 import { staticHref } from "../../src/lib/estatics.ts";
 
-describe("estatics", () => {
-  test("GET /htmx.min.js duu Cache-Control immutable", async () => {
+describe("static files", () => {
+  test("GET /htmx.min.js carries Cache-Control immutable", async () => {
     const res = await app.request("/htmx.min.js");
     expect(res.status).toBe(200);
     const cache = res.headers.get("Cache-Control") ?? "";
@@ -21,7 +21,7 @@ describe("estatics", () => {
     expect(cache).toContain("immutable");
   });
 
-  test("GET /entrada enllaça els estàtics amb ?v=", async () => {
+  test("GET /entrada links the static files with ?v=", async () => {
     const res = await app.request("/entrada");
     expect(res.status).toBe(200);
     const html = await res.text();

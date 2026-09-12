@@ -47,8 +47,8 @@ beforeAll(async () => {
   // Eighteen months of transactions in three workspaces: it does not fit in the default 5 s.
 }, 120_000);
 
-describe("els usuaris", () => {
-  test("son tres, amb accessos diferents", async () => {
+describe("the users", () => {
+  test("there are three, with different access", async () => {
     const rows = await db
       .select({ email: users.email, code: ledgers.code })
       .from(userLedgerPermissions)
@@ -65,7 +65,7 @@ describe("els usuaris", () => {
     expect(accessos.get("sogra@exemple.cat")).toEqual(["calella"]);
   });
 
-  test("l'usuari de la demo pot entrar i veu els tres espais", async () => {
+  test("the demo user can sign in and sees the three workspaces", async () => {
     const getLogin = await app.request("/entrada");
     const loginHtml = await getLogin.text();
     const seedCookie = (getLogin.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
@@ -94,8 +94,8 @@ describe("els usuaris", () => {
   });
 });
 
-describe("les dades", () => {
-  test("hi ha moviments, comptes i recurrents als tres espais", async () => {
+describe("the data", () => {
+  test("there are transactions, accounts and recurring series in the three workspaces", async () => {
     expect(summary.state).toBe("fet");
     expect(summary.transactionList ?? 0).toBeGreaterThan(200);
     expect(summary.accountList).toBe(3);
@@ -115,7 +115,7 @@ describe("les dades", () => {
     expect(nSeries?.n ?? 0).toBeGreaterThanOrEqual(5);
   });
 
-  test("els moviments queden classificats", async () => {
+  test("the transactions end up classified", async () => {
     const [without] = await db
       .select({ n: count() })
       .from(transactions)
@@ -125,8 +125,8 @@ describe("les dades", () => {
   });
 });
 
-describe("tornar-la a executar", () => {
-  test("no trepitja les dades que ja hi ha", async () => {
+describe("running it again", () => {
+  test("does not trample the data that is already there", async () => {
     const [abans] = await db.select({ n: count() }).from(transactions);
 
     const segona = await fillForTests();

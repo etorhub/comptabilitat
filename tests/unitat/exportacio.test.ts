@@ -59,7 +59,7 @@ function textCsv(bytes: Uint8Array): string {
 }
 
 describe("CSV", () => {
-  test("va amb BOM, punt i coma i decimals amb coma", () => {
+  test("goes with a BOM, semicolons and decimal commas", () => {
     const bytes = movimentsACsv([normal]);
     // The BOM is checked on the bytes: `TextDecoder` eats it when decoding.
     expect([bytes[0], bytes[1], bytes[2]]).toEqual([0xef, 0xbb, 0xbf]);
@@ -70,14 +70,14 @@ describe("CSV", () => {
     expect(csv).not.toContain("-45.20");
   });
 
-  test("un moviment emmascarat hi surt amagat", () => {
+  test("a masked transaction comes out hidden", () => {
     const csv = textCsv(movimentsACsv([amagat]));
     expect(csv).toContain("Despesa personal");
     expect(csv).not.toContain("CLINICA DISCRETA");
     expect(csv).not.toContain("Clinica Discreta");
   });
 
-  test("el PAN no surt al CSV quan el concepte ja esta parsejat", () => {
+  test("the PAN does not appear in the CSV when the concept is already parsed", () => {
     const withPan: TransactionView = {
       ...normal,
       description: "Amazon",
@@ -89,7 +89,7 @@ describe("CSV", () => {
     expect(csv).not.toContain("5489010385484017");
   });
 
-  test("les cometes i els punts i coma del text no trenquen les columnes", () => {
+  test("quotes and semicolons in the text do not break the columns", () => {
     const complicat: TransactionView = {
       ...normal,
       description: 'Ell va dir "hola"; i prou',
@@ -104,7 +104,7 @@ describe("CSV", () => {
 });
 
 describe("XLSX", () => {
-  test("el resum porta els dos fulls", async () => {
+  test("the summary carries both sheets", async () => {
     const bytes = await resumAXlsx(
       [
         {
@@ -132,7 +132,7 @@ describe("XLSX", () => {
 });
 
 describe("PDF", () => {
-  test("es un PDF valid i no es buit", async () => {
+  test("it is a valid PDF and it is not empty", async () => {
     const bytes = await informeAPdf({
       workspaceName: "Personal",
       des: "2026-01-01",
@@ -167,7 +167,7 @@ describe("PDF", () => {
     expect(bytes.byteLength).toBeGreaterThan(1000);
   });
 
-  test("aguanta un informe llarg sense petar", async () => {
+  test("it stands a long report without blowing up", async () => {
     const monthly = Array.from({ length: 60 }, (_, i) => ({
       periode: `20${20 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`,
       income: "1000.00",

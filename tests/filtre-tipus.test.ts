@@ -162,8 +162,8 @@ beforeEach(async () => {
   ]);
 });
 
-describe("filtre per tipus d'operacio", () => {
-  test("nomes transferencies", async () => {
+describe("filter by operation type", () => {
+  test("transfers only", async () => {
     const page = await listTransactions(ledgerId, {
       ...baseFilter,
       operationType: ["transferencia"],
@@ -173,7 +173,7 @@ describe("filtre per tipus d'operacio", () => {
     expect(page.items[0]?.operationType).toBe("transferencia");
   });
 
-  test("targeta o bizum (OR)", async () => {
+  test("card or bizum (OR)", async () => {
     const page = await listTransactions(ledgerId, {
       ...baseFilter,
       operationType: ["targeta", "bizum"],
@@ -182,7 +182,7 @@ describe("filtre per tipus d'operacio", () => {
     expect(descs).toEqual(["Joan", "Mercadona"]);
   });
 
-  test("altres exclou targeta transferencia bizum i rebut", async () => {
+  test("others excludes card, transfer, bizum and direct debit", async () => {
     const page = await listTransactions(ledgerId, {
       ...baseFilter,
       operationType: ["altres"],
@@ -192,8 +192,8 @@ describe("filtre per tipus d'operacio", () => {
   });
 });
 
-describe("filtre per targeta concreta", () => {
-  test("nomes els moviments d'aquella targeta", async () => {
+describe("filter by a particular card", () => {
+  test("only that card's transactions", async () => {
     const page = await listTransactions(ledgerId, {
       ...baseFilter,
       cards: ["1234"],
@@ -202,17 +202,17 @@ describe("filtre per targeta concreta", () => {
     expect(page.items[0]?.description).toBe("Mercadona");
   });
 
-  test("cap targeta seleccionada no filtra res", async () => {
+  test("no card selected filters nothing", async () => {
     const page = await listTransactions(ledgerId, { ...baseFilter, cards: [] });
     expect(page.items).toHaveLength(5);
   });
 
-  test("targetesDisponibles retorna els darrers 4 digits usats al compte", async () => {
+  test("cardsAvailable returns the last 4 digits used on the account", async () => {
     const cards = await cardsAvailable(ledgerId, accountId);
     expect(cards).toEqual(["1234"]);
   });
 
-  test("targetesDisponibles no revela la targeta d'un moviment emmascarat", async () => {
+  test("cardsAvailable does not reveal a masked transaction's card", async () => {
     await db
       .update(transactions)
       .set({ displayDescription: "Despesa personal" })
@@ -223,8 +223,8 @@ describe("filtre per targeta concreta", () => {
   });
 });
 
-describe("schema de filtres tipus", () => {
-  test("accepta un sol valor o una llista", () => {
+describe("type filter schema", () => {
+  test("accepts a single value or a list", () => {
     expect(transactionFiltersSchema.parse({ type: "transferencia" }).type).toEqual([
       "transferencia",
     ]);
@@ -233,7 +233,7 @@ describe("schema de filtres tipus", () => {
     ).toEqual(["targeta", "bizum"]);
   });
 
-  test("serialitza tipus repetits a la query", () => {
+  test("serializes repeated types into the query", () => {
     const q = transactionFiltersToQuery(
       transactionFiltersSchema.parse({ type: ["targeta", "rebut"], pagina: 1 }),
     );
@@ -242,7 +242,7 @@ describe("schema de filtres tipus", () => {
     expect(q).toContain("pagina=1");
   });
 
-  test("targeta accepta nomes 4 digits", () => {
+  test("card accepts 4 digits only", () => {
     expect(transactionFiltersSchema.parse({ card: ["1234", "abcd", "12345"] }).card).toEqual([
       "1234",
     ]);
@@ -252,7 +252,7 @@ describe("schema de filtres tipus", () => {
     ]);
   });
 
-  test("serialitza targeta repetides a la query", () => {
+  test("serializes repeated cards into the query", () => {
     const q = transactionFiltersToQuery(
       transactionFiltersSchema.parse({ card: ["1234", "5678"] }),
     );
@@ -260,7 +260,7 @@ describe("schema de filtres tipus", () => {
     expect(q).toContain("targeta=5678");
   });
 
-  test("la barra mostra els checkboxes de tipus", async () => {
+  test("the bar shows the type checkboxes", async () => {
     const html = String(
       await FilterBar({
         code: "personal",
@@ -275,7 +275,7 @@ describe("schema de filtres tipus", () => {
     expect(html).toContain("Targeta");
   });
 
-  test("la barra mostra els checkboxes de targeta quan n'hi ha", async () => {
+  test("the bar shows the card checkboxes when there are any", async () => {
     const html = String(
       await FilterBar({
         code: "personal",
@@ -290,7 +290,7 @@ describe("schema de filtres tipus", () => {
     expect(html).toContain("checked");
   });
 
-  test("sense targetes conegudes no hi ha fieldset", async () => {
+  test("with no known cards there is no fieldset", async () => {
     const html = String(
       await FilterBar({
         code: "personal",
@@ -303,8 +303,8 @@ describe("schema de filtres tipus", () => {
   });
 });
 
-describe("ruta de moviments amb filtre tipus", () => {
-  test("la pagina i el fragment no tornen el mateix, i el push guarda tipus", async () => {
+describe("transactions route with a type filter", () => {
+  test("the page and the fragment do not return the same, and the push keeps the type", async () => {
     const [user] = await db
       .insert(users)
       .values({
@@ -344,7 +344,7 @@ describe("ruta de moviments amb filtre tipus", () => {
     expect(pageHtml).not.toBe(htmlFrag);
   });
 
-  test("el fragment refresca el fieldset de targetes amb un swap OOB", async () => {
+  test("the fragment refreshes the card fieldset with an OOB swap", async () => {
     const [user] = await db
       .insert(users)
       .values({

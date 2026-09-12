@@ -50,15 +50,15 @@ function marcat(page: string): string[] {
   return [...page.matchAll(/<a href="([^"]+)" aria-current="page">/g)].map((m) => m[1] ?? "");
 }
 
-describe("aria-current a la barra lateral", () => {
-  test("marca la pagina que s'esta mirant, i nomes una", async () => {
+describe("aria-current in the sidebar", () => {
+  test("marks the page being viewed, and only one", async () => {
     expect(marcat(await bar("/e/personal/moviments"))).toEqual(["/e/personal/moviments"]);
     // And those of the configuration group, which the master moved aside.
     expect(marcat(await bar("/e/personal/etiquetes"))).toEqual(["/e/personal/etiquetes"]);
     expect(marcat(await bar("/e/personal/categories"))).toEqual(["/e/personal/categories"]);
   });
 
-  test("guanya el cami mes llarg, no el primer que encaixa", async () => {
+  test("the longest path wins, not the first that matches", async () => {
     // «Panell» is `/e/personal`, which is the start of all the others.
     expect(marcat(await bar("/e/personal/avisos"))).toEqual(["/e/personal/avisos"]);
     // And «Moviments» is the start of «Per revisar».
@@ -69,17 +69,17 @@ describe("aria-current a la barra lateral", () => {
     expect(marcat(await bar("/e/personal"))).toEqual(["/e/personal"]);
   });
 
-  test("tambe a les pantalles d'administracio", async () => {
+  test("also on the administration screens", async () => {
     expect(marcat(await bar("/usuaris"))).toEqual(["/usuaris"]);
     expect(marcat(await bar("/connexions"))).toEqual(["/connexions"]);
     expect(marcat(await bar("/feines"))).toEqual(["/feines"]);
   });
 
-  test("una adreça que no es de cap enllaç no en marca cap", async () => {
+  test("a URL belonging to no link marks none", async () => {
     expect(marcat(await bar("/contrasenya"))).toEqual([]);
   });
 
-  test("una pagina qualsevol neix amb la regio viva", async () => {
+  test("any page is born with the live region", async () => {
     expect(await bar("/e/personal")).toContain('<div id="toast" aria-live="polite">');
   });
 });
@@ -92,8 +92,8 @@ describe("aria-current a la barra lateral", () => {
  * opening and nothing breaks —the browser does not complain about a `for`
  * pointing nowhere—, so what is checked here is that both sides say the same.
  */
-describe("el calaix de la navegacio", () => {
-  test("la casella i tots els `for` que hi apunten es diuen igual", async () => {
+describe("the navigation drawer", () => {
+  test("the checkbox and every `for` pointing at it have the same name", async () => {
     const page = await bar("/e/personal");
 
     expect(page).toContain('<input type="checkbox" id="menu-obert"');
@@ -101,7 +101,7 @@ describe("el calaix de la navegacio", () => {
     expect([...page.matchAll(/for="menu-obert"/g)]).toHaveLength(3);
   });
 
-  test("els botons del calaix diuen que fan", async () => {
+  test("the drawer's buttons say what they do", async () => {
     const page = await bar("/e/personal");
 
     // They are `<label>`s with an icon inside: without this they say nothing.
@@ -109,7 +109,7 @@ describe("el calaix de la navegacio", () => {
     expect(page).toContain('aria-label="Tanca el menu"');
   });
 
-  test("els comptadors no es dupliquen a la barra de dalt", async () => {
+  test("the counters are not duplicated in the top bar", async () => {
     // They are out-of-band targets and each id has a single owner: if they
     // were drawn twice, the swap would find only one and the other would be
     // left stuck with the old number. See AGENTS.md.
@@ -119,7 +119,7 @@ describe("el calaix de la navegacio", () => {
     expect([...page.matchAll(/id="comptador-avisos"/g)]).toHaveLength(1);
   });
 
-  test("la barra de dalt diu a quin espai ets", async () => {
+  test("the top bar says which workspace you are in", async () => {
     expect(await bar("/e/personal")).toContain(
       '<span class="barra-mobil-espai text-suau">Personal</span>',
     );
@@ -127,7 +127,7 @@ describe("el calaix de la navegacio", () => {
 });
 
 describe("#toast", () => {
-  test("canvia el contingut i no el contenidor", () => {
+  test("changes the content and not the container", () => {
     // If you return a `<div id="toast">`, the live region goes with it.
     for (const node of [toast("Ha petat"), clearToast()]) {
       expect(String(node)).toContain('hx-swap-oob="innerHTML:#toast"');
@@ -135,13 +135,13 @@ describe("#toast", () => {
     }
   });
 
-  test("un error interromp; una confirmacio espera el seu torn", () => {
+  test("an error interrupts; a confirmation waits its turn", () => {
     expect(String(toast("Ha petat", "error"))).toContain('role="alert"');
     expect(String(toast("Fet", "success"))).toContain('role="status"');
     expect(String(toast("Compte", "info"))).toContain('role="status"');
   });
 
-  test("el missatge s'escapa", () => {
+  test("the message is escaped", () => {
     expect(String(toast("<img src=x onerror=alert(1)>"))).not.toContain("<img");
   });
 });

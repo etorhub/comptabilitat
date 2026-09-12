@@ -149,8 +149,8 @@ beforeEach(async () => {
   accountB = accountList.find((c) => c.ebAccountUid === "uid-b")?.id ?? 0;
 });
 
-describe("que s'aparella", () => {
-  test("una sortida i una entrada iguals de comptes diferents", async () => {
+describe("what gets paired", () => {
+  test("an equal debit and credit from different accounts", async () => {
     const surt = await transaction({ account: accountA, amount: "-400.00" });
     const signIn = await transaction({ account: accountB, amount: "400.00" });
 
@@ -162,28 +162,28 @@ describe("que s'aparella", () => {
     expect(a.transferGroupId).toBe(b.transferGroupId);
   });
 
-  test("no s'aparella res del mateix compte", async () => {
+  test("nothing from the same account is paired", async () => {
     await transaction({ account: accountA, amount: "-400.00" });
     await transaction({ account: accountA, amount: "400.00" });
 
     expect(await detectTransfers(ledgerId)).toBe(0);
   });
 
-  test("ni amb mes de tres dies pel mig", async () => {
+  test("nor with more than three days in between", async () => {
     await transaction({ account: accountA, amount: "-400.00", day: fewerDays(10) });
     await transaction({ account: accountB, amount: "400.00", day: fewerDays(1) });
 
     expect(await detectTransfers(ledgerId)).toBe(0);
   });
 
-  test("ni amb imports diferents", async () => {
+  test("nor with different amounts", async () => {
     await transaction({ account: accountA, amount: "-400.00" });
     await transaction({ account: accountB, amount: "399.00" });
 
     expect(await detectTransfers(ledgerId)).toBe(0);
   });
 
-  test("el que ja te grup no es torna a mirar", async () => {
+  test("one that already has a group is not looked at again", async () => {
     await transaction({ account: accountA, amount: "-400.00" });
     await transaction({ account: accountB, amount: "400.00" });
     await detectTransfers(ledgerId);
@@ -192,8 +192,8 @@ describe("que s'aparella", () => {
   });
 });
 
-describe("un moviment exclos", () => {
-  test("no entra en cap parella", async () => {
+describe("an excluded transaction", () => {
+  test("enters no pair", async () => {
     const surt = await transaction({ account: accountA, amount: "-400.00", isExcluded: true });
     const signIn = await transaction({ account: accountB, amount: "400.00" });
 
@@ -204,8 +204,8 @@ describe("un moviment exclos", () => {
   });
 });
 
-describe("la categoria", () => {
-  test("la posa el traspas si no l'ha triada ningu", async () => {
+describe("the category", () => {
+  test("the transfer sets it if nobody has chosen one", async () => {
     const surt = await transaction({ account: accountA, amount: "-400.00" });
     await transaction({ account: accountB, amount: "400.00" });
 
@@ -216,7 +216,7 @@ describe("la categoria", () => {
     expect(a.categoryId).not.toBeNull();
   });
 
-  test("pero no toca la que ha posat una persona", async () => {
+  test("but it does not touch the one a person set", async () => {
     const [propia] = await db
       .select()
       .from(categories)
@@ -243,8 +243,8 @@ describe("la categoria", () => {
   });
 });
 
-describe("les dues cames, o cap", () => {
-  test("si la segona escriptura peta, no en queda cap d'etiquetada", async () => {
+describe("both legs, or neither", () => {
+  test("if the second write fails, neither is left labelled", async () => {
     const surt = await transaction({ account: accountA, amount: "-400.00" });
     const signIn = await transaction({ account: accountB, amount: "400.00" });
 
@@ -286,8 +286,8 @@ describe("les dues cames, o cap", () => {
  * synchronization and somebody applying a rule by hand— would tread on each
  * other and the counter would go backwards.
  */
-describe("el comptador d'una regla", () => {
-  test("no es perd res encara que dues passades hi escriguin alhora", async () => {
+describe("a rule's counter", () => {
+  test("nothing is lost even when two passes write to it at once", async () => {
     const [regla] = await db
       .insert(rules)
       .values({

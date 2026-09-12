@@ -156,8 +156,8 @@ beforeEach(async () => {
   accountB = accountList.find((c) => c.ebAccountUid === "uid-b")?.id ?? 0;
 });
 
-describe("el que ha triat una persona", () => {
-  test("es conserva a l'altre espai, lligat pel slug", async () => {
+describe("what a person chose", () => {
+  test("is kept in the other workspace, linked by slug", async () => {
     const origin = await category(personalId, "alimentacio-supermercat");
     const id = await transaction({ categoryId: origin.id, categorySource: "user" });
 
@@ -172,7 +172,7 @@ describe("el que ha triat una persona", () => {
     expect(row.needsReview).toBe(false);
   });
 
-  test("i el que havia posat una regla, no", async () => {
+  test("and what a rule had set is not", async () => {
     const origin = await category(personalId, "alimentacio-supermercat");
     const id = await transaction({ categoryId: origin.id, categorySource: "rule" });
 
@@ -183,7 +183,7 @@ describe("el que ha triat una persona", () => {
     expect((await read(id)).categorySource).not.toBe("user");
   });
 
-  test("si la categoria nomes existia a l'espai vell, va a revisar", async () => {
+  test("if the category only existed in the old workspace, it goes to review", async () => {
     const [propia] = await db
       .insert(categories)
       .values({
@@ -207,8 +207,8 @@ describe("el que ha triat una persona", () => {
   });
 });
 
-describe("els traspassos de l'espai que es deixa", () => {
-  test("la cama que es queda torna a comptar", async () => {
+describe("the transfers of the workspace being left", () => {
+  test("the leg that stays counts again", async () => {
     const group = "g".repeat(32);
     const seva = await transaction({
       account: accountA,
@@ -231,8 +231,8 @@ describe("els traspassos de l'espai que es deixa", () => {
   });
 });
 
-describe("o tot, o res", () => {
-  test("si peta a mitges, el compte no queda mig mogut", async () => {
+describe("all or nothing", () => {
+  test("if it fails halfway, the account is not left half-moved", async () => {
     const origin = await category(personalId, "alimentacio-supermercat");
     const id = await transaction({ categoryId: origin.id, categorySource: "user" });
 
@@ -262,8 +262,8 @@ describe("o tot, o res", () => {
   });
 });
 
-describe("treure el compte de tot espai", () => {
-  test("deixa els moviments sense espai i sense classificar", async () => {
+describe("taking the account out of every workspace", () => {
+  test("leaves the transactions with no workspace and unclassified", async () => {
     const origin = await category(personalId, "alimentacio-supermercat");
     const id = await transaction({ categoryId: origin.id, categorySource: "user" });
 

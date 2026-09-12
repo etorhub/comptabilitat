@@ -58,8 +58,8 @@ beforeEach(async () => {
   connectionId = connection?.id ?? 0;
 });
 
-describe("el manteniment", () => {
-  test("tanca les que fa hores que no es mouen", async () => {
+describe("the maintenance", () => {
+  test("closes those that have not moved for hours", async () => {
     const morta = await run("running", faHores(5));
 
     expect(await closeStuckImports()).toBe(1);
@@ -70,7 +70,7 @@ describe("el manteniment", () => {
     expect(row?.error).toContain("a mitges");
   });
 
-  test("pero no toca les que acaben de començar", async () => {
+  test("but does not touch those that have just started", async () => {
     const viva = await run("running", faHores(0));
 
     expect(await closeStuckImports()).toBe(0);
@@ -79,31 +79,31 @@ describe("el manteniment", () => {
     expect(row?.status).toBe("running");
   });
 
-  test("i la feina de manteniment ho diu", async () => {
+  test("and the maintenance job says so", async () => {
     await run("running", faHores(5));
     expect(await maintenanceJob()).toContain("1 importacions penjades");
   });
 });
 
-describe("dues importacions alhora", () => {
-  test("amb una de viva, no se'n comença cap altra", async () => {
+describe("two imports at once", () => {
+  test("with a live one, no other is started", async () => {
     await run("running", faHores(0));
     expect(await alreadySyncing(connectionId)).toBe(true);
   });
 
-  test("una de penjada no bloqueja per sempre", async () => {
+  test("a hung one does not block forever", async () => {
     await run("running", faHores(5));
     expect(await alreadySyncing(connectionId)).toBe(false);
   });
 
-  test("ni una que ja ha acabat", async () => {
+  test("nor does one that has already finished", async () => {
     await run("success", faHores(0));
     expect(await alreadySyncing(connectionId)).toBe(false);
   });
 });
 
-describe("l'aturada del servidor", () => {
-  test("marca com a interrompudes les que hi hagi obertes", async () => {
+describe("the server's shutdown", () => {
+  test("marks any open ones as interrupted", async () => {
     const oberta = await run("running", faHores(0));
 
     expect(await closeOpenImports()).toBe(1);

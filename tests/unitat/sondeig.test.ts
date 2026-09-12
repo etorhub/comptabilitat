@@ -53,8 +53,8 @@ function job(): JobRun {
   };
 }
 
-describe("l'estat d'una importacio", () => {
-  test("mentre corre, sondeja —i el sondeig es acotat", async () => {
+describe("the state of an import", () => {
+  test("while it runs, it polls —and the poll is bounded", async () => {
     const html = String(await SyncState({ connectionId: 4, run: syncRun("running") }));
     expect(html).toContain("hx-trigger=");
     expect(regles(await checkDocument(html, { fragment: true }))).not.toContain(
@@ -62,19 +62,19 @@ describe("l'estat d'una importacio", () => {
     );
   });
 
-  test("el compte d'intents viatja a l'adreça, no al client", async () => {
+  test("the attempt counter travels in the URL, not in the client", async () => {
     const html = String(
       await SyncState({ connectionId: 4, run: syncRun("running"), attempt: 7 }),
     );
     expect(html).toContain("intent=8");
   });
 
-  test("quan acaba, deixa de sondejar", async () => {
+  test("when it finishes, it stops polling", async () => {
     const html = String(await SyncState({ connectionId: 4, run: syncRun("success") }));
     expect(html).not.toContain("hx-trigger=");
   });
 
-  test("i si no acaba mai, es rendeix i ho diu", async () => {
+  test("and if it never finishes, it gives up and says so", async () => {
     // This is exactly the interrupted import of `f80df91`: the state will
     // never reach terminal because there is nobody to take it there.
     const html = String(
@@ -89,8 +89,8 @@ describe("l'estat d'una importacio", () => {
   });
 });
 
-describe("les feines en curs", () => {
-  test("mentre n'hi ha, sondeja de manera acotada", async () => {
+describe("the jobs in progress", () => {
+  test("while there are any, it polls in a bounded way", async () => {
     const html = String(await Running({ runs: [job()] }));
     expect(html).toContain("hx-trigger=");
     expect(regles(await checkDocument(html, { fragment: true }))).not.toContain(
@@ -98,20 +98,20 @@ describe("les feines en curs", () => {
     );
   });
 
-  test("sense cap feina, no sondeja", async () => {
+  test("with no job, it does not poll", async () => {
     const html = String(await Running({ runs: [] }));
     expect(html).not.toContain("hx-trigger=");
   });
 
-  test("passat el limit, s'atura i ho diu", async () => {
+  test("past the limit, it stops and says so", async () => {
     const html = String(await Running({ runs: [job()], attempt: MAX_ATTEMPTS }));
     expect(html).not.toContain("hx-trigger=");
     expect(html).toContain("s'ha deixat de comprovar");
   });
 });
 
-describe("el limit", () => {
-  test("es mitja hora a dos segons, prou per a una importacio de debo", () => {
+describe("the limit", () => {
+  test("is half an hour at two seconds, enough for a real import", () => {
     expect((MAX_ATTEMPTS * 2) / 60).toBe(30);
   });
 });

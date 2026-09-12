@@ -169,8 +169,8 @@ beforeEach(async () => {
   adminSession = await signIn("admin@exemple.cat");
 });
 
-describe("el flux d'autoritzacio", () => {
-  test("dona d'alta els comptes, sense espai assignat", async () => {
+describe("the authorization flow", () => {
+  test("creates the accounts, with no workspace assigned", async () => {
     const res = await autoritza(adminSession, { aspsp_name: "Santander" });
 
     // For HTMX, a redirect is a 204 with `HX-Redirect`: the bank's page cannot
@@ -199,7 +199,7 @@ describe("el flux d'autoritzacio", () => {
     expect(accountList.every((c) => c.ledgerId === null)).toBe(true);
   });
 
-  test("un estat desconegut no crea cap sessio", async () => {
+  test("an unknown state creates no session", async () => {
     const retorn = await bankCallback({ code: "codi-1", state: "inventat" });
 
     expect(retorn.status).toBe(303);
@@ -207,14 +207,14 @@ describe("el flux d'autoritzacio", () => {
     expect(await connection()).toBeUndefined();
   });
 
-  test("el banc pot tornar un error", async () => {
+  test("the bank may return an error", async () => {
     const retorn = await bankCallback({ error: "access_denied" });
 
     expect(retorn.status).toBe(303);
     expect(retorn.headers.get("location")).toContain("estat=error");
   });
 
-  test("renovar el consentiment conserva els comptes i el seu espai", async () => {
+  test("renewing the consent keeps the accounts and their workspace", async () => {
     await autoritza(adminSession, { aspsp_name: "Santander" });
     const first = await connection();
     await bankCallback({ code: "codi-1", state: first?.ebAuthState ?? "" });
@@ -236,8 +236,8 @@ describe("el flux d'autoritzacio", () => {
   });
 });
 
-describe("qui pot gestionar les connexions", () => {
-  test("un usuari normal no en veu res", async () => {
+describe("who can manage the connections", () => {
+  test("an ordinary user sees nothing of them", async () => {
     const anna = await signIn("anna@exemple.cat");
 
     // Here there is a change from the Python application, which answered 403:

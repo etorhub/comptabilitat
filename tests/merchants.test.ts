@@ -152,8 +152,8 @@ beforeEach(async () => {
   merchantId = merchant?.id ?? 0;
 });
 
-describe("assignar la categoria d'un comerç", () => {
-  test("no toca mai el que ha classificat una persona", async () => {
+describe("assigning a merchant's category", () => {
+  test("never touches what a person classified", async () => {
     const restaurants = await categoryBySlug("restauracio-restaurants");
     const bars = await categoryBySlug("restauracio-bars-i-cafeteries");
 
@@ -179,7 +179,7 @@ describe("assignar la categoria d'un comerç", () => {
     expect(automatics.every((t) => t.needsReview === false)).toBe(true);
   });
 
-  test("deixa el comerç confirmat", async () => {
+  test("leaves the merchant confirmed", async () => {
     const bars = await categoryBySlug("restauracio-bars-i-cafeteries");
     await assignCategory(merchantId, ledgerId, bars.id);
 
@@ -189,7 +189,7 @@ describe("assignar la categoria d'un comerç", () => {
     expect(merchant?.defaultCategoryId).toBe(bars.id);
   });
 
-  test("es pot demanar que no s'apliqui als que ja hi ha", async () => {
+  test("it can be asked not to apply to the existing ones", async () => {
     const bars = await categoryBySlug("restauracio-bars-i-cafeteries");
     await transaction("automatic-1", "none", null);
 
@@ -200,12 +200,12 @@ describe("assignar la categoria d'un comerç", () => {
     expect(t?.categoryId).toBeNull();
   });
 
-  test("no accepta una categoria d'un altre espai", async () => {
+  test("does not accept a category from another workspace", async () => {
     const forana = await categoryBySlug("habitatge", altreLedgerId);
     await expect(assignCategory(merchantId, ledgerId, forana.id)).rejects.toThrow(AppError);
   });
 
-  test("no accepta un comerç d'un altre espai", async () => {
+  test("does not accept a merchant from another workspace", async () => {
     const [foraster] = await db
       .insert(merchants)
       .values({
@@ -225,12 +225,12 @@ describe("assignar la categoria d'un comerç", () => {
   });
 });
 
-describe("obtenir o crear un comerç", () => {
-  test("no en crea cap amb el nom buit", async () => {
+describe("getting or creating a merchant", () => {
+  test("creates none with an empty name", async () => {
     expect(await getOrCreateMerchant(ledgerId, "   ")).toBeNull();
   });
 
-  test("el mateix nom a dos espais son dos comerços diferents", async () => {
+  test("the same name in two workspaces are two different merchants", async () => {
     const a = await getOrCreateMerchant(ledgerId, "MERCADONA");
     const b = await getOrCreateMerchant(altreLedgerId, "MERCADONA");
 
@@ -239,7 +239,7 @@ describe("obtenir o crear un comerç", () => {
     expect(b?.ledgerId).toBe(altreLedgerId);
   });
 
-  test("compta les vegades i recorda l'ultima data", async () => {
+  test("counts the times and remembers the last date", async () => {
     await getOrCreateMerchant(ledgerId, "NOU", "Nou", "2026-01-10");
     const segon = await getOrCreateMerchant(ledgerId, "NOU", "Nou", "2026-03-20");
 
@@ -252,8 +252,8 @@ describe("obtenir o crear un comerç", () => {
   });
 });
 
-describe("la llista", () => {
-  test("nomes ensenya els comerços d'aquest espai", async () => {
+describe("the list", () => {
+  test("only shows this workspace's merchants", async () => {
     await getOrCreateMerchant(altreLedgerId, "FORASTER");
     const page = await listMerchants(ledgerId, {
       search: "",
@@ -265,7 +265,7 @@ describe("la llista", () => {
     expect(page.items.every((m) => m.normalizedName !== "FORASTER")).toBe(true);
   });
 
-  test("la cerca mira el nom normalitzat i el que es veu", async () => {
+  test("the search looks at the normalized name and the visible one", async () => {
     const page = await listMerchants(ledgerId, {
       search: "pepe",
       onlyUnclassified: false,
@@ -277,7 +277,7 @@ describe("la llista", () => {
     expect(page.items[0]?.displayName).toBe("Bar Pepe");
   });
 
-  test("es poden demanar nomes els que no tenen categoria", async () => {
+  test("only those with no category can be asked for", async () => {
     const bars = await categoryBySlug("restauracio-bars-i-cafeteries");
     await getOrCreateMerchant(ledgerId, "SENSE");
     await assignCategory(merchantId, ledgerId, bars.id);
@@ -294,8 +294,8 @@ describe("la llista", () => {
   });
 });
 
-describe("reassignar la normalitzacio", () => {
-  test("treu una compra Spotify del cubell COMISSIO BANCARIA", async () => {
+describe("reassigning the normalization", () => {
+  test("takes a Spotify purchase out of the COMISSIO BANCARIA bucket", async () => {
     const [cubell] = await db
       .insert(merchants)
       .values({
@@ -358,7 +358,7 @@ describe("reassignar la normalitzacio", () => {
     expect(spotify?.transactionCount).toBe(1);
   });
 
-  test("no toca la categoria que ha posat una persona", async () => {
+  test("does not touch the category a person set", async () => {
     const restaurants = await categoryBySlug("restauracio-restaurants");
     const [cubell] = await db
       .insert(merchants)

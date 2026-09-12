@@ -85,8 +85,8 @@ beforeEach(async () => {
   await db.delete(ledgers);
 });
 
-describe("el resum", () => {
-  test("inclou tots els avisos i l'adreça de l'aplicacio", async () => {
+describe("the digest", () => {
+  test("includes every alert and the application's URL", async () => {
     const { html, text } = await renderSummary(
       [
         {
@@ -109,7 +109,7 @@ describe("el resum", () => {
     expect(html).toContain(config.publicBaseUrl);
   });
 
-  test("escapa el que ve del banc", async () => {
+  test("escapes what comes from the bank", async () => {
     const { html } = await renderSummary(
       [
         {
@@ -129,8 +129,8 @@ describe("el resum", () => {
   });
 });
 
-describe("l'enviament", () => {
-  test("sense configuracio no s'envia res", async () => {
+describe("the sending", () => {
+  test("with no configuration nothing is sent", async () => {
     ajustos.smtpHost = "";
     await createAlert();
 
@@ -141,7 +141,7 @@ describe("l'enviament", () => {
     expect(alert?.notifiedAt).toBeNull();
   });
 
-  test("els avisos s'envien i es marquen", async () => {
+  test("the alerts are sent and marked", async () => {
     await createAlert("Primer", "warning", "1");
     await createAlert("Segon", "warning", "2");
 
@@ -156,7 +156,7 @@ describe("l'enviament", () => {
     expect(withoutNotifying.length).toBe(0);
   });
 
-  test("no es repeteix l'enviament", async () => {
+  test("the sending is not repeated", async () => {
     await createAlert();
     await notifyPending();
 
@@ -164,7 +164,7 @@ describe("l'enviament", () => {
     expect(enviats.length).toBe(1);
   });
 
-  test("el mode urgent nomes envia els critics", async () => {
+  test("urgent mode only sends the critical ones", async () => {
     await createAlert("Normal", "warning", "1");
     await createAlert("Urgent", "critical", "2");
 
@@ -177,14 +177,14 @@ describe("l'enviament", () => {
     expect(pending.map((a) => a.title)).toEqual(["Normal"]);
   });
 
-  test("els avisos descartats no s'envien", async () => {
+  test("dismissed alerts are not sent", async () => {
     await createAlert();
     await db.update(alerts).set({ status: "dismissed" });
 
     expect(await notifyPending()).toBe("Cap avis pendent d'enviar");
   });
 
-  test("un error del servidor no trenca res", async () => {
+  test("a server error breaks nothing", async () => {
     serverCrashes = true;
     await createAlert();
 
@@ -193,8 +193,8 @@ describe("l'enviament", () => {
   });
 });
 
-describe("cada espai te els seus destinataris", () => {
-  test("l'avis d'un espai nomes va a qui li pertoca", async () => {
+describe("each workspace has its own recipients", () => {
+  test("a workspace's alert only goes to whoever it concerns", async () => {
     const [workspace] = await db
       .insert(ledgers)
       .values({
@@ -224,7 +224,7 @@ describe("cada espai te els seus destinataris", () => {
     expect(byWorkspace?.html).not.toContain("Sincronitzacio fallida");
   });
 
-  test("l'espai apareix al subtitol del resum", async () => {
+  test("the workspace appears in the digest's subtitle", async () => {
     const [workspace] = await db
       .insert(ledgers)
       .values({

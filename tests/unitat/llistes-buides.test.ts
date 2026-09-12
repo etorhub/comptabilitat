@@ -25,8 +25,8 @@ function text(node: Html): string {
   return String(node);
 }
 
-describe("TaulaDades", () => {
-  test("sense files no dibuixa cap taula, nomes l'avis", () => {
+describe("DataTable", () => {
+  test("with no rows it draws no table, only the notice", () => {
     const output = text(
       DataTable({ columnes: COLUMNES, rows: [], empty: "Aqui no hi ha res." }),
     );
@@ -37,7 +37,7 @@ describe("TaulaDades", () => {
     expect(output).not.toContain("<thead");
   });
 
-  test("amb files dibuixa la taula i no l'avis", () => {
+  test("with rows it draws the table and not the notice", () => {
     const output = text(
       DataTable({
         columnes: COLUMNES,
@@ -55,7 +55,7 @@ describe("TaulaDades", () => {
     expect(output).not.toContain("Aqui no hi ha res.");
   });
 
-  test("el que va abans i el peu nomes surten si hi ha files", () => {
+  test("what goes before and the footer only appear when there are rows", () => {
     const props = {
       columnes: COLUMNES,
       empty: "Res.",
@@ -73,7 +73,7 @@ describe("TaulaDades", () => {
     expect(without).not.toContain('id="peu"');
   });
 
-  test("la classe de mes s'afegeix a la de sempre", () => {
+  test("the extra class is added to the usual one", () => {
     const output = text(
       DataTable({
         columnes: COLUMNES,
@@ -86,22 +86,22 @@ describe("TaulaDades", () => {
   });
 });
 
-describe("Paginacio", () => {
-  test("amb la llista buida compta des de zero", () => {
+describe("Pagination", () => {
+  test("with an empty list it counts from zero", () => {
     // The merchants' copy said «1–0 of 0»: it added 1 to the offset without
     // looking at whether there was anything.
     const output = text(Pagination({ page: { total: 0, limit: 50, offset: 0 }, passos: "" }));
     expect(output).toContain("0–0 de 0");
   });
 
-  test("dona el rang de la pagina que toca", () => {
+  test("gives the range of the right page", () => {
     const output = text(
       Pagination({ page: { total: 214, limit: 30, offset: 30 }, passos: "" }),
     );
     expect(output).toContain("31–60 de 214");
   });
 
-  test("l'ultima pagina no passa del total", () => {
+  test("the last page does not go past the total", () => {
     const output = text(
       Pagination({ page: { total: 214, limit: 30, offset: 210 }, passos: "" }),
     );
@@ -109,8 +109,8 @@ describe("Paginacio", () => {
   });
 });
 
-describe("EstatBuit", () => {
-  test("escapa el text que li donen", () => {
+describe("EmptyState", () => {
+  test("escapes the text it is given", () => {
     expect(text(EmptyState("<script>alert(1)</script>"))).not.toContain("<script>");
   });
 });

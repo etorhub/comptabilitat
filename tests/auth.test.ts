@@ -47,7 +47,7 @@ beforeAll(async () => {
 });
 
 describe("CSRF", () => {
-  test("sense testimoni, la peticio es rebutja", async () => {
+  test("with no token, the request is rejected", async () => {
     const { seedCookie } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
@@ -57,7 +57,7 @@ describe("CSRF", () => {
     expect(res.status).toBe(403);
   });
 
-  test("amb un testimoni inventat, tambe", async () => {
+  test("with a made-up token, the same", async () => {
     const { seedCookie } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
@@ -67,7 +67,7 @@ describe("CSRF", () => {
     expect(res.status).toBe(403);
   });
 
-  test("el testimoni d'una sessio no serveix per a una altra", async () => {
+  test("one session's token is no use for another", async () => {
     const altre = await csrfTokenFor(hashToken(newSessionToken()));
     const { seedCookie } = await prepareLogin();
     const res = await app.request("/entrada", {
@@ -78,7 +78,7 @@ describe("CSRF", () => {
     expect(res.status).toBe(403);
   });
 
-  test("una peticio d'un altre lloc es rebutja encara que dugui testimoni", async () => {
+  test("a request from another site is rejected even with a token", async () => {
     const { seedCookie, csrfCamp } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
@@ -93,8 +93,8 @@ describe("CSRF", () => {
   });
 });
 
-describe("entrada", () => {
-  test("amb les dades bones, obre sessio", async () => {
+describe("sign-in", () => {
+  test("with the right details, it opens a session", async () => {
     const { seedCookie, csrfCamp } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
@@ -109,7 +109,7 @@ describe("entrada", () => {
     expect(cookie).toContain("SameSite=Lax");
   });
 
-  test("de la sessio, a la base de dades nomes hi ha el resum", async () => {
+  test("of the session, the database only holds the digest", async () => {
     const { seedCookie, csrfCamp } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
@@ -128,7 +128,7 @@ describe("entrada", () => {
     expect(desat).not.toContain(token);
   });
 
-  test("un usuari que no existeix i una contrasenya dolenta son indistingibles", async () => {
+  test("a user that does not exist and a wrong password are indistinguishable", async () => {
     // The same seed for both attempts: that way the only thing that changes
     // between the two responses is the email, and any other difference would
     // be a way of guessing who is registered.
@@ -160,7 +160,7 @@ describe("entrada", () => {
     expect(netejaEmail(await resDesconegut.text())).toBe(netejaEmail(await resDolenta.text()));
   });
 
-  test("un usuari desactivat no pot entrar", async () => {
+  test("a deactivated user cannot sign in", async () => {
     await db.insert(users).values({
       email: "fora@exemple.cat",
       fullName: "Fora",
@@ -181,15 +181,15 @@ describe("entrada", () => {
   });
 });
 
-describe("pagines protegides", () => {
-  test("sense sessio, porten a l'entrada conservant on anaves", async () => {
+describe("protected pages", () => {
+  test("with no session, they lead to sign-in keeping where you were going", async () => {
     const res = await app.request("/e/personal/avisos");
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toContain("/entrada?desti=");
     expect(res.headers.get("location")).toContain(encodeURIComponent("/e/personal/avisos"));
   });
 
-  test("el desti no pot portar a un altre lloc web", async () => {
+  test("the destination cannot lead to another website", async () => {
     const { seedCookie, csrfCamp } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",

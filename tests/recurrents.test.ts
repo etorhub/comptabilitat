@@ -167,8 +167,8 @@ beforeEach(async () => {
   accountId = account?.id ?? 0;
 });
 
-describe("cal categoritzar", () => {
-  test("un moviment sense categoria no genera res encara que la resta ho siguin", async () => {
+describe("it has to be categorized", () => {
+  test("a transaction with no category generates nothing even if the rest are", async () => {
     const c = await category("subscripcions");
     const m = await merchant("NETFLIX");
     const today = todayLocal();
@@ -181,7 +181,7 @@ describe("cal categoritzar", () => {
     expect(stats.creades).toBe(0);
   });
 
-  test("el mateix comerç amb dues categories fa series separades", async () => {
+  test("the same merchant with two categories makes separate series", async () => {
     const lloguer = await category("lloguer");
     const sopars = await category("sopars-ocasionals");
     const m = await merchant("MARIA GARCIA");
@@ -204,8 +204,8 @@ describe("cal categoritzar", () => {
   });
 });
 
-describe("que es reconeix com a serie", () => {
-  test("tres rebuts mensuals iguals creen una proposta suggested", async () => {
+describe("what counts as a series", () => {
+  test("three equal monthly bills create a suggested proposal", async () => {
     const c = await category("subscripcions");
     const netflix = await merchant("NETFLIX");
     const today = todayLocal();
@@ -223,7 +223,7 @@ describe("que es reconeix com a serie", () => {
     expect(series?.includeInForecast).toBe(false);
   });
 
-  test("confirmaSerie la passa a active i a la previsio", async () => {
+  test("confirmSeries moves it to active and into the forecast", async () => {
     const c = await category("subscripcions");
     const netflix = await merchant("NETFLIX");
     const today = todayLocal();
@@ -243,7 +243,7 @@ describe("que es reconeix com a serie", () => {
     expect(active?.cadence).toBe("monthly");
   });
 
-  test("nomes dues aparicions, no", async () => {
+  test("only two occurrences, no", async () => {
     const c = await category("recurrent-auto");
     const m = await merchant("NOMES DUES");
     const today = todayLocal();
@@ -254,7 +254,7 @@ describe("que es reconeix com a serie", () => {
     expect(stats.creades).toBe(0);
   });
 
-  test("tres aparicions a intervals irregulars, no", async () => {
+  test("three occurrences at irregular intervals, no", async () => {
     const c = await category("recurrent-auto");
     const m = await merchant("IRREGULAR");
     const today = todayLocal();
@@ -266,7 +266,7 @@ describe("que es reconeix com a serie", () => {
     expect(stats.creades).toBe(0);
   });
 
-  test("un ingres regular tambe es una serie", async () => {
+  test("a regular credit is a series too", async () => {
     const c = await category("nomina", { kind: "income" });
     const job = await merchant("EMPRESA");
     const today = todayLocal();
@@ -280,7 +280,7 @@ describe("que es reconeix com a serie", () => {
     expect(series?.expectedAmount).toBe("1800.00");
   });
 
-  test("els traspassos entre comptes propis no compten", async () => {
+  test("transfers between the owner's own accounts do not count", async () => {
     const c = await category("recurrent-auto");
     const m = await merchant("TRASPAS");
     const today = todayLocal();
@@ -294,7 +294,7 @@ describe("que es reconeix com a serie", () => {
     expect(stats.creades).toBe(0);
   });
 
-  test("els moviments exclosos tampoc", async () => {
+  test("nor do excluded transactions", async () => {
     const c = await category("recurrent-auto");
     const m = await merchant("EXCLOS");
     const today = todayLocal();
@@ -306,7 +306,7 @@ describe("que es reconeix com a serie", () => {
     expect(stats.creades).toBe(0);
   });
 
-  test("dos comerços a la mateixa categoria fan series separades", async () => {
+  test("two merchants in the same category make separate series", async () => {
     const c = await category("subscripcions");
     const netflix = await merchant("NETFLIX");
     const spotify = await merchant("SPOTIFY");
@@ -322,8 +322,8 @@ describe("que es reconeix com a serie", () => {
   });
 });
 
-describe("tornar a detectar", () => {
-  test("actualitza la serie suggested en lloc de duplicar-la", async () => {
+describe("detecting again", () => {
+  test("updates the suggested series instead of duplicating it", async () => {
     const c = await category("subscripcions");
     const m = await merchant("SPOTIFY");
     const today = todayLocal();
@@ -339,7 +339,7 @@ describe("tornar a detectar", () => {
     expect(await listSeries(ledgerId)).toHaveLength(1);
   });
 
-  test("avisa quan l'import d'una serie active exact s'aparta", async () => {
+  test("warns when an active exact series' amount drifts", async () => {
     const c = await category("recurrent-auto");
     const m = await merchant("GIMNAS");
     const today = todayLocal();
@@ -365,8 +365,8 @@ describe("tornar a detectar", () => {
   });
 });
 
-describe("les aparicions", () => {
-  test("queden enllaçades amb la serie i no es dupliquen", async () => {
+describe("the occurrences", () => {
+  test("stay linked to the series and are not duplicated", async () => {
     const c = await category("recurrent-auto");
     const m = await merchant("LLUM");
     const today = todayLocal();
@@ -389,8 +389,8 @@ describe("les aparicions", () => {
   });
 });
 
-describe("rebuts que falten", () => {
-  test("comprovaRebutsQueFalten avisa d'una serie active exact retardada", async () => {
+describe("bills that do not arrive", () => {
+  test("checkMissingBills warns about a late active exact series", async () => {
     const c = await category("gimnas");
     const m = await merchant("GIMNAS");
     const today = todayLocal();
@@ -420,8 +420,8 @@ describe("rebuts que falten", () => {
   });
 });
 
-describe("CRUD manual", () => {
-  test("creaSerieManual fa una serie active a la previsio", async () => {
+describe("manual CRUD", () => {
+  test("createSeriesManual makes an active series in the forecast", async () => {
     const c = await category("lloguer");
     const id = await createSeriesManual(ledgerId, {
       label: "Lloguer pis",
@@ -439,7 +439,7 @@ describe("CRUD manual", () => {
     expect(series?.amountMode).toBe("exact");
   });
 
-  test("reviu una serie descartada amb la mateixa signatura", async () => {
+  test("revives a dismissed series with the same signature", async () => {
     const c = await category("lloguer");
     const id = await createSeriesManual(ledgerId, {
       label: "Lloguer",
@@ -465,7 +465,7 @@ describe("CRUD manual", () => {
     expect(series?.status).toBe("active");
   });
 
-  test("conflicto si ja n'hi ha una d'activa", async () => {
+  test("a conflict if there is already an active one", async () => {
     const c = await category("lloguer");
     await createSeriesManual(ledgerId, {
       label: "Lloguer",
@@ -486,7 +486,7 @@ describe("CRUD manual", () => {
     ).rejects.toBeInstanceOf(ConflictError);
   });
 
-  test("actualitzaImportSerie deixa l'import fix", async () => {
+  test("updateSeriesAmount pins the amount", async () => {
     const c = await category("subscripcions");
     const id = await createSeriesManual(ledgerId, {
       label: "Netflix",
@@ -502,7 +502,7 @@ describe("CRUD manual", () => {
     expect(series?.amountMode).toBe("exact");
   });
 
-  test("descartaSerie treu una activa de la llista", async () => {
+  test("dismissSeries takes an active one off the list", async () => {
     const c = await category("lloguer");
     const id = await createSeriesManual(ledgerId, {
       label: "Lloguer",
@@ -516,7 +516,7 @@ describe("CRUD manual", () => {
   });
 });
 
-describe("moviments i recurrents", () => {
+describe("transactions and recurring series", () => {
   const baseFilter = {
     accountId: null as number | null,
     dateFrom: null as string | null,
@@ -534,7 +534,7 @@ describe("moviments i recurrents", () => {
     offset: 0,
   };
 
-  test("un moviment enllaçat duu serieId", async () => {
+  test("a linked transaction carries serieId", async () => {
     const c = await category("subscripcions");
     const netflix = await merchant("NETFLIX");
     const today = todayLocal();
@@ -548,7 +548,7 @@ describe("moviments i recurrents", () => {
     expect(page.items.every((i) => i.seriesId !== null)).toBe(true);
   });
 
-  test("els previstos no surten a la llista de moviments", async () => {
+  test("the expected ones do not appear in the transaction list", async () => {
     const c = await category("lloguer");
     await createSeriesManual(ledgerId, {
       label: "Lloguer pis",
@@ -563,7 +563,7 @@ describe("moviments i recurrents", () => {
     expect(page.items.some((i) => i.description === "Lloguer pis")).toBe(false);
   });
 
-  test("aparicionsSerie torna els moviments enllaçats", async () => {
+  test("seriesOccurrences returns the linked transactions", async () => {
     const c = await category("subscripcions");
     const spotify = await merchant("SPOTIFY");
     const today = todayLocal();

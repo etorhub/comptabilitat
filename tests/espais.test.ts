@@ -106,14 +106,14 @@ beforeAll(async () => {
   calellaAlertId = alert?.id ?? 0;
 });
 
-describe("qui no te acces a un espai", () => {
-  test("rep un 404, no un 403", async () => {
+describe("whoever has no access to a workspace", () => {
+  test("gets a 404, not a 403", async () => {
     const { cookie } = await signIn("pau@exemple.cat");
     const res = await app.request("/e/calella/avisos", { headers: { Cookie: cookie } });
     expect(res.status).toBe(404);
   });
 
-  test("no distingeix un espai que no te d'un que no existeix", async () => {
+  test("cannot tell a workspace they do not have from one that does not exist", async () => {
     const { cookie } = await signIn("pau@exemple.cat");
     const withoutAccess = await app.request("/e/calella/avisos", {
       headers: { Cookie: cookie },
@@ -124,7 +124,7 @@ describe("qui no te acces a un espai", () => {
     expect(await withoutAccess.text()).toBe(await inexistent.text());
   });
 
-  test("no en veu el nom enlloc", async () => {
+  test("does not see its name anywhere", async () => {
     const { cookie } = await signIn("pau@exemple.cat");
     const res = await app.request("/e/personal/avisos", { headers: { Cookie: cookie } });
     const html = await res.text();
@@ -133,7 +133,7 @@ describe("qui no te acces a un espai", () => {
     expect(html).not.toContain("calella");
   });
 
-  test("no en pot tocar els avisos endevinant-ne l'identificador", async () => {
+  test("cannot touch its alerts by guessing the id", async () => {
     const { cookie, csrf } = await signIn("pau@exemple.cat");
     const res = await app.request(`/e/personal/avisos/${calellaAlertId}/descarta`, {
       method: "POST",
@@ -146,7 +146,7 @@ describe("qui no te acces a un espai", () => {
     expect(alert?.status).toBe("new");
   });
 
-  test("no veu les etiquetes d'un espai aliè", async () => {
+  test("does not see another workspace's tags", async () => {
     const { cookie } = await signIn("pau@exemple.cat");
     const withoutAccess = await app.request("/e/calella/etiquetes", {
       headers: { Cookie: cookie },
@@ -160,8 +160,8 @@ describe("qui no te acces a un espai", () => {
   });
 });
 
-describe("ser administrador de la instal·lacio", () => {
-  test("no dona acces a cap espai", async () => {
+describe("being an installation administrator", () => {
+  test("grants access to no workspace", async () => {
     const { cookie } = await signIn("arrel@exemple.cat");
 
     // Neither to the one that exists and was not given to them...
@@ -174,8 +174,8 @@ describe("ser administrador de la instal·lacio", () => {
   });
 });
 
-describe("un espai desactivat", () => {
-  test("desapareix, encara que hi tinguessis acces", async () => {
+describe("a deactivated workspace", () => {
+  test("disappears, even if you had access to it", async () => {
     await db.update(ledgers).set({ isActive: false }).where(eq(ledgers.id, idCalella));
     const { cookie } = await signIn("pau@exemple.cat");
     const res = await app.request("/e/calella/avisos", { headers: { Cookie: cookie } });
