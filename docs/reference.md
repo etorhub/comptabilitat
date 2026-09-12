@@ -1,23 +1,24 @@
-# Referència
+# Reference
 
-Taules generades del codi. **No s'editen a mà**: surten de `src/lib/oob.ts` i de
-`src/routes/`, les escriu `bun run docs` i `bun run check` falla si no encaixen.
+Tables generated from the code. **They are not edited by hand**: they come from
+`src/lib/oob.ts` and `src/routes/`, `bun run docs` writes them and
+`bun run check` fails when they no longer match.
 
-Són aquí i no a l'`AGENTS.md` perquè són material de consulta, i l'`AGENTS.md` ha
-de cabre a la finestra de qui hi treballa.
+They are here and not in `AGENTS.md` because they are reference material, and
+`AGENTS.md` has to fit in the window of whoever is working.
 
-## Objectius dels intercanvis fora de banda
+## Out-of-band swap targets
 
-Cada objectiu té **un sol amo**: el fragment del recurs propietari l'exporta i
-cap altre el dibuixa. Per emetre'n un, `atributsOob()` de `src/lib/oob.ts`; el
-tipus no accepta cap identificador que no sigui al registre, de manera que un
-objectiu nou que no s'hi registri no compila.
+Each target has **a single owner**: the fragment of the owning resource exports
+it and no other draws it. To emit one, `oobAttributes()` from `src/lib/oob.ts`;
+the type accepts no id that is not in the registry, so a new target that is not
+registered there does not compile.
 
-<!-- generat:oob -->
+<!-- generated:oob -->
 
-| Objectiu                      | De qui és            | Quan canvia                                 |
+| Target                        | Owner                | When it changes                             |
 | ----------------------------- | -------------------- | ------------------------------------------- |
-| `#toast` _(contingut)_        | lib/http.ts          | any error or confirmation                   |
+| `#toast` _(content)_          | lib/http.ts          | any error or confirmation                   |
 | `#comptador-revisio`          | components/layout.ts | a transaction is categorised                |
 | `#comptador-avisos`           | components/layout.ts | an alert is read or dismissed               |
 | `#arbre-categories`           | routes/categories    | a category is created, changed or deleted   |
@@ -31,30 +32,30 @@ objectiu nou que no s'hi registri no compila.
 | `#en-curs`                    | routes/jobs          | a job starts or finishes                    |
 | `#agenda-salut`               | routes/jobs          | the scheduler's state changes               |
 
-<!-- /generat:oob -->
+<!-- /generated:oob -->
 
-## Recursos
+## Resources
 
-La regla dels quatre fitxers, tal com està ara mateix. Les dues excepcions
-(`exports/` i `home/`) no tenen `GET <base>` que retorni una pàgina, i per això
-són fora del seu abast.
+The four-file rule, as it stands right now. The two exceptions (`exports/` and
+`home/`) have no `GET <base>` returning a page, which is why they are outside
+its scope.
 
-<!-- generat:recursos -->
+<!-- generated:resources -->
 
-| Recurs          | `.routes` | `.page` | `.fragment` | `.schema` |
+| Resource        | `.routes` | `.page` | `.fragment` | `.schema` |
 | --------------- | --------- | ------- | ----------- | --------- |
-| `alerts/`       | sí        | sí      | sí          | sí        |
-| `analytics/`    | sí        | sí      | sí          | sí        |
-| `auth/`         | sí        | sí      | sí          | sí        |
-| `categories/`   | sí        | sí      | sí          | sí        |
-| `connections/`  | sí        | sí      | sí          | sí        |
-| `exports/`      | sí        | —       | —           | sí        |
-| `home/`         | sí        | —       | —           | —         |
-| `jobs/`         | sí        | sí      | sí          | sí        |
-| `recurring/`    | sí        | sí      | sí          | sí        |
-| `tags/`         | sí        | sí      | sí          | sí        |
-| `transactions/` | sí        | sí      | sí          | sí        |
-| `users/`        | sí        | sí      | sí          | sí        |
-| `workspaces/`   | sí        | sí      | sí          | sí        |
+| `alerts/`       | yes       | yes     | yes         | yes       |
+| `analytics/`    | yes       | yes     | yes         | yes       |
+| `auth/`         | yes       | yes     | yes         | yes       |
+| `categories/`   | yes       | yes     | yes         | yes       |
+| `connections/`  | yes       | yes     | yes         | yes       |
+| `exports/`      | yes       | —       | —           | yes       |
+| `home/`         | yes       | —       | —           | —         |
+| `jobs/`         | yes       | yes     | yes         | yes       |
+| `recurring/`    | yes       | yes     | yes         | yes       |
+| `tags/`         | yes       | yes     | yes         | yes       |
+| `transactions/` | yes       | yes     | yes         | yes       |
+| `users/`        | yes       | yes     | yes         | yes       |
+| `workspaces/`   | yes       | yes     | yes         | yes       |
 
-<!-- /generat:recursos -->
+<!-- /generated:resources -->

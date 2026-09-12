@@ -1,223 +1,234 @@
 # AGENTS.md
 
-Regles de la casa per a `comptabilitat`. On hi digui **sempre** o **mai**, és
-sempre o mai. Si te'n vols apartar, canvia primer aquest fitxer.
+House rules for `comptabilitat`. Where it says **always** or **never**, it is
+always or never. If you want to depart from one, change this file first.
 
-Això són **les regles**. El perquè de cadascuna, amb les històries dels errors
-que la van fer necessària, és a [`docs/why.md`](docs/why.md). Quan una
-regla et sembli arbitrària, mira-hi abans de canviar-la: gairebé totes venen
-d'una cosa que va passar de debò.
+These are **the rules**. The why of each one, with the stories of the bugs that
+made it necessary, is in [`docs/why.md`](docs/why.md). When a rule looks
+arbitrary, look there before changing it: nearly all of them come from something
+that really happened.
 
-## La pila
+## The stack
 
 Bun + Hono + **`hono/html`** + HTMX + Drizzle + PostgreSQL.
 
-Sense JSX, sense empaquetador, sense encaminador de client, sense estat de
-client, sense API de JSON per al navegador. El servidor dibuixa l'HTML; HTMX
-enganxa el tros que ha canviat. Les plantilles són l'etiqueta `html`, que
-retorna cadenes —i és això el que fa que un fragment es pugui provar sense
-navegador ni DOM.
+No JSX, no bundler, no client router, no client state, no JSON API for the
+browser. The server draws the HTML; HTMX swaps in the piece that changed. The
+templates are the `html` tag, which returns strings — and that is what makes a
+fragment testable without a browser and without a DOM.
 
-**Idioma:** català a `src/` i a `tests/`. Anglès a `htmx-contract/`, que algun
-dia ha de marxar a un paquet seu. Si una peça extraïble sembla que necessita
-alguna cosa de `src/`, està mal tallada: passa-li el que necessiti com a
-argument.
+**Language:** the code is **English** — identifiers, comments, test names, this
+file and `docs/why.md` and `docs/reference.md`. Everything that reaches a
+screen stays **Catalan**: template text, toast messages, seeded category names,
+the local model's prompt, the alert emails. So do the **URL segments**
+(`/e/:codi/moviments`, `/etiquetes`, `/connexions`) and the **query-string and
+form field names** (`cerca`, `pagina`, `compte`, `nova_etiqueta`, …): they are
+the wire format, and renaming one breaks links and bookmarks that already
+exist.
 
-## Les dues ordres
+`htmx-contract/` is English like the rest, and on top of that it imports
+nothing from `src/`: it has to be liftable into a package of its own. If an
+extractable piece looks like it needs something from `src/`, it is cut wrong:
+pass it what it needs as an argument.
 
-```bash
-bun run ok        # després de qualsevol canvi. No cal base de dades: 1 segon
-bun run test:db   # abans d'empènyer, si has tocat rutes o base de dades
-```
-
-`bun run ok` és **obligatori abans d'empènyer**. Si falla, et diu quina passa ha
-fallat i què has de fer. No empenyis esperant que el CI t'ho digui.
-
-`bun test` a seques, sobre una base de dades acabada de crear, dona una dotzena
-d'errors que no són teus: fes servir `test:db`.
-
-## Per començar un recurs
+## The two commands
 
 ```bash
-bun run new-resource <nom>          # dins d'un espai
-bun run new-resource <nom> --admin  # administració de la instal·lació
+bun run ok        # after any change. No database needed: 1 second
+bun run test:db   # before pushing, if you touched routes or the database
 ```
 
-Fa els quatre fitxers, els registra a `src/routes/index.ts` i els afegeix a la
-taula de `tests/contract.test.ts`. El que surt passa el `bun run ok` tal com
-està.
+`bun run ok` is **required before pushing**. When it fails it tells you which
+step failed and what to do. Do not push and wait for CI to tell you.
 
-Per veure'n un de fet del tot: **`src/routes/tags/`** (llista i detall) i
-**`src/routes/categories/`** (mutacions amb intercanvi fora de banda). Copiar-ne
-un és més segur que recordar-se de la convenció.
+Plain `bun test`, against a freshly created database, gives a dozen failures
+that are not yours: use `test:db`.
+
+## To start a resource
+
+```bash
+bun run new-resource <name>          # inside a workspace
+bun run new-resource <name> --admin  # installation administration
+```
+
+It writes the four files, registers them in `src/routes/index.ts` and adds them
+to the table in `tests/contract.test.ts`. What comes out passes `bun run ok` as
+it stands.
+
+For a finished one: **`src/routes/tags/`** (list and detail) and
+**`src/routes/categories/`** (mutations with an out-of-band swap). Copying one
+is safer than remembering the convention.
 
 ---
 
-## Estructura
+## Structure
 
-- **Tot recurs amb pàgina té els quatre fitxers** (`.routes`, `.page`,
-  `.fragment`, `.schema`). Cap excepció. Si no necessita fragments, el fitxer hi
-  és igualment i queda buit d'exportacions.
-- **La lògica de negoci no és un recurs.** Va a `src/services/`, un mòdul per
-  tema. Les rutes són primes: llegir paràmetres, autoritzar, cridar el servei,
-  dibuixar.
-- **`db/schema/` va per agregat, no per recurs.** Les claus foranes es creuen
-  entre taules que la interfície tracta com a recursos diferents.
+- **Every resource with a page has the four files** (`.routes`, `.page`,
+  `.fragment`, `.schema`). No exceptions. If it needs no fragments, the file is
+  there all the same and exports nothing.
+- **Business logic is not a resource.** It goes in `src/services/`, one module
+  per subject. The routes are thin: read parameters, authorize, call the
+  service, draw.
+- **`db/schema/` goes by aggregate, not by resource.** Foreign keys cross
+  between tables that the interface treats as different resources.
 
-Quins recursos hi ha ara: [`docs/reference.md`](docs/reference.md).
+Which resources exist right now: [`docs/reference.md`](docs/reference.md).
 
-## Pàgina o fragment
+## Page or fragment
 
-1. `GET <base>` retorna **sempre** una pàgina sencera.
-2. `GET <base>/fragment/<nom>` retorna **sempre** un fragment.
-3. `POST | PATCH | DELETE` retornen el **tros que ha canviat**, més els
-   intercanvis fora de banda que calguin.
+1. `GET <base>` **always** returns a whole page.
+2. `GET <base>/fragment/<name>` **always** returns a fragment.
+3. `POST | PATCH | DELETE` return the **piece that changed**, plus whatever
+   out-of-band swaps are needed.
 
-**Mai** miris la capçalera `HX-Request` per decidir **quin recurs** retornes. Una
-adreça retorna una sola cosa; si no, l'historial, els enllaços compartits i les
-proves es tornen ambigus.
+**Never** look at the `HX-Request` header to decide **which resource** you
+return. A URL returns one thing; otherwise history, shared links and the tests
+all turn ambiguous.
 
-**L'estat dels filtres i de la paginació viu a la cadena de consulta**, no en cap
-variable de client. La ruta de fragment llegeix els mateixos paràmetres i
-contesta amb `pushUrl()` apuntant a **l'adreça de la pàgina**.
+**Filter and pagination state lives in the query string**, not in any client
+variable. The fragment route reads the same parameters and answers with
+`pushUrl()` pointing at **the page's URL**.
 
-Fes servir sempre els ajudants de `lib/http.ts` —`page()`, `fragment()`,
-`redirect()`, `pushUrl()`, `withOob()`— i **mai** `c.html()` a pèl.
+Always use the helpers in `lib/http.ts` — `page()`, `fragment()`, `redirect()`,
+`pushUrl()`, `withOob()` — and **never** a bare `c.html()`.
 
 ## Errors
 
-- Un error contesta amb el codi que toqui (422, 403, 404, 409, 500) i un cos que
-  conté **només** el `#toast` fora de banda.
-- Fes servir `toastOnly()` de `lib/http.ts`, que hi posa `HX-Reswap: none`.
-  **Sense aquesta capçalera l'intercanvi esborra l'element que l'usuari estava
-  tocant** ([per què](docs/why.md#e5dd962--un-error-senduia-la-fila-que-estaves-tocant)).
-- **Cap ruta no s'inventa el seu propi lloc per als errors.**
-- Llança `AppError`, `NotFoundError`, `ForbiddenError` o `ConflictError`; no
-  retornis codis a mà.
-- **Res que no esperessis no surt a la pantalla:** un error de la base de dades o
-  del banc pot dur-hi dades personals.
+- An error answers with the right status (422, 403, 404, 409, 500) and a body
+  containing **only** the out-of-band `#toast`.
+- Use `toastOnly()` from `lib/http.ts`, which sets `HX-Reswap: none`.
+  **Without that header the swap deletes the element the user was touching**
+  ([why](docs/why.md#e5dd962--an-error-took-away-the-row-you-were-touching)).
+- **No route invents its own place for errors.**
+- Throw `AppError`, `NotFoundError`, `ForbiddenError` or `ConflictError`; do not
+  return status codes by hand.
+- **Nothing unexpected reaches the screen:** an error from the database or from
+  the bank can carry personal data.
 
-## Validació
+## Validation
 
-- Un esquema de Zod per recurs. Quan validi una fila, deriva'l de la taula de
-  Drizzle amb `drizzle-zod`: **la taula és la font de veritat i el Zod en surt.**
-- Quan `safeParse` falla: torna a dibuixar **el fragment del formulari** amb
-  `errors` i codi **422**.
-- **Els valors que ha escrit la persona es tornen sempre.** Un formulari que
-  s'esborra quan falla la validació és una manera de fer enfadar la gent.
+- One Zod schema per resource. When it validates a row, derive it from the
+  Drizzle table with `drizzle-zod`: **the table is the source of truth and the
+  Zod comes out of it.**
+- The schema's **keys are the wire format** and stay Catalan: they are the
+  query-string and form field names the browser sends.
+- When `safeParse` fails: redraw **the form fragment** with `errors` and status
+  **422**.
+- **Whatever the person typed always comes back.** A form that empties itself
+  when validation fails is a way of making people angry.
 
-## Intercanvis fora de banda
+## Out-of-band swaps
 
-- Quan una mutació canvia alguna cosa **fora del seu propi tros**, la torna al
-  costat amb `withOob()`.
-- L'objectiu ha de ser al registre de `src/lib/oob.ts`, i els atributs els posa
-  `atributsOob()`. Un objectiu que no s'hi registri **no compila**.
-- **Cada objectiu té un sol amo.** El fragment del recurs propietari l'exporta i
-  cap altre el dibuixa.
-- **Mai facis sondeig** ni tornis a demanar-ho tot després d'una mutació.
+- When a mutation changes something **outside its own piece**, it returns it
+  alongside with `withOob()`.
+- The target has to be in the registry of `src/lib/oob.ts`, and `oobAttributes()`
+  writes its attributes. A target that is not registered there **does not
+  compile**.
+- **Each target has a single owner.** The owning resource's fragment exports it
+  and no other draws it.
+- **Never poll** and never re-request everything after a mutation.
 
-La llista: [`docs/reference.md`](docs/reference.md).
+The list: [`docs/reference.md`](docs/reference.md).
 
-## Sondeig
+## Polling
 
-L'excepció de la regla anterior: l'estat d'una sincronització i les feines en
-curs a `/feines`.
+The exception to the rule above: the state of a synchronization and the jobs in
+progress at `/feines`.
 
-- **Tot sondeig passa per `lib/polling.ts`.** Cap no s'escriu a mà: un
-  `hx-trigger="every …"` sense límit declarat fa fallar la regla
-  `unbounded-poll`.
-- S'atura de dues maneres, i totes dues calen: quan la feina acaba, el fragment
-  nou ja no duu disparador; i si no acaba **mai**, el compte d'intents
-  s'exhaureix i la pàgina ho diu.
-- El compte viatja **a l'adreça que se sondeja**, no en cap variable de client.
+- **Every poll goes through `lib/polling.ts`.** None is written by hand: an
+  `hx-trigger="every …"` with no declared limit fails the `unbounded-poll` rule.
+- It stops in two ways, and both are needed: when the job finishes the new
+  fragment carries no trigger; and if it **never** finishes, the attempt counter
+  runs out and the page says so.
+- The counter travels **in the polled URL**, not in any client variable.
 
-## Espais estancs
+## Watertight workspaces
 
-Dues garanties del producte, no detalls d'implementació:
+Two product guarantees, not implementation details:
 
-1. **Qui no té accés a un espai rep un 404, mai un 403.** «No existeix» i «no hi
-   tens accés» han de donar exactament la mateixa resposta, byte a byte.
-2. **Ser administrador de la instal·lació no dona accés a cap espai.**
+1. **Whoever has no access to a workspace gets a 404, never a 403.** «It does
+   not exist» and «you have no access» have to give exactly the same response,
+   byte for byte.
+2. **Being an installation administrator grants access to no workspace.**
 
-- Cap ruta de dades no consulta `ledgers` pel seu compte: totes pengen del
+- No data route queries `ledgers` on its own: they all hang off
   `workspaceMiddleware`.
-- **Tota consulta d'un objecte comprova que sigui de l'espai**, encara que
-  l'identificador vingui de l'adreça.
-- `requireEditor` / `requireWorkspaceAdmin` per als permisos de dins.
+- **Every query for an object checks that it belongs to the workspace**, even
+  when the id comes from the URL.
+- `requireEditor` / `requireWorkspaceAdmin` for the permissions inside.
 
-## Privadesa
+## Privacy
 
-- **`transactions.raw` i `accounts.raw` no es dibuixen mai.** Duen la resposta
-  sencera del banc. Les consultes que alimenten una plantilla demanen **columnes
-  explícites**; mai `select()` a seques.
-- **L'emmascarament s'aplica a la consulta, no a la plantilla.** Passa-ho tot per
-  `toTransactionView()`; el tipus de la fila crua no s'importa mai des de
+- **`transactions.raw` and `accounts.raw` are never drawn.** They carry the
+  bank's whole response. Queries feeding a template ask for **explicit
+  columns**; never a bare `select()`.
+- **Masking is applied in the query, not in the template.** Put everything
+  through `transactionView()`; the raw row's type is never imported from
   `routes/`.
-- De l'IBAN, a una plantilla només hi arriba la versió emmascarada.
-- La clau privada d'Enable Banking **no es registra mai** ni entra en cap cos
-  d'error.
+- Of the IBAN, only the masked version reaches a template.
+- The Enable Banking private key **is never logged** and never enters an error
+  body.
 
 ## CSRF
 
-- El testimoni es publica **un sol cop**, com a `hx-headers` del `<body>`. Totes
-  les peticions d'HTMX l'hereten.
-- **Mai** posis un testimoni per formulari. L'única excepció és el formulari
-  d'entrada, que encara no té sessió.
-- L'única ruta exempta és `GET /api/auth/callback`, el retorn del banc.
-- Si canvies la sessió enmig d'una petició, **invalides el testimoni que ja has
-  dibuixat**. Per això canviar la contrasenya tanca _la resta_ de sessions.
+- The token is published **once**, as the `<body>`'s `hx-headers`. Every HTMX
+  request inherits it.
+- **Never** put a token per form. The only exception is the sign-in form, which
+  has no session yet.
+- The only exempt route is `GET /api/auth/callback`, the return from the bank.
+- If you change the session mid-request, **you invalidate the token you already
+  drew**. That is why changing the password closes _the other_ sessions.
 
-## Diners
+## Money
 
-`numeric(14,2)` arriba de Drizzle com a **`string`**.
+`numeric(14,2)` arrives from Drizzle as a **`string`**.
 
-- A la vora de la base de dades, `string`; als serveis, `Decimal`; a la vora de
-  la plantilla, `string` ja formatat. Fes servir `lib/money.ts`.
-- **Mai `parseFloat` d'un import per fer-hi càlculs.** En comptabilitat això és
-  un error de correcció, no una preferència d'estil.
-- `number` només per als gràfics (`toChartNumber()`), i la conversió es fa al
-  fragment que construeix el paquet del gràfic, no al servei.
+- At the database edge, `string`; in the services, `Decimal`; at the template
+  edge, an already-formatted `string`. Use `lib/money.ts`.
+- **Never `parseFloat` an amount to calculate with it.** In accounting that is a
+  correctness bug, not a style preference.
+- `number` only for the charts (`toChartNumber()`), and the conversion happens in
+  the fragment that builds the chart's payload, not in the service.
 
-## JavaScript de client
+## Client JavaScript
 
-N'hi ha molt poc i ha de continuar sent així.
+There is very little and it has to stay that way.
 
-- **No introdueixis cap marc de client ni cap estat que depengui d'un
-  empaquetador.** Si sembla que una cosa ho demana, atura't i pregunta.
-- L'únic que hi ha: el `htmx:beforeSwap` dels 4xx, el redibuix dels gràfics i
-  l'`onchange` del selector d'espais.
-- **Els gràfics són illes**: ECharts des d'una etiqueta `<script>`, amb les dades
-  en un `<script type="application/json">` que dibuixa el servidor.
-- HTMX i ECharts se serveixen des de `public/`, no d'un CDN: això ha de funcionar
-  en un NAS.
+- **Do not introduce any client framework or any state that depends on a
+  bundler.** If something looks like it is asking for one, stop and ask.
+- All there is: the `htmx:beforeSwap` for 4xx, the chart redraw and the
+  workspace picker's `onchange`.
+- **The charts are islands**: ECharts from a `<script>` tag, with the data in a
+  `<script type="application/json">` the server draws.
+- HTMX and ECharts are served from `public/`, not from a CDN: this has to work
+  on a NAS.
 
-## Base de dades
+## Database
 
-- **L'esquema de `src/db/schema/` descriu la base de dades que ja hi ha.** Els
-  noms de les restriccions són els d'Alembic; **no els canviïs**.
-- Les enumeracions són `varchar(32)` sense CHECK: qui garanteix el valor és
-  `db/schema/enums.ts` i el Zod.
+- **The schema in `src/db/schema/` describes the database that already exists.**
+  The constraint names are Alembic's; **do not change them**.
+- The enumerations are `varchar(32)` with no CHECK: what guarantees the value is
+  `db/schema/enums.ts` and the Zod.
 
-## Proves
+## Tests
 
-- **`tests/unit/` no toca la base de dades.** Una prova nova que no en
-  necessiti va aquí; si en necessita, es queda a `tests/`. A la integració
-  contínua la primera tanda corre sense cap servei de PostgreSQL, i és això el
-  que ho manté honest.
-- **`tests/contract.test.ts` demana cada pàgina** i la passa pel contracte
-  d'HTMX. La seva taula ha de cobrir tot `src/routes/`, i hi ha una prova que ho
-  comprova.
-- **`tests/workspaces.test.ts` és la més important**: comprova les dues garanties
-  dels espais estancs. **No la toquis per fer passar res.**
-- Cap prova no toca res de fora: el banc, el correu i el model local són
-  servidors locals que munta la prova mateixa.
-- Si canvies `dedupKey()`, la propera importació duplicarà tot l'historial en
-  silenci. Hi ha una prova que ho impedeix, i no és per treure-la.
+- **`tests/unit/` does not touch the database.** A new test that needs none goes
+  here; if it needs one, it stays in `tests/`. In CI the first round runs with
+  no PostgreSQL service at all, and that is what keeps this honest.
+- **`tests/contract.test.ts` requests every page** and puts it through the HTMX
+  contract. Its table has to cover all of `src/routes/`, and there is a test
+  that checks it.
+- **`tests/workspaces.test.ts` is the most important one**: it checks the two
+  watertight-workspace guarantees. **Do not touch it to make anything pass.**
+- No test touches anything outside: the bank, the mail and the local model are
+  local servers the test itself starts.
+- If you change `dedupKey()`, the next import will silently duplicate the whole
+  history. There is a test that stops it, and it is not there to be removed.
 
-## En acabar
+## When you are done
 
-1. `bun run ok` net.
-2. `bun run test:db` verd si has tocat rutes o base de dades.
-3. Comprova que cada objectiu fora de banda que toca el recurs s'actualitza de
-   debò, mutant des d'una pàgina que no el conté.
-4. Només aleshores, el commit.
+1. `bun run ok` clean.
+2. `bun run test:db` green if you touched routes or the database.
+3. Check that every out-of-band target the resource touches really updates, by
+   mutating from a page that does not contain it.
+4. Only then, the commit.

@@ -31,7 +31,7 @@ import { OOB_TARGETS } from "../src/lib/oob.ts";
 const ROOT = resolve(import.meta.dir, "..");
 
 interface Section {
-  /** The name in the markers: `<!-- generat:<name> -->`. */
+  /** The name in the markers: `<!-- generated:<name> -->`. */
   name: string;
   /** Which file it lives in, relative to the root. */
   file: string;
@@ -42,13 +42,13 @@ interface Section {
 function oobTable(): string {
   const rows = Object.entries(OOB_TARGETS).map(([id, o]) => {
     const target = `\`#${id}\``;
-    const mode = o.mode === "innerHTML" ? " _(contingut)_" : "";
+    const mode = o.mode === "innerHTML" ? " _(content)_" : "";
     return `| ${target}${mode} | ${o.owner} | ${o.when} |`;
   });
 
   return [
-    "| Objectiu | De qui és | Quan canvia |",
-    "| -------- | --------- | ----------- |",
+    "| Target | Owner | When it changes |",
+    "| ------ | ----- | --------------- |",
     ...rows,
   ].join("\n");
 }
@@ -69,16 +69,16 @@ async function resourcesTable(): Promise<string> {
 
   const rows: string[] = [];
   for (const resource of resources) {
-    const seus = new Set(await readdir(join(base, resource)));
-    const te = (sufix: string) => (seus.has(`${resource}.${sufix}.ts`) ? "sí" : "—");
+    const own = new Set(await readdir(join(base, resource)));
+    const has = (suffix: string) => (own.has(`${resource}.${suffix}.ts`) ? "yes" : "—");
     rows.push(
-      `| \`${resource}/\` | ${te("routes")} | ${te("page")} | ${te("fragment")} | ${te("schema")} |`,
+      `| \`${resource}/\` | ${has("routes")} | ${has("page")} | ${has("fragment")} | ${has("schema")} |`,
     );
   }
 
   return [
-    "| Recurs | `.routes` | `.page` | `.fragment` | `.schema` |",
-    "| ------ | --------- | ------- | ----------- | --------- |",
+    "| Resource | `.routes` | `.page` | `.fragment` | `.schema` |",
+    "| -------- | --------- | ------- | ----------- | --------- |",
     ...rows,
   ].join("\n");
 }
@@ -93,11 +93,11 @@ async function resourcesTable(): Promise<string> {
  */
 const SECTIONS: Section[] = [
   { name: "oob", file: "docs/reference.md", generate: oobTable },
-  { name: "recursos", file: "docs/reference.md", generate: resourcesTable },
+  { name: "resources", file: "docs/reference.md", generate: resourcesTable },
 ];
 
 function markers(name: string): { start: string; end: string } {
-  return { start: `<!-- generat:${name} -->`, end: `<!-- /generat:${name} -->` };
+  return { start: `<!-- generated:${name} -->`, end: `<!-- /generated:${name} -->` };
 }
 
 /**
@@ -119,7 +119,7 @@ async function withPrettier(text: string): Promise<string> {
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
-  if (code !== 0) throw new Error(`El Prettier ha fallat:\n${error}`);
+  if (code !== 0) throw new Error(`Prettier failed:\n${error}`);
   return output;
 }
 
@@ -176,9 +176,9 @@ async function main(): Promise<void> {
   }
 
   console.error(
-    `[docs] les seccions generades no encaixen amb el codi: ${stale.join(", ")}\n\n` +
-      "Surten de `src/lib/oob.ts` i de `src/routes/`; no s'editen a ma.\n" +
-      "Passa-hi `bun run docs` i torna a comprovar.",
+    `[docs] the generated sections no longer match the code: ${stale.join(", ")}\n\n` +
+      "They come from `src/lib/oob.ts` and `src/routes/`; they are not edited by hand.\n" +
+      "Run `bun run docs` and check again.",
   );
   process.exit(1);
 }
