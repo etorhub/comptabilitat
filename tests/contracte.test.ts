@@ -9,7 +9,7 @@
  * Two things, then:
  *
  *   1. Every page the application knows how to serve goes through `checkDocument()`.
- *   2. **The `PAGINES` table here has to cover all of `src/routes/`**, and there
+ *   2. **The `Pages` table here has to cover all of `src/routes/`**, and there
  *      is a test that checks it. Adding a resource without an entry here fails
  *      CI, the only way this survives whoever does not read `AGENTS.md`.
  *
@@ -44,25 +44,25 @@ import { PASSWORD, requestAs, signIn, type Session } from "./ajuda.ts";
 /**
  * The pages, and which resource they belong to.
  *
- * The `recurs` is the name of the directory in `src/routes/`. It is used by the
+ * The `resource` is the name of the directory in `src/routes/`. It is used by the
  * coverage test at the end: without it, the table could fall behind with
  * nothing to say so.
  */
-const Pages: { resource: string; url: string; que: string }[] = [
-  { resource: "auth", url: "/contrasenya", que: "canvi de contrasenya" },
-  { resource: "analytics", url: "/e/personal", que: "panell de l'espai" },
-  { resource: "analytics", url: "/e/personal/informes", que: "informes" },
-  { resource: "analytics", url: "/e/personal/previsio", que: "previsio de saldo" },
-  { resource: "transactions", url: "/e/personal/moviments", que: "llista de moviments" },
-  { resource: "transactions", url: "/e/personal/moviments/revisio", que: "safata de revisio" },
-  { resource: "recurring", url: "/e/personal/recurrents", que: "recurrents" },
-  { resource: "categories", url: "/e/personal/categories", que: "pla de categories" },
-  { resource: "tags", url: "/e/personal/etiquetes", que: "etiquetes" },
-  { resource: "alerts", url: "/e/personal/avisos", que: "avisos" },
-  { resource: "workspaces", url: "/e/personal/configuracio", que: "configuracio de l'espai" },
-  { resource: "connections", url: "/connexions", que: "connexions bancaries" },
-  { resource: "jobs", url: "/feines", que: "feines del planificador" },
-  { resource: "users", url: "/usuaris", que: "usuaris" },
+const Pages: { resource: string; url: string; what: string }[] = [
+  { resource: "auth", url: "/contrasenya", what: "canvi de contrasenya" },
+  { resource: "analytics", url: "/e/personal", what: "panell de l'espai" },
+  { resource: "analytics", url: "/e/personal/informes", what: "informes" },
+  { resource: "analytics", url: "/e/personal/previsio", what: "previsio de saldo" },
+  { resource: "transactions", url: "/e/personal/moviments", what: "llista de moviments" },
+  { resource: "transactions", url: "/e/personal/moviments/revisio", what: "safata de revisio" },
+  { resource: "recurring", url: "/e/personal/recurrents", what: "recurrents" },
+  { resource: "categories", url: "/e/personal/categories", what: "pla de categories" },
+  { resource: "tags", url: "/e/personal/etiquetes", what: "etiquetes" },
+  { resource: "alerts", url: "/e/personal/avisos", what: "avisos" },
+  { resource: "workspaces", url: "/e/personal/configuracio", what: "configuracio de l'espai" },
+  { resource: "connections", url: "/connexions", what: "connexions bancaries" },
+  { resource: "jobs", url: "/feines", what: "feines del planificador" },
+  { resource: "users", url: "/usuaris", what: "usuaris" },
 ];
 
 /**
@@ -100,65 +100,65 @@ beforeAll(async () => {
   session = await signIn("demo@exemple.cat");
 }, 180_000);
 
-describe("cada pagina compleix el contracte", () => {
-  for (const { url, que } of Pages) {
-    test(`${que} (${url})`, async () => {
+describe("every page meets the contract", () => {
+  for (const { url, what } of Pages) {
+    test(`${what} (${url})`, async () => {
       const res = await requestAs(session, url);
       expect(res.status).toBe(200);
 
       const html = await res.text();
-      const violacions = await checkDocument(html);
+      const violations = await checkDocument(html);
 
       // The message comes out whole: a list of rules without what they say
       // forces whoever reads it to go and look for the code.
-      expect(violacions, `${url}\n${formatViolations(violacions)}`).toEqual([]);
+      expect(violations, `${url}\n${formatViolations(violations)}`).toEqual([]);
     });
   }
 });
 
-describe("l'entrada, que encara no te sessio", () => {
-  test("compleix el contracte igualment", async () => {
+describe("the sign-in page, which has no session yet", () => {
+  test("meets the contract all the same", async () => {
     // No cookie: it is the only page drawn for someone who has not signed in,
     // and the only one that carries a `_csrf` per form.
     const res = await app.request("/entrada");
     expect(res.status).toBe(200);
 
     const html = await res.text();
-    const violacions = await checkDocument(html);
-    expect(violacions, `/entrada\n${formatViolations(violacions)}`).toEqual([]);
+    const violations = await checkDocument(html);
+    expect(violations, `/entrada\n${formatViolations(violations)}`).toEqual([]);
   });
 });
 
-describe("la cobertura de la taula", () => {
-  test("tot recurs de src/routes/ te pagina a la taula o motiu per no tenir-ne", async () => {
-    const entrades = await readdir(join(import.meta.dir, "..", "src", "routes"), {
+describe("the table's coverage", () => {
+  test("every resource in src/routes/ has a page in the table or a reason not to", async () => {
+    const entries = await readdir(join(import.meta.dir, "..", "src", "routes"), {
       withFileTypes: true,
     });
-    const resources = entrades
+    const resources = entries
       .filter((e) => e.isDirectory())
       .map((e) => e.name)
       .toSorted();
 
-    const coberts = new Set(Pages.map((p) => p.resource));
-    const oblidats = resources.filter((r) => !coberts.has(r) && !(r in WITHOUT_PAGE));
+    const covered = new Set(Pages.map((p) => p.resource));
+    const forgotten = resources.filter((r) => !covered.has(r) && !(r in WITHOUT_PAGE));
 
     expect(
-      oblidats,
-      `Aquests recursos no son a PAGINES ni a SENSE_PAGINA: ${oblidats.join(", ")}.\n` +
-        "Afegeix-hi la seva pagina, o digues per que no en te.",
+      forgotten,
+      `These resources are in neither Pages nor WITHOUT_PAGE: ${forgotten.join(", ")}.\n` +
+        "Add their page, or say why they have none.",
     ).toEqual([]);
   });
 
-  test("i la taula no anomena cap recurs que ja no existeixi", async () => {
-    const entrades = await readdir(join(import.meta.dir, "..", "src", "routes"), {
+  test("and the table names no resource that no longer exists", async () => {
+    const entries = await readdir(join(import.meta.dir, "..", "src", "routes"), {
       withFileTypes: true,
     });
-    const resources = new Set(entrades.filter((e) => e.isDirectory()).map((e) => e.name));
+    const resources = new Set(entries.filter((e) => e.isDirectory()).map((e) => e.name));
 
-    const fantasmes = [...new Set(Pages.map((p) => p.resource)), ...Object.keys(WITHOUT_PAGE)]
+    const ghosts = [...new Set(Pages.map((p) => p.resource)), ...Object.keys(WITHOUT_PAGE)]
       .filter((r) => !resources.has(r))
       .toSorted();
 
-    expect(fantasmes, `Ja no hi ha aquests recursos: ${fantasmes.join(", ")}`).toEqual([]);
+    expect(ghosts, `These resources are gone: ${ghosts.join(", ")}`).toEqual([]);
   });
 });

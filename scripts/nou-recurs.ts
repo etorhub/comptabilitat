@@ -1,23 +1,28 @@
 /**
- * Fa la bastida d'un recurs nou.
+ * Scaffolds a new resource.
  *
- *   bun run nou-recurs projectes
- *   bun run nou-recurs projectes --ruta projectes --titol "Projectes"
+ *   bun run nou-recurs projects
+ *   bun run nou-recurs projects --ruta projectes --titol "Projectes"
  *   bun run nou-recurs backups --admin
  *
- * **Per que existeix.** Afegir un recurs vol dir sis coses alhora: els quatre
- * fitxers de la regla, el registre a `src/routes/index.ts` i l'entrada a la
- * taula de `tests/contracte.test.ts`. I vol dir encertar la profunditat de les
- * importacions relatives (`../../`), que es exactament la mena de cosa que se
- * n'hi va una de cada tres.
+ * **Why it exists.** Adding a resource means six things at once: the four
+ * files of the rule, the registration in `src/routes/index.ts` and the entry
+ * in the table of `tests/contracte.test.ts`. And it means getting the depth of
+ * the relative imports right (`../../`), which is exactly the kind of thing
+ * that goes wrong one time in three.
  *
- * Escrit aixi, es una feina de consistencia entre fitxers. Fet amb una ordre,
- * es omplir els buits d'uns fitxers que ja compilen. La segona feina es molt
- * mes facil de fer be, i no nomes per a una persona cansada.
+ * Written out like that, it is a consistency job across files. Done with one
+ * command, it is filling in the blanks of files that already compile. The
+ * second job is far easier to get right, and not only for a tired person.
  *
- * El que surt **passa el `bun run ok` tal com esta**: una bastida que no
- * compila es pitjor que no tenir-ne, perque el primer que fa qui la fa servir
- * es preguntar-se si l'ha trencada ell.
+ * What comes out **passes `bun run ok` as it stands**: scaffolding that does
+ * not compile is worse than none, because the first thing whoever uses it does
+ * is wonder whether they broke it.
+ *
+ * The code it writes is English, as the rest of the repository is. The text
+ * that reaches a screen and the URL segment stay Catalan: that is the
+ * boundary `AGENTS.md` declares, and scaffolding that crossed it would teach
+ * the opposite of the rule.
  */
 
 import { mkdir, readdir } from "node:fs/promises";
@@ -26,9 +31,13 @@ import { join, resolve } from "node:path";
 const Root = resolve(import.meta.dir, "..");
 
 interface Options {
+  /** The directory under `src/routes/`, English and plural. */
   dir: string;
+  /** The URL segment, Catalan, because URLs are product surface. */
   ruta: string;
+  /** The heading of the page, Catalan, because it is shown. */
   title: string;
+  /** An installation-administration resource, outside any workspace. */
   admin: boolean;
 }
 
@@ -46,38 +55,38 @@ function help(message?: string): never {
 }
 
 function readOptions(argv: string[]): Options {
-  const lliures: string[] = [];
-  const nomenats = new Map<string, string>();
+  const positional: string[] = [];
+  const named = new Map<string, string>();
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i] ?? "";
     if (!arg.startsWith("--")) {
-      lliures.push(arg);
+      positional.push(arg);
       continue;
     }
     const key = arg.slice(2);
     if (key === "admin") {
-      nomenats.set("admin", "si");
+      named.set("admin", "si");
       continue;
     }
     const value = argv[++i];
     if (value === undefined) help(`A --${key} li falta el valor.`);
-    nomenats.set(key, value);
+    named.set(key, value);
   }
 
-  const dir = lliures[0];
+  const dir = positional[0];
   if (dir === undefined) help("Digues com s'ha de dir el recurs.");
   if (!/^[a-z][a-z0-9-]*$/.test(dir)) {
     help(`«${dir}» no serveix de nom: minuscules, xifres i guions, i comença per lletra.`);
   }
 
-  const ruta = nomenats.get("ruta") ?? dir;
-  const title = nomenats.get("titol") ?? ruta.charAt(0).toUpperCase() + ruta.slice(1);
-  return { dir, ruta, title, admin: nomenats.has("admin") };
+  const ruta = named.get("ruta") ?? dir;
+  const title = named.get("titol") ?? ruta.charAt(0).toUpperCase() + ruta.slice(1);
+  return { dir, ruta, title, admin: named.has("admin") };
 }
 
-/** `projectes` → `Projectes`; `bank-connections` → `BankConnections`. */
-function enPascal(name: string): string {
+/** `projects` → `Projects`; `bank-connections` → `BankConnections`. */
+function inPascal(name: string): string {
   return name
     .split("-")
     .map((t) => t.charAt(0).toUpperCase() + t.slice(1))
@@ -85,36 +94,40 @@ function enPascal(name: string): string {
 }
 
 /** `bank-connections` → `bankConnections`. */
-function enCamell(name: string): string {
-  const pascal = enPascal(name);
+function inCamel(name: string): string {
+  const pascal = inPascal(name);
   return pascal.charAt(0).toLowerCase() + pascal.slice(1);
 }
 
-// --- Els quatre fitxers -----------------------------------------------------
+// --- The four files ---------------------------------------------------------
 
 function fileSchema(o: Options): string {
   return `/**
- * Esquemes del recurs de ${o.ruta}.
+ * Schemas of the ${o.dir} resource.
  *
- * Un esquema per recurs, i **la taula de Drizzle es la font de veritat**: quan
- * validis una fila, deriva'l amb \`drizzle-zod\` i refina'l, no al reves.
+ * One schema per resource, and **the Drizzle table is the source of truth**:
+ * when you validate a row, derive it with \`drizzle-zod\` and refine it, not
+ * the other way round.
  */
 
 import { z } from "zod/v4";
 
-export const PER_PAGINA = 50;
+export const PER_PAGE = 50;
 
 /**
- * Els filtres i la paginacio viuen a la cadena de consulta, no en cap variable
- * de client: aixi es poden enllaçar i el boto d'enrere funciona.
+ * The filters and the pagination live in the query string, not in any client
+ * variable: that way they can be linked to and the back button works.
+ *
+ * The keys are the wire format, so they stay Catalan: renaming \`pagina\`
+ * would break every link and bookmark that already exists.
  */
-export const ${enCamell(o.dir)}QuerySchema = z.object({
+export const ${inCamel(o.dir)}QuerySchema = z.object({
   pagina: z.coerce.number().int().min(0).default(0),
 });
 
-export type ${enPascal(o.dir)}Query = z.infer<typeof ${enCamell(o.dir)}QuerySchema>;
+export type ${inPascal(o.dir)}Query = z.infer<typeof ${inCamel(o.dir)}QuerySchema>;
 
-export function ${enCamell(o.dir)}ToQuery(q: ${enPascal(o.dir)}Query): string {
+export function ${inCamel(o.dir)}ToQuery(q: ${inPascal(o.dir)}Query): string {
   if (q.pagina <= 0) return "";
   return \`?pagina=\${q.pagina}\`;
 }
@@ -123,45 +136,45 @@ export function ${enCamell(o.dir)}ToQuery(q: ${enPascal(o.dir)}Query): string {
 
 function fileFragment(o: Options): string {
   return `/**
- * Fragments del recurs de ${o.ruta}.
+ * Fragments of the ${o.dir} resource.
  *
- * Tot el que HTMX pot demanar per separat viu aqui. Les mutacions tornen el
- * tros que ha canviat; si a mes canvien alguna cosa de fora, va al costat amb
- * \`withOob()\` i el seu objectiu ha de ser a \`src/lib/oob.ts\`.
+ * Everything HTMX can ask for separately lives here. Mutations return the
+ * piece that changed; if they also change something outside it, that goes
+ * beside it with \`withOob()\` and its target has to be in \`src/lib/oob.ts\`.
  *
- * Per veure'n un de fet: \`src/routes/tags/\` (llista i detall) i
- * \`src/routes/categories/\` (mutacions amb intercanvi fora de banda).
+ * For a finished one: \`src/routes/tags/\` (list and detail) and
+ * \`src/routes/categories/\` (mutations with an out-of-band swap).
  */
 
 import { html } from "hono/html";
 
-import { TaulaDades } from "../../components/vista.ts";
+import { DataTable } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 
-export interface ${enPascal(o.dir)}Vista {
+export interface ${inPascal(o.dir)}View {
   id: number;
-  nom: string;
+  name: string;
 }
 
-export function Llista({
-  codi,
+export function List({
+  code,
   items,
 }: {
-  codi: string;
-  items: ${enPascal(o.dir)}Vista[];
+  code: string;
+  items: ${inPascal(o.dir)}View[];
 }): Html {
   return html\`<div id="llista-${o.ruta}">
-    \${TaulaDades({
+    \${DataTable({
       columnes: html\`<th>Nom</th>\` as Html,
-      files: items.map(
+      rows: items.map(
         (item) => html\`<tr id="${o.ruta}-\${item.id}">
-          <td>\${item.nom}</td>
+          <td>\${item.name}</td>
         </tr>\` as Html,
       ),
-      // Les files i l'estat buit van junts a proposit: vegeu components/vista.ts.
-      buit: "Encara no hi ha res.",
+      // The rows and the empty state go together on purpose: see components/vista.ts.
+      empty: "Encara no hi ha res.",
     })}
-    <!-- \${codi} es el codi de l'espai; fes-lo servir a les adreces d'HTMX. -->
+    <!-- \${code} is the workspace code; use it in the HTMX URLs. -->
   </div>\` as Html;
 }
 `;
@@ -169,55 +182,55 @@ export function Llista({
 
 function filePage(o: Options): string {
   return `/**
- * Pagina del recurs de ${o.ruta}.
+ * Page of the ${o.dir} resource.
  *
- * \`GET <base>\` retorna **sempre** una pagina sencera. La closca (barra
- * lateral, selector d'espai i comptadors) la posa qui crida, amb
+ * \`GET <base>\` **always** returns a whole page. The shell (sidebar,
+ * workspace picker and counters) is put there by the caller, with
  * \`workspacePage()\`.
  */
 
 import { html } from "hono/html";
 
 import type { Html } from "../../lib/html.ts";
-import { Llista, type ${enPascal(o.dir)}Vista } from "./${o.dir}.fragment.ts";
+import { List, type ${inPascal(o.dir)}View } from "./${o.dir}.fragment.ts";
 
-export function ${enPascal(o.dir)}Page({
-  codi,
+export function ${inPascal(o.dir)}Page({
+  code,
   items,
 }: {
-  codi: string;
-  items: ${enPascal(o.dir)}Vista[];
+  code: string;
+  items: ${inPascal(o.dir)}View[];
 }): Html {
   return html\`
     <header class="capçalera">
       <h1>${o.title}</h1>
     </header>
 
-    \${Llista({ codi, items })}
+    \${List({ code, items })}
   \` as Html;
 }
 `;
 }
 
 function fileRoutes(o: Options): string {
-  const pascal = enPascal(o.dir);
-  const camell = enCamell(o.dir);
+  const pascal = inPascal(o.dir);
+  const camel = inCamel(o.dir);
 
-  const capçalera = o.admin
+  const header = o.admin
     ? `/**
- * Rutes del recurs de ${o.ruta}. Nomes per a administradors de la instal·lacio.
+ * Routes of the ${o.dir} resource. Installation administrators only.
  *
- * GET /${o.ruta} → pagina sencera.
- * GET /${o.ruta}/fragment/llista → el fragment de la llista.
+ * GET /${o.ruta} → the whole page.
+ * GET /${o.ruta}/fragment/llista → the list fragment.
  */`
     : `/**
- * Rutes del recurs de ${o.ruta}.
+ * Routes of the ${o.dir} resource.
  *
- * GET <base> → pagina sencera.
- * GET <base>/fragment/llista → el fragment de la llista.
+ * GET <base> → the whole page.
+ * GET <base>/fragment/llista → the list fragment.
  *
- * Les rutes son primes: llegir parametres, autoritzar, cridar el servei i
- * dibuixar. La logica va a \`src/services/\`.
+ * The routes are thin: read parameters, authorize, call the service and draw.
+ * The logic goes in \`src/services/\`.
  */`;
 
   const imports = o.admin
@@ -227,138 +240,141 @@ import { Layout } from "../../components/layout.ts";
 import { fragment, page, pushUrl } from "../../lib/http.ts";
 import { currentUser } from "../../middleware/session.ts";
 import { myWorkspaces } from "../../middleware/workspace.ts";
-import { Llista, type ${pascal}Vista } from "./${o.dir}.fragment.ts";
+import { List, type ${pascal}View } from "./${o.dir}.fragment.ts";
 import { ${pascal}Page } from "./${o.dir}.page.ts";
-import { ${camell}QuerySchema, ${camell}ToQuery } from "./${o.dir}.schema.ts";`
+import { ${camel}QuerySchema, ${camel}ToQuery } from "./${o.dir}.schema.ts";`
     : `import { Hono } from "hono";
 
 import { workspacePage } from "../../components/workspace-page.ts";
 import { fragment, page, pushUrl } from "../../lib/http.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
-import { Llista, type ${pascal}Vista } from "./${o.dir}.fragment.ts";
+import { List, type ${pascal}View } from "./${o.dir}.fragment.ts";
 import { ${pascal}Page } from "./${o.dir}.page.ts";
-import { ${camell}QuerySchema, ${camell}ToQuery } from "./${o.dir}.schema.ts";`;
+import { ${camel}QuerySchema, ${camel}ToQuery } from "./${o.dir}.schema.ts";`;
 
   const body = o.admin
     ? `
-/** Encara no hi ha servei: torna una llista buida. Substitueix-ho. */
-async function llista(): Promise<${pascal}Vista[]> {
+/** There is no service yet: it returns an empty list. Replace this. */
+async function list(): Promise<${pascal}View[]> {
   return [];
 }
 
-${camell}Routes.get("/", async (c) => {
+${camel}Routes.get("/", async (c) => {
   const user = currentUser(c);
-  const items = await llista();
+  const items = await list();
 
   return page(
     c,
     Layout({
-      titol: "${o.title}",
+      title: "${o.title}",
       user,
       csrfToken: c.get("csrfToken") ?? "",
       ruta: c.req.path,
-      espais: await myWorkspaces(user.id),
-      children: ${pascal}Page({ codi: "", items }),
+      workspaces: await myWorkspaces(user.id),
+      children: ${pascal}Page({ code: "", items }),
     }),
   );
 });
 
-${camell}Routes.get("/fragment/llista", async (c) => {
-  const filtres = ${camell}QuerySchema.parse(c.req.query());
-  const items = await llista();
+${camel}Routes.get("/fragment/llista", async (c) => {
+  const filters = ${camel}QuerySchema.parse(c.req.query());
+  const items = await list();
 
-  // La ruta de fragment empeny **l'adreça de la pagina**, no la seva.
-  pushUrl(c, \`/${o.ruta}\${${camell}ToQuery(filtres)}\`);
+  // The fragment route pushes **the page's URL**, not its own.
+  pushUrl(c, \`/${o.ruta}\${${camel}ToQuery(filters)}\`);
 
-  return fragment(c, Llista({ codi: "", items }));
+  return fragment(c, List({ code: "", items }));
 });
 `
     : `
-/** Encara no hi ha servei: torna una llista buida. Substitueix-ho. */
-async function llista(ledgerId: number): Promise<${pascal}Vista[]> {
-  // Tota consulta ha de filtrar per l'espai, sempre. Vegeu AGENTS.md.
+/** There is no service yet: it returns an empty list. Replace this. */
+async function list(ledgerId: number): Promise<${pascal}View[]> {
+  // Every query has to filter by workspace, always. See AGENTS.md.
   void ledgerId;
   return [];
 }
 
-${camell}Routes.get("/", async (c) => {
-  const espai = currentWorkspace(c);
-  const items = await llista(espai.id);
+${camel}Routes.get("/", async (c) => {
+  const workspace = currentWorkspace(c);
+  const items = await list(workspace.id);
 
   return page(
     c,
-    await workspacePage(c, "${o.title}", ${pascal}Page({ codi: espai.code, items })),
+    await workspacePage(c, "${o.title}", ${pascal}Page({ code: workspace.code, items })),
   );
 });
 
-${camell}Routes.get("/fragment/llista", async (c) => {
-  const espai = currentWorkspace(c);
-  const filtres = ${camell}QuerySchema.parse(c.req.query());
-  const items = await llista(espai.id);
+${camel}Routes.get("/fragment/llista", async (c) => {
+  const workspace = currentWorkspace(c);
+  const filters = ${camel}QuerySchema.parse(c.req.query());
+  const items = await list(workspace.id);
 
-  // La ruta de fragment empeny **l'adreça de la pagina**, no la seva.
-  pushUrl(c, \`/e/\${espai.code}/${o.ruta}\${${camell}ToQuery(filtres)}\`);
+  // The fragment route pushes **the page's URL**, not its own.
+  pushUrl(c, \`/e/\${workspace.code}/${o.ruta}\${${camel}ToQuery(filters)}\`);
 
-  return fragment(c, Llista({ codi: espai.code, items }));
+  return fragment(c, List({ code: workspace.code, items }));
 });
 `;
 
-  return `${capçalera}
+  return `${header}
 
 ${imports}
 
-export const ${camell}Routes = new Hono();
+export const ${camel}Routes = new Hono();
 ${body}`;
 }
 
-// --- Els dos fitxers que ja hi eren ----------------------------------------
+// --- The two files that were already there ----------------------------------
 
-function registraRuta(font: string, o: Options): string {
-  const camell = enCamell(o.dir);
-  const newImport = `import { ${camell}Routes } from "./${o.dir}/${o.dir}.routes.ts";`;
+function registerRoute(source: string, o: Options): string {
+  const camel = inCamel(o.dir);
+  const newImport = `import { ${camel}Routes } from "./${o.dir}/${o.dir}.routes.ts";`;
 
-  if (font.includes(newImport)) return font;
+  if (source.includes(newImport)) return source;
 
-  const firstImport = font.indexOf("import { alertsRoutes }");
+  const firstImport = source.indexOf("import { alertsRoutes }");
   if (firstImport === -1)
     throw new Error("No trobo on posar l'importacio a src/routes/index.ts");
-  let text = font.slice(0, firstImport) + newImport + "\n" + font.slice(firstImport);
+  let text = source.slice(0, firstImport) + newImport + "\n" + source.slice(firstImport);
 
   if (o.admin) {
-    const ancora = `  app.route("/e/:codi", espai);`;
-    const bulk =
-      `  const ${camell} = new Hono();\n` +
-      `  ${camell}.use("*", requireUser);\n` +
-      `  ${camell}.use("*", requireAdmin);\n` +
-      `  ${camell}.route("/", ${camell}Routes);\n` +
-      `  app.route("/${o.ruta}", ${camell});\n\n`;
-    if (!text.includes(ancora))
+    const anchor = `  app.route("/e/:codi", workspace);`;
+    const block =
+      `  const ${camel} = new Hono();\n` +
+      `  ${camel}.use("*", requireUser);\n` +
+      `  ${camel}.use("*", requireAdmin);\n` +
+      `  ${camel}.route("/", ${camel}Routes);\n` +
+      `  app.route("/${o.ruta}", ${camel});\n\n`;
+    if (!text.includes(anchor))
       throw new Error("No trobo l'ancora de registre a src/routes/index.ts");
-    text = text.replace(ancora, bulk + ancora);
+    text = text.replace(anchor, block + anchor);
   } else {
-    const ancora = `  // Les analitiques porten l'arrel de l'espai, els informes i la previsio.`;
-    if (!text.includes(ancora))
+    const anchor = `  // Analytics carries the workspace root, the reports and the forecast.`;
+    if (!text.includes(anchor))
       throw new Error("No trobo l'ancora de registre a src/routes/index.ts");
-    text = text.replace(ancora, `  espai.route("/${o.ruta}", ${camell}Routes);\n\n${ancora}`);
+    text = text.replace(
+      anchor,
+      `  workspace.route("/${o.ruta}", ${camel}Routes);\n\n${anchor}`,
+    );
   }
 
   return text;
 }
 
-function registraContracte(font: string, o: Options): string {
-  if (font.includes(`recurs: "${o.dir}"`)) return font;
+function registerContract(source: string, o: Options): string {
+  if (source.includes(`resource: "${o.dir}"`)) return source;
 
   const url = o.admin ? `/${o.ruta}` : `/e/personal/${o.ruta}`;
-  const linia = `  { recurs: "${o.dir}", url: "${url}", que: "${o.title.toLowerCase()}" },`;
-  const ancora = `];\n\n/**\n * Els recursos que no tenen cap pagina`;
+  const line = `  { resource: "${o.dir}", url: "${url}", what: "${o.title.toLowerCase()}" },`;
+  const anchor = `];\n\n/**\n * The resources that have no page`;
 
-  if (!font.includes(ancora)) {
-    throw new Error("No trobo la taula PAGINES a tests/contracte.test.ts");
+  if (!source.includes(anchor)) {
+    throw new Error("No trobo la taula Pages a tests/contracte.test.ts");
   }
-  return font.replace(ancora, `${linia}\n${ancora}`);
+  return source.replace(anchor, `${line}\n${anchor}`);
 }
 
-// --- Endavant ---------------------------------------------------------------
+// --- Off we go --------------------------------------------------------------
 
 const options = readOptions(Bun.argv.slice(2));
 const base = join(Root, "src", "routes", options.dir);
@@ -368,12 +384,12 @@ if (await Bun.file(join(base, `${options.dir}.routes.ts`)).exists()) {
   process.exit(1);
 }
 
-const existents = new Set(
+const existing = new Set(
   (await readdir(join(Root, "src", "routes"), { withFileTypes: true }))
     .filter((e) => e.isDirectory())
     .map((e) => e.name),
 );
-if (existents.has(options.dir)) {
+if (existing.has(options.dir)) {
   console.error(`\n[nou-recurs] el directori «${options.dir}» ja hi es pero esta a mitges.\n`);
   process.exit(1);
 }
@@ -385,25 +401,22 @@ await Bun.write(join(base, `${options.dir}.fragment.ts`), fileFragment(options))
 await Bun.write(join(base, `${options.dir}.schema.ts`), fileSchema(options));
 
 const indexPath = join(Root, "src", "routes", "index.ts");
-await Bun.write(indexPath, registraRuta(await Bun.file(indexPath).text(), options));
+await Bun.write(indexPath, registerRoute(await Bun.file(indexPath).text(), options));
 
-const contractePath = join(Root, "tests", "contracte.test.ts");
-await Bun.write(
-  contractePath,
-  registraContracte(await Bun.file(contractePath).text(), options),
-);
+const contractPath = join(Root, "tests", "contracte.test.ts");
+await Bun.write(contractPath, registerContract(await Bun.file(contractPath).text(), options));
 
-// El format el posa el Prettier, no jo: aixi les plantilles no han de ser
-// perfectes d'entrada i no hi ha dues opinions sobre com se sagna aixo.
+// Prettier does the formatting, not me: that way the templates need not be
+// perfect from the start and there are no two opinions about how this indents.
 //
-// I la taula de recursos de l'`AGENTS.md` es torna a generar aqui mateix. Un
-// recurs nou la canvia, i deixar-la per fer voldria dir que la bastida surt
-// amb el `bun run ok` vermell —que es exactament el que aixo ha d'evitar.
-for (const order of [
+// And the resource table of the docs is regenerated right here. A new resource
+// changes it, and leaving that undone would mean the scaffolding comes out
+// with `bun run ok` red —which is exactly what this is meant to prevent.
+for (const command of [
   ["bun", "run", "format"],
   ["bun", "run", "docs"],
 ]) {
-  await Bun.spawn(order, { stdout: "ignore", stderr: "ignore" }).exited;
+  await Bun.spawn(command, { stdout: "ignore", stderr: "ignore" }).exited;
 }
 
 const url = options.admin ? `/${options.ruta}` : `/e/<espai>/${options.ruta}`;
@@ -419,7 +432,7 @@ console.log(`
   tests/contracte.test.ts    hi queda a la taula de pagines
 
 Ara:
-  1. Fes el servei a src/services/${options.dir}.ts i canvia-hi \`llista()\`.
+  1. Fes el servei a src/services/${options.dir}.ts i canvia-hi \`list()\`.
   2. Comprova-ho amb \`bun run ok\`.
 
 Per veure un recurs fet del tot: src/routes/tags/ (llista i detall) i
