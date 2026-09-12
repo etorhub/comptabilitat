@@ -1,9 +1,9 @@
 /**
- * Disposicio sense barra lateral: entrada i pagines d'error.
+ * The layout without a sidebar: the login page and the error pages.
  *
- * No hi ha `hx-headers` amb el testimoni CSRF perque encara no hi ha sessio
- * de la qual derivar-lo. El formulari d'entrada duu el seu camp ocult; es
- * l'unic de tota l'aplicacio que ho fa.
+ * There is no `hx-headers` with the CSRF token because there is no session yet
+ * to derive it from. The login form carries its own hidden field; it is the
+ * only form in the application that does.
  */
 
 import { html } from "hono/html";
@@ -49,7 +49,7 @@ export function Shell(props: ShellProps): Html {
     </html>` as Html;
 }
 
-/** Pagina de 404. La mateixa tant si no existeix com si no hi tens acces. */
+/** The 404 page. The same one whether it does not exist or you have no access. */
 export function NotFoundPage(): Html {
   return Shell({
     titol: "No s'ha trobat",

@@ -1,45 +1,46 @@
 /**
- * Les peces amb que es dibuixa una llista.
+ * The pieces a list is drawn with.
  *
- * Deu fragments duien la mateixa closca escrita a ma —un `div.desplaçable`,
- * una `table.dades`, i un `p.buit` per quan no hi havia res— i per tant deu
- * ocasions de fer-la lleugerament diferent.
+ * Ten fragments carried the same shell written by hand — a `div.desplaçable`,
+ * a `table.dades`, and a `p.buit` for when there was nothing — and therefore
+ * ten chances to get it slightly different.
  *
- * **L'estat buit i les files van juntes a proposit.** Escrites per separat,
- * qui dibuixa les files pot oblidar-se de l'avis, i aixo passava: esborrar
- * l'ultima fila d'una llista deixava una taula amb la capçalera i el cos
- * buit, sense dir enlloc que no hi havia res. Aqui no es pot: no hi ha cap
- * manera de demanar les files sense dir tambe que s'ha de veure si no n'hi ha.
+ * **The empty state and the rows go together on purpose.** Written
+ * separately, whoever renders the rows can forget the notice, and that is what
+ * happened: deleting a list's last row left a table with a header and an empty
+ * body, saying nowhere that there was nothing. Here it cannot: there is no way
+ * to ask for the rows without also saying what should be seen when there are
+ * none.
  */
 
 import { html } from "hono/html";
 
 import type { Html } from "../lib/html.ts";
 
-/** El que es veu quan una llista no te res. */
+/** What is shown when a list has nothing in it. */
 export function EmptyState(message: Html | string): Html {
   return html`<p class="buit text-suau">${message}</p>` as Html;
 }
 
 export interface DataTableProps {
-  /** Les cel·les de la capçalera, ja dibuixades: `<th>…</th><th>…</th>`. */
+  /** The header cells, already rendered: `<th>…</th><th>…</th>`. */
   columnes: Html;
   rows: Html[];
-  /** El que es veu si `files` es buida. */
+  /** What is shown when `rows` is empty. */
   empty: Html | string;
-  /** Sobre la taula: una barra d'accions… Nomes surt si hi ha files. */
+  /** Above the table: an action bar, say. Only shown when there are rows. */
   abans?: Html | "";
-  /** Sota la taula: la paginacio, un resum… Nomes surt si hi ha files. */
+  /** Below the table: pagination, a summary. Only shown when there are rows. */
   peu?: Html | "";
-  /** Classe de mes per a la `<table>`, quan una vista en te de propies. */
+  /** An extra class for the `<table>`, when a view has its own. */
   cssClass?: string;
 }
 
 /**
- * Una taula de dades amb el seu estat buit.
+ * A data table with its empty state.
  *
- * El que va abans i el que va despres nomes surten quan hi ha files: ni una
- * barra per triar-ne cap ni paginar el no-res volen dir res.
+ * What goes before and after only appears when there are rows: neither a bar
+ * for selecting none of them nor paginating nothing means anything.
  */
 export function DataTable({
   columnes,
@@ -74,11 +75,11 @@ export interface Page {
 }
 
 /**
- * «31–60 de 214», amb els botons d'anar amunt i avall.
+ * "31–60 de 214", with the previous and next buttons.
  *
- * El rang es calcula aqui i no a cada fragment: una de les dues copies deia
- * «1–0 de 0» amb la llista buida, perque comptava des de `offset + 1` sense
- * mirar el total.
+ * The range is computed here and not in each fragment: one of the two copies
+ * said "1–0 de 0" on an empty list, because it counted from `offset + 1`
+ * without looking at the total.
  */
 export function Pagination({
   page,
@@ -87,7 +88,7 @@ export function Pagination({
 }: {
   page: Page;
   passos: Html | "";
-  /** Al costat del rang: una suma, un recompte… */
+  /** Next to the range: a total, a count. */
   summary?: Html | "";
 }): Html {
   const desde = page.total === 0 ? 0 : page.offset + 1;
@@ -102,11 +103,11 @@ export function Pagination({
 }
 
 /**
- * Una etiqueta petita al costat d'un nom.
+ * A small badge next to a name.
  *
- * El titol es dibuixa amb una plantilla imbricada i no amb `raw()`: el text
- * pot venir d'una fila de la base de dades, i una cometa el trencaria a fora
- * de l'atribut.
+ * The title is rendered with a nested template and not with `raw()`: the text
+ * can come from a database row, and a quote would break it out of the
+ * attribute.
  */
 export function Badge(text: string, options: { suau?: boolean; titol?: string } = {}): Html {
   const cssClass = options.suau === true ? "etiqueta etiqueta-suau" : "etiqueta";
@@ -118,20 +119,20 @@ export function Badge(text: string, options: { suau?: boolean; titol?: string } 
 }
 
 /**
- * El filador que surt mentre una peticio corre.
+ * The spinner shown while a request is in flight.
  *
- * Es dibuixa sempre i el fa visible HTMX, que posa `.htmx-request` a
- * l'element que digui l'`hx-indicator` mentre dura la peticio; el full
- * d'estil ja el treu i el torna amb una transicio.
+ * It is always rendered and htmx makes it visible, by putting `.htmx-request`
+ * on whichever element `hx-indicator` names for as long as the request lasts;
+ * the stylesheet fades it in and out.
  *
- * Les dues classes que el dibuixen —`.filador` i `.htmx-indicator`, amb el
- * seu `prefers-reduced-motion`— eren al full d'estil des del primer dia i no
- * les feia servir **cap** plantilla: classificar cinquanta moviments de cop
- * o moure un compte de tres-cents no donaven cap senyal de res, i les
- * accions es podien tornar a prémer mentre la primera encara corria.
+ * The two classes that draw it — `.filador` and `.htmx-indicator`, with their
+ * `prefers-reduced-motion` — were in the stylesheet from day one and **no**
+ * template used them: categorising fifty transactions at once, or moving an
+ * account with three hundred, gave no sign of anything, and the actions could
+ * be pressed again while the first was still running.
  *
- * `aria-hidden`: qui no hi veu no en treu res, d'una roda que gira. Qui ho
- * necessita saber ho sabra pel boto, que queda desactivat.
+ * `aria-hidden`: a spinning wheel is no use to somebody who cannot see it.
+ * Whoever needs to know will know from the button, which is disabled.
  */
 export function Spinner(): Html {
   return html`<span class="filador htmx-indicator" aria-hidden="true"></span>` as Html;

@@ -1,17 +1,17 @@
 /**
- * Espais estancs: resol l'espai de l'adreça i comprova que hi tinguis acces.
+ * Sealed workspaces: resolves the workspace in the URL and checks your access.
  *
- * Dues coses d'aqui son garanties del producte, no detalls:
+ * Two things here are product guarantees, not details:
  *
- *   1. **Qui no te acces a un espai rep un 404, no un 403.** No ha de saber
- *      ni que existeix. Els dos casos —no existeix i no hi tens acces— han de
- *      donar exactament la mateixa resposta.
- *   2. **Ser administrador de la instal·lacio no dona acces a cap espai.**
- *      Qui gestiona els bancs i els usuaris no veu, per defecte, la
- *      comptabilitat de ningu. L'acces es concedeix espai per espai.
+ *   1. **Whoever has no access to a workspace gets a 404, not a 403.** They
+ *      should not even learn it exists. Both cases — it does not exist, and
+ *      you have no access — must give exactly the same response.
+ *   2. **Being an administrator of the installation grants no workspace
+ *      access.** Whoever manages banks and users does not, by default, see
+ *      anybody's books. Access is granted one workspace at a time.
  *
- * Cap ruta de dades no ha de consultar `ledgers` pel seu compte: totes pengen
- * d'aquest middleware.
+ * No data route may query `ledgers` on its own: they all hang off this
+ * middleware.
  */
 
 import { and, eq } from "drizzle-orm";
@@ -36,8 +36,8 @@ declare module "hono" {
 }
 
 /**
- * Espais on l'usuari te acces, en l'ordre en que s'han de mostrar.
- * Serveix per al selector de la barra lateral.
+ * The workspaces the user can reach, in the order they should be shown.
+ * Used by the sidebar's picker.
  */
 export async function myWorkspaces(userId: number): Promise<(Ledger & { role: LedgerRole })[]> {
   const rows = await db
@@ -51,11 +51,11 @@ export async function myWorkspaces(userId: number): Promise<(Ledger & { role: Le
 }
 
 /**
- * Resol `/e/:codi`. Deixa l'espai i el rol al context.
+ * Resolves `/e/:codi`. Leaves the workspace and the role on the context.
  *
- * Fa una sola consulta amb `inner join` sobre els permisos: si no hi ha fila
- * de permis, no hi ha resultat, i el 404 surt sol sense haver de decidir
- * enlloc si es «no existeix» o «no hi tens acces».
+ * One query, with an `inner join` over the permissions: no permission row
+ * means no result, and the 404 falls out on its own without anywhere having to
+ * decide between "does not exist" and "you have no access".
  */
 export const workspaceMiddleware: MiddlewareHandler = async (c, next) => {
   const user = currentUser(c);
@@ -97,10 +97,11 @@ export function currentRole(c: Context): LedgerRole {
 }
 
 /**
- * Exigeix un rol minim dins de l'espai.
+ * Demands a minimum role inside the workspace.
  *
- * Aqui si que es un 403 i no un 404: qui arriba fins aqui ja sap que l'espai
- * existeix, perque hi te acces; el que no te es prou permis.
+ * Here it *is* a 403 and not a 404: whoever gets this far already knows the
+ * workspace exists, because they have access to it; what they lack is enough
+ * permission.
  */
 export function requireRole(minim: LedgerRole): MiddlewareHandler {
   return async (c, next) => {
@@ -111,7 +112,7 @@ export function requireRole(minim: LedgerRole): MiddlewareHandler {
   };
 }
 
-/** Pot classificar i anotar. */
+/** Can categorise and annotate. */
 export const requireEditor = requireRole("editor");
-/** Pot configurar l'espai: comptes, destinataris d'avisos, usuaris. */
+/** Can configure the workspace: accounts, alert recipients, users. */
 export const requireWorkspaceAdmin = requireRole("admin");

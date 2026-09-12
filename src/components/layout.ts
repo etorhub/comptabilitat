@@ -1,14 +1,13 @@
 /**
- * Disposicio general.
+ * The overall layout.
  *
- * Aqui hi ha tres coses de les quals depen tota l'aplicacio:
+ * Three things the whole application depends on live here:
  *
- *   1. El testimoni CSRF, publicat **un sol cop** com a `hx-headers` del
- *      `<body>`. Totes les peticions d'HTMX l'hereten. Cap formulari no en
- *      porta cap de propi.
- *   2. El `#toast`, l'unic lloc on surten els errors.
- *   3. El `htmx:beforeSwap` que deixa passar els 4xx. Sense aixo, HTMX
- *      descarta les respostes d'error i el `#toast` no arribaria mai.
+ *   1. The CSRF token, published **once** as the `<body>`'s `hx-headers`.
+ *      Every htmx request inherits it. No form carries one of its own.
+ *   2. The `#toast`, the only place errors appear.
+ *   3. The `htmx:beforeSwap` that lets 4xx responses through. Without it htmx
+ *      discards error responses and the `#toast` would never arrive.
  */
 
 import { html, raw } from "hono/html";
@@ -23,39 +22,39 @@ export interface LayoutProps {
   titol: string;
   user: User;
   csrfToken: string;
-  /** Espais on l'usuari te acces, per al selector. */
+  /** The workspaces the user can reach, for the picker. */
   workspaces: (Ledger & { role: LedgerRole })[];
-  /** Espai actiu, si la pagina n'esta dins. */
+  /** The active workspace, when the page is inside one. */
   workspace?: Ledger | undefined;
   /**
-   * L'adreça que s'esta mirant (`c.req.path`), per marcar-la al menu.
+   * The URL being viewed (`c.req.path`), so it can be marked in the menu.
    *
-   * El full d'estil ja donava un fons a `.menu a[aria-current="page"]` i cap
-   * plantilla no l'ha escrit mai: la barra lateral no deia on eres, ni de
-   * color ni a un lector de pantalla.
+   * The stylesheet already gave `.menu a[aria-current="page"]` a background
+   * and no template ever wrote it: the sidebar did not say where you were,
+   * neither by colour nor to a screen reader.
    */
   ruta?: string;
-  /** Comptadors de la barra lateral. Son objectius fora de banda. */
+  /** The sidebar counters. They are out-of-band targets. */
   perRevisar?: number;
   avisosNous?: number;
   children: unknown;
 }
 
 /**
- * El poc JavaScript que hi ha, i per que.
+ * The little JavaScript there is, and why.
  *
- * - El `beforeSwap`: HTMX, per defecte, no intercanvia res quan la resposta
- *   es 4xx. Com que els errors arriben com un `#toast` fora de banda dins
- *   d'una resposta 4xx, cal deixar-los passar. Sense extensions.
- * - El `afterSwap`: torna a dibuixar els grafics que hagin entrat amb un
- *   fragment. Nomes fa alguna cosa si la pagina duu grafics.
+ * - `beforeSwap`: by default htmx swaps nothing when the response is 4xx.
+ *   Since errors arrive as an out-of-band `#toast` inside a 4xx, they have to
+ *   be let through. No extensions.
+ * - `afterSwap`: redraws any charts that came in with a fragment. It does
+ *   nothing unless the page has charts.
  */
 const SCRIPT_BASE = raw(`
 document.body.addEventListener("htmx:beforeSwap", function (e) {
   var codi = e.detail.xhr.status;
   if (codi >= 400 && codi < 500) {
-    // Deixa entrar el marcatge d'error (el #toast fora de banda i, si n'hi
-    // ha, el formulari tornat a dibuixar amb els errors per camp).
+    // Let the error markup in (the out-of-band #toast and, when there is one,
+    // the form re-rendered with its per-field errors).
     e.detail.shouldSwap = true;
     e.detail.isError = false;
   }
@@ -69,11 +68,12 @@ document.body.addEventListener("htmx:afterSettle", function () {
 `);
 
 /**
- * Les dues icones del calaix.
+ * The drawer's two icons.
  *
- * Dibuixades aqui i no des d'un fitxer: son dos traços, i una peticio mes per
- * a cada carrega de pagina no els val. `aria-hidden`, perque qui les ha
- * d'entendre ho fa per l'`aria-label` del `<label>` que les conte.
+ * Drawn here rather than loaded from a file: they are two strokes, and they do
+ * not justify another request on every page load. `aria-hidden`, because
+ * whoever needs to understand them does so through the `aria-label` of the
+ * `<label>` that contains them.
  */
 const iconMenu = raw(
   `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>`,
@@ -101,8 +101,8 @@ export function Layout(props: LayoutProps): Html {
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <!--
-          Nomes hi ha una paleta (paper i tinta), com un full imprès: no hi
-          ha cap interruptor ni variant fosca. Vegeu styles/app.css.
+          There is only one palette (paper and ink), like a printed sheet: no
+          toggle and no dark variant. See styles/app.css.
         -->
         <meta name="color-scheme" content="light" />
         <title>${titol} · Comptabilitat</title>
@@ -116,27 +116,26 @@ export function Layout(props: LayoutProps): Html {
         <link rel="stylesheet" href="${staticHref("app.css")}" />
         <script src="${staticHref("htmx.min.js")}" defer></script>
         <!--
-          Els grafics son una illa: ECharts i un fitxer que llegeix les dades
-          que el servidor ha escrit a la pagina. Sense empaquetador i sense
-          cap estat de client.
+          The charts are an island: ECharts plus one file that reads the data
+          the server wrote into the page. No bundler and no client state.
         -->
         <script src="${staticHref("echarts.min.js")}" defer></script>
         <script src="${staticHref("grafics.js")}" defer></script>
       </head>
       <!--
-        El testimoni CSRF surt aqui i enlloc mes. Va lligat a la sessio, de
-        manera que gira amb ella i mor amb ella.
+        The CSRF token appears here and nowhere else. It is tied to the
+        session, so it rotates with it and dies with it.
       -->
       <body hx-headers='{"${raw(CSRF_HEADER)}": "${csrfToken}"}'>
         <a class="salta" href="#contingut">Ves al contingut</a>
 
         <!--
-          El calaix de la navegacio, sense gens de JavaScript: una casella
-          amagada i uns quants label. Es el mateix idioma que el cercador
-          plegable dels moviments (la classe toggle-cerca).
+          The navigation drawer, with no JavaScript at all: a hidden checkbox
+          and a few labels. Same idiom as the collapsible search on the
+          transactions page (the toggle-cerca class).
 
-          Com que cada enllaç es una carrega de pagina sencera, la casella es
-          reinicia sola en navegar i el calaix es tanca tot sol.
+          Since every link is a full page load, the checkbox resets itself on
+          navigation and the drawer closes on its own.
         -->
         <input type="checkbox" id="menu-obert" class="toggle-menu visualment-ocult" />
 
@@ -149,7 +148,7 @@ export function Layout(props: LayoutProps): Html {
         </header>
 
         <div class="disposicio">
-          <!-- Tocar fora del calaix el tanca. Per a qui hi veu, i prou. -->
+          <!-- Tapping outside the drawer closes it. For sighted users only. -->
           <label for="menu-obert" class="rerefons-menu" aria-hidden="true"></label>
 
           ${Sidebar({ user, workspaces, workspace, perRevisar, avisosNous, ruta })}
@@ -157,7 +156,7 @@ export function Layout(props: LayoutProps): Html {
           <main id="contingut" class="principal">${props.children}</main>
         </div>
 
-        <!-- L'unic lloc on surten els errors. Vegeu lib/http.ts. -->
+        <!-- The only place errors appear. See lib/http.ts. -->
         <div id="toast" aria-live="polite"></div>
 
         <script>
@@ -177,11 +176,11 @@ interface SidebarProps {
 }
 
 /**
- * Quin enllaç del menu es la pagina d'ara.
+ * Which menu link is the current page.
  *
- * Guanya **el mes llarg** que encaixi, i no el primer: `/e/x` es el començament
- * de tots els altres, i `/e/x/moviments` ho es de `/e/x/moviments/revisio`.
- * Amb el primer que encaixes, «Panell» sortiria marcat a tot arreu.
+ * The **longest** match wins, not the first: `/e/x` is the start of all the
+ * others, and `/e/x/moviments` is the start of `/e/x/moviments/revisio`. With
+ * first-match, "Panell" would be marked everywhere.
  */
 function activeLink(rutes: string[], ruta: string): string | undefined {
   const paths = rutes.filter((href) => ruta === href || ruta.startsWith(`${href}/`));
@@ -196,8 +195,8 @@ function Sidebar({ user, workspaces, workspace, perRevisar, avisosNous, ruta }: 
         { href: `/e/${codi}`, text: "Panell" },
         { href: `/e/${codi}/moviments`, text: "Moviments" },
         {
-          // La cua de revisio es una vista dels moviments, i per aixo penja
-          // d'ells. A l'aplicacio de React era `/e/:codi/revisio`.
+          // The review queue is a view of the transactions, which is why it
+          // hangs off them. In the React app it was `/e/:codi/revisio`.
           href: `/e/${codi}/moviments/revisio`,
           text: "Per revisar",
           comptador: ReviewCounter(perRevisar),
@@ -225,14 +224,14 @@ function Sidebar({ user, workspaces, workspace, perRevisar, avisosNous, ruta }: 
     ],
     ruta,
   );
-  // L'espai va dins: sense aixo, cada enllaç que no es l'actual acabaria
-  // amb un `<a href="…" >`.
+  // The space goes inside: without it, every link that is not the current one
+  // would end up as `<a href="…" >`.
   const marca = (href: string) => (href === active ? raw(' aria-current="page"') : "");
 
   return html`<nav class="barra" aria-label="Navegacio principal">
     <div class="barra-cap">
       <span class="marca">Comptabilitat</span>
-      <!-- Nomes es veu quan la barra es un calaix, es a dir, al mobil. -->
+      <!-- Only visible when the sidebar is a drawer, i.e. on a phone. -->
       <label for="menu-obert" class="tanca-menu" aria-label="Tanca el menu">${closeIcon}</label>
     </div>
 
@@ -310,11 +309,11 @@ function Sidebar({ user, workspaces, workspace, perRevisar, avisosNous, ruta }: 
 }
 
 /**
- * Els dos comptadors de la barra lateral son **objectius fora de banda**.
+ * The sidebar's two counters are **out-of-band targets**.
  *
- * Substitueixen l'`invalidaEspai()` de l'aplicacio anterior, que després de
- * cada mutacio tornava a demanar-ho gairebe tot. Ara qui canvia el nombre el
- * torna, i prou. Vegeu `AGENTS.md`.
+ * They replace the previous application's `invalidaEspai()`, which re-fetched
+ * almost everything after every mutation. Now whoever changes the number
+ * returns it, and that is all. See `AGENTS.md`.
  */
 export function ReviewCounter(n: number, oob = false) {
   return html`<span

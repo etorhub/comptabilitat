@@ -1,9 +1,9 @@
 /**
- * Munta una pagina de dins d'un espai.
+ * Builds a page from inside a workspace.
  *
- * Totes les pagines d'espai passen per aqui, de manera que la barra lateral,
- * el selector d'espais i els dos comptadors surten sempre igual i ningu no se
- * n'ha de recordar.
+ * Every workspace page goes through here, so the sidebar, the workspace picker
+ * and the two counters always come out the same without anyone having to
+ * remember.
  */
 
 import type { Context } from "hono";

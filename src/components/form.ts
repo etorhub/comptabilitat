@@ -1,22 +1,22 @@
 /**
- * Peces de formulari.
+ * Form pieces.
  *
- * Un sol patro per als errors de validacio a tota l'aplicacio: el camp es
- * marca amb `aria-invalid`, el missatge va en un `<p>` amb identificador, i
- * el camp l'apunta amb `aria-describedby`. Aixi ho diu un lector de pantalla
- * sense que calgui moure el focus enlloc.
+ * One pattern for validation errors across the whole application: the field is
+ * marked `aria-invalid`, the message goes in a `<p>` with an id, and the field
+ * points at it with `aria-describedby`. A screen reader then says it without
+ * anything having to move the focus.
  *
- * Els valors que ha escrit la persona es tornen sempre: un formulari que
- * s'esborra quan falla la validacio es una manera de fer enfadar la gent.
+ * Whatever the person typed is always returned: a form that empties itself
+ * when validation fails is a way of making people angry.
  */
 
 import { html, raw } from "hono/html";
 import type { Html } from "../lib/html.ts";
 
-/** Errors per camp, tal com surten de `zodErrors()`. */
+/** Per-field errors, as `zodErrors()` produces them. */
 export type FieldErrors = Record<string, string[]>;
 
-/** Converteix un `ZodError` en el mapa que esperen aquests components. */
+/** Turns a `ZodError` into the map these components expect. */
 export function zodErrors(error: {
   issues: { path: PropertyKey[]; message: string }[];
 }): FieldErrors {
@@ -28,7 +28,7 @@ export function zodErrors(error: {
   return errors;
 }
 
-/** El primer missatge d'error d'un camp, si n'hi ha. */
+/** A field's first error message, if it has one. */
 export function fieldError(errors: FieldErrors | undefined, field: string): string | undefined {
   return errors?.[field]?.[0];
 }
@@ -46,7 +46,7 @@ interface FieldProps {
   maxlength?: number;
   step?: string;
   placeholder?: string;
-  /** Vegeu `TriaProps.id`: cal quan el camp es dibuixa mes d'un cop. */
+  /** See `SelectProps.id`: needed when the field is rendered more than once. */
   id?: string;
 }
 
@@ -107,30 +107,30 @@ interface SelectProps {
   name: string;
   tag: string;
   valor?: string | number | null | undefined;
-  /** Opcions planes, o grups per a un `<optgroup>`. */
+  /** Flat options, or groups for an `<optgroup>`. */
   options?: Option[];
   groups?: OptionsGroup[];
-  /** Text de l'opcio buida. Si no n'hi ha, el camp es obligatori de fet. */
+  /** The empty option's text. Without one, the field is effectively required. */
   empty?: string;
   errors?: FieldErrors | undefined;
   help?: string;
   attributes?: string;
   /**
-   * L'`id` de l'element. Per defecte es el nom del camp, pero **quan el
-   * mateix camp es dibuixa mes d'un cop a la pagina (una fila per moviment,
-   * per exemple) cal donar-n'hi un de propi**: dos elements amb el mateix
-   * `id` son HTML invalid i fan que l'`aria-describedby` apunti al primer.
+   * The element's `id`. It defaults to the field's name, but **when the same
+   * field is rendered more than once on a page (one row per transaction, say)
+   * it needs its own**: two elements with the same `id` are invalid HTML and
+   * make every `aria-describedby` point at the first one.
    */
   id?: string;
 }
 
 /**
- * Selector natiu.
+ * A native select.
  *
- * Aixo es el que substitueix el `SelectorCategoria` de 372 linies de
- * l'aplicacio anterior. El pla de categories son uns 60 elements en dos
- * nivells, que es exactament el que un `<optgroup>` sap fer: navegacio amb
- * teclat, cerca escrivint i accessibilitat, de franc i sense JavaScript.
+ * This is what replaces the previous application's 372-line
+ * `SelectorCategoria`. The category plan is around 60 items on two levels,
+ * which is exactly what an `<optgroup>` knows how to do: keyboard navigation,
+ * type-ahead and accessibility, for free and without JavaScript.
  */
 export function Select(props: SelectProps): Html {
   const { name, tag, valor, options, groups, empty, errors, help, attributes } = props;
@@ -193,8 +193,8 @@ export function Checkbox(props: CheckboxProps): Html {
 }
 
 /**
- * Error que no es de cap camp en concret (la clau `_`), per ensenyar-lo a
- * dalt del formulari.
+ * An error that belongs to no particular field (the `_` key), shown at the top
+ * of the form.
  */
 export function FormError(errors: FieldErrors | undefined) {
   const message = fieldError(errors, "_");
