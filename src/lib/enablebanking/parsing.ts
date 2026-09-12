@@ -1,17 +1,17 @@
 /**
- * Conversio de les respostes d'Enable Banking al model intern.
+ * Converting Enable Banking's responses into the internal model.
  *
- * La peça important es `dedupKey()`: es el que fa que sincronitzar dues
- * vegades no dupliqui l'historic. Ha de donar **exactament** el mateix que la
- * de Python, perque a `transactions.dedup_key` ja n'hi ha de desades.
+ * The important piece is `dedupKey()`: it is what stops a second sync from
+ * duplicating the history. It has to produce **exactly** what the Python one
+ * produced, because `transactions.dedup_key` already holds saved values.
  *
- * Traduccio de `backend/app/integrations/enablebanking/parsing.py`.
+ * Translated from `backend/app/integrations/enablebanking/parsing.py`.
  */
 
 import type { TransactionStatus } from "../../db/schema/index.ts";
 import { Decimal } from "../money.ts";
 
-/** Estats que pot tornar el banc. La resta (rebutjats, cancel·lats) s'ignoren. */
+/** Statuses the bank can return. The rest (rejected, cancelled) are ignored. */
 const STATUS_MAP: Record<string, TransactionStatus> = {
   BOOK: "booked",
   BOOKED: "booked",
@@ -32,7 +32,7 @@ function decimal(valor: unknown): Decimal | null {
   }
 }
 
-/** Data de calendari `AAAA-MM-DD`, o `null`. */
+/** A `YYYY-MM-DD` calendar date, or `null`. */
 function date(valor: unknown): string | null {
   if (!valor) return null;
   const text = String(valor).slice(0, 10);
@@ -63,7 +63,7 @@ export interface AccountAnalyzed {
   raw: Record<string, unknown>;
 }
 
-/** Camps d'un compte tal com els desem a `accounts`. */
+/** An account's fields as they are stored in `accounts`. */
 export function parseAccount(raw: Record<string, unknown>): AccountAnalyzed {
   return {
     ebAccountUid: String(raw.uid ?? ""),
@@ -126,7 +126,7 @@ export interface TransactionAnalyzed {
   transactionId: string | null;
   bookingDate: string;
   valueDate: string | null;
-  /** Amb signe: negatiu = diners que surten. */
+  /** Signed: negative means money going out. */
   amount: string;
   currency: string;
   status: TransactionStatus;
@@ -137,13 +137,13 @@ export interface TransactionAnalyzed {
 }
 
 /**
- * Clau estable per no duplicar moviments entre sincronitzacions.
+ * A stable key, so transactions are not duplicated between syncs.
  *
- * Si el banc dona una referencia d'apunt, es fa servir tal qual. Si no, es
- * calcula un resum de les dades que no canvien del moviment.
+ * When the bank gives an entry reference, it is used as-is. Otherwise a digest
+ * is computed over the parts of the transaction that do not change.
  *
- * **Ha de coincidir amb la de Python**: a la base de dades ja n'hi ha de
- * desades, i si canviés, la propera sincronitzacio duplicaria tot l'historic.
+ * **It has to match the Python one**: the database already holds saved values,
+ * and if this changed, the next sync would duplicate the whole history.
  */
 export function dedupKey(transaction: TransactionAnalyzed): string {
   if (transaction.entryReference) {
@@ -162,7 +162,7 @@ export function dedupKey(transaction: TransactionAnalyzed): string {
   return `h:${summary}`.slice(0, 64);
 }
 
-/** Converteix un moviment de l'API. Retorna `null` si no s'ha de desar. */
+/** Converts a transaction from the API. Returns `null` when it should not be stored. */
 export function parseTransaction(raw: Record<string, unknown>): TransactionAnalyzed | null {
   const state = STATUS_MAP[String(raw.status ?? "BOOK").toUpperCase()];
   if (state === undefined) return null;
@@ -172,7 +172,7 @@ export function parseTransaction(raw: Record<string, unknown>): TransactionAnaly
   if (quantitat === null) return null;
 
   quantitat = quantitat.abs();
-  // El banc dona l'import sempre en positiu i el sentit a part.
+  // The bank always gives the amount as a positive number, with the direction separately.
   if (String(raw.credit_debit_indicator ?? "").toUpperCase() !== "CRDT") {
     quantitat = quantitat.negated();
   }
@@ -183,7 +183,7 @@ export function parseTransaction(raw: Record<string, unknown>): TransactionAnaly
 
   const creditor = partName(raw, "creditor");
   const debtor = partName(raw, "debtor");
-  // La contrapart es qui rep el diner en una despesa i qui l'envia en un ingres.
+  // The counterparty is whoever receives the money on an expense and whoever sends it on income.
   const counterparty = quantitat.isNegative() ? creditor : debtor;
 
   const parts = [

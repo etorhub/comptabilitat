@@ -1,7 +1,7 @@
 /**
- * Client d'Ollama per a la classificacio amb un model local.
+ * Ollama client, for classification with a local model.
  *
- * Traduccio de `backend/app/integrations/ollama/client.py`.
+ * Translated from `backend/app/integrations/ollama/client.py`.
  */
 
 import { z } from "zod/v4";
@@ -16,7 +16,7 @@ import {
   type MerchantContext,
 } from "./prompts.ts";
 
-/** El model local no ha respost o ha respost malament. */
+/** The local model did not answer, or answered badly. */
 export class OllamaError extends Error {
   constructor(text: string) {
     super(text);
@@ -33,19 +33,19 @@ export interface Suggestion {
   promptVersion: string;
 }
 
-/** Les etiquetes que te descarregades el servidor. */
-const respostaTags = z.object({
+/** The tags the server has pulled. */
+const tagsResponse = z.object({
   models: z.array(z.object({ name: z.string().optional() })).default([]),
 });
 
-const respostaChat = z.object({
+const chatResponse = z.object({
   message: z.object({ content: z.string().optional() }).optional(),
 });
 
 /**
- * El contingut que retorna el model. Es JSON dins d'una cadena, i el model
- * s'equivoca: `confidence` pot arribar com a text i `rationale` pot no ser-hi.
- * Per aixo tot es opcional aqui i es sanejat a `classify()`.
+ * The content the model returns. It is JSON inside a string, and the model
+ * gets it wrong: `confidence` can arrive as text and `rationale` can be
+ * missing. Hence everything is optional here and sanitised in `classify()`.
  */
 const content = z.object({
   category_slug: z.string().optional(),
@@ -71,26 +71,26 @@ export class OllamaClient {
     this.timeoutSeconds = options.timeoutSeconds ?? config.ollamaTimeoutSeconds;
   }
 
-  /** Comprova que el servei respon i que el model hi es. */
+  /** Checks that the service answers and that the model is there. */
   async isAvailable(): Promise<boolean> {
     let data: unknown;
     try {
-      const resposta = await fetch(`${this.baseUrl}/api/tags`, {
+      const response = await fetch(`${this.baseUrl}/api/tags`, {
         signal: AbortSignal.timeout(10_000),
       });
-      if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
-      data = await resposta.json();
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      data = await response.json();
     } catch (error) {
       console.warn(`[ollama] no respon a ${this.baseUrl}: ${message(error)}`);
       return false;
     }
 
-    const names = respostaTags
+    const names = tagsResponse
       .parse(data)
       .models.map((m) => m.name ?? "")
       .filter((n) => n !== "");
 
-    // Les etiquetes poden portar sufix (:latest), aixi que es compara el prefix.
+    // Tags can carry a suffix (:latest), so the prefix is what is compared.
     const base = this.model.split(":")[0];
     const isPresent = names.some((name) => name.split(":")[0] === base);
     if (!isPresent) {
@@ -101,7 +101,7 @@ export class OllamaClient {
     return isPresent;
   }
 
-  /** Demana la categoria d'un comerç. Llança `OllamaError` si falla. */
+  /** Asks for a merchant's category. Throws `OllamaError` on failure. */
   async classify(
     context: MerchantContext,
     categories: readonly CategoryCatalog[],
@@ -115,7 +115,7 @@ export class OllamaClient {
         { role: "user", content: buildPrompt(context, categories) },
       ],
       options: {
-        // Determinista: la mateixa entrada ha de donar la mateixa sortida.
+        // Deterministic: the same input has to give the same output.
         temperature: 0,
         num_predict: 200,
       },
@@ -123,19 +123,19 @@ export class OllamaClient {
 
     let data: unknown;
     try {
-      const resposta = await fetch(`${this.baseUrl}/api/chat`, {
+      const response = await fetch(`${this.baseUrl}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(this.timeoutSeconds * 1000),
       });
-      if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
-      data = await resposta.json();
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      data = await response.json();
     } catch (error) {
       throw new OllamaError(`Ollama no ha respost: ${message(error)}`);
     }
 
-    const text = respostaChat.parse(data).message?.content ?? "";
+    const text = chatResponse.parse(data).message?.content ?? "";
     let raw: unknown;
     try {
       raw = JSON.parse(text);
@@ -153,11 +153,11 @@ export class OllamaClient {
       throw new OllamaError("La resposta no porta cap categoria");
     }
 
-    const confianca = Number(analyzed.data.confidence ?? 0);
+    const confidence = Number(analyzed.data.confidence ?? 0);
 
     return {
       categorySlug: slug,
-      confidence: Number.isFinite(confianca) ? Math.max(0, Math.min(1, confianca)) : 0,
+      confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 0,
       merchant: (analyzed.data.merchant ?? "").slice(0, 200),
       rationale: (analyzed.data.rationale ?? "").slice(0, 500),
       model: this.model,

@@ -1,14 +1,14 @@
 /**
- * Sessions i contrasenyes.
+ * Sessions and passwords.
  *
- * Es el mateix model que hi havia a `app/core/security.py`, amb dues coses
- * afegides que abans no hi eren i que no son un caprici:
+ * The same model as `app/core/security.py` had, plus two things that were not
+ * there before and are not a whim:
  *
- *   1. **CSRF** (a `lib/csrf.ts`). L'aplicacio anterior no en tenia cap
- *      defensa: nomes `SameSite=Lax` i la llista d'origens de CORS.
- *   2. **Limit d'intents d'entrada.** Tampoc no n'hi havia.
+ *   1. **CSRF** (in `lib/csrf.ts`). The previous application had no defence at
+ *      all: only `SameSite=Lax` and the CORS origin list.
+ *   2. **A login attempt limit.** There was none of that either.
  *
- * Del testimoni de sessio, a la base de dades nomes hi ha el resum SHA-256.
+ * Of the session token, only the SHA-256 digest reaches the database.
  */
 
 import { and, eq, lt, ne } from "drizzle-orm";
@@ -17,23 +17,23 @@ import { db } from "../db/client.ts";
 import { userSessions, users, type User } from "../db/schema/index.ts";
 import { config } from "./config.ts";
 
-/** Resum del testimoni tal com es desa. Mai el testimoni en clar. */
+/** The token digest as it is stored. Never the token itself. */
 export function hashToken(token: string): string {
   return new Bun.CryptoHasher("sha256").update(token).digest("hex");
 }
 
-/** Testimoni de sessio nou. 48 bytes, com el `secrets.token_urlsafe(48)`. */
+/** A fresh session token. 48 bytes, like `secrets.token_urlsafe(48)`. */
 export function newSessionToken(): string {
   const bytes = new Uint8Array(48);
   crypto.getRandomValues(bytes);
   return Buffer.from(bytes).toString("base64url");
 }
 
-// --- Contrasenyes ----------------------------------------------------------
+// --- Passwords -------------------------------------------------------------
 
 /**
- * argon2id amb els mateixos parametres moderats que tenia el Python: aixo
- * corre en un NAS amb un N100, no en un servidor amb targeta grafica.
+ * argon2id with the same moderate parameters Python used: this runs on a NAS
+ * with an N100, not on a server with a graphics card.
  */
 const ARGON2 = {
   algorithm: "argon2id",
@@ -46,9 +46,9 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 /**
- * Comprova la contrasenya. Empassa qualsevol error de format del resum i
- * retorna fals, com feia el Python: un resum corromput no ha de ser una
- * excepcio a mitja peticio.
+ * Checks the password. Swallows any digest-format error and returns false, as
+ * Python did: a corrupted digest should not become an exception halfway
+ * through a request.
  */
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   try {
@@ -59,8 +59,8 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 /**
- * Resum d'usar i llençar per gastar el mateix temps quan l'usuari no existeix.
- * Sense aixo, el temps de resposta diu si un correu esta donat d'alta.
+ * A throwaway digest, so the same time is spent when the user does not exist.
+ * Without it, the response time tells you whether an address is registered.
  */
 const DUMMY_HASH = await hashPassword("comptabilitat-usuari-inexistent");
 
@@ -98,11 +98,11 @@ export interface ResolvedSession {
 }
 
 /**
- * Resol la sessio d'un testimoni. Retorna `null` si no existeix, si ha
- * caducat o si l'usuari esta desactivat.
+ * Resolves a token's session. Returns `null` when it does not exist, has
+ * expired, or the user is deactivated.
  *
- * `last_seen_at` nomes s'escriu si han passat mes de 300 s, per no fer un
- * UPDATE a cada peticio.
+ * `last_seen_at` is only written when more than 300 s have passed, to avoid an
+ * UPDATE on every request.
  */
 export async function resolveSession(token: string): Promise<ResolvedSession | null> {
   const tokenHash = hashToken(token);
@@ -140,18 +140,18 @@ export async function destroySession(token: string): Promise<void> {
   await db.delete(userSessions).where(eq(userSessions.tokenHash, hashToken(token)));
 }
 
-/** Totes les sessions de l'usuari. Per quan es desactiva o s'esborra un compte. */
+/** Every session of a user. For when an account is deactivated or deleted. */
 export async function destroyAllSessions(userId: number): Promise<void> {
   await db.delete(userSessions).where(eq(userSessions.userId, userId));
 }
 
 /**
- * Tanca **la resta** de sessions i conserva la d'aqui.
+ * Closes **the other** sessions and keeps this one.
  *
- * Es el que fa canviar-se la contrasenya: qui l'acaba de canviar no ha de
- * quedar fora, pero qualsevol altre aparell si. Conservar la sessio actual
- * tambe manté valid el testimoni CSRF que ja s'ha dibuixat a la pagina, que
- * en depen.
+ * This is what changing your password does: whoever just changed it should not
+ * be locked out, but every other device should. Keeping the current session
+ * also keeps the CSRF token already rendered on the page valid, since it
+ * derives from the session.
  */
 export async function destroyOtherSessions(
   userId: number,
@@ -165,8 +165,8 @@ export async function destroyOtherSessions(
 }
 
 /**
- * Esborra les sessions caducades. El Python no ho feia mai i la taula creixia
- * per sempre; ara ho fa la feina programada de manteniment.
+ * Deletes expired sessions. Python never did, and the table grew for ever; the
+ * scheduled maintenance job does it now.
  */
 export async function purgeExpiredSessions(): Promise<number> {
   const deleted = await db
@@ -176,18 +176,18 @@ export async function purgeExpiredSessions(): Promise<number> {
   return deleted.length;
 }
 
-// --- Limit d'intents d'entrada ---------------------------------------------
+// --- Login attempt limit ---------------------------------------------------
 
 /**
- * Comptador en memoria, a proposit: aixo es una instal·lacio d'una sola
- * maquina i posar-ho a la base de dades voldria dir escriure-hi a cada intent
- * fallit, que es exactament el que vol qui prova contrasenyes.
+ * An in-memory counter, on purpose: this is a single-machine installation, and
+ * putting it in the database would mean a write on every failed attempt, which
+ * is exactly what somebody guessing passwords wants.
  *
- * Es compta per correu **i** per adreça, de manera que ni provar moltes
- * contrasenyes d'un compte ni provar un compte des de moltes adreces passa.
+ * It counts per address **and** per IP, so neither trying many passwords
+ * against one account nor trying one account from many addresses gets through.
  */
 const MAX_ATTEMPTS = 10;
-const FINESTRA_MS = 15 * 60 * 1000;
+const WINDOW_MS = 15 * 60 * 1000;
 
 interface Attempt {
   count: number;
@@ -196,15 +196,15 @@ interface Attempt {
 
 const attempts = new Map<string, Attempt>();
 
-function cleanKey(now: number): void {
+function purgeOldAttempts(now: number): void {
   for (const [key, attempt] of attempts) {
-    if (now - attempt.firstAt > FINESTRA_MS) attempts.delete(key);
+    if (now - attempt.firstAt > WINDOW_MS) attempts.delete(key);
   }
 }
 
 export function loginBlocked(email: string, ip: string): boolean {
   const now = Date.now();
-  cleanKey(now);
+  purgeOldAttempts(now);
   return [`e:${email.toLowerCase()}`, `i:${ip}`].some((key) => {
     const attempt = attempts.get(key);
     return attempt !== undefined && attempt.count >= MAX_ATTEMPTS;
@@ -215,7 +215,7 @@ export function recordFailedLogin(email: string, ip: string): void {
   const now = Date.now();
   for (const key of [`e:${email.toLowerCase()}`, `i:${ip}`]) {
     const attempt = attempts.get(key);
-    if (attempt === undefined || now - attempt.firstAt > FINESTRA_MS) {
+    if (attempt === undefined || now - attempt.firstAt > WINDOW_MS) {
       attempts.set(key, { count: 1, firstAt: now });
     } else {
       attempt.count += 1;
@@ -228,7 +228,7 @@ export function clearFailedLogins(email: string, ip: string): void {
   attempts.delete(`i:${ip}`);
 }
 
-// --- Permisos --------------------------------------------------------------
+// --- Permissions -----------------------------------------------------------
 
 export async function isMemberOfAny(userId: number): Promise<boolean> {
   const { userLedgerPermissions } = await import("../db/schema/index.ts");

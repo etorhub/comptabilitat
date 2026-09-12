@@ -1,14 +1,14 @@
 /**
- * Client de l'API d'Enable Banking.
+ * Enable Banking API client.
  *
- * L'autenticacio es fa amb un JWT signat amb RS256 amb la clau privada de
- * l'aplicacio registrada al panell d'Enable Banking; el `kid` de la capçalera
- * es l'identificador de l'aplicacio.
+ * Authentication is a JWT signed with RS256 using the private key of the
+ * application registered in the Enable Banking dashboard; the header's `kid`
+ * is the application id.
  *
- * **La clau privada no surt d'aqui.** Es llegeix un cop, no s'escriu mai a cap
- * registre i no entra en cap missatge d'error.
+ * **The private key does not leave this file.** It is read once, never written
+ * to any log, and never enters an error message.
  *
- * Traduccio de `backend/app/integrations/enablebanking/client.py`.
+ * Translated from `backend/app/integrations/enablebanking/client.py`.
  */
 
 import { importPKCS8, SignJWT } from "jose";
@@ -22,20 +22,19 @@ import {
 } from "./errors.ts";
 
 const JWT_TTL_SECONDS = 3600;
-/** Marge per no fer servir un testimoni just abans que caduqui. */
+/** Margin, so a token is not used just before it expires. */
 const JWT_REFRESH_MARGIN = 120;
 
 /**
- * Llegeix la clau privada.
+ * Reads the private key.
  *
- * Tres maneres, en ordre: la variable amb el PEM, la variable en base64 (que
- * es la que fa servir el desplegament amb Portainer) i el fitxer del secret
- * muntat.
+ * Three ways, in order: the variable holding the PEM, the base64 variable
+ * (which is what the Portainer deployment uses), and the mounted secret file.
  *
- * NOTA DE SEGURETAT: `EB_PRIVATE_KEY_B64` posa una clau de signatura PSD2 en
- * una variable d'entorn, que qualsevol cosa que corri dins del contenidor pot
- * llegir. Es conserva perque el desplegament hi depen, pero el secret muntat
- * (`EB_PRIVATE_KEY_PATH`) es millor i es el que hauria de fer-se servir.
+ * SECURITY NOTE: `EB_PRIVATE_KEY_B64` puts a PSD2 signing key in an
+ * environment variable, which anything running inside the container can read.
+ * It is kept because the deployment depends on it, but the mounted secret
+ * (`EB_PRIVATE_KEY_PATH`) is better and is what should be used.
  */
 async function readPrivateKey(): Promise<string> {
   if (config.ebPrivateKey) return config.ebPrivateKey;
@@ -52,7 +51,7 @@ async function readPrivateKey(): Promise<string> {
   );
 }
 
-/** Marca de temps UTC amb sufix Z, que es el que espera Enable Banking. */
+/** A UTC timestamp with a Z suffix, which is what Enable Banking expects. */
 function isoZ(date: Date): string {
   return `${date.toISOString().slice(0, 23)}Z`;
 }
@@ -140,9 +139,9 @@ export class EnableBankingClient {
     return JSON.parse(text) as T;
   }
 
-  // --- Punts de l'API ------------------------------------------------------
+  // --- API endpoints -------------------------------------------------------
 
-  /** Dades de l'aplicacio registrada. Serveix per comprovar les credencials. */
+  /** The registered application's details. Useful for checking the credentials. */
   getApplication() {
     return this.request("GET", "/application");
   }
@@ -158,7 +157,7 @@ export class EnableBankingClient {
     return payload.aspsps ?? [];
   }
 
-  /** Inicia l'autoritzacio i retorna la URL on ha d'anar la persona. */
+  /** Starts authorisation and returns the URL the person has to go to. */
   startAuthorization(options: {
     aspspName: string;
     aspspCountry: string;
@@ -181,7 +180,7 @@ export class EnableBankingClient {
     });
   }
 
-  /** Bescanvia el codi del retorn del banc per una sessio amb els comptes. */
+  /** Exchanges the bank's callback code for a session with the accounts. */
   createSession(code: string) {
     return this.request<{
       session_id?: string;
@@ -212,7 +211,7 @@ export class EnableBankingClient {
   }
 
   /**
-   * Recorre els moviments seguint el `continuation_key` de cada pagina.
+   * Walks the transactions, following each page's `continuation_key`.
    */
   async *iterTransactions(
     accountUid: string,
@@ -222,10 +221,10 @@ export class EnableBankingClient {
       transactionStatus?: string | null;
       maxPages?: number;
     },
-    // El `boolean` de retorn diu si s'ha arribat al limit de pagines, es a
-    // dir, si el que s'ha llegit **no** es tot el que hi ha. Qui ho crida ho
-    // ha de mirar: hi ha decisions —esborrar pendents que el banc ja no
-    // reporta— que amb una llista incompleta esborrarien coses vives.
+    // The returned boolean says whether the page limit was reached — that is,
+    // whether what was read is **not** everything there is. Callers have to
+    // check it: some decisions (deleting pending entries the bank no longer
+    // reports) would delete live data if the list were incomplete.
   ): AsyncGenerator<Record<string, unknown>, boolean> {
     const maxPages = options.maxPages ?? 200;
     let continuationKey: string | null = null;
@@ -258,10 +257,10 @@ export class EnableBankingClient {
 }
 
 /**
- * Converteix una resposta d'error en l'error del domini que toca.
+ * Turns an error response into the right domain error.
  *
- * Els missatges dels bancs varien molt, aixi que es mira per paraules que hi
- * surten sempre, com feia el Python.
+ * Banks' messages vary a great deal, so this matches on words that always
+ * appear in them, as Python did.
  */
 async function aError(resposta: Response): Promise<EnableBankingError> {
   let payload: Record<string, unknown>;
@@ -286,7 +285,7 @@ async function aError(resposta: Response): Promise<EnableBankingError> {
     return new SessionExpiredError(message, options);
   }
 
-  // Els bancs limiten quant enrere es pot consultar; el missatge varia molt.
+  // Banks limit how far back you can query; the wording varies a lot.
   if (
     (resposta.status === 400 || resposta.status === 422) &&
     ["DATE", "PERIOD", "RANGE", "FROM"].some((paraula) => search.includes(paraula))
