@@ -14,20 +14,20 @@ import { fragment, page, pushUrl } from "../../lib/http.ts";
 import { addDays, todayLocal } from "../../lib/time.ts";
 import { currentUser } from "../../middleware/session.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
-import { saldoEspai, serieSaldos } from "../../services/balances.ts";
-import { construeixPrevisio } from "../../services/forecast.ts";
+import { workspaceBalance, balanceSeries } from "../../services/balances.ts";
+import { buildForecast } from "../../services/forecast.ts";
 import {
-  comptaPendentsRevisio,
-  comptaSenseClassificar,
-  ingressosIDespeses,
-  limitsDelMes,
-  repartimentCategories,
-  repartimentComercos,
-  serieMensual,
+  countPendingReview,
+  countUnclassified,
+  incomeAndExpenses,
+  monthBounds,
+  categoryBreakdown,
+  merchantBreakdown,
+  monthlySeries,
 } from "../../services/reports.ts";
 import {
-  ContingutInformes,
-  ContingutPrevisio,
+  ReportsContent,
+  ForecastContent,
   DashboardPage,
   ForecastPage,
   ReportsPage,
@@ -42,53 +42,61 @@ import {
 export const analyticsRoutes = new Hono();
 
 /** Avisos que encara no s'han descartat. */
-async function avisosActius(ledgerId: number): Promise<number> {
-  const [fila] = await db
+async function activeAlerts(ledgerId: number): Promise<number> {
+  const [row] = await db
     .select({ n: count() })
     .from(alerts)
     .where(and(eq(alerts.ledgerId, ledgerId), inArray(alerts.status, ["new", "read"])));
-  return fila?.n ?? 0;
+  return row?.n ?? 0;
 }
 
 // --- Panell ----------------------------------------------------------------
 
 analyticsRoutes.get("/", async (c) => {
-  const espai = currentWorkspace(c);
-  const { dies } = dashboardSchema.parse(c.req.query());
+  const workspace = currentWorkspace(c);
+  const { days } = dashboardSchema.parse(c.req.query());
 
-  const avui = todayLocal();
-  const [inici] = limitsDelMes(avui);
-  const desDeMensual = addDays(avui, -365);
+  const today = todayLocal();
+  const [inici] = monthBounds(today);
+  const monthlyFrom = addDays(today, -365);
 
-  const [saldo, mesActual, perRevisar, senseClassificar, nAvisos, mensual, categories, saldos] =
-    await Promise.all([
-      saldoEspai(espai.id),
-      ingressosIDespeses([espai.id], inici, avui),
-      comptaPendentsRevisio([espai.id]),
-      comptaSenseClassificar([espai.id]),
-      avisosActius(espai.id),
-      serieMensual([espai.id], desDeMensual, avui),
-      repartimentCategories([espai.id], null, null, true, 9),
-      serieSaldos([espai.id], addDays(avui, -dies), avui),
-    ]);
+  const [
+    balance,
+    mesActual,
+    perRevisar,
+    senseClassificar,
+    nAvisos,
+    monthly,
+    categories,
+    saldos,
+  ] = await Promise.all([
+    workspaceBalance(workspace.id),
+    incomeAndExpenses([workspace.id], inici, today),
+    countPendingReview([workspace.id]),
+    countUnclassified([workspace.id]),
+    activeAlerts(workspace.id),
+    monthlySeries([workspace.id], monthlyFrom, today),
+    categoryBreakdown([workspace.id], null, null, true, 9),
+    balanceSeries([workspace.id], addDays(today, -days), today),
+  ]);
 
   return page(
     c,
     await workspacePage(
       c,
-      espai.name,
+      workspace.name,
       DashboardPage({
-        codi: espai.code,
-        nomEspai: espai.name,
-        colorEspai: espai.color,
-        saldo: saldo.total,
-        dataSaldo: saldo.data,
+        codi: workspace.code,
+        nomEspai: workspace.name,
+        colorEspai: workspace.color,
+        balance: balance.total,
+        dataSaldo: balance.date,
         mesActual,
         perRevisar,
         senseClassificar,
-        avisosActius: nAvisos,
+        activeAlerts: nAvisos,
         potVeureAvisos: currentUser(c).isAdmin,
-        mensual,
+        monthly,
         categories,
         saldos,
       }),
@@ -98,62 +106,62 @@ analyticsRoutes.get("/", async (c) => {
 
 // --- Informes --------------------------------------------------------------
 
-async function dadesInformes(ledgerId: number, query: Record<string, string>) {
+async function reportData(ledgerId: number, query: Record<string, string>) {
   const filters = reportFiltersSchema.parse(query);
-  const avui = todayLocal();
-  const des = filters.des ?? addDays(avui, -filters.mesos * 31);
-  const fins = filters.fins ?? avui;
+  const today = todayLocal();
+  const des = filters.des ?? addDays(today, -filters.mesos * 31);
+  const fins = filters.fins ?? today;
 
-  const [totals, mensual, despesesPerCategoria, ingressosPerCategoria, comercos] =
+  const [totals, monthly, despesesPerCategoria, ingressosPerCategoria, comercos] =
     await Promise.all([
-      ingressosIDespeses([ledgerId], des, fins),
-      serieMensual([ledgerId], des, fins),
-      repartimentCategories([ledgerId], des, fins, true),
-      repartimentCategories([ledgerId], des, fins, false),
-      repartimentComercos([ledgerId], des, fins, 10),
+      incomeAndExpenses([ledgerId], des, fins),
+      monthlySeries([ledgerId], des, fins),
+      categoryBreakdown([ledgerId], des, fins, true),
+      categoryBreakdown([ledgerId], des, fins, false),
+      merchantBreakdown([ledgerId], des, fins, 10),
     ]);
 
-  return { filters, totals, mensual, despesesPerCategoria, ingressosPerCategoria, comercos };
+  return { filters, totals, monthly, despesesPerCategoria, ingressosPerCategoria, comercos };
 }
 
 analyticsRoutes.get("/informes", async (c) => {
-  const espai = currentWorkspace(c);
-  const dades = await dadesInformes(espai.id, c.req.query());
+  const workspace = currentWorkspace(c);
+  const data = await reportData(workspace.id, c.req.query());
 
   return page(
     c,
-    await workspacePage(c, "Informes", ReportsPage({ codi: espai.code, ...dades })),
+    await workspacePage(c, "Informes", ReportsPage({ codi: workspace.code, ...data })),
   );
 });
 
 analyticsRoutes.get("/informes/fragment/contingut", async (c) => {
-  const espai = currentWorkspace(c);
-  const { filters, ...dades } = await dadesInformes(espai.id, c.req.query());
+  const workspace = currentWorkspace(c);
+  const { filters, ...data } = await reportData(workspace.id, c.req.query());
 
-  pushUrl(c, `/e/${espai.code}/informes${reportFiltersToQuery(filters)}`);
+  pushUrl(c, `/e/${workspace.code}/informes${reportFiltersToQuery(filters)}`);
 
-  return fragment(c, ContingutInformes(dades));
+  return fragment(c, ReportsContent(data));
 });
 
 // --- Previsio --------------------------------------------------------------
 
 analyticsRoutes.get("/previsio", async (c) => {
-  const espai = currentWorkspace(c);
+  const workspace = currentWorkspace(c);
   const { horitzo } = forecastSchema.parse(c.req.query());
-  const previsio = await construeixPrevisio(espai, horitzo);
+  const forecast = await buildForecast(workspace, horitzo);
 
   return page(
     c,
-    await workspacePage(c, "Previsio", ForecastPage({ codi: espai.code, previsio })),
+    await workspacePage(c, "Previsio", ForecastPage({ codi: workspace.code, forecast })),
   );
 });
 
 analyticsRoutes.get("/previsio/fragment/grafic", async (c) => {
-  const espai = currentWorkspace(c);
+  const workspace = currentWorkspace(c);
   const { horitzo } = forecastSchema.parse(c.req.query());
-  const previsio = await construeixPrevisio(espai, horitzo);
+  const forecast = await buildForecast(workspace, horitzo);
 
-  pushUrl(c, `/e/${espai.code}/previsio${horitzo === 90 ? "" : `?horitzo=${horitzo}`}`);
+  pushUrl(c, `/e/${workspace.code}/previsio${horitzo === 90 ? "" : `?horitzo=${horitzo}`}`);
 
-  return fragment(c, ContingutPrevisio({ codi: espai.code, previsio }));
+  return fragment(c, ForecastContent({ codi: workspace.code, forecast }));
 });

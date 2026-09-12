@@ -6,15 +6,15 @@ import { html } from "hono/html";
 
 import type { Ledger } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
-import { FormEspai, TaulaMembres, type MembreVista } from "./workspaces.fragment.ts";
+import { WorkspaceForm, MembersTable, type MemberView } from "./workspaces.fragment.ts";
 
 export interface WorkspacePageProps {
-  espai: Ledger;
-  membres: MembreVista[];
+  workspace: Ledger;
+  members: MemberView[];
   potConfigurar: boolean;
 }
 
-export function WorkspacePage({ espai, membres, potConfigurar }: WorkspacePageProps): Html {
+export function WorkspacePage({ workspace, members, potConfigurar }: WorkspacePageProps): Html {
   return html`
     <header class="capçalera">
       <h1>Espai</h1>
@@ -26,11 +26,11 @@ export function WorkspacePage({ espai, membres, potConfigurar }: WorkspacePagePr
 
     ${
       potConfigurar
-        ? FormEspai({ espai })
+        ? WorkspaceForm({ workspace })
         : html`<p class="text-suau">
           Cal ser administrador d'aquest espai per canviar-ne la configuracio.
         </p>`
     }
-    ${TaulaMembres({ membres })}
+    ${MembersTable({ members })}
   ` as Html;
 }

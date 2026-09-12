@@ -4,67 +4,65 @@
 
 import { html, raw } from "hono/html";
 
-import { Camp, ErrorGeneral, type FieldErrors } from "../../components/form.ts";
+import { Field, FormError, type FieldErrors } from "../../components/form.ts";
 import { LEDGER_ROLES, type Ledger, type LedgerRole } from "../../db/schema/index.ts";
-import { TaulaDades } from "../../components/vista.ts";
+import { DataTable } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 
-const NOMS_ROL: Record<LedgerRole, string> = {
+const NAMES_ROL: Record<LedgerRole, string> = {
   viewer: "Pot mirar",
   editor: "Pot classificar",
   admin: "Pot configurar",
 };
 
-export interface MembreVista {
+export interface MemberView {
   userId: number;
   email: string;
   fullName: string;
   role: LedgerRole;
 }
 
-export interface FormEspaiProps {
-  espai: Ledger;
+export interface WorkspaceFormProps {
+  workspace: Ledger;
   errors?: FieldErrors | undefined;
   fet?: boolean;
 }
 
-export function FormEspai({ espai, errors, fet = false }: FormEspaiProps): Html {
+export function WorkspaceForm({ workspace, errors, fet = false }: WorkspaceFormProps): Html {
   return html`<form
     id="form-espai"
     class="superficie targeta"
-    hx-post="/e/${espai.code}/configuracio"
+    hx-post="/e/${workspace.code}/configuracio"
     hx-target="#form-espai"
     hx-swap="outerHTML"
   >
     <h2>Aquest espai</h2>
-    ${fet ? html`<p class="form-ok" role="status">S'ha desat.</p>` : ""} ${ErrorGeneral(errors)}
+    ${fet ? html`<p class="form-ok" role="status">S'ha desat.</p>` : ""} ${FormError(errors)}
 
     <div class="form-linia">
-      ${Camp({ nom: "name", etiqueta: "Nom", valor: espai.name, errors, requerit: true })}
-      ${Camp({ nom: "color", etiqueta: "Color", tipus: "color", valor: espai.color, errors })}
+      ${Field({ name: "name", tag: "Nom", valor: workspace.name, errors, requerit: true })}
+      ${Field({ name: "color", tag: "Color", type: "color", valor: workspace.color, errors })}
     </div>
 
-    ${Camp({
-      nom: "description",
-      etiqueta: "Descripcio",
-      valor: espai.description,
+    ${Field({
+      name: "description",
+      tag: "Descripcio",
+      valor: workspace.description,
       errors,
     })}
-    ${Camp({
-      nom: "overdraft_threshold",
-      etiqueta: "Llindar de descobert",
-      valor: espai.overdraftThreshold,
+    ${Field({
+      name: "overdraft_threshold",
+      tag: "Llindar de descobert",
+      valor: workspace.overdraftThreshold,
       errors,
-      ajuda:
-        "Per sota d'aquest saldo previst salta l'avis. Si el compte te linia de credit, hi va el numero negatiu que correspongui.",
+      help: "Per sota d'aquest saldo previst salta l'avis. Si el compte te linia de credit, hi va el numero negatiu que correspongui.",
     })}
-    ${Camp({
-      nom: "alert_recipients",
-      etiqueta: "Destinataris dels avisos",
-      valor: espai.alertRecipients.join(", "),
+    ${Field({
+      name: "alert_recipients",
+      tag: "Destinataris dels avisos",
+      valor: workspace.alertRecipients.join(", "),
       errors,
-      ajuda:
-        "Separats per comes. Si es buit, els avisos d'aquest espai van als destinataris generals.",
+      help: "Separats per comes. Si es buit, els avisos d'aquest espai van als destinataris generals.",
     })}
 
     <div class="form-accions">
@@ -73,31 +71,31 @@ export function FormEspai({ espai, errors, fet = false }: FormEspaiProps): Html 
   </form>` as Html;
 }
 
-export function TaulaMembres({ membres }: { membres: MembreVista[] }): Html {
+export function MembersTable({ members }: { members: MemberView[] }): Html {
   return html`<section class="superficie targeta">
     <h2>Qui hi entra</h2>
     <p class="text-suau nota">
       L'acces es dona des de <a href="/usuaris">Usuaris</a>, que es on hi ha
       tots els espais alhora.
     </p>
-    ${TaulaDades({
+    ${DataTable({
       columnes: html`<th>Persona</th>
         <th>Acces</th>` as Html,
-      files: membres.map(
+      rows: members.map(
         (m) =>
           html`<tr>
             <td>
               <span class="nom">${m.fullName || m.email}</span><br />
               <small class="text-suau">${m.email}</small>
             </td>
-            <td>${NOMS_ROL[m.role]}</td>
+            <td>${NAMES_ROL[m.role]}</td>
           </tr>` as Html,
       ),
-      buit: "Encara no hi entra ningu mes.",
+      empty: "Encara no hi entra ningu mes.",
     })}
   </section>` as Html;
 }
 
 /** Els rols, per si algun dia es poden canviar des d'aqui. */
-export const ROLS_DISPONIBLES = LEDGER_ROLES;
+export const AVAILABLE_ROLES = LEDGER_ROLES;
 export { raw };

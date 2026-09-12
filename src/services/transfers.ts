@@ -14,12 +14,12 @@
 
 import { asc, eq } from "drizzle-orm";
 
-import { movimentsComptables } from "./filtres.ts";
+import { countableTransactions } from "./filtres.ts";
 import { db } from "../db/client.ts";
 import { transactions } from "../db/schema/index.ts";
 import { money } from "../lib/money.ts";
 import { addDays, daysBetween, todayLocal } from "../lib/time.ts";
-import { categoriaTraspas } from "./classification.ts";
+import { transferCategory } from "./classification.ts";
 
 /** Marge de dies entre la sortida d'un compte i l'entrada a l'altre. */
 const MATCH_WINDOW_DAYS = 3;
@@ -33,7 +33,7 @@ interface Candidat {
 }
 
 /** Aparella sortides i entrades equivalents entre comptes del mateix espai. */
-export async function detectaTraspassos(ledgerId: number, lookbackDays = 120): Promise<number> {
+export async function detectTransfers(ledgerId: number, lookbackDays = 120): Promise<number> {
   const des = addDays(todayLocal(), -lookbackDays);
 
   const candidats = await db
@@ -48,24 +48,24 @@ export async function detectaTraspassos(ledgerId: number, lookbackDays = 120): P
     // El mateix filtre que fan servir els informes. L'`is_excluded` d'aqui no
     // es un detall: aparellar un moviment exclos escriuria el grup **a l'altra
     // cama** i la trauria dels informes sense que ningu ho hagues demanat.
-    .where(movimentsComptables({ espais: ledgerId, des }))
+    .where(countableTransactions({ workspaces: ledgerId, des }))
     .orderBy(asc(transactions.bookingDate), asc(transactions.id));
 
   const sortides = candidats.filter((c) => money(c.amount).isNegative());
   const entrades = candidats.filter((c) => money(c.amount).isPositive());
   if (sortides.length === 0 || entrades.length === 0) return 0;
 
-  const categoria = await categoriaTraspas(ledgerId);
+  const category = await transferCategory(ledgerId);
   const gastades = new Set<number>();
   let parelles = 0;
 
-  for (const sortida of sortides) {
-    if (gastades.has(sortida.id)) continue;
+  for (const output of sortides) {
+    if (gastades.has(output.id)) continue;
 
-    const contrapart = trobaContrapart(sortida, entrades, gastades);
-    if (contrapart === null) continue;
+    const counterparty = findCounterparty(output, entrades, gastades);
+    if (counterparty === null) continue;
 
-    const grup = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
+    const group = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
 
     // **Les dues cames, o cap.** Si nomes se n'etiqueta una, els informes
     // deixen fora la sortida i continuen comptant l'entrada: el mes surt
@@ -73,15 +73,15 @@ export async function detectaTraspassos(ledgerId: number, lookbackDays = 120): P
     // perque la cama orfe te `transfer_group_id` i aquesta consulta nomes mira
     // les que el tenen buit.
     await db.transaction(async (tx) => {
-      for (const item of [sortida, contrapart]) {
+      for (const item of [output, counterparty]) {
         // Tipat amb la taula: aixi una errada al nom d'un camp no compila, en
         // lloc d'escriure's en silenci.
-        const canvis: Partial<typeof transactions.$inferInsert> = { transferGroupId: grup };
+        const canvis: Partial<typeof transactions.$inferInsert> = { transferGroupId: group };
 
         // La categoria d'un traspas no la tria ningu cada vegada, pero si una
         // persona n'hi ha posat una, es respecta.
-        if (categoria !== null && item.categorySource !== "user") {
-          canvis.categoryId = categoria.id;
+        if (category !== null && item.categorySource !== "user") {
+          canvis.categoryId = category.id;
           canvis.categorySource = "rule";
           canvis.categoryConfidence = 1;
           canvis.needsReview = false;
@@ -91,8 +91,8 @@ export async function detectaTraspassos(ledgerId: number, lookbackDays = 120): P
       }
     });
 
-    gastades.add(sortida.id);
-    gastades.add(contrapart.id);
+    gastades.add(output.id);
+    gastades.add(counterparty.id);
     parelles += 1;
   }
 
@@ -108,26 +108,26 @@ export async function detectaTraspassos(ledgerId: number, lookbackDays = 120): P
  * Ha de ser d'un **altre compte**, del mateix import canviat de signe i dins
  * de la finestra; si n'hi ha mes d'una, guanya la mes propera en el temps.
  */
-function trobaContrapart(
-  sortida: Candidat,
+function findCounterparty(
+  output: Candidat,
   entrades: Candidat[],
   gastades: Set<number>,
 ): Candidat | null {
-  const objectiu = money(sortida.amount).negated();
+  const target = money(output.amount).negated();
   let millor: Candidat | null = null;
   let millorDistancia = MATCH_WINDOW_DAYS + 1;
 
-  for (const entrada of entrades) {
-    if (gastades.has(entrada.id) || entrada.id === sortida.id) continue;
+  for (const login of entrades) {
+    if (gastades.has(login.id) || login.id === output.id) continue;
     // Del mateix compte no es un traspas.
-    if (entrada.accountId === sortida.accountId) continue;
-    if (!money(entrada.amount).equals(objectiu)) continue;
+    if (login.accountId === output.accountId) continue;
+    if (!money(login.amount).equals(target)) continue;
 
-    const distancia = Math.abs(daysBetween(sortida.bookingDate, entrada.bookingDate));
+    const distancia = Math.abs(daysBetween(output.bookingDate, login.bookingDate));
     if (distancia > MATCH_WINDOW_DAYS) continue;
 
     if (distancia < millorDistancia) {
-      millor = entrada;
+      millor = login;
       millorDistancia = distancia;
     }
   }

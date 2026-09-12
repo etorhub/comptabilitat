@@ -10,7 +10,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { app } from "../../src/server.ts";
-import { hrefEstatic } from "../../src/lib/estatics.ts";
+import { staticHref } from "../../src/lib/estatics.ts";
 
 describe("estatics", () => {
   test("GET /htmx.min.js duu Cache-Control immutable", async () => {
@@ -28,7 +28,7 @@ describe("estatics", () => {
     // `app.css` es genera i pot no existir a la CI; el `?v=` hi ha de ser
     // igualment (amb resum o amb el marcador `absent`).
     expect(html).toContain("app.css?v=");
-    expect(html).toContain(hrefEstatic("htmx.min.js"));
+    expect(html).toContain(staticHref("htmx.min.js"));
     expect(html).toMatch(/htmx\.min\.js\?v=[0-9a-f]{8}/);
   });
 });

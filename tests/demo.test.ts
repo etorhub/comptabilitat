@@ -22,10 +22,10 @@ import {
   userLedgerPermissions,
   users,
 } from "../src/db/schema/index.ts";
-import { omplePerAProves, type ResumDemo } from "../src/services/demo.ts";
+import { fillForTests, type DemoSummary } from "../src/services/demo.ts";
 import { app } from "../src/server.ts";
 
-let resum: ResumDemo;
+let summary: DemoSummary;
 
 /** La demo triga; es genera un sol cop i totes les proves la miren. */
 beforeAll(async () => {
@@ -43,21 +43,21 @@ beforeAll(async () => {
   await db.delete(users);
   await db.delete(ledgers);
 
-  resum = await omplePerAProves();
+  summary = await fillForTests();
   // Divuit mesos de moviments a tres espais: no cap als 5 s de per defecte.
 }, 120_000);
 
 describe("els usuaris", () => {
   test("son tres, amb accessos diferents", async () => {
-    const files = await db
+    const rows = await db
       .select({ email: users.email, codi: ledgers.code })
       .from(userLedgerPermissions)
       .innerJoin(users, eq(users.id, userLedgerPermissions.userId))
       .innerJoin(ledgers, eq(ledgers.id, userLedgerPermissions.ledgerId));
 
     const accessos = new Map<string, string[]>();
-    for (const fila of files) {
-      accessos.set(fila.email, [...(accessos.get(fila.email) ?? []), fila.codi].toSorted());
+    for (const row of rows) {
+      accessos.set(row.email, [...(accessos.get(row.email) ?? []), row.codi].toSorted());
     }
 
     expect(accessos.get("demo@exemple.cat")).toEqual(["calella", "pardals", "personal"]);
@@ -66,18 +66,18 @@ describe("els usuaris", () => {
   });
 
   test("l'usuari de la demo pot entrar i veu els tres espais", async () => {
-    const getEntrada = await app.request("/entrada");
-    const htmlEntrada = await getEntrada.text();
-    const seedCookie = (getEntrada.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
-    const camp = /name="_csrf" value="([^"]+)"/.exec(htmlEntrada)?.[1] ?? "";
+    const getLogin = await app.request("/entrada");
+    const loginHtml = await getLogin.text();
+    const seedCookie = (getLogin.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+    const field = /name="_csrf" value="([^"]+)"/.exec(loginHtml)?.[1] ?? "";
 
     const res = await app.request("/entrada", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
       body: new URLSearchParams({
-        _csrf: camp,
-        email: resum.usuari ?? "",
-        password: resum.contrasenya ?? "",
+        _csrf: field,
+        email: summary.user ?? "",
+        password: summary.contrasenya ?? "",
       }).toString(),
     });
 
@@ -85,20 +85,20 @@ describe("els usuaris", () => {
     const cookie = (res.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
 
     // El selector de la barra lateral ha de dur-hi els tres espais.
-    const pagina = await app.request("/e/personal", { headers: { Cookie: cookie } });
-    const cos = await pagina.text();
-    expect(pagina.status).toBe(200);
+    const page = await app.request("/e/personal", { headers: { Cookie: cookie } });
+    const body = await page.text();
+    expect(page.status).toBe(200);
     for (const codi of ["personal", "calella", "pardals"]) {
-      expect(cos).toContain(`<option value="${codi}"`);
+      expect(body).toContain(`<option value="${codi}"`);
     }
   });
 });
 
 describe("les dades", () => {
   test("hi ha moviments, comptes i recurrents als tres espais", async () => {
-    expect(resum.estat).toBe("fet");
-    expect(resum.moviments ?? 0).toBeGreaterThan(200);
-    expect(resum.comptes).toBe(3);
+    expect(summary.state).toBe("fet");
+    expect(summary.transactionList ?? 0).toBeGreaterThan(200);
+    expect(summary.accountList).toBe(3);
 
     const [nComptes] = await db.select({ n: count() }).from(accounts);
     expect(nComptes?.n).toBe(3);
@@ -116,12 +116,12 @@ describe("les dades", () => {
   });
 
   test("els moviments queden classificats", async () => {
-    const [sense] = await db
+    const [without] = await db
       .select({ n: count() })
       .from(transactions)
       .where(and(isNull(transactions.categoryId), isNull(transactions.transferGroupId)));
 
-    expect(sense?.n).toBe(0);
+    expect(without?.n).toBe(0);
   });
 });
 
@@ -129,9 +129,9 @@ describe("tornar-la a executar", () => {
   test("no trepitja les dades que ja hi ha", async () => {
     const [abans] = await db.select({ n: count() }).from(transactions);
 
-    const segona = await omplePerAProves();
+    const segona = await fillForTests();
 
-    expect(segona.estat).toContain("ja hi havia dades");
+    expect(segona.state).toContain("ja hi havia dades");
     const [despres] = await db.select({ n: count() }).from(transactions);
     expect(despres?.n).toBe(abans?.n ?? -1);
     const [nUsuaris] = await db.select({ n: count() }).from(users);

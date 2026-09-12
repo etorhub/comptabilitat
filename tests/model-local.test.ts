@@ -25,10 +25,10 @@ import { config } from "../src/lib/config.ts";
 import {
   OllamaClient as OllamaClientReal,
   OllamaError,
-  type Suggeriment,
+  type Suggestion,
 } from "../src/lib/ollama/client.ts";
-import type { CategoriaCatalog, ContextComerc } from "../src/lib/ollama/prompts.ts";
-import { catalegCategories, classificaComercos } from "../src/services/llm-classification.ts";
+import type { CategoryCatalog, MerchantContext } from "../src/lib/ollama/prompts.ts";
+import { categoryCatalog, classifyMerchants } from "../src/services/llm-classification.ts";
 import { seedCategories } from "../src/services/seed.ts";
 
 /** El `config` es `as const` pel tipus, pero els camps es poden tocar. */
@@ -45,7 +45,7 @@ class OllamaFals {
   readonly preguntats: string[] = [];
 
   constructor(
-    private readonly respostes: Record<string, Suggeriment> = {},
+    private readonly respostes: Record<string, Suggestion> = {},
     private readonly disponible = true,
     private readonly falla = false,
   ) {}
@@ -55,9 +55,9 @@ class OllamaFals {
   }
 
   classify(
-    context: ContextComerc,
-    _categories: readonly CategoriaCatalog[],
-  ): Promise<Suggeriment> {
+    context: MerchantContext,
+    _categories: readonly CategoryCatalog[],
+  ): Promise<Suggestion> {
     void _categories;
     this.preguntats.push(context.normalizedName);
     if (this.falla) return Promise.reject(new OllamaError("no respon"));
@@ -67,11 +67,11 @@ class OllamaFals {
   }
 }
 
-function comAClient(fals: OllamaFals): OllamaClientReal {
+function asClient(fals: OllamaFals): OllamaClientReal {
   return fals as unknown as OllamaClientReal;
 }
 
-function suggeriment(parcial: Partial<Suggeriment> & { categorySlug: string }): Suggeriment {
+function suggestion(parcial: Partial<Suggestion> & { categorySlug: string }): Suggestion {
   return {
     confidence: 0.9,
     merchant: "",
@@ -82,7 +82,7 @@ function suggeriment(parcial: Partial<Suggeriment> & { categorySlug: string }): 
   };
 }
 
-async function categoriaPerSlug(slug: string) {
+async function categoryBySlug(slug: string) {
   const [c] = await db
     .select()
     .from(categories)
@@ -92,13 +92,13 @@ async function categoriaPerSlug(slug: string) {
   return c;
 }
 
-async function comercAmbMoviment(nom: string, amount = "-30.00"): Promise<number> {
-  const [comerc] = await db
+async function merchantWithTransaction(name: string, amount = "-30.00"): Promise<number> {
+  const [merchant] = await db
     .insert(merchants)
     .values({
       ledgerId,
-      normalizedName: nom,
-      displayName: nom.charAt(0) + nom.slice(1).toLowerCase(),
+      normalizedName: name,
+      displayName: name.charAt(0) + name.slice(1).toLowerCase(),
       categorySource: "none",
       isConfirmed: false,
       transactionCount: 1,
@@ -108,17 +108,17 @@ async function comercAmbMoviment(nom: string, amount = "-30.00"): Promise<number
   await db.insert(transactions).values({
     accountId,
     ledgerId,
-    dedupKey: `k-${nom}`,
+    dedupKey: `k-${name}`,
     source: "enablebanking",
     bookingDate: "2026-02-01",
     amount,
     currency: "EUR",
     status: "booked",
-    description: `COMPRA EN ${nom}`,
-    normalizedDescription: nom,
+    description: `COMPRA EN ${name}`,
+    normalizedDescription: name,
     counterparty: "",
     bankTransactionCode: "",
-    merchantId: comerc?.id ?? 0,
+    merchantId: merchant?.id ?? 0,
     categorySource: "none",
     needsReview: true,
     notes: "",
@@ -127,7 +127,7 @@ async function comercAmbMoviment(nom: string, amount = "-30.00"): Promise<number
     raw: {},
   });
 
-  return comerc?.id ?? 0;
+  return merchant?.id ?? 0;
 }
 
 beforeEach(async () => {
@@ -144,7 +144,7 @@ beforeEach(async () => {
   await db.delete(users);
   await db.delete(ledgers);
 
-  const [espai] = await db
+  const [workspace] = await db
     .insert(ledgers)
     .values({
       code: "personal",
@@ -158,10 +158,10 @@ beforeEach(async () => {
       alertRecipients: [],
     })
     .returning();
-  ledgerId = espai?.id ?? 0;
+  ledgerId = workspace?.id ?? 0;
   await seedCategories(ledgerId);
 
-  const [connexio] = await db
+  const [connection] = await db
     .insert(bankConnections)
     .values({
       name: "P",
@@ -172,10 +172,10 @@ beforeEach(async () => {
       lastError: "",
     })
     .returning();
-  const [compte] = await db
+  const [account] = await db
     .insert(accounts)
     .values({
-      connectionId: connexio?.id ?? 0,
+      connectionId: connection?.id ?? 0,
       ledgerId,
       ebAccountUid: "uid-llm",
       name: "C",
@@ -188,7 +188,7 @@ beforeEach(async () => {
       raw: {},
     })
     .returning();
-  accountId = compte?.id ?? 0;
+  accountId = account?.id ?? 0;
 });
 
 afterEach(() => {
@@ -197,8 +197,8 @@ afterEach(() => {
 
 describe("el cataleg que veu el model", () => {
   test("nomes porta categories fulla, i cap traspas", async () => {
-    const cataleg = await catalegCategories(ledgerId);
-    const slugs = new Set(cataleg.map((c) => c.slug));
+    const catalog = await categoryCatalog(ledgerId);
+    const slugs = new Set(catalog.map((c) => c.slug));
 
     expect(slugs.has("habitatge-lloguer-o-hipoteca")).toBe(true);
     expect(slugs.has("habitatge")).toBe(false);
@@ -208,13 +208,13 @@ describe("el cataleg que veu el model", () => {
 
 describe("el model proposa, no decideix", () => {
   test("amb confiança alta s'aplica, pero queda per revisar", async () => {
-    const comercId = await comercAmbMoviment("MERCADONA");
-    const supermercat = await categoriaPerSlug("alimentacio-supermercat");
+    const merchantId = await merchantWithTransaction("MERCADONA");
+    const supermercat = await categoryBySlug("alimentacio-supermercat");
 
-    const estadistiques = await classificaComercos(ledgerId, {
-      client: comAClient(
+    const stats = await classifyMerchants(ledgerId, {
+      client: asClient(
         new OllamaFals({
-          Mercadona: suggeriment({
+          Mercadona: suggestion({
             categorySlug: "alimentacio-supermercat",
             merchant: "Mercadona",
             rationale: "Cadena de supermercats",
@@ -223,26 +223,26 @@ describe("el model proposa, no decideix", () => {
       ),
     });
 
-    expect(estadistiques.classificats).toBe(1);
+    expect(stats.classificats).toBe(1);
 
-    const [comerc] = await db.select().from(merchants).where(eq(merchants.id, comercId));
-    expect(comerc?.defaultCategoryId).toBe(supermercat.id);
-    expect(comerc?.categorySource).toBe("llm");
-    expect(comerc?.isConfirmed).toBe(false);
+    const [merchant] = await db.select().from(merchants).where(eq(merchants.id, merchantId));
+    expect(merchant?.defaultCategoryId).toBe(supermercat.id);
+    expect(merchant?.categorySource).toBe("llm");
+    expect(merchant?.isConfirmed).toBe(false);
 
-    const [moviment] = await db.select().from(transactions);
-    expect(moviment?.categoryId).toBe(supermercat.id);
-    expect(moviment?.categorySource).toBe("llm");
-    expect(moviment?.needsReview).toBe(true);
+    const [transaction] = await db.select().from(transactions);
+    expect(transaction?.categoryId).toBe(supermercat.id);
+    expect(transaction?.categorySource).toBe("llm");
+    expect(transaction?.needsReview).toBe(true);
   });
 
   test("amb poca confiança no s'aplica, pero el suggeriment queda desat", async () => {
-    const comercId = await comercAmbMoviment("COSA RARA");
+    const merchantId = await merchantWithTransaction("COSA RARA");
 
-    const estadistiques = await classificaComercos(ledgerId, {
-      client: comAClient(
+    const stats = await classifyMerchants(ledgerId, {
+      client: asClient(
         new OllamaFals({
-          "Cosa rara": suggeriment({
+          "Cosa rara": suggestion({
             categorySlug: "alimentacio-supermercat",
             confidence: 0.2,
           }),
@@ -250,78 +250,78 @@ describe("el model proposa, no decideix", () => {
       ),
     });
 
-    expect(estadistiques.pocaConfianca).toBe(1);
-    const [comerc] = await db.select().from(merchants).where(eq(merchants.id, comercId));
-    expect(comerc?.defaultCategoryId).toBeNull();
+    expect(stats.pocaConfianca).toBe(1);
+    const [merchant] = await db.select().from(merchants).where(eq(merchants.id, merchantId));
+    expect(merchant?.defaultCategoryId).toBeNull();
     expect((await db.select().from(llmSuggestions)).length).toBe(1);
   });
 
   test("una categoria inventada no s'accepta", async () => {
-    const comercId = await comercAmbMoviment("MERCADONA");
+    const merchantId = await merchantWithTransaction("MERCADONA");
 
-    const estadistiques = await classificaComercos(ledgerId, {
-      client: comAClient(
+    const stats = await classifyMerchants(ledgerId, {
+      client: asClient(
         new OllamaFals({
-          Mercadona: suggeriment({ categorySlug: "categoria-inventada", confidence: 0.99 }),
+          Mercadona: suggestion({ categorySlug: "categoria-inventada", confidence: 0.99 }),
         }),
       ),
     });
 
-    expect(estadistiques.errors).toBe(1);
-    const [comerc] = await db.select().from(merchants).where(eq(merchants.id, comercId));
-    expect(comerc?.defaultCategoryId).toBeNull();
+    expect(stats.errors).toBe(1);
+    const [merchant] = await db.select().from(merchants).where(eq(merchants.id, merchantId));
+    expect(merchant?.defaultCategoryId).toBeNull();
   });
 });
 
 describe("quan no hi ha res a fer o el model no hi es", () => {
   test("els comerços ja confirmats no es tornen a mirar", async () => {
-    const comercId = await comercAmbMoviment("MERCADONA");
-    const supermercat = await categoriaPerSlug("alimentacio-supermercat");
+    const merchantId = await merchantWithTransaction("MERCADONA");
+    const supermercat = await categoryBySlug("alimentacio-supermercat");
     await db
       .update(merchants)
       .set({ defaultCategoryId: supermercat.id, isConfirmed: true })
-      .where(eq(merchants.id, comercId));
+      .where(eq(merchants.id, merchantId));
 
     const fals = new OllamaFals();
-    const estadistiques = await classificaComercos(ledgerId, { client: comAClient(fals) });
+    const stats = await classifyMerchants(ledgerId, { client: asClient(fals) });
 
     expect(fals.preguntats).toEqual([]);
-    expect(estadistiques.omes).toContain("no hi ha cap comerç nou");
+    expect(stats.omes).toContain("no hi ha cap comerç nou");
   });
 
   test("si el model no esta disponible no es trenca res", async () => {
-    await comercAmbMoviment("MERCADONA");
+    await merchantWithTransaction("MERCADONA");
 
-    const estadistiques = await classificaComercos(ledgerId, {
-      client: comAClient(new OllamaFals({}, false)),
+    const stats = await classifyMerchants(ledgerId, {
+      client: asClient(new OllamaFals({}, false)),
     });
 
-    expect(estadistiques.omes).toContain("no esta disponible");
-    const [moviment] = await db.select().from(transactions);
-    expect(moviment?.categoryId).toBeNull();
+    expect(stats.omes).toContain("no esta disponible");
+    const [transaction] = await db.select().from(transactions);
+    expect(transaction?.categoryId).toBeNull();
   });
 
   test("un error del model no atura la resta", async () => {
-    await comercAmbMoviment("MERCADONA");
-    await comercAmbMoviment("NETFLIX", "-12.99");
+    await merchantWithTransaction("MERCADONA");
+    await merchantWithTransaction("NETFLIX", "-12.99");
 
-    const estadistiques = await classificaComercos(ledgerId, {
-      client: comAClient(new OllamaFals({}, true, true)),
+    const stats = await classifyMerchants(ledgerId, {
+      client: asClient(new OllamaFals({}, true, true)),
     });
 
-    expect(estadistiques.mirats).toBe(2);
-    expect(estadistiques.errors).toBe(2);
+    expect(stats.mirats).toBe(2);
+    expect(stats.errors).toBe(2);
   });
 
   test("amb el model desactivat no es fa res", async () => {
     ajustos.ollamaEnabled = false;
-    await comercAmbMoviment("MERCADONA");
+    await merchantWithTransaction("MERCADONA");
 
-    const estadistiques = await classificaComercos(ledgerId, {
-      client: comAClient(new OllamaFals()),
+    const stats = await classifyMerchants(ledgerId, {
+      client: asClient(new OllamaFals()),
     });
 
-    expect(estadistiques.omes).toContain("desactivat");
+    expect(stats.omes).toContain("desactivat");
   });
 });
 
@@ -330,20 +330,20 @@ describe("quan no hi ha res a fer o el model no hi es", () => {
  * `respx`. Nomes es prova la lectura de la resposta, no el model.
  */
 describe("el client d'Ollama", () => {
-  async function ambServidor<T>(
+  async function withServer<T>(
     gestor: (req: Request) => Response,
     prova: (baseUrl: string) => Promise<T>,
   ): Promise<T> {
-    const servidor = Bun.serve({ port: 0, fetch: gestor });
+    const server = Bun.serve({ port: 0, fetch: gestor });
     try {
-      return await prova(`http://127.0.0.1:${servidor.port}`);
+      return await prova(`http://127.0.0.1:${server.port}`);
     } finally {
-      await servidor.stop(true);
+      await server.stop(true);
     }
   }
 
   test("interpreta la resposta d'Ollama", async () => {
-    await ambServidor(
+    await withServer(
       (req) =>
         new URL(req.url).pathname === "/api/tags"
           ? Response.json({ models: [{ name: "qwen3:4b" }] })
@@ -361,7 +361,7 @@ describe("el client d'Ollama", () => {
         const client = new OllamaClientReal({ baseUrl, model: "qwen3:4b" });
         expect(await client.isAvailable()).toBe(true);
 
-        const proposta = await client.classify(
+        const proposal = await client.classify(
           {
             normalizedName: "Mercadona",
             sampleDescriptions: ["COMPRA EN MERCADONA"],
@@ -372,15 +372,15 @@ describe("el client d'Ollama", () => {
           [{ slug: "alimentacio-supermercat", name: "Alimentacio > Supermercat" }],
         );
 
-        expect(proposta.categorySlug).toBe("alimentacio-supermercat");
-        expect(proposta.confidence).toBe(0.87);
-        expect(proposta.model).toBe("qwen3:4b");
+        expect(proposal.categorySlug).toBe("alimentacio-supermercat");
+        expect(proposal.confidence).toBe(0.87);
+        expect(proposal.model).toBe("qwen3:4b");
       },
     );
   });
 
   test("una resposta il·legible dona error", async () => {
-    await ambServidor(
+    await withServer(
       () => Response.json({ message: { content: "no soc json" } }),
       async (baseUrl) => {
         const client = new OllamaClientReal({ baseUrl, model: "qwen3:4b" });
@@ -401,7 +401,7 @@ describe("el client d'Ollama", () => {
   });
 
   test("si falta el model no es dona per disponible", async () => {
-    await ambServidor(
+    await withServer(
       () => Response.json({ models: [{ name: "llama3.2:3b" }] }),
       async (baseUrl) => {
         expect(await new OllamaClientReal({ baseUrl, model: "qwen3:4b" }).isAvailable()).toBe(

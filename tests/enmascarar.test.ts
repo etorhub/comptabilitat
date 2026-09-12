@@ -26,7 +26,7 @@ import {
   userLedgerPermissions,
   users,
 } from "../src/db/schema/index.ts";
-import { llistaMoviments, movimentDeLespai } from "../src/services/transactions.ts";
+import { listTransactions, transactionInWorkspace } from "../src/services/transactions.ts";
 import { seedCategories } from "../src/services/seed.ts";
 
 let ledgerId = 0;
@@ -35,16 +35,16 @@ let merchantId = 0;
 let idNormal = 0;
 let idAmagat = 0;
 
-const CAP_FILTRE = {
+const CAP_FILTER = {
   accountId: null,
-  dataDes: null,
-  dataFins: null,
+  dateFrom: null,
+  dateTo: null,
   categoryIds: [],
   merchantId: null,
-  cerca: "",
-  etiqueta: null,
+  search: "",
+  tag: null,
   tipusOperacio: [],
-  targetes: [],
+  cards: [],
   nomesRevisio: false,
   nomesSenseClassificar: false,
   incloTraspassos: true,
@@ -62,7 +62,7 @@ beforeEach(async () => {
   await db.delete(users);
   await db.delete(ledgers);
 
-  const [espai] = await db
+  const [workspace] = await db
     .insert(ledgers)
     .values({
       code: "personal",
@@ -76,10 +76,10 @@ beforeEach(async () => {
       alertRecipients: [],
     })
     .returning();
-  ledgerId = espai?.id ?? 0;
+  ledgerId = workspace?.id ?? 0;
   await seedCategories(ledgerId);
 
-  const [connexio] = await db
+  const [connection] = await db
     .insert(bankConnections)
     .values({
       name: "P",
@@ -90,10 +90,10 @@ beforeEach(async () => {
       lastError: "",
     })
     .returning();
-  const [compte] = await db
+  const [account] = await db
     .insert(accounts)
     .values({
-      connectionId: connexio?.id ?? 0,
+      connectionId: connection?.id ?? 0,
       ledgerId,
       ebAccountUid: "uid-mask",
       name: "Compte",
@@ -106,9 +106,9 @@ beforeEach(async () => {
       raw: {},
     })
     .returning();
-  accountId = compte?.id ?? 0;
+  accountId = account?.id ?? 0;
 
-  const [comerc] = await db
+  const [merchant] = await db
     .insert(merchants)
     .values({
       ledgerId,
@@ -121,7 +121,7 @@ beforeEach(async () => {
       lastSeenAt: null,
     })
     .returning();
-  merchantId = comerc?.id ?? 0;
+  merchantId = merchant?.id ?? 0;
 
   const base = {
     accountId,
@@ -144,7 +144,7 @@ beforeEach(async () => {
     raw: { secret: "aixo no ha de sortir mai" },
   };
 
-  const creats = await db
+  const created = await db
     .insert(transactions)
     .values([
       { ...base, dedupKey: "normal", description: "COMPRA TARJ. CLINICA DISCRETA" },
@@ -157,26 +157,26 @@ beforeEach(async () => {
     ])
     .returning({ id: transactions.id, dedupKey: transactions.dedupKey });
 
-  idNormal = creats.find((t) => t.dedupKey === "normal")?.id ?? 0;
-  idAmagat = creats.find((t) => t.dedupKey === "amagat")?.id ?? 0;
+  idNormal = created.find((t) => t.dedupKey === "normal")?.id ?? 0;
+  idAmagat = created.find((t) => t.dedupKey === "amagat")?.id ?? 0;
 });
 
 describe("un moviment emmascarat", () => {
   test("ensenya l'alies en lloc del concepte del banc", async () => {
-    const moviment = await movimentDeLespai(idAmagat, ledgerId);
-    expect(moviment.description).toBe("Despesa personal");
-    expect(moviment.isMasked).toBe(true);
+    const transaction = await transactionInWorkspace(idAmagat, ledgerId);
+    expect(transaction.description).toBe("Despesa personal");
+    expect(transaction.isMasked).toBe(true);
   });
 
   test("no ensenya ni la contrapart ni el comerç", async () => {
-    const moviment = await movimentDeLespai(idAmagat, ledgerId);
-    expect(moviment.counterparty).toBe("");
-    expect(moviment.merchantName).toBeNull();
+    const transaction = await transactionInWorkspace(idAmagat, ledgerId);
+    expect(transaction.counterparty).toBe("");
+    expect(transaction.merchantName).toBeNull();
   });
 
   test("no deixa rastre del concepte del banc enlloc de la vista", async () => {
-    const moviment = await movimentDeLespai(idAmagat, ledgerId);
-    const serialitzat = JSON.stringify(moviment);
+    const transaction = await transactionInWorkspace(idAmagat, ledgerId);
+    const serialitzat = JSON.stringify(transaction);
 
     expect(serialitzat).not.toContain("CLINICA");
     expect(serialitzat).not.toContain("Clinica");
@@ -194,48 +194,48 @@ describe("un moviment emmascarat", () => {
       })
       .where(eq(transactions.id, idNormal));
 
-    const moviment = await movimentDeLespai(idNormal, ledgerId);
-    const serialitzat = JSON.stringify(moviment);
-    expect(moviment.description).toBe("Amazon");
-    expect(moviment.darrers4).toBe("4017");
+    const transaction = await transactionInWorkspace(idNormal, ledgerId);
+    const serialitzat = JSON.stringify(transaction);
+    expect(transaction.description).toBe("Amazon");
+    expect(transaction.darrers4).toBe("4017");
     expect(serialitzat).not.toContain("5489010385484017");
   });
 
   test("un moviment normal si que els ensenya", async () => {
-    const moviment = await movimentDeLespai(idNormal, ledgerId);
-    expect(moviment.description).toBe("Clinica Discreta");
-    expect(moviment.darrers4).toBeNull();
-    expect(moviment.merchantName).toBe("Clinica Discreta");
-    expect(moviment.isMasked).toBe(false);
+    const transaction = await transactionInWorkspace(idNormal, ledgerId);
+    expect(transaction.description).toBe("Clinica Discreta");
+    expect(transaction.darrers4).toBeNull();
+    expect(transaction.merchantName).toBe("Clinica Discreta");
+    expect(transaction.isMasked).toBe(false);
   });
 
   test("un moviment amagat no porta xip de targeta", async () => {
-    const moviment = await movimentDeLespai(idAmagat, ledgerId);
-    expect(moviment.darrers4).toBeNull();
-    expect(moviment.descriptionHint).toBeNull();
+    const transaction = await transactionInWorkspace(idAmagat, ledgerId);
+    expect(transaction.darrers4).toBeNull();
+    expect(transaction.descriptionHint).toBeNull();
   });
 });
 
 describe("la cerca", () => {
   test("no troba un moviment amagat pel concepte del banc", async () => {
-    const pagina = await llistaMoviments(ledgerId, { ...CAP_FILTRE, cerca: "CLINICA" });
+    const page = await listTransactions(ledgerId, { ...CAP_FILTER, search: "CLINICA" });
     // Nomes hi ha de sortir el que no esta amagat.
-    expect(pagina.items).toHaveLength(1);
-    expect(pagina.items[0]?.id).toBe(idNormal);
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.id).toBe(idNormal);
   });
 
   test("tampoc per la contrapart", async () => {
-    const pagina = await llistaMoviments(ledgerId, { ...CAP_FILTRE, cerca: "Discreta SL" });
-    expect(pagina.items.every((t) => t.id !== idAmagat)).toBe(true);
+    const page = await listTransactions(ledgerId, { ...CAP_FILTER, search: "Discreta SL" });
+    expect(page.items.every((t) => t.id !== idAmagat)).toBe(true);
   });
 
   test("si que el troba per l'alies", async () => {
-    const pagina = await llistaMoviments(ledgerId, {
-      ...CAP_FILTRE,
-      cerca: "Despesa personal",
+    const page = await listTransactions(ledgerId, {
+      ...CAP_FILTER,
+      search: "Despesa personal",
     });
-    expect(pagina.items).toHaveLength(1);
-    expect(pagina.items[0]?.id).toBe(idAmagat);
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.id).toBe(idAmagat);
   });
 
   test("i per les notes", async () => {
@@ -244,9 +244,9 @@ describe("la cerca", () => {
       .set({ notes: "recordatori meu" })
       .where(eq(transactions.id, idAmagat));
 
-    const pagina = await llistaMoviments(ledgerId, { ...CAP_FILTRE, cerca: "recordatori" });
-    expect(pagina.items).toHaveLength(1);
-    expect(pagina.items[0]?.id).toBe(idAmagat);
+    const page = await listTransactions(ledgerId, { ...CAP_FILTER, search: "recordatori" });
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.id).toBe(idAmagat);
   });
 });
 
@@ -257,20 +257,20 @@ describe("treure l'alies", () => {
       .set({ displayDescription: null })
       .where(eq(transactions.id, idAmagat));
 
-    const moviment = await movimentDeLespai(idAmagat, ledgerId);
-    expect(moviment.isMasked).toBe(false);
-    expect(moviment.description).toBe("Clinica Discreta");
-    expect(moviment.merchantName).toBe("Clinica Discreta");
+    const transaction = await transactionInWorkspace(idAmagat, ledgerId);
+    expect(transaction.isMasked).toBe(false);
+    expect(transaction.description).toBe("Clinica Discreta");
+    expect(transaction.merchantName).toBe("Clinica Discreta");
   });
 });
 
 describe("cap consulta no torna la resposta crua del banc", () => {
   test("ni a la llista ni al detall", async () => {
-    const pagina = await llistaMoviments(ledgerId, CAP_FILTRE);
-    for (const moviment of pagina.items) {
-      expect(Object.keys(moviment)).not.toContain("raw");
+    const page = await listTransactions(ledgerId, CAP_FILTER);
+    for (const transaction of page.items) {
+      expect(Object.keys(transaction)).not.toContain("raw");
     }
-    const detall = await movimentDeLespai(idNormal, ledgerId);
-    expect(Object.keys(detall)).not.toContain("raw");
+    const detail = await transactionInWorkspace(idNormal, ledgerId);
+    expect(Object.keys(detail)).not.toContain("raw");
   });
 });

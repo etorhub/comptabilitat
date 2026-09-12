@@ -12,7 +12,7 @@
  */
 
 interface Passa {
-  nom: string;
+  name: string;
   ordre: string[];
   /** Que ha de fer qui la vegi vermella. */
   arregla: string;
@@ -20,27 +20,27 @@ interface Passa {
 
 const PASSES: Passa[] = [
   {
-    nom: "tipus",
+    name: "tipus",
     ordre: ["bun", "run", "typecheck"],
     arregla: "Arregla els errors que diu el `tsc`. No hi posis `any` ni `!`.",
   },
   {
-    nom: "estil",
+    name: "estil",
     ordre: ["bun", "run", "lint"],
     arregla: "Arregla el que diu l'oxlint.",
   },
   {
-    nom: "format",
+    name: "format",
     ordre: ["bun", "run", "format:check"],
     arregla: "Passa-hi `bun run format`. No cal tocar res a ma.",
   },
   {
-    nom: "frontera",
+    name: "frontera",
     ordre: ["bun", "run", "frontera"],
     arregla: "`htmx-contract/` no pot importar res de l'aplicacio. Vegeu AGENTS.md.",
   },
   {
-    nom: "documentacio",
+    name: "documentacio",
     ordre: ["bun", "run", "docs:check"],
     arregla: "Passa-hi `bun run docs`. Les taules generades no s'editen a ma.",
   },
@@ -59,9 +59,9 @@ if (fallides.length === 0) {
   process.exit(0);
 }
 
-console.error(`\n[comprova] ha fallat: ${fallides.map((f) => f.nom).join(", ")}\n`);
+console.error(`\n[comprova] ha fallat: ${fallides.map((f) => f.name).join(", ")}\n`);
 for (const passa of fallides) {
-  console.error(`  ${passa.nom}: ${passa.arregla}`);
+  console.error(`  ${passa.name}: ${passa.arregla}`);
 }
 console.error("");
 process.exit(1);

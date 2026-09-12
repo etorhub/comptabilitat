@@ -19,7 +19,7 @@ import { html, raw } from "hono/html";
 import type { HtmlEscapedString } from "hono/utils/html";
 
 import type { Html } from "./html.ts";
-import { embolcallOob } from "./oob.ts";
+import { oobWrapper } from "./oob.ts";
 
 /** Error del domini que sap amb quin codi HTTP s'ha de contestar. */
 export class AppError extends Error {
@@ -104,10 +104,10 @@ export function redirect(c: Context, url: string) {
 
 export type ToastTone = "error" | "success" | "info";
 
-const TONES: Record<ToastTone, { classe: string; etiqueta: string }> = {
-  error: { classe: "toast-error", etiqueta: "Error" },
-  success: { classe: "toast-success", etiqueta: "Fet" },
-  info: { classe: "toast-info", etiqueta: "Avis" },
+const TONES: Record<ToastTone, { cssClass: string; tag: string }> = {
+  error: { cssClass: "toast-error", tag: "Error" },
+  success: { cssClass: "toast-success", tag: "Fet" },
+  info: { cssClass: "toast-info", tag: "Avis" },
 };
 
 /**
@@ -128,14 +128,14 @@ const TONES: Record<ToastTone, { classe: string; etiqueta: string }> = {
  * El to tria el paper: un error interromp el que s'estigui llegint
  * (`role="alert"`), i una confirmacio espera el seu torn (`role="status"`).
  */
-export function toast(missatge: string, tone: ToastTone = "error", detall?: string) {
-  const { classe, etiqueta } = TONES[tone];
-  return html`<div ${embolcallOob("toast")}>
-    <div class="toast ${classe}" role="${tone === "error" ? "alert" : "status"}">
+export function toast(message: string, tone: ToastTone = "error", detail?: string) {
+  const { cssClass, tag } = TONES[tone];
+  return html`<div ${oobWrapper("toast")}>
+    <div class="toast ${cssClass}" role="${tone === "error" ? "alert" : "status"}">
       <div class="toast-cos">
-        <strong>${etiqueta}</strong>
-        <span>${missatge}</span>
-        ${detall ? html`<small>${detall}</small>` : ""}
+        <strong>${tag}</strong>
+        <span>${message}</span>
+        ${detail ? html`<small>${detail}</small>` : ""}
       </div>
       <button
         type="button"
@@ -151,7 +151,7 @@ export function toast(missatge: string, tone: ToastTone = "error", detall?: stri
 
 /** El `#toast` buit que va a totes les respostes correctes, per netejar l'anterior. */
 export function clearToast() {
-  return html`<div ${embolcallOob("toast")}></div>`;
+  return html`<div ${oobWrapper("toast")}></div>`;
 }
 
 /**
@@ -170,28 +170,28 @@ export function clearToast() {
  */
 export function toastOnly(
   c: Context,
-  missatge: string,
+  message: string,
   status = 422,
   tone: ToastTone = "error",
-  detall?: string,
+  detail?: string,
 ) {
   c.header("HX-Reswap", "none");
   c.status(status as Parameters<typeof c.status>[0]);
-  return c.html(toast(missatge, tone, detall));
+  return c.html(toast(message, tone, detail));
 }
 
 export function describeError(error: unknown): {
   status: number;
-  missatge: string;
-  detall?: string;
+  message: string;
+  detail?: string;
 } {
   if (error instanceof AppError) {
-    return { status: error.status, missatge: error.message, detall: error.detail };
+    return { status: error.status, message: error.message, detail: error.detail };
   }
   // Res del que no esperavem no ha de sortir a la pantalla: podria dur-hi
   // dades del banc o de la base de dades.
   console.error("[error]", error);
-  return { status: 500, missatge: "Hi ha hagut un error inesperat" };
+  return { status: 500, message: "Hi ha hagut un error inesperat" };
 }
 
 /**
@@ -216,8 +216,8 @@ export async function withOob(...nodes: (Html | string)[]): Promise<HtmlEscapedS
 // --- Utilitats -------------------------------------------------------------
 
 /** Serialitza dades per a una illa de JavaScript (un grafic), sense escapar-ne el HTML. */
-export function jsonScript(id: string, data: unknown) {
-  const text = JSON.stringify(data)
+export function jsonScript(id: string, date: unknown) {
+  const text = JSON.stringify(date)
     .replace(/</g, "\\u003c")
     .replace(/>/g, "\\u003e")
     .replace(/&/g, "\\u0026");
@@ -235,7 +235,7 @@ export function jsonScript(id: string, data: unknown) {
  * El missatge el posa cada recurs, pero **el codi es sempre 404**: qui
  * demana un identificador que no es un numero no ha de saber si existeix.
  */
-export function idDeLaRuta(valor: string | undefined, queNoExisteix: string): number {
+export function idFromRoute(valor: string | undefined, queNoExisteix: string): number {
   if (valor === undefined || !/^\d+$/.test(valor)) throw new NotFoundError(queNoExisteix);
   const id = Number.parseInt(valor, 10);
   if (!Number.isSafeInteger(id) || id <= 0) throw new NotFoundError(queNoExisteix);

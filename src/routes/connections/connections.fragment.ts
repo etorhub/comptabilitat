@@ -4,35 +4,35 @@
 
 import { html, raw } from "hono/html";
 
-import { Tria } from "../../components/form.ts";
+import { Select } from "../../components/form.ts";
 import type { ConnectionStatus, Ledger, SyncRun } from "../../db/schema/index.ts";
 import { isSyncFinished } from "../../db/schema/index.ts";
-import { EstatBuit, Filador, TaulaDades } from "../../components/vista.ts";
+import { EmptyState, Spinner, DataTable } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
 import { formatDate } from "../../lib/time.ts";
-import { atributsOob } from "../../lib/oob.ts";
-import { sondeig, sondeigExhaurit } from "../../lib/sondeig.ts";
+import { oobAttributes } from "../../lib/oob.ts";
+import { poll, pollExhausted } from "../../lib/sondeig.ts";
 
-const ESTATS: Record<ConnectionStatus, { text: string; classe: string }> = {
-  pending: { text: "pendent d'autoritzar", classe: "etiqueta-suau" },
-  active: { text: "activa", classe: "" },
-  expired: { text: "consentiment caducat", classe: "etiqueta-perill" },
-  revoked: { text: "revocada", classe: "etiqueta-suau" },
-  error: { text: "amb error", classe: "etiqueta-perill" },
+const ESTATS: Record<ConnectionStatus, { text: string; cssClass: string }> = {
+  pending: { text: "pendent d'autoritzar", cssClass: "etiqueta-suau" },
+  active: { text: "activa", cssClass: "" },
+  expired: { text: "consentiment caducat", cssClass: "etiqueta-perill" },
+  revoked: { text: "revocada", cssClass: "etiqueta-suau" },
+  error: { text: "amb error", cssClass: "etiqueta-perill" },
 };
 
-export interface CompteVista {
+export interface AccountView {
   id: number;
   name: string;
   ibanMasked: string;
   currency: string;
   ledgerId: number | null;
-  saldo: string | null;
+  balance: string | null;
   isActive: boolean;
 }
 
-export interface ConnexioVista {
+export interface ConnectionView {
   id: number;
   name: string;
   aspspName: string;
@@ -41,131 +41,131 @@ export interface ConnexioVista {
   lastSyncAt: Date | null;
   lastError: string;
   diesPerCaducar: number | null;
-  comptes: CompteVista[];
+  accountList: AccountView[];
 }
 
-export interface LlistaProps {
-  connexions: ConnexioVista[];
-  espais: Ledger[];
+export interface ListProps {
+  connections: ConnectionView[];
+  workspaces: Ledger[];
   oob?: boolean;
 }
 
-export function Llista({ connexions, espais, oob = false }: LlistaProps): Html {
-  return html`<div ${atributsOob("llista-connexions", oob)}>
+export function List({ connections, workspaces, oob = false }: ListProps): Html {
+  return html`<div ${oobAttributes("llista-connexions", oob)}>
     ${
-      connexions.length === 0
-        ? EstatBuit("Encara no hi ha cap banc connectat.")
-        : connexions.map((connexio) => Targeta({ connexio, espais }))
+      connections.length === 0
+        ? EmptyState("Encara no hi ha cap banc connectat.")
+        : connections.map((connection) => Card({ connection, workspaces }))
     }
   </div>` as Html;
 }
 
-export function Targeta({
-  connexio,
-  espais,
+export function Card({
+  connection,
+  workspaces,
 }: {
-  connexio: ConnexioVista;
-  espais: Ledger[];
+  connection: ConnectionView;
+  workspaces: Ledger[];
 }): Html {
-  const estat = ESTATS[connexio.status];
-  const base = `/connexions/${connexio.id}`;
+  const state = ESTATS[connection.status];
+  const base = `/connexions/${connection.id}`;
 
-  return html`<section id="connexio-${connexio.id}" class="superficie targeta">
+  return html`<section id="connexio-${connection.id}" class="superficie targeta">
     <div class="item-cap">
-      <strong>${connexio.aspspName}</strong>
-      <span class="etiqueta ${estat.classe}">${estat.text}</span>
+      <strong>${connection.aspspName}</strong>
+      <span class="etiqueta ${state.cssClass}">${state.text}</span>
       ${
-        connexio.diesPerCaducar !== null && connexio.status === "active"
+        connection.diesPerCaducar !== null && connection.status === "active"
           ? html`<span class="text-suau">
-            caduca ${connexio.diesPerCaducar <= 0 ? "avui" : `en ${connexio.diesPerCaducar} dies`}
+            caduca ${connection.diesPerCaducar <= 0 ? "avui" : `en ${connection.diesPerCaducar} dies`}
           </span>`
           : ""
       }
       ${
-        connexio.lastSyncAt
+        connection.lastSyncAt
           ? html`<span class="text-suau">
-            ultima importacio ${formatDate(connexio.lastSyncAt.toISOString().slice(0, 10))}
+            ultima importacio ${formatDate(connection.lastSyncAt.toISOString().slice(0, 10))}
           </span>`
           : ""
       }
     </div>
 
     ${
-      connexio.lastError
-        ? html`<p class="form-error" role="alert">${connexio.lastError}</p>`
+      connection.lastError
+        ? html`<p class="form-error" role="alert">${connection.lastError}</p>`
         : ""
     }
 
     <div class="form-accions">
-      <form hx-post="${base}/sincronitza" hx-target="#sync-${connexio.id}" hx-swap="outerHTML">
+      <form hx-post="${base}/sincronitza" hx-target="#sync-${connection.id}" hx-swap="outerHTML">
         <button
           type="submit"
           class="boto"
           hx-indicator="this"
           hx-disabled-elt="this"
-          ${connexio.status !== "active" ? raw("disabled") : ""}
+          ${connection.status !== "active" ? raw("disabled") : ""}
         >
-          ${Filador()} Sincronitza
+          ${Spinner()} Sincronitza
         </button>
       </form>
 
       <form method="post" action="/connexions/autoritza">
-        <input type="hidden" name="connection_id" value="${connexio.id}" />
+        <input type="hidden" name="connection_id" value="${connection.id}" />
         <button type="submit" class="boto boto-discret">Renova el consentiment</button>
       </form>
     </div>
 
-    <div id="sync-${connexio.id}"></div>
+    <div id="sync-${connection.id}"></div>
 
-    ${TaulaComptes({ comptes: connexio.comptes, espais })}
+    ${AccountsTable({ accountList: connection.accountList, workspaces })}
   </section>` as Html;
 }
 
-export function TaulaComptes({
-  comptes,
-  espais,
+export function AccountsTable({
+  accountList,
+  workspaces,
 }: {
-  comptes: CompteVista[];
-  espais: Ledger[];
+  accountList: AccountView[];
+  workspaces: Ledger[];
 }): Html {
-  return TaulaDades({
+  return DataTable({
     columnes: html`<th>Compte</th>
       <th class="dreta">Saldo</th>
       <th>Espai</th>` as Html,
-    files: comptes.map((compte) => FilaCompte({ compte, espais })),
-    buit: "Encara no s'ha importat cap compte d'aquesta connexio.",
+    rows: accountList.map((account) => AccountRow({ account, workspaces })),
+    empty: "Encara no s'ha importat cap compte d'aquesta connexio.",
   });
 }
 
-export function FilaCompte({
-  compte,
-  espais,
+export function AccountRow({
+  account,
+  workspaces,
 }: {
-  compte: CompteVista;
-  espais: Ledger[];
+  account: AccountView;
+  workspaces: Ledger[];
 }): Html {
-  return html`<tr id="compte-${compte.id}">
+  return html`<tr id="compte-${account.id}">
     <td>
-      <span class="nom">${compte.name}</span><br />
-      <small class="text-suau">${compte.ibanMasked}</small>
+      <span class="nom">${account.name}</span><br />
+      <small class="text-suau">${account.ibanMasked}</small>
     </td>
     <td class="dreta">
-      ${compte.saldo !== null ? formatMoney(compte.saldo) : html`<span class="text-suau">—</span>`}
+      ${account.balance !== null ? formatMoney(account.balance) : html`<span class="text-suau">—</span>`}
     </td>
     <td>
-      ${Tria({
-        nom: "ledger_id",
-        id: `espai-compte-${compte.id}`,
-        etiqueta: `Espai del compte ${compte.name}`,
-        valor: compte.ledgerId,
-        opcions: espais.map((e) => ({ valor: e.id, text: e.name })),
-        buit: "— sense assignar —",
+      ${Select({
+        name: "ledger_id",
+        id: `espai-compte-${account.id}`,
+        tag: `Espai del compte ${account.name}`,
+        valor: account.ledgerId,
+        options: workspaces.map((e) => ({ valor: e.id, text: e.name })),
+        empty: "— sense assignar —",
         // Es la peticio mes llarga de l'aplicacio —centenars de moviments
         // reclassificats— i fins ara no es veia que estigues passant res.
-        atributs: `hx-post="/connexions/comptes/${compte.id}/espai" hx-target="#compte-${compte.id}" hx-swap="outerHTML" hx-trigger="change" hx-disabled-elt="this" hx-confirm="Moure un compte d'espai n'esborra les classificacions i les torna a calcular. Vols continuar?"`,
+        attributes: `hx-post="/connexions/comptes/${account.id}/espai" hx-target="#compte-${account.id}" hx-swap="outerHTML" hx-trigger="change" hx-disabled-elt="this" hx-confirm="Moure un compte d'espai n'esborra les classificacions i les torna a calcular. Vols continuar?"`,
       })}
       ${
-        compte.ledgerId === null
+        account.ledgerId === null
           ? html`<small class="text-suau">
             Mentre no tingui espai, els seus moviments no es veuen enlloc.
           </small>`
@@ -185,39 +185,39 @@ export function FilaCompte({
  * serveix de res quan el proces mor enmig i la fila es queda en `running` per
  * sempre. Vegeu `lib/sondeig.ts`.
  */
-export function EstatSync({
-  connexioId,
-  execucio,
-  intent = 0,
+export function SyncState({
+  connectionId,
+  run,
+  attempt = 0,
 }: {
-  connexioId: number;
-  execucio: SyncRun | null;
-  intent?: number;
+  connectionId: number;
+  run: SyncRun | null;
+  attempt?: number;
 }): Html {
-  if (execucio === null) {
-    return html`<div id="sync-${connexioId}"></div>` as Html;
+  if (run === null) {
+    return html`<div id="sync-${connectionId}"></div>` as Html;
   }
 
-  const acabada = isSyncFinished(execucio.status);
-  const exhaurit = !acabada && sondeigExhaurit(intent);
+  const acabada = isSyncFinished(run.status);
+  const exhausted = !acabada && pollExhausted(attempt);
 
   return html`<div
-    id="sync-${connexioId}"
+    id="sync-${connectionId}"
     class="sync-estat ${acabada ? "" : "sync-corrent"}"
     ${
       acabada
         ? ""
-        : sondeig({
-            url: `/connexions/${connexioId}/fragment/sync`,
-            objectiu: `#sync-${connexioId}`,
-            intent,
+        : poll({
+            url: `/connexions/${connectionId}/fragment/sync`,
+            target: `#sync-${connectionId}`,
+            attempt,
           })
     }
     role="status"
     aria-live="polite"
   >
     ${
-      exhaurit
+      exhausted
         ? html`<strong>S'ha deixat de comprovar</strong>
           <span class="text-suau">
             Fa massa estona que dura. El manteniment de cada nit tanca les
@@ -228,13 +228,13 @@ export function EstatSync({
     ${
       acabada
         ? html`
-          <strong>${execucio.status === "failed" ? "Ha fallat" : "Fet"}</strong>
+          <strong>${run.status === "failed" ? "Ha fallat" : "Fet"}</strong>
           <span class="text-suau">
-            ${String(execucio.transactionsInserted)} moviments nous,
-            ${String(execucio.transactionsUpdated)} actualitzats,
-            ${String(execucio.accountsSynced)} comptes
+            ${String(run.transactionsInserted)} moviments nous,
+            ${String(run.transactionsUpdated)} actualitzats,
+            ${String(run.accountsSynced)} comptes
           </span>
-          ${execucio.error ? html`<small class="text-suau">${execucio.error}</small>` : ""}
+          ${run.error ? html`<small class="text-suau">${run.error}</small>` : ""}
         `
         : html`
           <span class="filador" aria-hidden="true"></span>

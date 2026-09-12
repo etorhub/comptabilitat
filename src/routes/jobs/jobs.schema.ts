@@ -6,7 +6,7 @@ import { z } from "zod/v4";
 
 import { JOB_STATUSES, JOB_TRIGGERS } from "../../db/schema/enums.ts";
 
-export const FEINES = [
+export const JOBS = [
   "passada-diaria",
   "passada-nocturna",
   "sync",
@@ -19,14 +19,14 @@ export const FEINES = [
   "totes",
 ] as const;
 
-export type FeinaId = (typeof FEINES)[number];
+export type JobId = (typeof JOBS)[number];
 
-export const feinaSchema = z.object({
-  feina: z.enum(FEINES),
+export const jobSchema = z.object({
+  job: z.enum(JOBS),
 });
 
 /** Etiquetes curtes per a la UI. */
-export const ETIQUETES_FEINA: Record<FeinaId, string> = {
+export const JOB_LABELS: Record<JobId, string> = {
   "passada-diaria": "Passada diaria",
   "passada-nocturna": "Passada nocturna",
   sync: "Sincronitzacio",
@@ -39,13 +39,13 @@ export const ETIQUETES_FEINA: Record<FeinaId, string> = {
   totes: "Totes les feines",
 };
 
-export const ETIQUETES_ORIGEN: Record<(typeof JOB_TRIGGERS)[number], string> = {
+export const TRIGGER_LABELS: Record<(typeof JOB_TRIGGERS)[number], string> = {
   scheduled: "Cron",
   manual: "UI",
   cli: "CLI",
 };
 
-export const ETIQUETES_ESTAT: Record<(typeof JOB_STATUSES)[number], string> = {
+export const STATUS_LABELS: Record<(typeof JOB_STATUSES)[number], string> = {
   running: "En curs",
   success: "Fet",
   partial: "Parcial",
@@ -53,7 +53,7 @@ export const ETIQUETES_ESTAT: Record<(typeof JOB_STATUSES)[number], string> = {
 };
 
 /** Passades que contenen cada feina individual (per deshabilitar el boto). */
-export const PASSADES_QUE_CONTENEN: Partial<Record<FeinaId, readonly FeinaId[]>> = {
+export const PASSES_CONTAINING: Partial<Record<JobId, readonly JobId[]>> = {
   sync: ["passada-diaria", "totes"],
   classify: ["passada-diaria", "passada-nocturna", "totes"],
   llm: ["passada-nocturna", "totes"],
@@ -64,31 +64,31 @@ export const PASSADES_QUE_CONTENEN: Partial<Record<FeinaId, readonly FeinaId[]>>
   "passada-nocturna": ["totes"],
 };
 
-const buitAUndef = <T extends z.ZodType>(esquema: T) =>
+const emptyToUndef = <T extends z.ZodType>(esquema: T) =>
   z
     .union([esquema, z.literal("")])
     .optional()
     .transform((v) => (v === "" || v === undefined ? undefined : v));
 
-const data = z
+const date = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
   .optional()
   .or(z.literal(""))
   .transform((v) => (v ? v : undefined));
 
-export const historialFiltersSchema = z.object({
-  feina: buitAUndef(z.enum(FEINES)),
-  estat: buitAUndef(z.enum(JOB_STATUSES)),
-  origen: buitAUndef(z.enum(JOB_TRIGGERS)),
-  des_de: data,
-  fins_a: data,
+export const historyFiltersSchema = z.object({
+  feina: emptyToUndef(z.enum(JOBS)),
+  estat: emptyToUndef(z.enum(JOB_STATUSES)),
+  origen: emptyToUndef(z.enum(JOB_TRIGGERS)),
+  des_de: date,
+  fins_a: date,
   pagina: z.coerce.number().int().min(0).default(0),
 });
 
-export type HistorialFilters = z.infer<typeof historialFiltersSchema>;
+export type HistoryFilters = z.infer<typeof historyFiltersSchema>;
 
-export function historialFiltersToQuery(filters: HistorialFilters): string {
+export function historyFiltersToQuery(filters: HistoryFilters): string {
   const params = new URLSearchParams();
   if (filters.feina) params.set("feina", filters.feina);
   if (filters.estat) params.set("estat", filters.estat);
@@ -101,14 +101,14 @@ export function historialFiltersToQuery(filters: HistorialFilters): string {
 }
 
 /** Converteix les dates de calendari dels filtres a instants. */
-export function filtresAServei(filters: HistorialFilters) {
+export function filtersToService(filters: HistoryFilters) {
   return {
-    feina: filters.feina,
-    estat: filters.estat,
-    origen: filters.origen,
-    desDe: filters.des_de ? new Date(`${filters.des_de}T00:00:00`) : undefined,
+    job: filters.feina,
+    state: filters.estat,
+    origin: filters.origen,
+    from: filters.des_de ? new Date(`${filters.des_de}T00:00:00`) : undefined,
     finsA: filters.fins_a ? new Date(`${filters.fins_a}T23:59:59.999`) : undefined,
-    pagina: filters.pagina,
+    page: filters.pagina,
     limit: 30,
   };
 }

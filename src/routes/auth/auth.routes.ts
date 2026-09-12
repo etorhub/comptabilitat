@@ -40,10 +40,10 @@ const cookieBase = {
 } as const;
 
 /** Adreça de la primera pagina util: el primer espai on l'usuari tingui acces. */
-async function primeraPagina(userId: number): Promise<string> {
-  const espais = await myWorkspaces(userId);
-  const primer = espais[0];
-  return primer ? `/e/${primer.code}` : "/sense-espais";
+async function firstPage(userId: number): Promise<string> {
+  const workspaces = await myWorkspaces(userId);
+  const first = workspaces[0];
+  return first ? `/e/${first.code}` : "/sense-espais";
 }
 
 // --- Entrada ---------------------------------------------------------------
@@ -51,33 +51,33 @@ async function primeraPagina(userId: number): Promise<string> {
 authRoutes.get("/entrada", async (c) => {
   const user = c.get("user");
   if (user !== null) {
-    return c.redirect(await primeraPagina(user.id), 303);
+    return c.redirect(await firstPage(user.id), 303);
   }
 
   // Llavor d'un sol us perque el formulari pugui dur testimoni CSRF sense
   // que encara hi hagi sessio.
-  let llavor = getCookie(c, CSRF_SEED_COOKIE);
-  if (llavor === undefined) {
-    llavor = newCsrfSeed();
-    setCookie(c, CSRF_SEED_COOKIE, llavor, { ...cookieBase, maxAge: 3600 });
+  let seed = getCookie(c, CSRF_SEED_COOKIE);
+  if (seed === undefined) {
+    seed = newCsrfSeed();
+    setCookie(c, CSRF_SEED_COOKIE, seed, { ...cookieBase, maxAge: 3600 });
   }
 
   const desti = c.req.query("desti");
   return page(
     c,
     LoginPage({
-      csrfToken: await csrfTokenFor(llavor),
+      csrfToken: await csrfTokenFor(seed),
       desti: desti && desti.startsWith("/") && !desti.startsWith("//") ? desti : "/",
     }),
   );
 });
 
 authRoutes.post("/entrada", async (c) => {
-  const llavor = getCookie(c, CSRF_SEED_COOKIE) ?? newCsrfSeed();
-  const csrfToken = await csrfTokenFor(llavor);
+  const seed = getCookie(c, CSRF_SEED_COOKIE) ?? newCsrfSeed();
+  const csrfToken = await csrfTokenFor(seed);
 
-  const cos = await c.req.parseBody();
-  const parsed = loginSchema.safeParse(cos);
+  const body = await c.req.parseBody();
+  const parsed = loginSchema.safeParse(body);
 
   if (!parsed.success) {
     return fragment(
@@ -85,8 +85,8 @@ authRoutes.post("/entrada", async (c) => {
       LoginPage({
         csrfToken,
         errors: zodErrors(parsed.error),
-        email: typeof cos.email === "string" ? cos.email : "",
-        desti: typeof cos.desti === "string" ? cos.desti : "/",
+        email: typeof body.email === "string" ? body.email : "",
+        desti: typeof body.desti === "string" ? body.desti : "/",
       }),
       422,
     );
@@ -113,15 +113,15 @@ authRoutes.post("/entrada", async (c) => {
   }
 
   const trobat = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  const usuari = trobat[0];
+  const user = trobat[0];
 
   // Es comprova sempre una contrasenya, existeixi l'usuari o no: si no, el
   // temps de resposta diria quins correus estan donats d'alta.
-  const correcta = usuari
-    ? await verifyPassword(password, usuari.passwordHash)
+  const correcta = user
+    ? await verifyPassword(password, user.passwordHash)
     : (await burnPasswordTime(password), false);
 
-  if (!usuari || !correcta || !usuari.isActive) {
+  if (!user || !correcta || !user.isActive) {
     recordFailedLogin(email, ip);
     // El mateix missatge en els tres casos, per no dir quin dels tres es.
     return fragment(
@@ -138,8 +138,8 @@ authRoutes.post("/entrada", async (c) => {
 
   clearFailedLogins(email, ip);
 
-  const { token, expiresAt } = await createSession(usuari.id, c.req.header("User-Agent") ?? "");
-  await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, usuari.id));
+  const { token, expiresAt } = await createSession(user.id, c.req.header("User-Agent") ?? "");
+  await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
   setCookie(c, config.sessionCookieName, token, {
     ...cookieBase,
@@ -148,7 +148,7 @@ authRoutes.post("/entrada", async (c) => {
   });
   deleteCookie(c, CSRF_SEED_COOKIE, { path: "/" });
 
-  return c.redirect(desti !== "/" ? desti : await primeraPagina(usuari.id), 303);
+  return c.redirect(desti !== "/" ? desti : await firstPage(user.id), 303);
 });
 
 // --- Sortida ---------------------------------------------------------------
@@ -171,7 +171,7 @@ authRoutes.get("/contrasenya", requireUser, async (c) => {
       user,
       csrfToken: c.get("csrfToken") ?? "",
       ruta: c.req.path,
-      espais: await myWorkspaces(user.id),
+      workspaces: await myWorkspaces(user.id),
       children: PasswordPage({ children: PasswordForm({}) }),
     }),
   );
@@ -179,16 +179,16 @@ authRoutes.get("/contrasenya", requireUser, async (c) => {
 
 authRoutes.post("/contrasenya", requireUser, async (c) => {
   const user = currentUser(c);
-  const cos = await c.req.parseBody();
-  const parsed = passwordChangeSchema.safeParse(cos);
+  const body = await c.req.parseBody();
+  const parsed = passwordChangeSchema.safeParse(body);
 
   if (!parsed.success) {
     return fragment(c, PasswordForm({ errors: zodErrors(parsed.error) }), 422);
   }
 
-  const fresc = await db.select().from(users).where(eq(users.id, user.id)).limit(1);
-  const usuari = fresc[0];
-  if (!usuari || !(await verifyPassword(parsed.data.current_password, usuari.passwordHash))) {
+  const rows = await db.select().from(users).where(eq(users.id, user.id)).limit(1);
+  const stored = rows[0];
+  if (!stored || !(await verifyPassword(parsed.data.current_password, stored.passwordHash))) {
     return fragment(
       c,
       PasswordForm({ errors: { current_password: ["La contrasenya actual no es correcta"] } }),

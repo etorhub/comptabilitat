@@ -9,49 +9,49 @@
 import { html } from "hono/html";
 
 import type { Alert, AlertSeverity } from "../../db/schema/index.ts";
-import { Casella } from "../../components/form.ts";
-import { EstatBuit } from "../../components/vista.ts";
+import { Checkbox } from "../../components/form.ts";
+import { EmptyState } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 import { alertFiltersToQuery, type AlertFilters } from "./alerts.schema.ts";
 
-const GRAVETAT: Record<AlertSeverity, { etiqueta: string; classe: string }> = {
-  critical: { etiqueta: "Urgent", classe: "avis-critic" },
-  warning: { etiqueta: "Atencio", classe: "avis-atencio" },
-  info: { etiqueta: "Informatiu", classe: "avis-info" },
+const GRAVETAT: Record<AlertSeverity, { tag: string; cssClass: string }> = {
+  critical: { tag: "Urgent", cssClass: "avis-critic" },
+  warning: { tag: "Atencio", cssClass: "avis-atencio" },
+  info: { tag: "Informatiu", cssClass: "avis-info" },
 };
 
-const dataLlarga = new Intl.DateTimeFormat("ca-ES", {
+const dateLlarga = new Intl.DateTimeFormat("ca-ES", {
   day: "numeric",
   month: "long",
   hour: "2-digit",
   minute: "2-digit",
 });
 
-export interface LlistaAvisosProps {
+export interface AlertsListProps {
   codi: string;
-  avisos: Alert[];
+  alertList: Alert[];
   filters: AlertFilters;
 }
 
-export function LlistaAvisos({ codi, avisos, filters }: LlistaAvisosProps): Html {
+export function AlertsList({ codi, alertList, filters }: AlertsListProps): Html {
   return html`<div id="llista-avisos">
     ${
-      avisos.length === 0
-        ? EstatBuit(
+      alertList.length === 0
+        ? EmptyState(
             filters.descartats
               ? "Aqui no hi ha cap avis."
               : "Cap avis pendent. Quan n'hi hagi, sortiran aqui.",
           )
         : html`<ul class="avisos">
-          ${avisos.map((avis) => TargetaAvis({ codi, avis, filters }))}
+          ${alertList.map((alert) => AlertCard({ codi, alert, filters }))}
         </ul>`
     }
   </div>` as Html;
 }
 
-interface TargetaAvisProps {
+interface AlertCardProps {
   codi: string;
-  avis: Alert;
+  alert: Alert;
   /**
    * Els filtres de la llista on viu la targeta.
    *
@@ -63,37 +63,37 @@ interface TargetaAvisProps {
   filters?: AlertFilters;
 }
 
-export function TargetaAvis({ codi, avis, filters }: TargetaAvisProps): Html {
-  const consulta = filters === undefined ? "" : alertFiltersToQuery(filters);
-  const gravetat = GRAVETAT[avis.severity];
-  const descartat = avis.status === "dismissed";
+export function AlertCard({ codi, alert, filters }: AlertCardProps): Html {
+  const query = filters === undefined ? "" : alertFiltersToQuery(filters);
+  const gravetat = GRAVETAT[alert.severity];
+  const dismissed = alert.status === "dismissed";
 
   return html`<li
-    id="avis-${avis.id}"
-    class="avis ${gravetat.classe} ${avis.status === "new" ? "avis-nou" : ""}"
+    id="avis-${alert.id}"
+    class="avis ${gravetat.cssClass} ${alert.status === "new" ? "avis-nou" : ""}"
   >
     <div class="avis-cap">
-      <span class="etiqueta">${gravetat.etiqueta}</span>
-      <h2 class="avis-titol">${avis.title}</h2>
-      <time class="text-suau" datetime="${avis.createdAt.toISOString()}">
-        ${dataLlarga.format(avis.createdAt)}
+      <span class="etiqueta">${gravetat.tag}</span>
+      <h2 class="avis-titol">${alert.title}</h2>
+      <time class="text-suau" datetime="${alert.createdAt.toISOString()}">
+        ${dateLlarga.format(alert.createdAt)}
       </time>
     </div>
 
-    ${avis.body ? html`<p class="avis-cos">${avis.body}</p>` : ""}
+    ${alert.body ? html`<p class="avis-cos">${alert.body}</p>` : ""}
 
     <div class="avis-accions">
       ${
-        descartat
+        dismissed
           ? html`<span class="text-suau">Descartat</span>`
           : html`
             ${
-              avis.status === "new"
+              alert.status === "new"
                 ? html`<button
                   type="button"
                   class="boto boto-discret"
-                  hx-post="/e/${codi}/avisos/${avis.id}/llegit${consulta}"
-                  hx-target="#avis-${avis.id}"
+                  hx-post="/e/${codi}/avisos/${alert.id}/llegit${query}"
+                  hx-target="#avis-${alert.id}"
                   hx-swap="outerHTML"
                 >
                   Marca'l com a llegit
@@ -103,7 +103,7 @@ export function TargetaAvis({ codi, avis, filters }: TargetaAvisProps): Html {
             <button
               type="button"
               class="boto boto-discret"
-              hx-post="/e/${codi}/avisos/${avis.id}/descarta${consulta}"
+              hx-post="/e/${codi}/avisos/${alert.id}/descarta${query}"
               hx-target="#llista-avisos"
               hx-swap="outerHTML"
             >
@@ -122,11 +122,11 @@ export function TargetaAvis({ codi, avis, filters }: TargetaAvisProps): Html {
  * `outerHTML` tingui on anar; si tornessim una cadena buida, HTMX no sabria
  * que treure.
  */
-export function AvisDescartat(id: number): Html {
+export function DismissedAlert(id: number): Html {
   return html`<li id="avis-${id}" class="avis-fora" hidden></li>` as Html;
 }
 
-export interface BarraFiltresProps {
+export interface FilterBarProps {
   codi: string;
   filters: AlertFilters;
 }
@@ -137,7 +137,7 @@ export interface BarraFiltresProps {
  * torna `HX-Push-Url` amb l'adreça canonica, de manera que l'enllaç es pot
  * compartir i el boto d'enrere funciona.
  */
-export function BarraFiltres({ codi, filters }: BarraFiltresProps): Html {
+export function FilterBar({ codi, filters }: FilterBarProps): Html {
   return html`<form
     class="filtres"
     hx-get="/e/${codi}/avisos/fragment/llista"
@@ -145,10 +145,10 @@ export function BarraFiltres({ codi, filters }: BarraFiltresProps): Html {
     hx-swap="outerHTML"
     hx-trigger="change"
   >
-    ${Casella({
-      nom: "descartats",
+    ${Checkbox({
+      name: "descartats",
       valor: "1",
-      etiqueta: "Inclou els descartats",
+      tag: "Inclou els descartats",
       marcat: filters.descartats,
     })}
   </form>` as Html;

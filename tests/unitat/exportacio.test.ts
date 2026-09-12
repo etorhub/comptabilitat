@@ -9,9 +9,9 @@
 import { describe, expect, test } from "bun:test";
 
 import { informeAPdf, movimentsACsv, resumAXlsx } from "../../src/services/export.ts";
-import type { MovimentVista } from "../../src/services/transactions.ts";
+import type { TransactionView } from "../../src/services/transactions.ts";
 
-const normal: MovimentVista = {
+const normal: TransactionView = {
   id: 1,
   accountId: 1,
   accountName: "Compte corrent",
@@ -42,7 +42,7 @@ const normal: MovimentVista = {
 };
 
 /** El mateix moviment, ja passat per `vistaMoviment()` amb alies. */
-const amagat: MovimentVista = {
+const amagat: TransactionView = {
   ...normal,
   id: 2,
   description: "Despesa personal",
@@ -78,28 +78,28 @@ describe("CSV", () => {
   });
 
   test("el PAN no surt al CSV quan el concepte ja esta parsejat", () => {
-    const ambPan: MovimentVista = {
+    const withPan: TransactionView = {
       ...normal,
       description: "Amazon",
       descriptionHint: "COMPRA WWW.AMAZON, LUXEMBOURG",
       darrers4: "4017",
     };
-    const csv = textCsv(movimentsACsv([ambPan]));
+    const csv = textCsv(movimentsACsv([withPan]));
     expect(csv).toContain("Amazon");
     expect(csv).not.toContain("5489010385484017");
   });
 
   test("les cometes i els punts i coma del text no trenquen les columnes", () => {
-    const complicat: MovimentVista = {
+    const complicat: TransactionView = {
       ...normal,
       description: 'Ell va dir "hola"; i prou',
       notes: "linia 1\nlinia 2",
     };
     const csv = textCsv(movimentsACsv([complicat]));
-    const files = csv.replace("﻿", "").split("\r\n").filter(Boolean);
+    const rows = csv.replace("﻿", "").split("\r\n").filter(Boolean);
     // La capçalera i una fila; el salt de linia de dins va entre cometes.
     expect(csv).toContain('"Ell va dir ""hola""; i prou"');
-    expect(files[0]?.split(";")).toHaveLength(11);
+    expect(rows[0]?.split(";")).toHaveLength(11);
   });
 });
 
@@ -109,11 +109,11 @@ describe("XLSX", () => {
       [
         {
           periode: "2026-01",
-          ingressos: "100.00",
-          despeses: "50.00",
+          income: "100.00",
+          expenses: "50.00",
           despesesFixes: "30.00",
           despesesVariables: "20.00",
-          net: "50.00",
+          cleaned: "50.00",
         },
       ],
       [
@@ -137,17 +137,17 @@ describe("PDF", () => {
       nomEspai: "Personal",
       des: "2026-01-01",
       fins: "2026-03-31",
-      ingressos: "1000.00",
-      despeses: "400.00",
-      net: "600.00",
-      mensual: [
+      income: "1000.00",
+      expenses: "400.00",
+      cleaned: "600.00",
+      monthly: [
         {
           periode: "2026-01",
-          ingressos: "1000.00",
-          despeses: "400.00",
+          income: "1000.00",
+          expenses: "400.00",
           despesesFixes: "250.00",
           despesesVariables: "150.00",
-          net: "600.00",
+          cleaned: "600.00",
         },
       ],
       categories: [
@@ -168,13 +168,13 @@ describe("PDF", () => {
   });
 
   test("aguanta un informe llarg sense petar", async () => {
-    const mensual = Array.from({ length: 60 }, (_, i) => ({
+    const monthly = Array.from({ length: 60 }, (_, i) => ({
       periode: `20${20 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`,
-      ingressos: "1000.00",
-      despeses: "400.00",
+      income: "1000.00",
+      expenses: "400.00",
       despesesFixes: "250.00",
       despesesVariables: "150.00",
-      net: "600.00",
+      cleaned: "600.00",
     }));
     const categories = Array.from({ length: 40 }, (_, i) => ({
       categoryId: i,
@@ -189,10 +189,10 @@ describe("PDF", () => {
       nomEspai: "Personal",
       des: "2020-01-01",
       fins: "2026-01-01",
-      ingressos: "60000.00",
-      despeses: "24000.00",
-      net: "36000.00",
-      mensual,
+      income: "60000.00",
+      expenses: "24000.00",
+      cleaned: "36000.00",
+      monthly,
       categories,
     });
 

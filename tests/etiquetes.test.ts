@@ -21,40 +21,40 @@ import { hashPassword } from "../src/lib/auth.ts";
 import { money } from "../src/lib/money.ts";
 import { seedCategories } from "../src/services/seed.ts";
 import {
-  afegeixEtiqueta,
-  esborraEtiquetaDeLespai,
-  llistaEtiquetes,
-  mateixaEtiqueta,
-  normalitzaEtiqueta,
-  treuEtiqueta,
+  addTag,
+  deleteTagFromWorkspace,
+  listTags,
+  sameTag,
+  normalizeTag,
+  removeTag,
 } from "../src/services/tags.ts";
 import { app } from "../src/server.ts";
-import { CONTRASENYA, entra } from "./ajuda.ts";
+import { PASSWORD, signIn } from "./ajuda.ts";
 
 let personalId = 0;
 let calellaId = 0;
-let comptePersonal = 0;
-let compteCalella = 0;
-let movimentPersonal = 0;
-let movimentCalella = 0;
-let sessioEditor = { cookie: "", csrf: "" };
-let sessioViewer = { cookie: "", csrf: "" };
-let sessioAdmin = { cookie: "", csrf: "" };
+let accountPersonal = 0;
+let accountCalella = 0;
+let transactionPersonal = 0;
+let transactionCalella = 0;
+let editorSession = { cookie: "", csrf: "" };
+let viewerSession = { cookie: "", csrf: "" };
+let adminSession = { cookie: "", csrf: "" };
 
-async function envia(
+async function send(
   url: string,
-  cos: Record<string, string>,
-  sessio = sessioEditor,
+  body: Record<string, string>,
+  session = editorSession,
 ): Promise<Response> {
   return app.request(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      Cookie: sessio.cookie,
-      "X-CSRF-Token": sessio.csrf,
+      Cookie: session.cookie,
+      "X-CSRF-Token": session.csrf,
       "HX-Request": "true",
     },
-    body: new URLSearchParams(cos).toString(),
+    body: new URLSearchParams(body).toString(),
   });
 }
 
@@ -69,7 +69,7 @@ beforeEach(async () => {
   await db.delete(users);
   await db.delete(ledgers);
 
-  const espais = await db
+  const workspaces = await db
     .insert(ledgers)
     .values(
       ["personal", "calella"].map((code, i) => ({
@@ -85,13 +85,13 @@ beforeEach(async () => {
       })),
     )
     .returning();
-  personalId = espais.find((e) => e.code === "personal")?.id ?? 0;
-  calellaId = espais.find((e) => e.code === "calella")?.id ?? 0;
+  personalId = workspaces.find((e) => e.code === "personal")?.id ?? 0;
+  calellaId = workspaces.find((e) => e.code === "calella")?.id ?? 0;
   await seedCategories(personalId);
   await seedCategories(calellaId);
 
-  const passwordHash = await hashPassword(CONTRASENYA);
-  const creats = await db
+  const passwordHash = await hashPassword(PASSWORD);
+  const created = await db
     .insert(users)
     .values([
       {
@@ -117,9 +117,9 @@ beforeEach(async () => {
       },
     ])
     .returning();
-  const editor = creats.find((u) => u.email === "editor@exemple.cat");
-  const viewer = creats.find((u) => u.email === "viewer@exemple.cat");
-  const admin = creats.find((u) => u.email === "admin@exemple.cat");
+  const editor = created.find((u) => u.email === "editor@exemple.cat");
+  const viewer = created.find((u) => u.email === "viewer@exemple.cat");
+  const admin = created.find((u) => u.email === "admin@exemple.cat");
   if (!editor || !viewer || !admin) throw new Error("usuaris");
 
   await db.insert(userLedgerPermissions).values([
@@ -128,7 +128,7 @@ beforeEach(async () => {
     { userId: admin.id, ledgerId: personalId, role: "editor" },
   ]);
 
-  const [connexio] = await db
+  const [connection] = await db
     .insert(bankConnections)
     .values({
       name: "P",
@@ -140,11 +140,11 @@ beforeEach(async () => {
     })
     .returning();
 
-  const comptes = await db
+  const accountList = await db
     .insert(accounts)
     .values([
       {
-        connectionId: connexio?.id ?? 0,
+        connectionId: connection?.id ?? 0,
         ledgerId: personalId,
         ebAccountUid: "uid-p",
         name: "Personal",
@@ -157,7 +157,7 @@ beforeEach(async () => {
         raw: {},
       },
       {
-        connectionId: connexio?.id ?? 0,
+        connectionId: connection?.id ?? 0,
         ledgerId: calellaId,
         ebAccountUid: "uid-c",
         name: "Calella",
@@ -171,14 +171,14 @@ beforeEach(async () => {
       },
     ])
     .returning();
-  comptePersonal = comptes.find((a) => a.ledgerId === personalId)?.id ?? 0;
-  compteCalella = comptes.find((a) => a.ledgerId === calellaId)?.id ?? 0;
+  accountPersonal = accountList.find((a) => a.ledgerId === personalId)?.id ?? 0;
+  accountCalella = accountList.find((a) => a.ledgerId === calellaId)?.id ?? 0;
 
   const movs = await db
     .insert(transactions)
     .values([
       {
-        accountId: comptePersonal,
+        accountId: accountPersonal,
         ledgerId: personalId,
         dedupKey: "k-p-1",
         source: "manual",
@@ -199,7 +199,7 @@ beforeEach(async () => {
         raw: {},
       },
       {
-        accountId: comptePersonal,
+        accountId: accountPersonal,
         ledgerId: personalId,
         dedupKey: "k-p-2",
         source: "manual",
@@ -220,7 +220,7 @@ beforeEach(async () => {
         raw: {},
       },
       {
-        accountId: comptePersonal,
+        accountId: accountPersonal,
         ledgerId: personalId,
         dedupKey: "k-p-3",
         source: "manual",
@@ -241,7 +241,7 @@ beforeEach(async () => {
         raw: {},
       },
       {
-        accountId: compteCalella,
+        accountId: accountCalella,
         ledgerId: calellaId,
         dedupKey: "k-c-1",
         source: "manual",
@@ -264,55 +264,55 @@ beforeEach(async () => {
     ])
     .returning();
 
-  movimentPersonal = movs.find((m) => m.dedupKey === "k-p-1")?.id ?? 0;
-  movimentCalella = movs.find((m) => m.dedupKey === "k-c-1")?.id ?? 0;
+  transactionPersonal = movs.find((m) => m.dedupKey === "k-p-1")?.id ?? 0;
+  transactionCalella = movs.find((m) => m.dedupKey === "k-c-1")?.id ?? 0;
 
-  sessioEditor = await entra("editor@exemple.cat");
-  sessioViewer = await entra("viewer@exemple.cat");
-  sessioAdmin = await entra("admin@exemple.cat");
+  editorSession = await signIn("editor@exemple.cat");
+  viewerSession = await signIn("viewer@exemple.cat");
+  adminSession = await signIn("admin@exemple.cat");
 });
 
 describe("normalitzaEtiqueta", () => {
   test("retalla i col·lapsa espais", () => {
-    expect(normalitzaEtiqueta("  casament  ")).toBe("casament");
-    expect(normalitzaEtiqueta("projecte   X")).toBe("projecte X");
+    expect(normalizeTag("  casament  ")).toBe("casament");
+    expect(normalizeTag("projecte   X")).toBe("projecte X");
   });
 
   test("rebutja comes i buits", () => {
-    expect(() => normalitzaEtiqueta("a,b")).toThrow();
-    expect(() => normalitzaEtiqueta("   ")).toThrow();
+    expect(() => normalizeTag("a,b")).toThrow();
+    expect(() => normalizeTag("   ")).toThrow();
   });
 
   test("compara sense majuscules", () => {
-    expect(mateixaEtiqueta("Casament", "casament")).toBe(true);
+    expect(sameTag("Casament", "casament")).toBe(true);
   });
 });
 
 describe("servei d'etiquetes", () => {
   test("afegeix i treu d'un moviment", async () => {
-    await afegeixEtiqueta(movimentPersonal, personalId, "casament");
-    const [fila] = await db
+    await addTag(transactionPersonal, personalId, "casament");
+    const [row] = await db
       .select({ tags: transactions.tags })
       .from(transactions)
-      .where(eq(transactions.id, movimentPersonal));
-    expect(fila?.tags).toEqual(["casament"]);
+      .where(eq(transactions.id, transactionPersonal));
+    expect(row?.tags).toEqual(["casament"]);
 
-    await treuEtiqueta(movimentPersonal, personalId, "Casament");
+    await removeTag(transactionPersonal, personalId, "Casament");
     const [despres] = await db
       .select({ tags: transactions.tags })
       .from(transactions)
-      .where(eq(transactions.id, movimentPersonal));
+      .where(eq(transactions.id, transactionPersonal));
     expect(despres?.tags).toEqual([]);
   });
 
   test("no duplica si canvia la majuscula", async () => {
-    await afegeixEtiqueta(movimentPersonal, personalId, "casament");
-    await afegeixEtiqueta(movimentPersonal, personalId, "Casament");
-    const [fila] = await db
+    await addTag(transactionPersonal, personalId, "casament");
+    await addTag(transactionPersonal, personalId, "Casament");
+    const [row] = await db
       .select({ tags: transactions.tags })
       .from(transactions)
-      .where(eq(transactions.id, movimentPersonal));
-    expect(fila?.tags).toEqual(["casament"]);
+      .where(eq(transactions.id, transactionPersonal));
+    expect(row?.tags).toEqual(["casament"]);
   });
 
   test("suma ingressos i despeses amb Decimal", async () => {
@@ -330,21 +330,21 @@ describe("servei d'etiquetes", () => {
     )[0]?.id;
     if (!segon || !tercer) throw new Error("falten moviments");
 
-    await afegeixEtiqueta(movimentPersonal, personalId, "casament");
-    await afegeixEtiqueta(segon, personalId, "casament");
-    await afegeixEtiqueta(tercer, personalId, "casament");
+    await addTag(transactionPersonal, personalId, "casament");
+    await addTag(segon, personalId, "casament");
+    await addTag(tercer, personalId, "casament");
 
-    const llista = await llistaEtiquetes(personalId);
-    const casament = llista.find((e) => e.nom === "casament");
+    const list = await listTags(personalId);
+    const casament = list.find((e) => e.name === "casament");
     expect(casament).toBeDefined();
-    expect(casament?.moviments).toBe(3);
-    expect(casament?.despeses).toBe("150.00");
-    expect(casament?.ingressos).toBe("20.00");
+    expect(casament?.transactionCount).toBe(3);
+    expect(casament?.expenses).toBe("150.00");
+    expect(casament?.income).toBe("20.00");
     expect(casament?.net).toBe("-130.00");
     // Cap parseFloat: el net es la resta exacta amb Decimal.
     expect(
-      money(casament?.ingressos ?? "0")
-        .minus(money(casament?.despeses ?? "0"))
+      money(casament?.income ?? "0")
+        .minus(money(casament?.expenses ?? "0"))
         .toFixed(2),
     ).toBe("-130.00");
   });
@@ -357,48 +357,48 @@ describe("servei d'etiquetes", () => {
         .where(eq(transactions.dedupKey, "k-p-2"))
     )[0]?.id;
     if (!segon) throw new Error("falta");
-    await afegeixEtiqueta(movimentPersonal, personalId, "casament");
-    await afegeixEtiqueta(segon, personalId, "casament");
-    const quants = await esborraEtiquetaDeLespai(personalId, "Casament");
+    await addTag(transactionPersonal, personalId, "casament");
+    await addTag(segon, personalId, "casament");
+    const quants = await deleteTagFromWorkspace(personalId, "Casament");
     expect(quants).toBe(2);
-    expect(await llistaEtiquetes(personalId)).toEqual([]);
+    expect(await listTags(personalId)).toEqual([]);
   });
 });
 
 describe("rutes d'etiquetes", () => {
   test("afegeix des de la fila", async () => {
-    const res = await envia(`/e/personal/moviments/${movimentPersonal}/etiquetes`, {
+    const res = await send(`/e/personal/moviments/${transactionPersonal}/etiquetes`, {
       nova_etiqueta: "casament",
     });
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain("casament");
-    expect(html).toContain(`id="moviment-${movimentPersonal}"`);
+    expect(html).toContain(`id="moviment-${transactionPersonal}"`);
   });
 
   test("la pagina i el fragment no son la mateixa adreça", async () => {
-    await afegeixEtiqueta(movimentPersonal, personalId, "casament");
+    await addTag(transactionPersonal, personalId, "casament");
 
-    const pagina = await app.request("/e/personal/etiquetes/casament", {
-      headers: { Cookie: sessioAdmin.cookie },
+    const page = await app.request("/e/personal/etiquetes/casament", {
+      headers: { Cookie: adminSession.cookie },
     });
     const fragment = await app.request("/e/personal/etiquetes/casament/fragment/taula", {
-      headers: { Cookie: sessioAdmin.cookie },
+      headers: { Cookie: adminSession.cookie },
     });
 
-    expect(pagina.status).toBe(200);
+    expect(page.status).toBe(200);
     expect(fragment.status).toBe(200);
-    const htmlPagina = await pagina.text();
+    const pageHtml = await page.text();
     const htmlFragment = await fragment.text();
-    expect(htmlPagina).toContain("<!doctype html>");
+    expect(pageHtml).toContain("<!doctype html>");
     expect(htmlFragment).not.toContain("<!doctype html>");
     expect(htmlFragment).toContain('id="taula-etiqueta"');
   });
 
   test("l'index mostra la suma", async () => {
-    await afegeixEtiqueta(movimentPersonal, personalId, "casament");
+    await addTag(transactionPersonal, personalId, "casament");
     const res = await app.request("/e/personal/etiquetes", {
-      headers: { Cookie: sessioAdmin.cookie },
+      headers: { Cookie: adminSession.cookie },
     });
     expect(res.status).toBe(200);
     const html = await res.text();
@@ -408,22 +408,22 @@ describe("rutes d'etiquetes", () => {
 
   test("qui no es administrador no veu les pagines d'etiquetes", async () => {
     const res = await app.request("/e/personal/etiquetes", {
-      headers: { Cookie: sessioEditor.cookie },
+      headers: { Cookie: editorSession.cookie },
     });
     expect(res.status).toBe(404);
   });
 
   test("un viewer no pot mutar", async () => {
-    const res = await envia(
-      `/e/personal/moviments/${movimentPersonal}/etiquetes`,
+    const res = await send(
+      `/e/personal/moviments/${transactionPersonal}/etiquetes`,
       { nova_etiqueta: "casament" },
-      sessioViewer,
+      viewerSession,
     );
     expect(res.status).toBe(403);
   });
 
   test("no es pot etiquetar un moviment d'un altre espai", async () => {
-    const res = await envia(`/e/personal/moviments/${movimentCalella}/etiquetes`, {
+    const res = await send(`/e/personal/moviments/${transactionCalella}/etiquetes`, {
       nova_etiqueta: "casament",
     });
     expect(res.status).toBe(404);

@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 
 import { app } from "../src/server.ts";
-import { CONTRASENYA, entra } from "./ajuda.ts";
+import { PASSWORD, signIn } from "./ajuda.ts";
 import { db } from "../src/db/client.ts";
 import {
   categories,
@@ -20,19 +20,19 @@ import {
   userSessions,
 } from "../src/db/schema/index.ts";
 import { hashPassword } from "../src/lib/auth.ts";
-import { executaFeina } from "../src/services/job-runs.ts";
+import { runJob } from "../src/services/job-runs.ts";
 import { seedCategories } from "../src/services/seed.ts";
 
-async function esperaTerminal(jobName: string, timeoutMs = 10_000): Promise<void> {
+async function waitForTerminal(jobName: string, timeoutMs = 10_000): Promise<void> {
   const inici = Date.now();
   while (Date.now() - inici < timeoutMs) {
-    const [fila] = await db
+    const [row] = await db
       .select()
       .from(jobRuns)
       .where(eq(jobRuns.jobName, jobName))
       .orderBy(jobRuns.id)
       .limit(1);
-    if (fila && fila.status !== "running") return;
+    if (row && row.status !== "running") return;
     await Bun.sleep(50);
   }
   throw new Error(`La feina ${jobName} no ha acabat a temps`);
@@ -62,8 +62,8 @@ beforeEach(async () => {
     .returning();
   await seedCategories(personal?.id ?? 0);
 
-  const passwordHash = await hashPassword(CONTRASENYA);
-  const creats = await db
+  const passwordHash = await hashPassword(PASSWORD);
+  const created = await db
     .insert(users)
     .values([
       {
@@ -83,7 +83,7 @@ beforeEach(async () => {
     ])
     .returning();
 
-  const pau = creats.find((u) => u.email === "pau@exemple.cat");
+  const pau = created.find((u) => u.email === "pau@exemple.cat");
   await db
     .insert(userLedgerPermissions)
     .values({ userId: pau?.id ?? 0, ledgerId: personal?.id ?? 0, role: "editor" });
@@ -91,7 +91,7 @@ beforeEach(async () => {
 
 describe("la pantalla de feines", () => {
   test("un administrador hi entra i veu agenda, passades i historial", async () => {
-    const { cookie } = await entra("arrel@exemple.cat");
+    const { cookie } = await signIn("arrel@exemple.cat");
     const res = await app.request("/feines", { headers: { Cookie: cookie } });
     expect(res.status).toBe(200);
     const html = await res.text();
@@ -105,7 +105,7 @@ describe("la pantalla de feines", () => {
   });
 
   test("qui no ho es rep un 404, no un 403", async () => {
-    const { cookie, csrf } = await entra("pau@exemple.cat");
+    const { cookie, csrf } = await signIn("pau@exemple.cat");
     expect((await app.request("/feines", { headers: { Cookie: cookie } })).status).toBe(404);
     expect(
       (await app.request("/feines/fragment/historial", { headers: { Cookie: cookie } })).status,
@@ -120,14 +120,14 @@ describe("la pantalla de feines", () => {
             "X-CSRF-Token": csrf,
             "HX-Request": "true",
           },
-          body: new URLSearchParams({ feina: "maintenance" }).toString(),
+          body: new URLSearchParams({ job: "maintenance" }).toString(),
         })
       ).status,
     ).toBe(404);
   });
 
   test("una feina desconeguda torna 422", async () => {
-    const { cookie, csrf } = await entra("arrel@exemple.cat");
+    const { cookie, csrf } = await signIn("arrel@exemple.cat");
     const res = await app.request("/feines", {
       method: "POST",
       headers: {
@@ -136,14 +136,14 @@ describe("la pantalla de feines", () => {
         "X-CSRF-Token": csrf,
         "HX-Request": "true",
       },
-      body: new URLSearchParams({ feina: "inexistent" }).toString(),
+      body: new URLSearchParams({ job: "inexistent" }).toString(),
     });
     expect(res.status).toBe(422);
     expect(await res.text()).toContain("Aquesta feina no existeix");
   });
 
   test("engega una feina, la registra i contesta amb toast i fragments", async () => {
-    const { cookie, csrf } = await entra("arrel@exemple.cat");
+    const { cookie, csrf } = await signIn("arrel@exemple.cat");
     const res = await app.request("/feines", {
       method: "POST",
       headers: {
@@ -152,27 +152,27 @@ describe("la pantalla de feines", () => {
         "X-CSRF-Token": csrf,
         "HX-Request": "true",
       },
-      body: new URLSearchParams({ feina: "maintenance" }).toString(),
+      body: new URLSearchParams({ job: "maintenance" }).toString(),
     });
     expect(res.status).toBe(200);
     expect(res.headers.get("HX-Reswap")).toBe("none");
-    const cos = await res.text();
-    expect(cos).toContain("La feina ha començat");
-    expect(cos).toContain('id="en-curs"');
-    expect(cos).toContain('id="historial-feines"');
+    const body = await res.text();
+    expect(body).toContain("La feina ha començat");
+    expect(body).toContain('id="en-curs"');
+    expect(body).toContain('id="historial-feines"');
 
-    const files = await db.select().from(jobRuns).where(eq(jobRuns.jobName, "maintenance"));
-    expect(files.length).toBeGreaterThanOrEqual(1);
-    expect(files[0]?.trigger).toBe("manual");
+    const rows = await db.select().from(jobRuns).where(eq(jobRuns.jobName, "maintenance"));
+    expect(rows.length).toBeGreaterThanOrEqual(1);
+    expect(rows[0]?.trigger).toBe("manual");
 
-    await esperaTerminal("maintenance");
+    await waitForTerminal("maintenance");
     const [acabada] = await db.select().from(jobRuns).where(eq(jobRuns.jobName, "maintenance"));
     expect(acabada?.status).toBe("success");
     expect(acabada?.summary).toContain("sessions");
   });
 
   test("un segon POST mentre corre torna 409", async () => {
-    const { cookie, csrf } = await entra("arrel@exemple.cat");
+    const { cookie, csrf } = await signIn("arrel@exemple.cat");
     await db.insert(jobRuns).values({
       jobName: "maintenance",
       trigger: "manual",
@@ -191,20 +191,20 @@ describe("la pantalla de feines", () => {
         "X-CSRF-Token": csrf,
         "HX-Request": "true",
       },
-      body: new URLSearchParams({ feina: "maintenance" }).toString(),
+      body: new URLSearchParams({ job: "maintenance" }).toString(),
     });
     expect(res.status).toBe(409);
     expect(await res.text()).toContain("ja esta corrent");
   });
 
   test("el fragment d'en curs porta sondeig nomes si n'hi ha", async () => {
-    const { cookie } = await entra("arrel@exemple.cat");
+    const { cookie } = await signIn("arrel@exemple.cat");
 
-    const buit = await app.request("/feines/fragment/en-curs", {
+    const empty = await app.request("/feines/fragment/en-curs", {
       headers: { Cookie: cookie },
     });
-    expect(buit.status).toBe(200);
-    expect(await buit.text()).not.toContain('hx-trigger="every 2s"');
+    expect(empty.status).toBe(200);
+    expect(await empty.text()).not.toContain('hx-trigger="every 2s"');
 
     await db.insert(jobRuns).values({
       jobName: "analyze",
@@ -225,7 +225,7 @@ describe("la pantalla de feines", () => {
   });
 
   test("el fragment d'historial respecta els filtres i fa push-url", async () => {
-    const { cookie } = await entra("arrel@exemple.cat");
+    const { cookie } = await signIn("arrel@exemple.cat");
     await db.insert(jobRuns).values([
       {
         jobName: "maintenance",
@@ -264,15 +264,15 @@ describe("la pantalla de feines", () => {
 
 describe("executaFeina", () => {
   test("registra exit i error", async () => {
-    const resum = await executaFeina("classify", "cli", async () => "3 classificats");
-    expect(resum).toBe("3 classificats");
+    const summary = await runJob("classify", "cli", async () => "3 classificats");
+    expect(summary).toBe("3 classificats");
     const [ok] = await db.select().from(jobRuns).where(eq(jobRuns.jobName, "classify"));
     expect(ok?.status).toBe("success");
     expect(ok?.trigger).toBe("cli");
     expect(ok?.summary).toBe("3 classificats");
 
     await expect(
-      executaFeina("llm", "cli", async () => {
+      runJob("llm", "cli", async () => {
         throw new Error("Ollama caigut");
       }),
     ).rejects.toThrow("Ollama caigut");

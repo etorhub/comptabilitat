@@ -7,7 +7,7 @@
 import { z } from "zod/v4";
 
 export const dashboardSchema = z.object({
-  dies: z.coerce.number().int().min(7).max(1095).default(180),
+  days: z.coerce.number().int().min(7).max(1095).default(180),
 });
 
 export const reportFiltersSchema = z.object({

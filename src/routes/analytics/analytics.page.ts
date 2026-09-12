@@ -7,24 +7,24 @@ import { html } from "hono/html";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney, money } from "../../lib/money.ts";
 import { formatDate } from "../../lib/time.ts";
-import type { PuntSaldo } from "../../services/balances.ts";
-import type { Previsio } from "../../services/forecast.ts";
+import type { BalancePoint } from "../../services/balances.ts";
+import type { Forecast } from "../../services/forecast.ts";
 import type {
-  IngressosDespeses,
-  PuntMensual,
-  TrosCategoria,
-  TrosComerc,
+  IncomeAndExpenses,
+  MonthlyPoint,
+  CategoryPart,
+  MerchantPart,
 } from "../../services/reports.ts";
 import {
-  GraficCategories,
-  GraficComercos,
-  GraficMensual,
-  GraficPrevisio,
-  GraficSaldos,
-  SaldoCapcalera,
-  TaulaCategories,
-  TaulaEsdeveniments,
-  Xifra,
+  CategoryChart,
+  MerchantChart,
+  MonthlyChart,
+  ForecastChart,
+  BalanceChart,
+  HeaderBalance,
+  CategoriesTable,
+  EventsTable,
+  Stat,
 } from "./analytics.fragment.ts";
 import type { ReportFilters } from "./analytics.schema.ts";
 
@@ -32,17 +32,17 @@ export interface DashboardPageProps {
   codi: string;
   nomEspai: string;
   colorEspai: string;
-  saldo: string;
+  balance: string;
   dataSaldo: string | null;
-  mesActual: IngressosDespeses;
+  mesActual: IncomeAndExpenses;
   perRevisar: number;
   senseClassificar: number;
-  avisosActius: number;
+  activeAlerts: number;
   /** L'enllaç d'avisos nomes te sentit per a administradors de la instal·lacio. */
   potVeureAvisos: boolean;
-  mensual: PuntMensual[];
-  categories: TrosCategoria[];
-  saldos: PuntSaldo[];
+  monthly: MonthlyPoint[];
+  categories: CategoryPart[];
+  saldos: BalancePoint[];
 }
 
 export function DashboardPage(props: DashboardPageProps): Html {
@@ -50,14 +50,14 @@ export function DashboardPage(props: DashboardPageProps): Html {
     codi,
     nomEspai,
     colorEspai,
-    saldo,
+    balance,
     dataSaldo,
     mesActual,
     perRevisar,
     senseClassificar,
-    avisosActius,
+    activeAlerts,
     potVeureAvisos,
-    mensual,
+    monthly,
     categories,
     saldos,
   } = props;
@@ -71,32 +71,32 @@ export function DashboardPage(props: DashboardPageProps): Html {
     </header>
 
     <div class="xifres">
-      ${SaldoCapcalera({ saldo, data: dataSaldo })}
-      ${Xifra({
-        etiqueta: "Aquest mes",
-        valor: formatMoney(mesActual.net),
-        to: mesActual.net.startsWith("-") ? "negatiu" : "positiu",
-        detall: html`${formatMoney(mesActual.ingressos)} entren ·
-        ${formatMoney(mesActual.despeses)} surten`,
+      ${HeaderBalance({ balance, date: dataSaldo })}
+      ${Stat({
+        tag: "Aquest mes",
+        valor: formatMoney(mesActual.cleaned),
+        to: mesActual.cleaned.startsWith("-") ? "negatiu" : "positiu",
+        detail: html`${formatMoney(mesActual.income)} entren ·
+        ${formatMoney(mesActual.expenses)} surten`,
       })}
-      ${Xifra({
-        etiqueta: "Per revisar",
+      ${Stat({
+        tag: "Per revisar",
         valor: String(perRevisar),
         href: `/e/${codi}/moviments/revisio`,
-        detall: senseClassificar > 0 ? `${senseClassificar} sense classificar` : "",
+        detail: senseClassificar > 0 ? `${senseClassificar} sense classificar` : "",
       })}
-      ${Xifra({
-        etiqueta: "Avisos",
-        valor: String(avisosActius),
+      ${Stat({
+        tag: "Avisos",
+        valor: String(activeAlerts),
         href: potVeureAvisos ? `/e/${codi}/avisos` : undefined,
       })}
     </div>
 
-    ${GraficMensual(mensual)}
+    ${MonthlyChart(monthly)}
 
     <div class="dues-columnes">
-      ${GraficCategories(categories)}
-      ${GraficSaldos(saldos)}
+      ${CategoryChart(categories)}
+      ${BalanceChart(saldos)}
     </div>
   ` as Html;
 }
@@ -104,11 +104,11 @@ export function DashboardPage(props: DashboardPageProps): Html {
 export interface ReportsPageProps {
   codi: string;
   filters: ReportFilters;
-  totals: IngressosDespeses;
-  mensual: PuntMensual[];
-  despesesPerCategoria: TrosCategoria[];
-  ingressosPerCategoria: TrosCategoria[];
-  comercos: TrosComerc[];
+  totals: IncomeAndExpenses;
+  monthly: MonthlyPoint[];
+  despesesPerCategoria: CategoryPart[];
+  ingressosPerCategoria: CategoryPart[];
+  comercos: MerchantPart[];
 }
 
 export function ReportsPage(props: ReportsPageProps): Html {
@@ -116,7 +116,7 @@ export function ReportsPage(props: ReportsPageProps): Html {
     codi,
     filters,
     totals,
-    mensual,
+    monthly,
     despesesPerCategoria,
     ingressosPerCategoria,
     comercos,
@@ -160,9 +160,9 @@ export function ReportsPage(props: ReportsPageProps): Html {
       </span>
     </form>
 
-    ${ContingutInformes({
+    ${ReportsContent({
       totals,
-      mensual,
+      monthly,
       despesesPerCategoria,
       ingressosPerCategoria,
       comercos,
@@ -170,61 +170,61 @@ export function ReportsPage(props: ReportsPageProps): Html {
   ` as Html;
 }
 
-export interface ContingutInformesProps {
-  totals: IngressosDespeses;
-  mensual: PuntMensual[];
-  despesesPerCategoria: TrosCategoria[];
-  ingressosPerCategoria: TrosCategoria[];
-  comercos: TrosComerc[];
+export interface ReportsContentProps {
+  totals: IncomeAndExpenses;
+  monthly: MonthlyPoint[];
+  despesesPerCategoria: CategoryPart[];
+  ingressosPerCategoria: CategoryPart[];
+  comercos: MerchantPart[];
 }
 
-export function ContingutInformes(props: ContingutInformesProps): Html {
-  const { totals, mensual, despesesPerCategoria, ingressosPerCategoria, comercos } = props;
+export function ReportsContent(props: ReportsContentProps): Html {
+  const { totals, monthly, despesesPerCategoria, ingressosPerCategoria, comercos } = props;
 
   return html`<div id="contingut-informes">
     <div class="xifres">
-      ${Xifra({ etiqueta: "Ingressos", valor: formatMoney(totals.ingressos), to: "positiu" })}
-      ${Xifra({ etiqueta: "Despeses", valor: formatMoney(totals.despeses), to: "negatiu" })}
-      ${Xifra({
-        etiqueta: "Resultat",
-        valor: formatMoney(totals.net),
-        to: totals.net.startsWith("-") ? "negatiu" : "positiu",
+      ${Stat({ tag: "Ingressos", valor: formatMoney(totals.income), to: "positiu" })}
+      ${Stat({ tag: "Despeses", valor: formatMoney(totals.expenses), to: "negatiu" })}
+      ${Stat({
+        tag: "Resultat",
+        valor: formatMoney(totals.cleaned),
+        to: totals.cleaned.startsWith("-") ? "negatiu" : "positiu",
       })}
     </div>
 
-    ${GraficMensual(mensual)} ${GraficComercos(comercos)}
+    ${MonthlyChart(monthly)} ${MerchantChart(comercos)}
 
     <section class="superficie targeta">
       <h2>Despeses per categoria</h2>
-      ${TaulaCategories(despesesPerCategoria)}
+      ${CategoriesTable(despesesPerCategoria)}
     </section>
 
     <section class="superficie targeta">
       <h2>Ingressos per categoria</h2>
-      ${TaulaCategories(ingressosPerCategoria)}
+      ${CategoriesTable(ingressosPerCategoria)}
     </section>
   </div>` as Html;
 }
 
 export interface ForecastPageProps {
   codi: string;
-  previsio: Previsio;
+  forecast: Forecast;
 }
 
-export function ForecastPage({ codi, previsio }: ForecastPageProps): Html {
-  return ContingutPrevisio({ codi, previsio });
+export function ForecastPage({ codi, forecast }: ForecastPageProps): Html {
+  return ForecastContent({ codi, forecast });
 }
 
-export function ContingutPrevisio({
+export function ForecastContent({
   codi,
-  previsio,
+  forecast,
 }: {
   codi: string;
-  previsio: Previsio;
+  forecast: Forecast;
 }): Html {
-  const ultim = previsio.punts[previsio.punts.length - 1];
-  const saldoFinal = ultim?.esperat ?? previsio.saldoInicial;
-  const diferencia = money(saldoFinal).minus(money(previsio.saldoInicial));
+  const last = forecast.points[forecast.points.length - 1];
+  const finalBalance = last?.esperat ?? forecast.saldoInicial;
+  const diferencia = money(finalBalance).minus(money(forecast.saldoInicial));
   const diferenciaText = `${diferencia.isPositive() ? "+" : ""}${formatMoney(diferencia)}`;
 
   return html`<div id="previsio-contingut">
@@ -240,12 +240,12 @@ export function ContingutPrevisio({
         </header>
 
         ${
-          previsio.primerDescobert !== null
+          forecast.firstOverdraft !== null
             ? html`<p class="avis-fort" role="alert">
               Amb aquest ritme, el saldo baixaria a
-              <strong>${formatMoney(previsio.primerDescobertImport)}</strong> el
-              <strong>${formatDate(previsio.primerDescobert)}</strong>, per sota del
-              llindar de ${formatMoney(previsio.llindar)}.
+              <strong>${formatMoney(forecast.firstOverdraftAmount)}</strong> el
+              <strong>${formatDate(forecast.firstOverdraft)}</strong>, per sota del
+              llindar de ${formatMoney(forecast.llindar)}.
             </p>`
             : ""
         }
@@ -262,7 +262,7 @@ export function ContingutPrevisio({
             <select name="horitzo">
               ${[30, 60, 90, 180].map(
                 (d) =>
-                  html`<option value="${d}" ${d === previsio.horitzoDies ? "selected" : ""}>
+                  html`<option value="${d}" ${d === forecast.horitzoDies ? "selected" : ""}>
                     ${d} dies
                   </option>`,
               )}
@@ -272,22 +272,22 @@ export function ContingutPrevisio({
       </div>
 
       <div class="xifres previsio-xifres">
-        ${Xifra({ etiqueta: "Saldo d'avui", valor: formatMoney(previsio.saldoInicial) })}
-        ${Xifra({ etiqueta: "Llindar de descobert", valor: formatMoney(previsio.llindar) })}
-        ${Xifra({
-          etiqueta: `D'aqui a ${previsio.horitzoDies} dies`,
-          valor: formatMoney(saldoFinal),
+        ${Stat({ tag: "Saldo d'avui", valor: formatMoney(forecast.saldoInicial) })}
+        ${Stat({ tag: "Llindar de descobert", valor: formatMoney(forecast.llindar) })}
+        ${Stat({
+          tag: `D'aqui a ${forecast.horitzoDies} dies`,
+          valor: formatMoney(finalBalance),
           to: diferencia.isNegative() ? "negatiu" : diferencia.isPositive() ? "positiu" : "",
-          detall: diferencia.isZero() ? "igual que avui" : `${diferenciaText} respecte d'avui`,
+          detail: diferencia.isZero() ? "igual que avui" : `${diferenciaText} respecte d'avui`,
         })}
       </div>
     </div>
 
-    ${GraficPrevisio(previsio)}
+    ${ForecastChart(forecast)}
 
     <section class="superficie targeta">
       <h2>Rebuts previstos</h2>
-      ${TaulaEsdeveniments(previsio)}
+      ${EventsTable(forecast)}
     </section>
   </div>` as Html;
 }

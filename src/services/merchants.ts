@@ -27,8 +27,8 @@ import {
 import { db, type Transactor } from "../db/client.ts";
 import { categories, merchants, transactions, type Merchant } from "../db/schema/index.ts";
 import { AppError, NotFoundError } from "../lib/http.ts";
-import { classificaMoviment } from "./classification.ts";
-import { resolContrapart } from "./contraparts.ts";
+import { classifyTransaction } from "./classification.ts";
+import { resolveCounterparty } from "./contraparts.ts";
 
 /** Cubells especials que abans engolien compres amb «COMISION» al final. */
 const CUBELLS_ESPECIALS = new Set([
@@ -38,15 +38,15 @@ const CUBELLS_ESPECIALS = new Set([
 ]);
 
 /** Filtres de la llista de comerços. */
-export interface FiltresComercos {
-  cerca: string;
+export interface MerchantsFilters {
+  search: string;
   nomesSenseClassificar: boolean;
   nomesSenseConfirmar: boolean;
   limit: number;
   offset: number;
 }
 
-export interface ComercVista {
+export interface MerchantView {
   id: number;
   normalizedName: string;
   displayName: string;
@@ -58,23 +58,23 @@ export interface ComercVista {
   lastSeenAt: string | null;
 }
 
-export interface PaginaComercos {
-  items: ComercVista[];
+export interface MerchantsPage {
+  items: MerchantView[];
   total: number;
   limit: number;
   offset: number;
 }
 
-function condicions(ledgerId: number, filtres: FiltresComercos): SQL | undefined {
+function condicions(ledgerId: number, filters: MerchantsFilters): SQL | undefined {
   const parts: (SQL | undefined)[] = [eq(merchants.ledgerId, ledgerId)];
 
-  const cerca = filtres.cerca.trim();
-  if (cerca) {
-    const patro = `%${cerca}%`;
+  const search = filters.search.trim();
+  if (search) {
+    const patro = `%${search}%`;
     parts.push(or(ilike(merchants.normalizedName, patro), ilike(merchants.displayName, patro)));
   }
-  if (filtres.nomesSenseClassificar) parts.push(isNull(merchants.defaultCategoryId));
-  if (filtres.nomesSenseConfirmar) parts.push(eq(merchants.isConfirmed, false));
+  if (filters.nomesSenseClassificar) parts.push(isNull(merchants.defaultCategoryId));
+  if (filters.nomesSenseConfirmar) parts.push(eq(merchants.isConfirmed, false));
 
   return and(...parts);
 }
@@ -85,15 +85,15 @@ function condicions(ledgerId: number, filtres: FiltresComercos): SQL | undefined
  * Es demanen columnes explicites i s'hi ajunta el nom de la categoria: aixi la
  * plantilla no ha de fer cap consulta ni rep mai la fila sencera.
  */
-export async function llistaComercos(
+export async function listMerchants(
   ledgerId: number,
-  filtres: FiltresComercos,
-): Promise<PaginaComercos> {
-  const on = condicions(ledgerId, filtres);
+  filters: MerchantsFilters,
+): Promise<MerchantsPage> {
+  const on = condicions(ledgerId, filters);
 
   const [total] = await db.select({ n: count() }).from(merchants).where(on);
 
-  const files = await db
+  const rows = await db
     .select({
       id: merchants.id,
       normalizedName: merchants.normalizedName,
@@ -108,31 +108,31 @@ export async function llistaComercos(
     .leftJoin(categories, eq(categories.id, merchants.defaultCategoryId))
     .where(on)
     .orderBy(desc(merchants.transactionCount), asc(merchants.normalizedName))
-    .limit(filtres.limit)
-    .offset(filtres.offset);
+    .limit(filters.limit)
+    .offset(filters.offset);
 
   return {
-    items: files,
+    items: rows,
     total: total?.n ?? 0,
-    limit: filtres.limit,
-    offset: filtres.offset,
+    limit: filters.limit,
+    offset: filters.offset,
   };
 }
 
 /** Un comerç d'aquest espai, o 404. */
-export async function comercDeLespai(id: number, ledgerId: number): Promise<Merchant> {
-  const [comerc] = await db
+export async function merchantInWorkspace(id: number, ledgerId: number): Promise<Merchant> {
+  const [merchant] = await db
     .select()
     .from(merchants)
     .where(and(eq(merchants.id, id), eq(merchants.ledgerId, ledgerId)))
     .limit(1);
-  if (!comerc) throw new NotFoundError("Aquest comerç no existeix");
-  return comerc;
+  if (!merchant) throw new NotFoundError("Aquest comerç no existeix");
+  return merchant;
 }
 
 /** Torna la vista d'un comerç, per redibuixar-ne la fila. */
-export async function vistaComerc(id: number, ledgerId: number): Promise<ComercVista> {
-  const [fila] = await db
+export async function merchantView(id: number, ledgerId: number): Promise<MerchantView> {
+  const [row] = await db
     .select({
       id: merchants.id,
       normalizedName: merchants.normalizedName,
@@ -147,8 +147,8 @@ export async function vistaComerc(id: number, ledgerId: number): Promise<ComercV
     .leftJoin(categories, eq(categories.id, merchants.defaultCategoryId))
     .where(and(eq(merchants.id, id), eq(merchants.ledgerId, ledgerId)))
     .limit(1);
-  if (!fila) throw new NotFoundError("Aquest comerç no existeix");
-  return fila;
+  if (!row) throw new NotFoundError("Aquest comerç no existeix");
+  return row;
 }
 
 /**
@@ -167,13 +167,13 @@ export async function vistaComerc(id: number, ledgerId: number): Promise<ComercV
  * que ja estigui oberta: dins d'una altra, Postgres hi posa un punt de
  * seguretat i prou.
  */
-export async function recordaEleccioComerc(
-  comerc: Merchant,
+export async function rememberMerchantChoice(
+  merchant: Merchant,
   categoryId: number | null,
   aplicaAlsExistents = true,
-  connexio: Transactor = db,
+  connection: Transactor = db,
 ): Promise<number> {
-  return connexio.transaction(async (tx) => {
+  return connection.transaction(async (tx) => {
     await tx
       .update(merchants)
       .set({
@@ -181,7 +181,7 @@ export async function recordaEleccioComerc(
         categorySource: "user",
         isConfirmed: true,
       })
-      .where(eq(merchants.id, comerc.id));
+      .where(eq(merchants.id, merchant.id));
 
     if (!aplicaAlsExistents) return 0;
 
@@ -195,7 +195,7 @@ export async function recordaEleccioComerc(
       })
       .where(
         and(
-          eq(transactions.merchantId, comerc.id),
+          eq(transactions.merchantId, merchant.id),
           // La decisio d'una persona no la sobreescriu res.
           ne(transactions.categorySource, "user"),
         ),
@@ -212,24 +212,24 @@ export async function recordaEleccioComerc(
  * La categoria ha de ser d'aquest espai: si no, s'hi podrien enganxar
  * moviments a la comptabilitat d'un altre.
  */
-export async function assignaCategoria(
+export async function assignCategory(
   id: number,
   ledgerId: number,
   categoryId: number | null,
   aplicaAlsExistents = true,
 ): Promise<number> {
-  const comerc = await comercDeLespai(id, ledgerId);
+  const merchant = await merchantInWorkspace(id, ledgerId);
 
   if (categoryId !== null) {
-    const [categoria] = await db
+    const [category] = await db
       .select({ id: categories.id })
       .from(categories)
       .where(and(eq(categories.id, categoryId), eq(categories.ledgerId, ledgerId)))
       .limit(1);
-    if (!categoria) throw new AppError("La categoria no es d'aquest espai", 422);
+    if (!category) throw new AppError("La categoria no es d'aquest espai", 422);
   }
 
-  return recordaEleccioComerc(comerc, categoryId, aplicaAlsExistents);
+  return rememberMerchantChoice(merchant, categoryId, aplicaAlsExistents);
 }
 
 /**
@@ -240,31 +240,31 @@ export async function assignaCategoria(
  * @param incrementaComptador si es fals, nomes obté o crea sense tocar
  *   `transaction_count` (per a reassignacions en lot que després recompten).
  */
-export async function obteOCreaComerc(
+export async function getOrCreateMerchant(
   ledgerId: number,
   normalizedName: string,
   display = "",
   seenOn: string | null = null,
-  connexio: Transactor = db,
+  connection: Transactor = db,
   incrementaComptador = true,
 ): Promise<Merchant | null> {
-  const nom = (normalizedName || "").trim();
-  if (!nom) return null;
+  const name = (normalizedName || "").trim();
+  if (!name) return null;
 
-  const [existent] = await connexio
+  const [existent] = await connection
     .select()
     .from(merchants)
-    .where(and(eq(merchants.ledgerId, ledgerId), eq(merchants.normalizedName, nom)))
+    .where(and(eq(merchants.ledgerId, ledgerId), eq(merchants.normalizedName, name)))
     .limit(1);
 
-  let comerc = existent;
-  if (!comerc) {
-    const [creat] = await connexio
+  let merchant = existent;
+  if (!merchant) {
+    const [creat] = await connection
       .insert(merchants)
       .values({
         ledgerId,
-        normalizedName: nom.slice(0, 200),
-        displayName: (display || nom).slice(0, 200),
+        normalizedName: name.slice(0, 200),
+        displayName: (display || name).slice(0, 200),
         defaultCategoryId: null,
         categorySource: "none",
         isConfirmed: false,
@@ -272,45 +272,45 @@ export async function obteOCreaComerc(
         lastSeenAt: null,
       })
       .returning();
-    comerc = creat;
+    merchant = creat;
   }
-  if (!comerc) return null;
+  if (!merchant) return null;
 
   if (!incrementaComptador) {
-    if (seenOn !== null && (comerc.lastSeenAt === null || seenOn > comerc.lastSeenAt)) {
-      const [ambData] = await connexio
+    if (seenOn !== null && (merchant.lastSeenAt === null || seenOn > merchant.lastSeenAt)) {
+      const [ambData] = await connection
         .update(merchants)
         .set({ lastSeenAt: seenOn })
-        .where(eq(merchants.id, comerc.id))
+        .where(eq(merchants.id, merchant.id))
         .returning();
-      return ambData ?? comerc;
+      return ambData ?? merchant;
     }
-    return comerc;
+    return merchant;
   }
 
-  const vistUltim =
-    seenOn !== null && (comerc.lastSeenAt === null || seenOn > comerc.lastSeenAt)
+  const seenLast =
+    seenOn !== null && (merchant.lastSeenAt === null || seenOn > merchant.lastSeenAt)
       ? seenOn
-      : comerc.lastSeenAt;
+      : merchant.lastSeenAt;
 
-  const [actualitzat] = await connexio
+  const [actualitzat] = await connection
     .update(merchants)
-    .set({ transactionCount: comerc.transactionCount + 1, lastSeenAt: vistUltim })
-    .where(eq(merchants.id, comerc.id))
+    .set({ transactionCount: merchant.transactionCount + 1, lastSeenAt: seenLast })
+    .where(eq(merchants.id, merchant.id))
     .returning();
 
-  return actualitzat ?? comerc;
+  return actualitzat ?? merchant;
 }
 
 /** Recompta `transaction_count` a partir dels moviments reals. */
-export async function recompteComercos(
+export async function countMerchants(
   merchantIds: number[],
-  connexio: Transactor = db,
+  connection: Transactor = db,
 ): Promise<void> {
   const ids = [...new Set(merchantIds.filter((id) => id > 0))];
   if (ids.length === 0) return;
 
-  const recomptes = await connexio
+  const recomptes = await connection
     .select({ merchantId: transactions.merchantId, n: count() })
     .from(transactions)
     .where(inArray(transactions.merchantId, ids))
@@ -318,14 +318,14 @@ export async function recompteComercos(
 
   const perId = new Map(recomptes.map((r) => [r.merchantId, Number(r.n)]));
   for (const id of ids) {
-    await connexio
+    await connection
       .update(merchants)
       .set({ transactionCount: perId.get(id) ?? 0 })
       .where(eq(merchants.id, id));
   }
 }
 
-export interface ResultatReassignacio {
+export interface ReassignmentResult {
   revisats: number;
   canviats: number;
 }
@@ -336,11 +336,11 @@ export interface ResultatReassignacio {
  * Una passada de manteniment després de canviar la normalitzacio (comissio
  * accidental, prefix buit). No toca mai `category_source = 'user'`.
  */
-export async function reassignaNormalitzacio(
+export async function reassignNormalization(
   ledgerId?: number,
-  connexio: Transactor = db,
-): Promise<ResultatReassignacio> {
-  const files = await connexio
+  connection: Transactor = db,
+): Promise<ReassignmentResult> {
+  const rows = await connection
     .select({
       id: transactions.id,
       ledgerId: transactions.ledgerId,
@@ -362,66 +362,66 @@ export async function reassignaNormalitzacio(
   let canviats = 0;
   const merchantsTocats = new Set<number>();
 
-  for (const moviment of files) {
-    let nouMerchantId: number | null = null;
-    let clauNova = "";
+  for (const transaction of rows) {
+    let newMerchantId: number | null = null;
+    let newKey = "";
 
-    if (moviment.ledgerId !== null) {
-      const contrapart = await resolContrapart(
-        moviment.ledgerId,
+    if (transaction.ledgerId !== null) {
+      const counterparty = await resolveCounterparty(
+        transaction.ledgerId,
         {
-          description: moviment.description,
-          counterparty: moviment.counterparty,
-          bookingDate: moviment.bookingDate,
+          description: transaction.description,
+          counterparty: transaction.counterparty,
+          bookingDate: transaction.bookingDate,
         },
-        connexio,
+        connection,
         false,
       );
-      nouMerchantId = contrapart.merchantId;
-      clauNova = contrapart.normalizedKey.slice(0, 200);
+      newMerchantId = counterparty.merchantId;
+      newKey = counterparty.normalizedKey.slice(0, 200);
     }
 
-    const calCanviarClau = clauNova !== moviment.normalizedDescription;
-    const noCanviaContrapart = nouMerchantId === moviment.merchantId;
+    const mustChangeKey = newKey !== transaction.normalizedDescription;
+    const keepsCounterparty = newMerchantId === transaction.merchantId;
 
-    if (!calCanviarClau && noCanviaContrapart) continue;
+    if (!mustChangeKey && keepsCounterparty) continue;
 
     canviats += 1;
-    if (moviment.merchantId !== null) merchantsTocats.add(moviment.merchantId);
-    if (nouMerchantId !== null) merchantsTocats.add(nouMerchantId);
+    if (transaction.merchantId !== null) merchantsTocats.add(transaction.merchantId);
+    if (newMerchantId !== null) merchantsTocats.add(newMerchantId);
 
-    await connexio
+    await connection
       .update(transactions)
       .set({
-        normalizedDescription: clauNova,
-        merchantId: nouMerchantId,
+        normalizedDescription: newKey,
+        merchantId: newMerchantId,
       })
-      .where(eq(transactions.id, moviment.id));
+      .where(eq(transactions.id, transaction.id));
 
-    if (moviment.categorySource === "user") continue;
-    if (moviment.ledgerId === null) continue;
+    if (transaction.categorySource === "user") continue;
+    if (transaction.ledgerId === null) continue;
 
     // Si venia d'un cubell especial (o la clau ha canviat), torna a classificar.
-    const veniaDelCubell =
-      moviment.categorySource === "merchant" &&
-      CUBELLS_ESPECIALS.has(moviment.normalizedDescription);
+    const cameFromBucket =
+      transaction.categorySource === "merchant" &&
+      CUBELLS_ESPECIALS.has(transaction.normalizedDescription);
 
-    if (!calCanviarClau && !veniaDelCubell && noCanviaContrapart) {
+    if (!mustChangeKey && !cameFromBucket && keepsCounterparty) {
       continue;
     }
 
-    await classificaMoviment(
+    await classifyTransaction(
       {
-        id: moviment.id,
-        ledgerId: moviment.ledgerId,
-        merchantId: nouMerchantId,
+        id: transaction.id,
+        ledgerId: transaction.ledgerId,
+        merchantId: newMerchantId,
         // Forcem que es torni a decidir: treiem la categoria del cubell.
         categorySource: "none",
       },
-      connexio,
+      connection,
     );
   }
 
-  await recompteComercos([...merchantsTocats], connexio);
-  return { revisats: files.length, canviats };
+  await countMerchants([...merchantsTocats], connection);
+  return { revisats: rows.length, canviats };
 }

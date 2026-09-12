@@ -27,7 +27,7 @@ export function recurringFiltersToQuery(f: RecurringFilters): string {
   return q ? `?${q}` : "";
 }
 
-export const confirmaSerieSchema = z.object({
+export const confirmSeriesSchema = z.object({
   cadence: cadenceSchema,
   amount_mode: amountModeSchema,
 });
@@ -38,7 +38,7 @@ const importSchema = z
   .regex(/^-?\d+([.,]\d{1,2})?$/, "L'import no es valid")
   .transform((v) => toMoneyString(v.replace(",", ".")));
 
-export const creaSerieSchema = z.object({
+export const createSeriesSchema = z.object({
   label: z.string().trim().min(1, "Cal un nom").max(200),
   category_id: z.coerce.number().int().positive("Cal una categoria"),
   cadence: cadenceSchema,
@@ -52,8 +52,8 @@ export const creaSerieSchema = z.object({
   next_expected_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "La data ha de ser AAAA-MM-DD"),
 });
 
-export type CreaSerieInput = z.infer<typeof creaSerieSchema>;
+export type CreateSeriesInput = z.infer<typeof createSeriesSchema>;
 
-export const actualitzaImportSchema = z.object({
+export const updateAmountSchema = z.object({
   amount: importSchema,
 });

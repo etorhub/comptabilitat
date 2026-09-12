@@ -6,30 +6,30 @@ import { html } from "hono/html";
 
 import type { JobRun } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
-import type { PaginaHistorial, ResumSalut } from "../../services/job-runs.ts";
+import type { HistoryPage, HealthSummary } from "../../services/job-runs.ts";
 import {
-  AgendaSalut,
-  EnCurs,
-  entradesAgenda,
-  type EntradaFeina,
-  LlistaFeines,
-  LlistaHistorial,
+  ScheduleHealth,
+  Running,
+  scheduleEntries,
+  type JobEntry,
+  JobsList,
+  HistoryList,
 } from "./jobs.fragment.ts";
-import type { HistorialFilters } from "./jobs.schema.ts";
+import type { HistoryFilters } from "./jobs.schema.ts";
 
 export interface JobsPageProps {
-  passades: EntradaFeina[];
-  individuals: EntradaFeina[];
+  passes: JobEntry[];
+  individuals: JobEntry[];
   darreres: Map<string, JobRun>;
   enCursRuns: JobRun[];
   enCursNoms: Set<string>;
-  salut: ResumSalut;
-  historial: PaginaHistorial;
-  filters: HistorialFilters;
+  salut: HealthSummary;
+  history: HistoryPage;
+  filters: HistoryFilters;
 }
 
 export function JobsPage(props: JobsPageProps): Html {
-  const { passades, individuals, darreres, enCursRuns, enCursNoms, salut, historial, filters } =
+  const { passes, individuals, darreres, enCursRuns, enCursNoms, salut, history, filters } =
     props;
 
   return html`
@@ -42,13 +42,13 @@ export function JobsPage(props: JobsPageProps): Html {
       </p>
     </header>
 
-    ${AgendaSalut({ entrades: entradesAgenda(darreres), salut })}
-    ${EnCurs({ runs: enCursRuns })}
-    ${LlistaFeines({ passades, individuals, darreres, enCurs: enCursNoms })}
+    ${ScheduleHealth({ entrades: scheduleEntries(darreres), salut })}
+    ${Running({ runs: enCursRuns })}
+    ${JobsList({ passes, individuals, darreres, enCurs: enCursNoms })}
 
     <section>
       <h2 class="menu-titol">Historial</h2>
-      ${LlistaHistorial({ pagina: historial, filters })}
+      ${HistoryList({ page: history, filters })}
     </section>
 
     <section>

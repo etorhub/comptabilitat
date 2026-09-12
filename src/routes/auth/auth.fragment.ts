@@ -13,7 +13,7 @@
 import { html, raw } from "hono/html";
 import type { Html } from "../../lib/html.ts";
 
-import { Camp, ErrorGeneral, type FieldErrors } from "../../components/form.ts";
+import { Field, FormError, type FieldErrors } from "../../components/form.ts";
 import { CSRF_FIELD } from "../../lib/csrf.ts";
 
 export interface LoginFormProps {
@@ -31,21 +31,21 @@ export function LoginForm(props: LoginFormProps): Html {
     <input type="hidden" name="${raw(CSRF_FIELD)}" value="${csrfToken}" />
     <input type="hidden" name="desti" value="${desti}" />
 
-    ${ErrorGeneral(errors)}
-    ${Camp({
-      nom: "email",
-      etiqueta: "Correu",
-      tipus: "email",
+    ${FormError(errors)}
+    ${Field({
+      name: "email",
+      tag: "Correu",
+      type: "email",
       valor: email,
       errors,
       requerit: true,
       autocomplete: "username",
       autofocus: true,
     })}
-    ${Camp({
-      nom: "password",
-      etiqueta: "Contrasenya",
-      tipus: "password",
+    ${Field({
+      name: "password",
+      tag: "Contrasenya",
+      type: "password",
       errors,
       requerit: true,
       autocomplete: "current-password",
@@ -81,28 +81,28 @@ export function PasswordForm(props: PasswordFormProps): Html {
         </p>`
         : ""
     }
-    ${ErrorGeneral(errors)}
-    ${Camp({
-      nom: "current_password",
-      etiqueta: "Contrasenya actual",
-      tipus: "password",
+    ${FormError(errors)}
+    ${Field({
+      name: "current_password",
+      tag: "Contrasenya actual",
+      type: "password",
       errors,
       requerit: true,
       autocomplete: "current-password",
     })}
-    ${Camp({
-      nom: "new_password",
-      etiqueta: "Contrasenya nova",
-      tipus: "password",
+    ${Field({
+      name: "new_password",
+      tag: "Contrasenya nova",
+      type: "password",
       errors,
       requerit: true,
       autocomplete: "new-password",
-      ajuda: "Com a minim 10 carácters.",
+      help: "Com a minim 10 carácters.",
     })}
-    ${Camp({
-      nom: "confirm_password",
-      etiqueta: "Repeteix la contrasenya nova",
-      tipus: "password",
+    ${Field({
+      name: "confirm_password",
+      tag: "Repeteix la contrasenya nova",
+      type: "password",
       errors,
       requerit: true,
       autocomplete: "new-password",

@@ -8,7 +8,7 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { isNull } from "drizzle-orm";
 
-interface CorreuEnviat {
+interface SentMail {
   from: string;
   to: string[];
   subject: string;
@@ -16,15 +16,15 @@ interface CorreuEnviat {
   html: string;
 }
 
-const enviats: CorreuEnviat[] = [];
-let elServidorPeta = false;
+const enviats: SentMail[] = [];
+let serverCrashes = false;
 
 mock.module("nodemailer", () => ({
   default: {
     createTransport: () => ({
-      sendMail: (opcions: CorreuEnviat) => {
-        if (elServidorPeta) throw new Error("servidor caigut");
-        enviats.push(opcions);
+      sendMail: (options: SentMail) => {
+        if (serverCrashes) throw new Error("servidor caigut");
+        enviats.push(options);
         return Promise.resolve({ messageId: "1" });
       },
       close: () => undefined,
@@ -35,8 +35,8 @@ mock.module("nodemailer", () => ({
 const { db } = await import("../src/db/client.ts");
 const { alerts, ledgers } = await import("../src/db/schema/index.ts");
 const { config } = await import("../src/lib/config.ts");
-const { enviaCorreu, renderitzaResum } = await import("../src/lib/email.ts");
-const { notificaPendents } = await import("../src/services/notify.ts");
+const { sendMail, renderSummary } = await import("../src/lib/email.ts");
+const { notifyPending } = await import("../src/services/notify.ts");
 
 import type { AlertSeverity } from "../src/db/schema/enums.ts";
 
@@ -50,7 +50,7 @@ const ajustos = config as {
   alertRecipients: string[];
 };
 
-function configuraElCorreu(): void {
+function configureMail(): void {
   ajustos.smtpHost = "smtp.example.com";
   ajustos.smtpPort = 587;
   ajustos.smtpUser = "usuari";
@@ -59,7 +59,7 @@ function configuraElCorreu(): void {
   ajustos.alertRecipients = ["etor@example.com"];
 }
 
-async function creaAvis(
+async function createAlert(
   title = "Possible descobert",
   severity: AlertSeverity = "warning",
   key = "a",
@@ -79,15 +79,15 @@ async function creaAvis(
 
 beforeEach(async () => {
   enviats.length = 0;
-  elServidorPeta = false;
-  configuraElCorreu();
+  serverCrashes = false;
+  configureMail();
   await db.delete(alerts);
   await db.delete(ledgers);
 });
 
 describe("el resum", () => {
   test("inclou tots els avisos i l'adreça de l'aplicacio", async () => {
-    const { html, text } = await renderitzaResum(
+    const { html, text } = await renderSummary(
       [
         {
           severity: "warning",
@@ -110,7 +110,7 @@ describe("el resum", () => {
   });
 
   test("escapa el que ve del banc", async () => {
-    const { html } = await renderitzaResum(
+    const { html } = await renderSummary(
       [
         {
           severity: "info",
@@ -132,70 +132,70 @@ describe("el resum", () => {
 describe("l'enviament", () => {
   test("sense configuracio no s'envia res", async () => {
     ajustos.smtpHost = "";
-    await creaAvis();
+    await createAlert();
 
-    const resultat = await notificaPendents();
+    const result = await notifyPending();
 
-    expect(resultat).toContain("no hi ha destinataris");
-    const [avis] = await db.select().from(alerts);
-    expect(avis?.notifiedAt).toBeNull();
+    expect(result).toContain("no hi ha destinataris");
+    const [alert] = await db.select().from(alerts);
+    expect(alert?.notifiedAt).toBeNull();
   });
 
   test("els avisos s'envien i es marquen", async () => {
-    await creaAvis("Primer", "warning", "1");
-    await creaAvis("Segon", "warning", "2");
+    await createAlert("Primer", "warning", "1");
+    await createAlert("Segon", "warning", "2");
 
-    const resultat = await notificaPendents();
+    const result = await notifyPending();
 
-    expect(resultat).toContain("2 avisos enviats");
+    expect(result).toContain("2 avisos enviats");
     expect(enviats.length).toBe(1);
     expect(enviats[0]?.to).toEqual(["etor@example.com"]);
     expect(enviats[0]?.subject).toContain("Resum d'avisos (2)");
 
-    const senseNotificar = await db.select().from(alerts).where(isNull(alerts.notifiedAt));
-    expect(senseNotificar.length).toBe(0);
+    const withoutNotifying = await db.select().from(alerts).where(isNull(alerts.notifiedAt));
+    expect(withoutNotifying.length).toBe(0);
   });
 
   test("no es repeteix l'enviament", async () => {
-    await creaAvis();
-    await notificaPendents();
+    await createAlert();
+    await notifyPending();
 
-    expect(await notificaPendents()).toBe("Cap avis pendent d'enviar");
+    expect(await notifyPending()).toBe("Cap avis pendent d'enviar");
     expect(enviats.length).toBe(1);
   });
 
   test("el mode urgent nomes envia els critics", async () => {
-    await creaAvis("Normal", "warning", "1");
-    await creaAvis("Urgent", "critical", "2");
+    await createAlert("Normal", "warning", "1");
+    await createAlert("Urgent", "critical", "2");
 
-    const resultat = await notificaPendents(true);
+    const result = await notifyPending(true);
 
-    expect(resultat).toContain("1 avisos enviats");
+    expect(result).toContain("1 avisos enviats");
     expect(enviats[0]?.subject).toContain("Urgent");
 
-    const pendents = await db.select().from(alerts).where(isNull(alerts.notifiedAt));
-    expect(pendents.map((a) => a.title)).toEqual(["Normal"]);
+    const pending = await db.select().from(alerts).where(isNull(alerts.notifiedAt));
+    expect(pending.map((a) => a.title)).toEqual(["Normal"]);
   });
 
   test("els avisos descartats no s'envien", async () => {
-    await creaAvis();
+    await createAlert();
     await db.update(alerts).set({ status: "dismissed" });
 
-    expect(await notificaPendents()).toBe("Cap avis pendent d'enviar");
+    expect(await notifyPending()).toBe("Cap avis pendent d'enviar");
   });
 
   test("un error del servidor no trenca res", async () => {
-    elServidorPeta = true;
-    await creaAvis();
+    serverCrashes = true;
+    await createAlert();
 
-    expect(await enviaCorreu("Prova", "<p>hola</p>", "hola")).toBe(false);
-    expect(await notificaPendents()).toContain("ha fallat");
+    expect(await sendMail("Prova", "<p>hola</p>", "hola")).toBe(false);
+    expect(await notifyPending()).toContain("ha fallat");
   });
 });
 
 describe("cada espai te els seus destinataris", () => {
   test("l'avis d'un espai nomes va a qui li pertoca", async () => {
-    const [espai] = await db
+    const [workspace] = await db
       .insert(ledgers)
       .values({
         code: "calella",
@@ -210,22 +210,22 @@ describe("cada espai te els seus destinataris", () => {
       })
       .returning();
 
-    await creaAvis("Descobert a Calella", "warning", "c1", espai?.id ?? 0);
-    await creaAvis("Sincronitzacio fallida", "warning", "g1", null);
+    await createAlert("Descobert a Calella", "warning", "c1", workspace?.id ?? 0);
+    await createAlert("Sincronitzacio fallida", "warning", "g1", null);
 
-    await notificaPendents();
+    await notifyPending();
 
     expect(enviats.length).toBe(2);
-    const perEspai = enviats.find((c) => c.subject.includes("Calella"));
+    const byWorkspace = enviats.find((c) => c.subject.includes("Calella"));
     const general = enviats.find((c) => !c.subject.includes("Calella"));
 
-    expect(perEspai?.to).toEqual(["sogra@example.com"]);
+    expect(byWorkspace?.to).toEqual(["sogra@example.com"]);
     expect(general?.to).toEqual(["etor@example.com"]);
-    expect(perEspai?.html).not.toContain("Sincronitzacio fallida");
+    expect(byWorkspace?.html).not.toContain("Sincronitzacio fallida");
   });
 
   test("l'espai apareix al subtitol del resum", async () => {
-    const [espai] = await db
+    const [workspace] = await db
       .insert(ledgers)
       .values({
         code: "pardals",
@@ -240,8 +240,8 @@ describe("cada espai te els seus destinataris", () => {
       })
       .returning();
 
-    await creaAvis("Un avis", "warning", "p1", espai?.id ?? 0);
-    await notificaPendents();
+    await createAlert("Un avis", "warning", "p1", workspace?.id ?? 0);
+    await notifyPending();
 
     expect(enviats[0]?.html).toContain("Pardals");
     // Sense destinataris propis, cau als generals.

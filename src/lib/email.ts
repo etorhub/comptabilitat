@@ -12,7 +12,7 @@ import nodemailer from "nodemailer";
 import type { AlertSeverity } from "../db/schema/enums.ts";
 import { config, smtpConfigured } from "./config.ts";
 
-const ETIQUETA_GRAVETAT: Record<AlertSeverity, string> = {
+const TAG_GRAVETAT: Record<AlertSeverity, string> = {
   critical: "Urgent",
   warning: "Atencio",
   info: "Informatiu",
@@ -25,7 +25,7 @@ const COLOR_GRAVETAT: Record<AlertSeverity, string> = {
 };
 
 /** Un avis, amb el nom del seu espai i la data ja formatada. */
-export interface EntradaResum {
+export interface SummaryEntry {
   severity: AlertSeverity;
   title: string;
   body: string;
@@ -33,17 +33,17 @@ export interface EntradaResum {
   created: string;
 }
 
-export interface Resum {
+export interface Summary {
   html: string;
   text: string;
 }
 
 /** Retorna el cos HTML i el cos de text pla del resum d'avisos. */
-export async function renderitzaResum(
-  entrades: readonly EntradaResum[],
+export async function renderSummary(
+  entrades: readonly SummaryEntry[],
   titol: string,
   subtitol: string,
-): Promise<Resum> {
+): Promise<Summary> {
   const blocs = await Promise.all(
     entrades.map(
       (e) => html`
@@ -55,7 +55,7 @@ export async function renderitzaResum(
             style="font-size:12px; text-transform:uppercase; letter-spacing:.05em;
                    color:${COLOR_GRAVETAT[e.severity]};"
           >
-            ${ETIQUETA_GRAVETAT[e.severity]}${e.ledgerName !== "" ? ` · ${e.ledgerName}` : ""}
+            ${TAG_GRAVETAT[e.severity]}${e.ledgerName !== "" ? ` · ${e.ledgerName}` : ""}
           </div>
           <div style="font-weight:600; margin:4px 0;">${e.title}</div>
           <div style="color:#334155;">${e.body}</div>
@@ -78,9 +78,9 @@ export async function renderitzaResum(
     </html>`;
 
   const linies: string[] = [titol, subtitol, ""];
-  for (const entrada of entrades) {
-    linies.push(`[${ETIQUETA_GRAVETAT[entrada.severity]}] ${entrada.title}`);
-    if (entrada.body !== "") linies.push(`  ${entrada.body}`);
+  for (const login of entrades) {
+    linies.push(`[${TAG_GRAVETAT[login.severity]}] ${login.title}`);
+    if (login.body !== "") linies.push(`  ${login.body}`);
     linies.push("");
   }
   linies.push(config.publicBaseUrl);
@@ -96,14 +96,14 @@ export async function renderitzaResum(
  * hi havia; vol dir que, sense llista general, els avisos per espai tampoc no
  * surten. Es conserva tal qual per no canviar res sense dir-ho.
  */
-export async function enviaCorreu(
+export async function sendMail(
   assumpte: string,
   cosHtml: string,
   cosText: string,
-  destinataris?: readonly string[],
+  recipients?: readonly string[],
 ): Promise<boolean> {
-  const objectiu = destinataris ?? config.alertRecipients;
-  if (!smtpConfigured() || objectiu.length === 0) {
+  const target = recipients ?? config.alertRecipients;
+  if (!smtpConfigured() || target.length === 0) {
     console.info(`[correu] no configurat: no s'envia «${assumpte}»`);
     return false;
   }
@@ -126,7 +126,7 @@ export async function enviaCorreu(
   try {
     await transport.sendMail({
       from: config.smtpFrom,
-      to: [...objectiu],
+      to: [...target],
       subject: assumpte,
       text: cosText,
       html: cosHtml,
@@ -134,13 +134,13 @@ export async function enviaCorreu(
   } catch (error) {
     // El missatge de l'error pot dur la contrasenya de l'SMTP en alguns
     // servidors: nomes se'n registra el text curt, mai l'objecte sencer.
-    const detall = error instanceof Error ? error.message : String(error);
-    console.error(`[correu] no s'ha pogut enviar «${assumpte}»: ${detall}`);
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(`[correu] no s'ha pogut enviar «${assumpte}»: ${detail}`);
     return false;
   } finally {
     transport.close();
   }
 
-  console.info(`[correu] enviat: ${assumpte} → ${objectiu.join(", ")}`);
+  console.info(`[correu] enviat: ${assumpte} → ${target.join(", ")}`);
   return true;
 }

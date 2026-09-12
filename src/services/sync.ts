@@ -24,26 +24,31 @@ import { config } from "../lib/config.ts";
 import { EnableBankingClient } from "../lib/enablebanking/client.ts";
 import { SessionExpiredError } from "../lib/enablebanking/errors.ts";
 import { addDays, todayLocal } from "../lib/time.ts";
-import { creaAvis } from "./alerts.ts";
-import { baixaMoviments, dataInicialFaMesos, desaMoviments, desaSaldos } from "./import.ts";
+import { createAlert } from "./alerts.ts";
+import {
+  removeTransactions,
+  startDateMonthsAgo,
+  saveTransactions,
+  saveBalances,
+} from "./import.ts";
 
 /** Passades aquestes hores, una importacio «en marxa» no ho esta pas. */
 const HORES_FINS_A_DONAR_PER_MORTA = 2;
 
-export interface ResultatSync {
+export interface SyncResult {
   connectionId: number;
-  comptes: number;
+  accountList: number;
   inserits: number;
   actualitzats: number;
   errors: string[];
 }
 
-export async function sincronitzaConnexio(
-  connexio: BankConnection,
-  opcions: { trigger?: SyncTrigger; daysBack?: number | null } = {},
-): Promise<ResultatSync> {
-  const execucio = await obreImportacio(connexio, opcions.trigger ?? "scheduled");
-  return portaLaImportacio(connexio, execucio, opcions);
+export async function sincronitzaConnection(
+  connection: BankConnection,
+  options: { trigger?: SyncTrigger; daysBack?: number | null } = {},
+): Promise<SyncResult> {
+  const run = await openImport(connection, options.trigger ?? "scheduled");
+  return runTheImport(connection, run, options);
 }
 
 /**
@@ -55,14 +60,14 @@ export async function sincronitzaConnexio(
  * creuada de dits, i si la inserció trigava mes, el fragment sortia sense el
  * `hx-trigger` i el sondeig no arrencava mai.
  */
-export async function obreImportacio(
-  connexio: BankConnection,
+export async function openImport(
+  connection: BankConnection,
   trigger: SyncTrigger,
 ): Promise<SyncRun | undefined> {
-  const [execucio] = await db
+  const [run] = await db
     .insert(syncRuns)
     .values({
-      connectionId: connexio.id,
+      connectionId: connection.id,
       trigger,
       status: "running",
       startedAt: new Date(),
@@ -73,116 +78,116 @@ export async function obreImportacio(
       error: "",
     })
     .returning();
-  return execucio;
+  return run;
 }
 
 /** La importacio de debo, sobre una fila de `sync_runs` que ja existeix. */
-export async function portaLaImportacio(
-  connexio: BankConnection,
-  execucio: SyncRun | undefined,
-  opcions: { daysBack?: number | null } = {},
-): Promise<ResultatSync> {
-  const resultat: ResultatSync = {
-    connectionId: connexio.id,
-    comptes: 0,
+export async function runTheImport(
+  connection: BankConnection,
+  run: SyncRun | undefined,
+  options: { daysBack?: number | null } = {},
+): Promise<SyncResult> {
+  const result: SyncResult = {
+    connectionId: connection.id,
+    accountList: 0,
     inserits: 0,
     actualitzats: 0,
     errors: [],
   };
 
-  const acaba = async (estat: "success" | "partial" | "failed", error = "") => {
-    if (execucio) {
+  const finish = async (state: "success" | "partial" | "failed", error = "") => {
+    if (run) {
       await db
         .update(syncRuns)
         .set({
-          status: estat,
+          status: state,
           finishedAt: new Date(),
-          accountsSynced: resultat.comptes,
-          transactionsInserted: resultat.inserits,
-          transactionsUpdated: resultat.actualitzats,
+          accountsSynced: result.accountList,
+          transactionsInserted: result.inserits,
+          transactionsUpdated: result.actualitzats,
           error: error.slice(0, 2000),
         })
-        .where(eq(syncRuns.id, execucio.id));
+        .where(eq(syncRuns.id, run.id));
     }
   };
 
   try {
     const client = new EnableBankingClient();
 
-    const comptes = await db
+    const accountList = await db
       .select()
       .from(accounts)
-      .where(and(eq(accounts.connectionId, connexio.id), eq(accounts.isActive, true)));
+      .where(and(eq(accounts.connectionId, connection.id), eq(accounts.isActive, true)));
 
-    for (const compte of comptes) {
+    for (const account of accountList) {
       try {
-        const dataDes =
-          opcions.daysBack != null
-            ? addDays(todayLocal(), -opcions.daysBack)
-            : compte.lastBookedDate !== null
-              ? addDays(compte.lastBookedDate, -config.ebResyncOverlapDays)
-              : dataInicialFaMesos(config.ebInitialHistoryMonths);
+        const dateFrom =
+          options.daysBack != null
+            ? addDays(todayLocal(), -options.daysBack)
+            : account.lastBookedDate !== null
+              ? addDays(account.lastBookedDate, -config.ebResyncOverlapDays)
+              : startDateMonthsAgo(config.ebInitialHistoryMonths);
 
-        const { items, truncat } = await baixaMoviments(client, compte, dataDes);
-        const parcial = await desaMoviments(compte, items, truncat);
-        await desaSaldos(client, compte);
+        const { items, truncat } = await removeTransactions(client, account, dateFrom);
+        const parcial = await saveTransactions(account, items, truncat);
+        await saveBalances(client, account);
 
-        resultat.comptes += 1;
-        resultat.inserits += parcial.inserits;
-        resultat.actualitzats += parcial.actualitzats;
+        result.accountList += 1;
+        result.inserits += parcial.inserits;
+        result.actualitzats += parcial.actualitzats;
       } catch (error) {
         if (error instanceof SessionExpiredError) throw error;
-        const missatge = error instanceof Error ? error.message : String(error);
-        resultat.errors.push(`compte ${compte.id}: ${missatge}`);
+        const message = error instanceof Error ? error.message : String(error);
+        result.errors.push(`compte ${account.id}: ${message}`);
       }
     }
 
     await db
       .update(bankConnections)
-      .set({ lastSyncAt: new Date(), lastError: resultat.errors.join("; ").slice(0, 2000) })
-      .where(eq(bankConnections.id, connexio.id));
+      .set({ lastSyncAt: new Date(), lastError: result.errors.join("; ").slice(0, 2000) })
+      .where(eq(bankConnections.id, connection.id));
 
-    await acaba(resultat.errors.length > 0 ? "partial" : "success", resultat.errors.join("; "));
-    return resultat;
+    await finish(result.errors.length > 0 ? "partial" : "success", result.errors.join("; "));
+    return result;
   } catch (error) {
-    const missatge = error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : String(error);
 
     if (error instanceof SessionExpiredError) {
       // El consentiment ha caducat: cal tornar a autoritzar amb SCA.
       await db
         .update(bankConnections)
-        .set({ status: "expired", lastError: missatge })
-        .where(eq(bankConnections.id, connexio.id));
+        .set({ status: "expired", lastError: message })
+        .where(eq(bankConnections.id, connection.id));
 
-      await creaAvis({
+      await createAlert({
         type: "consent_expired",
         ledgerId: null,
-        dedupKey: `consent-expired:${connexio.id}:${todayLocal()}`,
-        title: `${connexio.aspspName}: el consentiment ha caducat`,
+        dedupKey: `consent-expired:${connection.id}:${todayLocal()}`,
+        title: `${connection.aspspName}: el consentiment ha caducat`,
         body: "Cal tornar a autoritzar el banc des de Connexions per continuar important moviments.",
         severity: "critical",
-        payload: { connection_id: connexio.id },
+        payload: { connection_id: connection.id },
       });
     } else {
       await db
         .update(bankConnections)
-        .set({ status: "error", lastError: missatge })
-        .where(eq(bankConnections.id, connexio.id));
+        .set({ status: "error", lastError: message })
+        .where(eq(bankConnections.id, connection.id));
 
-      await creaAvis({
+      await createAlert({
         type: "sync_failed",
         ledgerId: null,
-        dedupKey: `sync-failed:${connexio.id}:${todayLocal()}`,
-        title: `${connexio.aspspName}: la sincronitzacio ha fallat`,
-        body: missatge,
+        dedupKey: `sync-failed:${connection.id}:${todayLocal()}`,
+        title: `${connection.aspspName}: la sincronitzacio ha fallat`,
+        body: message,
         severity: "warning",
-        payload: { connection_id: connexio.id },
+        payload: { connection_id: connection.id },
       });
     }
 
-    resultat.errors.push(missatge);
-    await acaba("failed", missatge);
-    return resultat;
+    result.errors.push(message);
+    await finish("failed", message);
+    return result;
   }
 }
 
@@ -198,7 +203,7 @@ export async function portaLaImportacio(
  * Tambe serveix de porta: mentre n'hi hagi una de viva, no se'n comença cap
  * altra de la mateixa connexio.
  */
-export async function tancaImportacionsPenjades(): Promise<number> {
+export async function closeStuckImports(): Promise<number> {
   const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
 
   const tancades = await db
@@ -218,14 +223,14 @@ export async function tancaImportacionsPenjades(): Promise<number> {
 }
 
 /** Si ja n'hi ha una de viva per a aquesta connexio, no se'n comença cap altra. */
-export async function jaSincronitza(connexioId: number): Promise<boolean> {
+export async function alreadySyncing(connectionId: number): Promise<boolean> {
   const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
   const [viva] = await db
     .select({ id: syncRuns.id })
     .from(syncRuns)
     .where(
       and(
-        eq(syncRuns.connectionId, connexioId),
+        eq(syncRuns.connectionId, connectionId),
         eq(syncRuns.status, "running"),
         gte(syncRuns.startedAt, limit),
       ),
@@ -241,7 +246,7 @@ export async function jaSincronitza(connexioId: number): Promise<boolean> {
  * marxa, val mes deixar-la marcada com a fallida que no pas en `running`, on
  * es quedaria fent sondejar la pagina fins que passes el manteniment.
  */
-export async function tancaImportacionsObertes(): Promise<number> {
+export async function closeOpenImports(): Promise<number> {
   const tancades = await db
     .update(syncRuns)
     .set({

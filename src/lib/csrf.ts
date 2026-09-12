@@ -25,18 +25,18 @@ import { config } from "./config.ts";
 
 const encoder = new TextEncoder();
 
-let clauHmac: CryptoKey | null = null;
+let keyHmac: CryptoKey | null = null;
 
 async function getKey(): Promise<CryptoKey> {
-  if (clauHmac !== null) return clauHmac;
-  clauHmac = await crypto.subtle.importKey(
+  if (keyHmac !== null) return keyHmac;
+  keyHmac = await crypto.subtle.importKey(
     "raw",
     encoder.encode(config.secretKey),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign", "verify"],
   );
-  return clauHmac;
+  return keyHmac;
 }
 
 /** Testimoni CSRF d'una sessio. Determinista: la mateixa sessio, el mateix. */

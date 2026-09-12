@@ -23,120 +23,116 @@ import { AppError } from "../../lib/http.ts";
 import { addDays, todayLocal } from "../../lib/time.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
 import { informeAPdf, movimentsACsv, resumAXlsx } from "../../services/export.ts";
-import {
-  ingressosIDespeses,
-  repartimentCategories,
-  serieMensual,
-} from "../../services/reports.ts";
-import { llistaMoviments } from "../../services/transactions.ts";
-import { exportFiltersSchema, MAX_FILES, summarySchema } from "./exports.schema.ts";
+import { incomeAndExpenses, categoryBreakdown, monthlySeries } from "../../services/reports.ts";
+import { listTransactions } from "../../services/transactions.ts";
+import { exportFiltersSchema, MAX_ROWS, summarySchema } from "./exports.schema.ts";
 
-export const movimentsExportRoutes = new Hono();
-export const informesExportRoutes = new Hono();
+export const transactionsExportRoutes = new Hono();
+export const reportsExportRoutes = new Hono();
 
 /** Nom de fitxer amb l'espai i el dia, com feia el Python. */
-function nomFitxer(codi: string, extensio: string): string {
-  const dia = todayLocal().replace(/-/g, "");
-  return `moviments-${codi}-${dia}.${extensio}`;
+function fileName(codi: string, extensio: string): string {
+  const day = todayLocal().replace(/-/g, "");
+  return `moviments-${codi}-${day}.${extensio}`;
 }
 
-function capçaleres(nom: string, tipus: string): Record<string, string> {
+function capçaleres(name: string, type: string): Record<string, string> {
   return {
-    "Content-Type": tipus,
+    "Content-Type": type,
     // El nom va entre cometes perque pot dur guions i punts.
-    "Content-Disposition": `attachment; filename="${nom}"`,
+    "Content-Disposition": `attachment; filename="${name}"`,
   };
 }
 
-async function movimentsPerExportar(ledgerId: number, query: Record<string, string>) {
+async function transactionsToExport(ledgerId: number, query: Record<string, string>) {
   const filters = exportFiltersSchema.parse(query);
-  const pagina = await llistaMoviments(ledgerId, {
+  const page = await listTransactions(ledgerId, {
     accountId: null,
-    dataDes: filters.des,
-    dataFins: filters.fins,
-    categoryIds: filters.categoria === null ? [] : [filters.categoria],
+    dateFrom: filters.des,
+    dateTo: filters.fins,
+    categoryIds: filters.category === null ? [] : [filters.category],
     merchantId: null,
-    cerca: filters.cerca,
-    etiqueta: null,
+    search: filters.search,
+    tag: null,
     tipusOperacio: [],
-    targetes: [],
+    cards: [],
     nomesRevisio: false,
     nomesSenseClassificar: false,
-    incloTraspassos: filters.traspassos,
-    limit: MAX_FILES,
+    incloTraspassos: filters.transfers,
+    limit: MAX_ROWS,
     offset: 0,
   });
 
-  if (pagina.total > MAX_FILES) {
+  if (page.total > MAX_ROWS) {
     throw new AppError(
-      `Son ${pagina.total} moviments i el limit es ${MAX_FILES}. Acota les dates.`,
+      `Son ${page.total} moviments i el limit es ${MAX_ROWS}. Acota les dates.`,
       422,
     );
   }
 
-  return pagina.items;
+  return page.items;
 }
 
-movimentsExportRoutes.get("/moviments.csv", async (c) => {
-  const espai = currentWorkspace(c);
-  const moviments = await movimentsPerExportar(espai.id, c.req.query());
+transactionsExportRoutes.get("/moviments.csv", async (c) => {
+  const workspace = currentWorkspace(c);
+  const transactionList = await transactionsToExport(workspace.id, c.req.query());
 
   return c.body(
-    movimentsACsv(moviments),
+    movimentsACsv(transactionList),
     200,
-    capçaleres(nomFitxer(espai.code, "csv"), "text/csv; charset=utf-8"),
+    capçaleres(fileName(workspace.code, "csv"), "text/csv; charset=utf-8"),
   );
 });
 
-informesExportRoutes.get("/informe.xlsx", async (c) => {
-  const espai = currentWorkspace(c);
-  const { mesos } = summarySchema.parse(c.req.query());
-  const avui = todayLocal();
-  const des = addDays(avui, -mesos * 31);
+reportsExportRoutes.get("/informe.xlsx", async (c) => {
+  const workspace = currentWorkspace(c);
+  const { months } = summarySchema.parse(c.req.query());
+  const today = todayLocal();
+  const des = addDays(today, -months * 31);
 
-  const [mensual, categories] = await Promise.all([
-    serieMensual([espai.id], des, avui),
-    repartimentCategories([espai.id], des, avui, true),
+  const [monthly, categories] = await Promise.all([
+    monthlySeries([workspace.id], des, today),
+    categoryBreakdown([workspace.id], des, today, true),
   ]);
 
   return c.body(
-    await resumAXlsx(mensual, categories),
+    await resumAXlsx(monthly, categories),
     200,
     capçaleres(
-      `informe-${espai.code}-${avui.replace(/-/g, "")}.xlsx`,
+      `informe-${workspace.code}-${today.replace(/-/g, "")}.xlsx`,
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     ),
   );
 });
 
-informesExportRoutes.get("/informe.pdf", async (c) => {
-  const espai = currentWorkspace(c);
+reportsExportRoutes.get("/informe.pdf", async (c) => {
+  const workspace = currentWorkspace(c);
   const filters = exportFiltersSchema.parse(c.req.query());
-  const avui = todayLocal();
+  const today = todayLocal();
   // Per defecte, el mes que corre.
-  const des = filters.des ?? `${avui.slice(0, 7)}-01`;
-  const fins = filters.fins ?? avui;
+  const des = filters.des ?? `${today.slice(0, 7)}-01`;
+  const fins = filters.fins ?? today;
 
-  const [totals, mensual, categories] = await Promise.all([
-    ingressosIDespeses([espai.id], des, fins),
-    serieMensual([espai.id], des, fins),
-    repartimentCategories([espai.id], des, fins, true),
+  const [totals, monthly, categories] = await Promise.all([
+    incomeAndExpenses([workspace.id], des, fins),
+    monthlySeries([workspace.id], des, fins),
+    categoryBreakdown([workspace.id], des, fins, true),
   ]);
 
   const pdf = await informeAPdf({
-    nomEspai: espai.name,
+    nomEspai: workspace.name,
     des,
     fins,
-    ingressos: totals.ingressos,
-    despeses: totals.despeses,
-    net: totals.net,
-    mensual,
+    income: totals.income,
+    expenses: totals.expenses,
+    cleaned: totals.cleaned,
+    monthly,
     categories,
   });
 
   return c.body(
     pdf,
     200,
-    capçaleres(`informe-${espai.code}-${avui.replace(/-/g, "")}.pdf`, "application/pdf"),
+    capçaleres(`informe-${workspace.code}-${today.replace(/-/g, "")}.pdf`, "application/pdf"),
   );
 });

@@ -14,8 +14,8 @@ import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
 
 import { money, formatMoney } from "../lib/money.ts";
-import type { MovimentVista } from "./transactions.ts";
-import type { PuntMensual, TrosCategoria } from "./reports.ts";
+import type { TransactionView } from "./transactions.ts";
+import type { MonthlyPoint, CategoryPart } from "./reports.ts";
 
 const COLUMNES: [string, number][] = [
   ["Data", 12],
@@ -32,7 +32,7 @@ const COLUMNES: [string, number][] = [
 ];
 
 /** Una fila, ja emmascarada: `MovimentVista` no duu el concepte del banc. */
-function fila(m: MovimentVista): (string | number)[] {
+function row(m: TransactionView): (string | number)[] {
   return [
     m.bookingDate,
     m.valueDate ?? "",
@@ -61,12 +61,12 @@ function escapaCsv(valor: string): string {
  * CSV amb punt i coma i BOM, que es el que espera l'Excel en espanyol; els
  * decimals amb coma, pel mateix motiu.
  */
-export function movimentsACsv(moviments: MovimentVista[]): Uint8Array<ArrayBuffer> {
-  const linies: string[] = [COLUMNES.map(([nom]) => escapaCsv(nom)).join(";")];
+export function movimentsACsv(transactionList: TransactionView[]): Uint8Array<ArrayBuffer> {
+  const linies: string[] = [COLUMNES.map(([name]) => escapaCsv(name)).join(";")];
 
-  for (const moviment of moviments) {
+  for (const transaction of transactionList) {
     linies.push(
-      fila(moviment)
+      row(transaction)
         .map((valor, i) => {
           // La columna de l'import va amb coma decimal.
           if (i === 6) return money(String(valor)).toFixed(2).replace(".", ",");
@@ -83,7 +83,7 @@ export function movimentsACsv(moviments: MovimentVista[]): Uint8Array<ArrayBuffe
 // --- XLSX ------------------------------------------------------------------
 
 function capçalera(full: ExcelJS.Worksheet, columnes: [string, number][]): void {
-  full.columns = columnes.map(([nom, amplada]) => ({ header: nom, width: amplada }));
+  full.columns = columnes.map(([name, amplada]) => ({ header: name, width: amplada }));
   const fila1 = full.getRow(1);
   fila1.font = { bold: true, color: { argb: "FFFFFFFF" } };
   fila1.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
@@ -91,28 +91,28 @@ function capçalera(full: ExcelJS.Worksheet, columnes: [string, number][]): void
 }
 
 export async function resumAXlsx(
-  mensual: PuntMensual[],
-  categories: TrosCategoria[],
+  monthly: MonthlyPoint[],
+  categories: CategoryPart[],
 ): Promise<Uint8Array<ArrayBuffer>> {
   const llibre = new ExcelJS.Workbook();
   llibre.creator = "Comptabilitat";
 
-  const mesos = llibre.addWorksheet("Mes a mes");
-  capçalera(mesos, [
+  const months = llibre.addWorksheet("Mes a mes");
+  capçalera(months, [
     ["Periode", 12],
     ["Ingressos", 14],
     ["Despeses", 14],
     ["Resultat", 14],
   ]);
-  for (const punt of mensual) {
-    mesos.addRow([
+  for (const punt of monthly) {
+    months.addRow([
       punt.periode,
-      Number(punt.ingressos),
-      Number(punt.despeses),
-      Number(punt.net),
+      Number(punt.income),
+      Number(punt.expenses),
+      Number(punt.cleaned),
     ]);
   }
-  for (const col of [2, 3, 4]) mesos.getColumn(col).numFmt = '#,##0.00 "€"';
+  for (const col of [2, 3, 4]) months.getColumn(col).numFmt = '#,##0.00 "€"';
 
   const cats = llibre.addWorksheet("Categories");
   capçalera(cats, [
@@ -121,8 +121,8 @@ export async function resumAXlsx(
     ["Part", 10],
     ["Moviments", 12],
   ]);
-  for (const tros of categories) {
-    cats.addRow([tros.categoryName, Number(tros.amount), tros.share, tros.transactions]);
+  for (const part of categories) {
+    cats.addRow([part.categoryName, Number(part.amount), part.share, part.transactions]);
   }
   cats.getColumn(2).numFmt = '#,##0.00 "€"';
   cats.getColumn(3).numFmt = "0.0%";
@@ -144,56 +144,51 @@ export interface DadesInforme {
   nomEspai: string;
   des: string;
   fins: string;
-  ingressos: string;
-  despeses: string;
-  net: string;
-  mensual: PuntMensual[];
-  categories: TrosCategoria[];
+  income: string;
+  expenses: string;
+  cleaned: string;
+  monthly: MonthlyPoint[];
+  categories: CategoryPart[];
 }
 
-export function informeAPdf(dades: DadesInforme): Promise<Uint8Array<ArrayBuffer>> {
+export function informeAPdf(data: DadesInforme): Promise<Uint8Array<ArrayBuffer>> {
   return new Promise<Uint8Array<ArrayBuffer>>((resolve, reject) => {
     const doc = new PDFDocument({
       size: "A4",
       margin: 48,
-      info: { Title: `Informe · ${dades.nomEspai}` },
+      info: { Title: `Informe · ${data.nomEspai}` },
     });
-    const trossos: Buffer[] = [];
+    const parts: Buffer[] = [];
 
-    doc.on("data", (t: Buffer) => trossos.push(t));
+    doc.on("data", (t: Buffer) => parts.push(t));
     doc.on("end", () => {
-      const complet = Buffer.concat(trossos);
-      const sortida = new Uint8Array(new ArrayBuffer(complet.byteLength));
-      sortida.set(complet);
-      resolve(sortida);
+      const complet = Buffer.concat(parts);
+      const output = new Uint8Array(new ArrayBuffer(complet.byteLength));
+      output.set(complet);
+      resolve(output);
     });
     doc.on("error", reject);
 
     const AMPLADA = doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
-    doc.fontSize(20).fillColor("#0f172a").text(dades.nomEspai);
-    doc.fontSize(10).fillColor("#64748b").text(`Informe del ${dades.des} al ${dades.fins}`);
+    doc.fontSize(20).fillColor("#0f172a").text(data.nomEspai);
+    doc.fontSize(10).fillColor("#64748b").text(`Informe del ${data.des} al ${data.fins}`);
     doc.moveDown(1.2);
 
     // Resum
     doc.fontSize(11).fillColor("#0f172a");
-    const resum: [string, string][] = [
-      ["Ingressos", formatMoney(dades.ingressos)],
-      ["Despeses", formatMoney(dades.despeses)],
-      ["Resultat", formatMoney(dades.net)],
+    const summary: [string, string][] = [
+      ["Ingressos", formatMoney(data.income)],
+      ["Despeses", formatMoney(data.expenses)],
+      ["Resultat", formatMoney(data.cleaned)],
     ];
-    for (const [etiqueta, valor] of resum) {
-      doc.font("Helvetica").fillColor("#64748b").text(etiqueta, { continued: true });
+    for (const [tag, valor] of summary) {
+      doc.font("Helvetica").fillColor("#64748b").text(tag, { continued: true });
       doc.font("Helvetica-Bold").fillColor("#0f172a").text(`   ${valor}`, { align: "right" });
     }
     doc.moveDown(1.2);
 
-    const taula = (
-      titol: string,
-      capceleres: string[],
-      files: string[][],
-      amplades: number[],
-    ) => {
+    const table = (titol: string, headers: string[], rows: string[][], amplades: number[]) => {
       if (doc.y > doc.page.height - 160) doc.addPage();
 
       doc.font("Helvetica-Bold").fontSize(13).fillColor("#0f172a").text(titol);
@@ -204,7 +199,7 @@ export function informeAPdf(dades: DadesInforme): Promise<Uint8Array<ArrayBuffer
 
       doc.font("Helvetica-Bold").fontSize(9).fillColor("#64748b");
       let y = doc.y;
-      capceleres.forEach((text, i) => {
+      headers.forEach((text, i) => {
         const x = x0 + columnes.slice(0, i).reduce((a, b) => a + b, 0);
         doc.text(text, x, y, { width: columnes[i], align: i === 0 ? "left" : "right" });
       });
@@ -217,7 +212,7 @@ export function informeAPdf(dades: DadesInforme): Promise<Uint8Array<ArrayBuffer
       doc.y = y + 6;
 
       doc.font("Helvetica").fontSize(9.5).fillColor("#0f172a");
-      for (const f of files) {
+      for (const f of rows) {
         if (doc.y > doc.page.height - 70) {
           doc.addPage();
           doc.y = doc.page.margins.top;
@@ -232,22 +227,22 @@ export function informeAPdf(dades: DadesInforme): Promise<Uint8Array<ArrayBuffer
       doc.moveDown(1);
     };
 
-    taula(
+    table(
       "Mes a mes",
       ["Periode", "Ingressos", "Despeses", "Resultat"],
-      dades.mensual.map((p) => [
+      data.monthly.map((p) => [
         p.periode,
-        formatMoney(p.ingressos),
-        formatMoney(p.despeses),
-        formatMoney(p.net),
+        formatMoney(p.income),
+        formatMoney(p.expenses),
+        formatMoney(p.cleaned),
       ]),
       [28, 24, 24, 24],
     );
 
-    taula(
+    table(
       "Despeses per categoria",
       ["Categoria", "Import", "Part", "Moviments"],
-      dades.categories.map((t) => [
+      data.categories.map((t) => [
         t.categoryName,
         formatMoney(t.amount),
         `${Math.round(t.share * 100)}%`,

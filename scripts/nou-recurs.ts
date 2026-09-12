@@ -23,17 +23,17 @@
 import { mkdir, readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-const ARREL = resolve(import.meta.dir, "..");
+const Root = resolve(import.meta.dir, "..");
 
-interface Opcions {
+interface Options {
   dir: string;
   ruta: string;
   titol: string;
   admin: boolean;
 }
 
-function ajuda(missatge?: string): never {
-  if (missatge) console.error(`\n[nou-recurs] ${missatge}\n`);
+function help(message?: string): never {
+  if (message) console.error(`\n[nou-recurs] ${message}\n`);
   console.error(
     "Us:\n" +
       "  bun run nou-recurs <nom> [--ruta <segment>] [--titol <Titol>] [--admin]\n\n" +
@@ -45,7 +45,7 @@ function ajuda(missatge?: string): never {
   process.exit(1);
 }
 
-function llegeixOpcions(argv: string[]): Opcions {
+function readOptions(argv: string[]): Options {
   const lliures: string[] = [];
   const nomenats = new Map<string, string>();
 
@@ -55,20 +55,20 @@ function llegeixOpcions(argv: string[]): Opcions {
       lliures.push(arg);
       continue;
     }
-    const clau = arg.slice(2);
-    if (clau === "admin") {
+    const key = arg.slice(2);
+    if (key === "admin") {
       nomenats.set("admin", "si");
       continue;
     }
     const valor = argv[++i];
-    if (valor === undefined) ajuda(`A --${clau} li falta el valor.`);
-    nomenats.set(clau, valor);
+    if (valor === undefined) help(`A --${key} li falta el valor.`);
+    nomenats.set(key, valor);
   }
 
   const dir = lliures[0];
-  if (dir === undefined) ajuda("Digues com s'ha de dir el recurs.");
+  if (dir === undefined) help("Digues com s'ha de dir el recurs.");
   if (!/^[a-z][a-z0-9-]*$/.test(dir)) {
-    ajuda(`«${dir}» no serveix de nom: minuscules, xifres i guions, i comença per lletra.`);
+    help(`«${dir}» no serveix de nom: minuscules, xifres i guions, i comença per lletra.`);
   }
 
   const ruta = nomenats.get("ruta") ?? dir;
@@ -77,22 +77,22 @@ function llegeixOpcions(argv: string[]): Opcions {
 }
 
 /** `projectes` → `Projectes`; `bank-connections` → `BankConnections`. */
-function enPascal(nom: string): string {
-  return nom
+function enPascal(name: string): string {
+  return name
     .split("-")
     .map((t) => t.charAt(0).toUpperCase() + t.slice(1))
     .join("");
 }
 
 /** `bank-connections` → `bankConnections`. */
-function enCamell(nom: string): string {
-  const pascal = enPascal(nom);
+function enCamell(name: string): string {
+  const pascal = enPascal(name);
   return pascal.charAt(0).toLowerCase() + pascal.slice(1);
 }
 
 // --- Els quatre fitxers -----------------------------------------------------
 
-function fitxerSchema(o: Opcions): string {
+function fileSchema(o: Options): string {
   return `/**
  * Esquemes del recurs de ${o.ruta}.
  *
@@ -121,7 +121,7 @@ export function ${enCamell(o.dir)}ToQuery(q: ${enPascal(o.dir)}Query): string {
 `;
 }
 
-function fitxerFragment(o: Opcions): string {
+function fileFragment(o: Options): string {
   return `/**
  * Fragments del recurs de ${o.ruta}.
  *
@@ -167,7 +167,7 @@ export function Llista({
 `;
 }
 
-function fitxerPage(o: Opcions): string {
+function filePage(o: Options): string {
   return `/**
  * Pagina del recurs de ${o.ruta}.
  *
@@ -199,7 +199,7 @@ export function ${enPascal(o.dir)}Page({
 `;
 }
 
-function fitxerRoutes(o: Opcions): string {
+function fileRoutes(o: Options): string {
   const pascal = enPascal(o.dir);
   const camell = enCamell(o.dir);
 
@@ -239,7 +239,7 @@ import { Llista, type ${pascal}Vista } from "./${o.dir}.fragment.ts";
 import { ${pascal}Page } from "./${o.dir}.page.ts";
 import { ${camell}QuerySchema, ${camell}ToQuery } from "./${o.dir}.schema.ts";`;
 
-  const cos = o.admin
+  const body = o.admin
     ? `
 /** Encara no hi ha servei: torna una llista buida. Substitueix-ho. */
 async function llista(): Promise<${pascal}Vista[]> {
@@ -308,25 +308,25 @@ ${camell}Routes.get("/fragment/llista", async (c) => {
 ${imports}
 
 export const ${camell}Routes = new Hono();
-${cos}`;
+${body}`;
 }
 
 // --- Els dos fitxers que ja hi eren ----------------------------------------
 
-function registraRuta(font: string, o: Opcions): string {
+function registraRuta(font: string, o: Options): string {
   const camell = enCamell(o.dir);
-  const importNou = `import { ${camell}Routes } from "./${o.dir}/${o.dir}.routes.ts";`;
+  const newImport = `import { ${camell}Routes } from "./${o.dir}/${o.dir}.routes.ts";`;
 
-  if (font.includes(importNou)) return font;
+  if (font.includes(newImport)) return font;
 
-  const primerImport = font.indexOf("import { alertsRoutes }");
-  if (primerImport === -1)
+  const firstImport = font.indexOf("import { alertsRoutes }");
+  if (firstImport === -1)
     throw new Error("No trobo on posar l'importacio a src/routes/index.ts");
-  let text = font.slice(0, primerImport) + importNou + "\n" + font.slice(primerImport);
+  let text = font.slice(0, firstImport) + newImport + "\n" + font.slice(firstImport);
 
   if (o.admin) {
     const ancora = `  app.route("/e/:codi", espai);`;
-    const bloc =
+    const bulk =
       `  const ${camell} = new Hono();\n` +
       `  ${camell}.use("*", requireUser);\n` +
       `  ${camell}.use("*", requireAdmin);\n` +
@@ -334,7 +334,7 @@ function registraRuta(font: string, o: Opcions): string {
       `  app.route("/${o.ruta}", ${camell});\n\n`;
     if (!text.includes(ancora))
       throw new Error("No trobo l'ancora de registre a src/routes/index.ts");
-    text = text.replace(ancora, bloc + ancora);
+    text = text.replace(ancora, bulk + ancora);
   } else {
     const ancora = `  // Les analitiques porten l'arrel de l'espai, els informes i la previsio.`;
     if (!text.includes(ancora))
@@ -345,7 +345,7 @@ function registraRuta(font: string, o: Opcions): string {
   return text;
 }
 
-function registraContracte(font: string, o: Opcions): string {
+function registraContracte(font: string, o: Options): string {
   if (font.includes(`recurs: "${o.dir}"`)) return font;
 
   const url = o.admin ? `/${o.ruta}` : `/e/personal/${o.ruta}`;
@@ -360,37 +360,37 @@ function registraContracte(font: string, o: Opcions): string {
 
 // --- Endavant ---------------------------------------------------------------
 
-const opcions = llegeixOpcions(Bun.argv.slice(2));
-const base = join(ARREL, "src", "routes", opcions.dir);
+const options = readOptions(Bun.argv.slice(2));
+const base = join(Root, "src", "routes", options.dir);
 
-if (await Bun.file(join(base, `${opcions.dir}.routes.ts`)).exists()) {
-  console.error(`\n[nou-recurs] «${opcions.dir}» ja existeix. No toco res.\n`);
+if (await Bun.file(join(base, `${options.dir}.routes.ts`)).exists()) {
+  console.error(`\n[nou-recurs] «${options.dir}» ja existeix. No toco res.\n`);
   process.exit(1);
 }
 
 const existents = new Set(
-  (await readdir(join(ARREL, "src", "routes"), { withFileTypes: true }))
+  (await readdir(join(Root, "src", "routes"), { withFileTypes: true }))
     .filter((e) => e.isDirectory())
     .map((e) => e.name),
 );
-if (existents.has(opcions.dir)) {
-  console.error(`\n[nou-recurs] el directori «${opcions.dir}» ja hi es pero esta a mitges.\n`);
+if (existents.has(options.dir)) {
+  console.error(`\n[nou-recurs] el directori «${options.dir}» ja hi es pero esta a mitges.\n`);
   process.exit(1);
 }
 
 await mkdir(base, { recursive: true });
-await Bun.write(join(base, `${opcions.dir}.routes.ts`), fitxerRoutes(opcions));
-await Bun.write(join(base, `${opcions.dir}.page.ts`), fitxerPage(opcions));
-await Bun.write(join(base, `${opcions.dir}.fragment.ts`), fitxerFragment(opcions));
-await Bun.write(join(base, `${opcions.dir}.schema.ts`), fitxerSchema(opcions));
+await Bun.write(join(base, `${options.dir}.routes.ts`), fileRoutes(options));
+await Bun.write(join(base, `${options.dir}.page.ts`), filePage(options));
+await Bun.write(join(base, `${options.dir}.fragment.ts`), fileFragment(options));
+await Bun.write(join(base, `${options.dir}.schema.ts`), fileSchema(options));
 
-const indexPath = join(ARREL, "src", "routes", "index.ts");
-await Bun.write(indexPath, registraRuta(await Bun.file(indexPath).text(), opcions));
+const indexPath = join(Root, "src", "routes", "index.ts");
+await Bun.write(indexPath, registraRuta(await Bun.file(indexPath).text(), options));
 
-const contractePath = join(ARREL, "tests", "contracte.test.ts");
+const contractePath = join(Root, "tests", "contracte.test.ts");
 await Bun.write(
   contractePath,
-  registraContracte(await Bun.file(contractePath).text(), opcions),
+  registraContracte(await Bun.file(contractePath).text(), options),
 );
 
 // El format el posa el Prettier, no jo: aixi les plantilles no han de ser
@@ -406,20 +406,20 @@ for (const ordre of [
   await Bun.spawn(ordre, { stdout: "ignore", stderr: "ignore" }).exited;
 }
 
-const adreca = opcions.admin ? `/${opcions.ruta}` : `/e/<espai>/${opcions.ruta}`;
+const url = options.admin ? `/${options.ruta}` : `/e/<espai>/${options.ruta}`;
 console.log(`
-[nou-recurs] fet. «${opcions.dir}» ja es dibuixa a ${adreca}.
+[nou-recurs] fet. «${options.dir}» ja es dibuixa a ${url}.
 
-  src/routes/${opcions.dir}/${opcions.dir}.routes.ts     rutes i guardes
-  src/routes/${opcions.dir}/${opcions.dir}.page.ts       la pagina sencera
-  src/routes/${opcions.dir}/${opcions.dir}.fragment.ts   els fragments d'HTMX
-  src/routes/${opcions.dir}/${opcions.dir}.schema.ts     els esquemes de Zod
+  src/routes/${options.dir}/${options.dir}.routes.ts     rutes i guardes
+  src/routes/${options.dir}/${options.dir}.page.ts       la pagina sencera
+  src/routes/${options.dir}/${options.dir}.fragment.ts   els fragments d'HTMX
+  src/routes/${options.dir}/${options.dir}.schema.ts     els esquemes de Zod
 
   src/routes/index.ts        hi queda registrat
   tests/contracte.test.ts    hi queda a la taula de pagines
 
 Ara:
-  1. Fes el servei a src/services/${opcions.dir}.ts i canvia-hi \`llista()\`.
+  1. Fes el servei a src/services/${options.dir}.ts i canvia-hi \`llista()\`.
   2. Comprova-ho amb \`bun run ok\`.
 
 Per veure un recurs fet del tot: src/routes/tags/ (llista i detall) i

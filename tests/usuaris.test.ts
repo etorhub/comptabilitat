@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 
 import { app } from "../src/server.ts";
-import { CONTRASENYA, entra } from "./ajuda.ts";
+import { PASSWORD, signIn } from "./ajuda.ts";
 import { db } from "../src/db/client.ts";
 import {
   categories,
@@ -50,8 +50,8 @@ beforeEach(async () => {
   idPersonal = personal?.id ?? 0;
   await seedCategories(idPersonal);
 
-  const passwordHash = await hashPassword(CONTRASENYA);
-  const creats = await db
+  const passwordHash = await hashPassword(PASSWORD);
+  const created = await db
     .insert(users)
     .values([
       {
@@ -72,7 +72,7 @@ beforeEach(async () => {
     .returning();
 
   // En Pau no es administrador, pero si que te acces a un espai.
-  const pau = creats.find((u) => u.email === "pau@exemple.cat");
+  const pau = created.find((u) => u.email === "pau@exemple.cat");
   await db
     .insert(userLedgerPermissions)
     .values({ userId: pau?.id ?? 0, ledgerId: idPersonal, role: "editor" });
@@ -80,13 +80,13 @@ beforeEach(async () => {
 
 describe("la pantalla d'usuaris", () => {
   test("un administrador hi entra", async () => {
-    const { cookie } = await entra("arrel@exemple.cat");
+    const { cookie } = await signIn("arrel@exemple.cat");
     const res = await app.request("/usuaris", { headers: { Cookie: cookie } });
     expect(res.status).toBe(200);
   });
 
   test("qui no ho es rep un 404, no un 403", async () => {
-    const { cookie } = await entra("pau@exemple.cat");
+    const { cookie } = await signIn("pau@exemple.cat");
     const res = await app.request("/usuaris", { headers: { Cookie: cookie } });
     expect(res.status).toBe(404);
   });
@@ -94,29 +94,29 @@ describe("la pantalla d'usuaris", () => {
 
 describe("la guarda d'administracio no tanca la resta del programa", () => {
   test("qui no es administrador continua entrant al seu espai", async () => {
-    const { cookie } = await entra("pau@exemple.cat");
+    const { cookie } = await signIn("pau@exemple.cat");
 
-    for (const cami of [
+    for (const path of [
       "/e/personal",
       "/e/personal/moviments",
       "/e/personal/recurrents",
       "/e/personal/informes",
       "/e/personal/previsio",
     ]) {
-      const res = await app.request(cami, { headers: { Cookie: cookie } });
-      expect({ cami, estat: res.status }).toEqual({ cami, estat: 200 });
+      const res = await app.request(path, { headers: { Cookie: cookie } });
+      expect({ path, state: res.status }).toEqual({ path, state: 200 });
     }
   });
 
   test("i tambe a les seves pagines de fora dels espais", async () => {
-    const { cookie } = await entra("pau@exemple.cat");
+    const { cookie } = await signIn("pau@exemple.cat");
     const res = await app.request("/contrasenya", { headers: { Cookie: cookie } });
     expect(res.status).toBe(200);
   });
 });
 
 describe("la configuracio de l'espai nomes per a administradors", () => {
-  const caminsConfig = [
+  const configPaths = [
     "/e/personal/configuracio",
     "/e/personal/categories",
     "/e/personal/etiquetes",
@@ -124,40 +124,40 @@ describe("la configuracio de l'espai nomes per a administradors", () => {
   ];
 
   test("qui no ho es rep un 404 a cada ruta", async () => {
-    const { cookie } = await entra("pau@exemple.cat");
+    const { cookie } = await signIn("pau@exemple.cat");
 
-    for (const cami of caminsConfig) {
-      const res = await app.request(cami, { headers: { Cookie: cookie } });
-      expect({ cami, estat: res.status }).toEqual({ cami, estat: 404 });
+    for (const path of configPaths) {
+      const res = await app.request(path, { headers: { Cookie: cookie } });
+      expect({ path, state: res.status }).toEqual({ path, state: 404 });
     }
   });
 
   test("no veu la seccio Configuracio a la barra", async () => {
-    const { cookie } = await entra("pau@exemple.cat");
+    const { cookie } = await signIn("pau@exemple.cat");
     const html = await (
       await app.request("/e/personal", { headers: { Cookie: cookie } })
     ).text();
-    const barra = html.slice(0, html.indexOf('id="contingut"'));
+    const bar = html.slice(0, html.indexOf('id="contingut"'));
 
-    expect(barra).not.toContain(">Configuracio</h2>");
-    expect(barra).not.toContain(">Administracio</h2>");
-    expect(barra).not.toContain("/e/personal/categories");
-    expect(barra).not.toContain("/e/personal/avisos");
+    expect(bar).not.toContain(">Configuracio</h2>");
+    expect(bar).not.toContain(">Administracio</h2>");
+    expect(bar).not.toContain("/e/personal/categories");
+    expect(bar).not.toContain("/e/personal/avisos");
   });
 
   test("un administrador amb acces hi entra i veu les seccions", async () => {
-    const [arrel] = await db.select().from(users).where(eq(users.email, "arrel@exemple.cat"));
+    const [root] = await db.select().from(users).where(eq(users.email, "arrel@exemple.cat"));
     await db.insert(userLedgerPermissions).values({
-      userId: arrel?.id ?? 0,
+      userId: root?.id ?? 0,
       ledgerId: idPersonal,
       role: "admin",
     });
 
-    const { cookie } = await entra("arrel@exemple.cat");
+    const { cookie } = await signIn("arrel@exemple.cat");
 
-    for (const cami of caminsConfig) {
-      const res = await app.request(cami, { headers: { Cookie: cookie } });
-      expect({ cami, estat: res.status }).toEqual({ cami, estat: 200 });
+    for (const path of configPaths) {
+      const res = await app.request(path, { headers: { Cookie: cookie } });
+      expect({ path, state: res.status }).toEqual({ path, state: 200 });
     }
 
     const html = await (
@@ -185,8 +185,8 @@ describe("la configuracio de l'espai nomes per a administradors", () => {
 
 describe("donar acces a un espai", () => {
   test("no en te fins que algu l'hi dona", async () => {
-    const passwordHash = await hashPassword(CONTRASENYA);
-    const [nou] = await db
+    const passwordHash = await hashPassword(PASSWORD);
+    const [fresh] = await db
       .insert(users)
       .values({
         email: "sogra@exemple.cat",
@@ -197,14 +197,14 @@ describe("donar acces a un espai", () => {
       })
       .returning();
 
-    const sessio = await entra("sogra@exemple.cat");
+    const session = await signIn("sogra@exemple.cat");
     expect(
-      (await app.request("/e/personal", { headers: { Cookie: sessio.cookie } })).status,
+      (await app.request("/e/personal", { headers: { Cookie: session.cookie } })).status,
     ).toBe(404);
 
     // L'administrador li'n dona.
-    const admin = await entra("arrel@exemple.cat");
-    const res = await app.request(`/usuaris/${nou?.id}/acces`, {
+    const admin = await signIn("arrel@exemple.cat");
+    const res = await app.request(`/usuaris/${fresh?.id}/acces`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -218,14 +218,14 @@ describe("donar acces a un espai", () => {
 
     // I ara si.
     expect(
-      (await app.request("/e/personal", { headers: { Cookie: sessio.cookie } })).status,
+      (await app.request("/e/personal", { headers: { Cookie: session.cookie } })).status,
     ).toBe(200);
   });
 
   test("treure'l el torna a deixar fora", async () => {
     const [pau] = await db.select().from(users).where(eq(users.email, "pau@exemple.cat"));
-    const sessio = await entra("pau@exemple.cat");
-    const admin = await entra("arrel@exemple.cat");
+    const session = await signIn("pau@exemple.cat");
+    const admin = await signIn("arrel@exemple.cat");
 
     await app.request(`/usuaris/${pau?.id}/acces`, {
       method: "POST",
@@ -239,7 +239,7 @@ describe("donar acces a un espai", () => {
     });
 
     expect(
-      (await app.request("/e/personal", { headers: { Cookie: sessio.cookie } })).status,
+      (await app.request("/e/personal", { headers: { Cookie: session.cookie } })).status,
     ).toBe(404);
   });
 });
@@ -247,27 +247,27 @@ describe("donar acces a un espai", () => {
 describe("desactivar un usuari", () => {
   test("li tanca les sessions obertes", async () => {
     const [pau] = await db.select().from(users).where(eq(users.email, "pau@exemple.cat"));
-    const sessio = await entra("pau@exemple.cat");
+    const session = await signIn("pau@exemple.cat");
     expect(
-      (await app.request("/contrasenya", { headers: { Cookie: sessio.cookie } })).status,
+      (await app.request("/contrasenya", { headers: { Cookie: session.cookie } })).status,
     ).toBe(200);
 
-    const admin = await entra("arrel@exemple.cat");
+    const admin = await signIn("arrel@exemple.cat");
     await app.request(`/usuaris/${pau?.id}/estat`, {
       method: "POST",
       headers: { Cookie: admin.cookie, "X-CSRF-Token": admin.csrf, "HX-Request": "true" },
     });
 
     // La sessio ja no val: torna a l'entrada.
-    const res = await app.request("/contrasenya", { headers: { Cookie: sessio.cookie } });
+    const res = await app.request("/contrasenya", { headers: { Cookie: session.cookie } });
     expect(res.status).toBe(303);
   });
 
   test("un administrador no es pot desactivar ell mateix", async () => {
-    const [arrel] = await db.select().from(users).where(eq(users.email, "arrel@exemple.cat"));
-    const admin = await entra("arrel@exemple.cat");
+    const [root] = await db.select().from(users).where(eq(users.email, "arrel@exemple.cat"));
+    const admin = await signIn("arrel@exemple.cat");
 
-    const res = await app.request(`/usuaris/${arrel?.id}/estat`, {
+    const res = await app.request(`/usuaris/${root?.id}/estat`, {
       method: "POST",
       headers: { Cookie: admin.cookie, "X-CSRF-Token": admin.csrf, "HX-Request": "true" },
     });
@@ -276,7 +276,7 @@ describe("desactivar un usuari", () => {
     const [encara] = await db
       .select()
       .from(users)
-      .where(eq(users.id, arrel?.id ?? 0));
+      .where(eq(users.id, root?.id ?? 0));
     expect(encara?.isActive).toBe(true);
   });
 });
@@ -284,7 +284,7 @@ describe("desactivar un usuari", () => {
 describe("editar un usuari", () => {
   test("canvia el nom i el rol d'instal·lacio", async () => {
     const [pau] = await db.select().from(users).where(eq(users.email, "pau@exemple.cat"));
-    const admin = await entra("arrel@exemple.cat");
+    const admin = await signIn("arrel@exemple.cat");
 
     const res = await app.request(`/usuaris/${pau?.id}`, {
       method: "POST",
@@ -307,10 +307,10 @@ describe("editar un usuari", () => {
   });
 
   test("un administrador no es pot treure a ell mateix l'admin", async () => {
-    const [arrel] = await db.select().from(users).where(eq(users.email, "arrel@exemple.cat"));
-    const admin = await entra("arrel@exemple.cat");
+    const [root] = await db.select().from(users).where(eq(users.email, "arrel@exemple.cat"));
+    const admin = await signIn("arrel@exemple.cat");
 
-    const res = await app.request(`/usuaris/${arrel?.id}`, {
+    const res = await app.request(`/usuaris/${root?.id}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -325,7 +325,7 @@ describe("editar un usuari", () => {
     const [encara] = await db
       .select()
       .from(users)
-      .where(eq(users.id, arrel?.id ?? 0));
+      .where(eq(users.id, root?.id ?? 0));
     expect(encara?.isAdmin).toBe(true);
   });
 });
@@ -333,10 +333,10 @@ describe("editar un usuari", () => {
 describe("reiniciar la contrasenya", () => {
   test("li tanca les sessions i deixa entrar amb la nova", async () => {
     const [pau] = await db.select().from(users).where(eq(users.email, "pau@exemple.cat"));
-    const sessio = await entra("pau@exemple.cat");
-    const admin = await entra("arrel@exemple.cat");
+    const session = await signIn("pau@exemple.cat");
+    const admin = await signIn("arrel@exemple.cat");
 
-    const nova = "contrasenya-nova-llarga";
+    const newPassword = "contrasenya-nova-llarga";
     const res = await app.request(`/usuaris/${pau?.id}/contrasenya`, {
       method: "POST",
       headers: {
@@ -345,27 +345,27 @@ describe("reiniciar la contrasenya", () => {
         "X-CSRF-Token": admin.csrf,
         "HX-Request": "true",
       },
-      body: new URLSearchParams({ password: nova }).toString(),
+      body: new URLSearchParams({ password: newPassword }).toString(),
     });
     expect(res.status).toBe(200);
 
     // La sessio antiga ja no val.
     expect(
-      (await app.request("/contrasenya", { headers: { Cookie: sessio.cookie } })).status,
+      (await app.request("/contrasenya", { headers: { Cookie: session.cookie } })).status,
     ).toBe(303);
 
     // I pot entrar amb la nova.
     const get = await app.request("/entrada");
-    const htmlEntrada = await get.text();
+    const loginHtml = await get.text();
     const seed = (get.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
-    const camp = /name="_csrf" value="([^"]+)"/.exec(htmlEntrada)?.[1] ?? "";
+    const field = /name="_csrf" value="([^"]+)"/.exec(loginHtml)?.[1] ?? "";
     const login = await app.request("/entrada", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seed },
       body: new URLSearchParams({
-        _csrf: camp,
+        _csrf: field,
         email: "pau@exemple.cat",
-        password: nova,
+        password: newPassword,
       }).toString(),
     });
     expect(login.status).toBe(303);
@@ -373,7 +373,7 @@ describe("reiniciar la contrasenya", () => {
 
   test("una massa curta torna errors al formulari", async () => {
     const [pau] = await db.select().from(users).where(eq(users.email, "pau@exemple.cat"));
-    const admin = await entra("arrel@exemple.cat");
+    const admin = await signIn("arrel@exemple.cat");
 
     const res = await app.request(`/usuaris/${pau?.id}/contrasenya`, {
       method: "POST",
@@ -386,7 +386,7 @@ describe("reiniciar la contrasenya", () => {
       body: new URLSearchParams({ password: "curta" }).toString(),
     });
     expect(res.status).toBe(422);
-    const cos = await res.text();
-    expect(cos).toContain("camp-error");
+    const body = await res.text();
+    expect(body).toContain("camp-error");
   });
 });

@@ -4,13 +4,13 @@
  * Traduccio de `backend/app/workers/jobs/notify.py`.
  */
 
-import { notificaPendents } from "../../services/notify.ts";
+import { notifyPending } from "../../services/notify.ts";
 
-export function feinaAvisos(): Promise<string> {
-  return notificaPendents(false);
+export function alertsJob(): Promise<string> {
+  return notifyPending(false);
 }
 
 /** Nomes els urgents. Es crida cada hora; el resum sencer, un cop al dia. */
-export function feinaAvisosUrgents(): Promise<string> {
-  return notificaPendents(true);
+export function urgentAlertsJob(): Promise<string> {
+  return notifyPending(true);
 }

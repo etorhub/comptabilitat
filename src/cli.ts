@@ -16,23 +16,23 @@ import { ledgers, ledgerRoleSchema, userLedgerPermissions, users } from "./db/sc
 import { hashPassword, purgeExpiredSessions } from "./lib/auth.ts";
 import { workspaceCreateSchema } from "./routes/workspaces/workspaces.schema.ts";
 import { seedCategories } from "./services/seed.ts";
-import { omplePerAProves } from "./services/demo.ts";
+import { fillForTests } from "./services/demo.ts";
 import { seedLedgers } from "./services/seed.ts";
 
-function arg(nom: string): string | undefined {
-  const i = process.argv.indexOf(`--${nom}`);
+function arg(name: string): string | undefined {
+  const i = process.argv.indexOf(`--${name}`);
   return i === -1 ? undefined : process.argv[i + 1];
 }
 
-function requireArg(nom: string): string {
-  const value = arg(nom);
+function requireArg(name: string): string {
+  const value = arg(name);
   if (value === undefined || value.startsWith("--")) {
-    throw new Error(`Falta --${nom}`);
+    throw new Error(`Falta --${name}`);
   }
   return value;
 }
 
-async function creaUsuari(): Promise<void> {
+async function createUser(): Promise<void> {
   const email = requireArg("email").toLowerCase();
   const password = requireArg("password");
   const isAdmin = process.argv.includes("--admin");
@@ -63,24 +63,24 @@ async function creaUsuari(): Promise<void> {
   }
 }
 
-async function donaAcces(): Promise<void> {
+async function grantsAccess(): Promise<void> {
   const email = requireArg("email").toLowerCase();
   const codi = requireArg("espai");
   const rol = ledgerRoleSchema.parse(arg("rol") ?? "viewer");
 
-  const [usuari] = await db.select().from(users).where(eq(users.email, email));
-  if (!usuari) throw new Error(`No hi ha cap usuari amb el correu ${email}`);
+  const [user] = await db.select().from(users).where(eq(users.email, email));
+  if (!user) throw new Error(`No hi ha cap usuari amb el correu ${email}`);
 
-  const [espai] = await db.select().from(ledgers).where(eq(ledgers.code, codi));
-  if (!espai) throw new Error(`No hi ha cap espai amb el codi ${codi}`);
+  const [workspace] = await db.select().from(ledgers).where(eq(ledgers.code, codi));
+  if (!workspace) throw new Error(`No hi ha cap espai amb el codi ${codi}`);
 
   const [ja] = await db
     .select({ id: userLedgerPermissions.id })
     .from(userLedgerPermissions)
     .where(
       and(
-        eq(userLedgerPermissions.userId, usuari.id),
-        eq(userLedgerPermissions.ledgerId, espai.id),
+        eq(userLedgerPermissions.userId, user.id),
+        eq(userLedgerPermissions.ledgerId, workspace.id),
       ),
     );
 
@@ -89,12 +89,12 @@ async function donaAcces(): Promise<void> {
       .update(userLedgerPermissions)
       .set({ role: rol })
       .where(eq(userLedgerPermissions.id, ja.id));
-    console.log(`${email} ara es ${rol} a ${espai.name}.`);
+    console.log(`${email} ara es ${rol} a ${workspace.name}.`);
   } else {
     await db
       .insert(userLedgerPermissions)
-      .values({ userId: usuari.id, ledgerId: espai.id, role: rol });
-    console.log(`${email} te acces a ${espai.name} com a ${rol}.`);
+      .values({ userId: user.id, ledgerId: workspace.id, role: rol });
+    console.log(`${email} te acces a ${workspace.name} com a ${rol}.`);
   }
 }
 
@@ -104,8 +104,8 @@ async function donaAcces(): Promise<void> {
  * No es fa des de la interficie: crear un espai es una cosa d'una vegada i
  * fer-hi una pantalla no compensa. L'acces s'hi dona despres amb `dona-acces`.
  */
-async function creaEspai(): Promise<void> {
-  const dades = workspaceCreateSchema.parse({
+async function createWorkspace(): Promise<void> {
+  const data = workspaceCreateSchema.parse({
     code: requireArg("codi"),
     name: requireArg("nom"),
     description: arg("descripcio") ?? "",
@@ -115,10 +115,10 @@ async function creaEspai(): Promise<void> {
   const [ja] = await db
     .select({ id: ledgers.id })
     .from(ledgers)
-    .where(eq(ledgers.code, dades.code));
-  if (ja) throw new Error(`Ja hi ha un espai amb el codi ${dades.code}`);
+    .where(eq(ledgers.code, data.code));
+  if (ja) throw new Error(`Ja hi ha un espai amb el codi ${data.code}`);
 
-  const [ultim] = await db
+  const [last] = await db
     .select({ position: ledgers.position })
     .from(ledgers)
     .orderBy(desc(ledgers.position))
@@ -127,40 +127,40 @@ async function creaEspai(): Promise<void> {
   const [creat] = await db
     .insert(ledgers)
     .values({
-      code: dades.code,
-      name: dades.name,
-      description: dades.description,
+      code: data.code,
+      name: data.name,
+      description: data.description,
       currency: "EUR",
-      color: dades.color,
+      color: data.color,
       overdraftThreshold: "0.00",
-      position: (ultim?.position ?? -1) + 1,
+      position: (last?.position ?? -1) + 1,
       isActive: true,
       alertRecipients: [],
     })
     .returning();
 
   const categories = await seedCategories(creat?.id ?? 0);
-  console.log(`Espai ${dades.code} creat amb ${categories} categories.`);
+  console.log(`Espai ${data.code} creat amb ${categories} categories.`);
   console.log(
     "La resta (llindar de descobert, destinataris dels avisos) es configura des de " +
-      `/e/${dades.code}/configuracio.`,
+      `/e/${data.code}/configuracio.`,
   );
   console.log(
-    `Dona-hi acces: bun run cli dona-acces --email tu@example.com --espai ${dades.code} --rol admin`,
+    `Dona-hi acces: bun run cli dona-acces --email tu@example.com --espai ${data.code} --rol admin`,
   );
 }
 
-async function netejaSessions(): Promise<void> {
+async function cleanSessions(): Promise<void> {
   const n = await purgeExpiredSessions();
   console.log(`${n} sessions caducades esborrades.`);
 }
 
 /** Crea els tres espais i el seu pla de categories, si no hi son. */
 async function inicia(): Promise<void> {
-  const creats = await seedLedgers();
+  const created = await seedLedgers();
   console.log(
-    creats.length > 0
-      ? `Espais creats: ${creats.map((e) => e.code).join(", ")}.`
+    created.length > 0
+      ? `Espais creats: ${created.map((e) => e.code).join(", ")}.`
       : "Els espais ja hi eren; s'ha comprovat el pla de categories.",
   );
 }
@@ -170,28 +170,28 @@ async function demo(): Promise<void> {
   if (process.env.ENVIRONMENT === "production" && !process.argv.includes("--force")) {
     throw new Error("Aixo es produccio. Si de debò ho vols, torna-ho a provar amb --force.");
   }
-  const resum = await omplePerAProves(
+  const summary = await fillForTests(
     arg("email") ?? "demo@exemple.cat",
     arg("password") ?? "comptabilitat",
   );
-  console.log(JSON.stringify(resum, null, 2));
+  console.log(JSON.stringify(summary, null, 2));
 }
 
 const ordres: Record<string, () => Promise<void>> = {
   init: inicia,
   demo,
-  "crea-espai": creaEspai,
-  "crea-usuari": creaUsuari,
-  "dona-acces": donaAcces,
-  "neteja-sessions": netejaSessions,
+  "crea-espai": createWorkspace,
+  "crea-usuari": createUser,
+  "dona-acces": grantsAccess,
+  "neteja-sessions": cleanSessions,
 };
 
 // Les migracions s'apliquen tambe aqui: `init` i `demo` es fan servir sobre
 // una base de dades acabada de crear, on encara no hi ha cap taula. Si ja hi
 // son, no fa res.
 if (process.env.SKIP_MIGRATIONS !== "true") {
-  const { aplicaMigracions } = await import("./db/migrate.ts");
-  await aplicaMigracions();
+  const { applyMigrations } = await import("./db/migrate.ts");
+  await applyMigrations();
 }
 
 const ordre = process.argv[2];

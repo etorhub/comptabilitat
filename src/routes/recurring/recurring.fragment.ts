@@ -5,15 +5,15 @@
 import { html, raw } from "hono/html";
 
 import type { AmountMode, Cadence } from "../../db/schema/index.ts";
-import { Camp, Casella, Tria, type FieldErrors } from "../../components/form.ts";
-import { TaulaDades } from "../../components/vista.ts";
+import { Field, Checkbox, Select, type FieldErrors } from "../../components/form.ts";
+import { DataTable } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney, money } from "../../lib/money.ts";
 import { formatDate, todayLocal } from "../../lib/time.ts";
-import type { GrupCategories } from "../../services/categories.ts";
-import type { AparicioVista, SerieVista } from "../../services/recurring-list.ts";
-import type { CreaSerieInput, RecurringFilters } from "./recurring.schema.ts";
-import { atributsOob, type IdOob } from "../../lib/oob.ts";
+import type { CategoryGroup } from "../../services/categories.ts";
+import type { OccurrenceView, SeriesView } from "../../services/recurring-list.ts";
+import type { CreateSeriesInput, RecurringFilters } from "./recurring.schema.ts";
+import { oobAttributes, type OobId } from "../../lib/oob.ts";
 
 const CADENCIES: Record<Cadence, string> = {
   weekly: "setmanal",
@@ -30,9 +30,9 @@ const MODES: Record<AmountMode, string> = {
   average: "mitjana recent",
 };
 
-const dataCurta = new Intl.DateTimeFormat("ca-ES", { day: "2-digit", month: "short" });
+const dateCurta = new Intl.DateTimeFormat("ca-ES", { day: "2-digit", month: "short" });
 
-const iconaLlapis = html`<svg
+const iconLlapis = html`<svg
   xmlns="http://www.w3.org/2000/svg"
   width="14"
   height="14"
@@ -48,7 +48,7 @@ const iconaLlapis = html`<svg
   <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
 </svg>`;
 
-const iconaUll = html`<svg
+const iconUll = html`<svg
   xmlns="http://www.w3.org/2000/svg"
   width="14"
   height="14"
@@ -64,28 +64,28 @@ const iconaUll = html`<svg
   <circle cx="12" cy="12" r="3" />
 </svg>`;
 
-export interface TaulaProps {
+export interface TableProps {
   codi: string;
-  series: SerieVista[];
+  series: SeriesView[];
   potEditar: boolean;
   /** Id del contenidor HTMX (suggestions vs actives). */
-  idContenidor: IdOob;
-  buit: Html | string;
+  idContenidor: OobId;
+  empty: Html | string;
   /** Si true, mostra el formulari de confirmar/descartar. */
   sonPropostes?: boolean;
 }
 
-export function Taula({
+export function Table({
   codi,
   series,
   potEditar,
   idContenidor,
-  buit,
+  empty,
   sonPropostes = false,
   oob = false,
-}: TaulaProps & { oob?: boolean }): Html {
-  return html`<div ${atributsOob(idContenidor, oob)}>
-    ${TaulaDades({
+}: TableProps & { oob?: boolean }): Html {
+  return html`<div ${oobAttributes(idContenidor, oob)}>
+    ${DataTable({
       columnes: sonPropostes
         ? (html`<th>Proposta</th>
             <th>Cadencia</th>
@@ -100,72 +100,72 @@ export function Taula({
             <th>Seguent</th>
             <th>A la previsio</th>
             <th></th>` as Html),
-      files: series.map((serie) =>
+      rows: series.map((item) =>
         sonPropostes
-          ? FilaProposta({ codi, serie, potEditar })
-          : FilaActiva({ codi, serie, potEditar }),
+          ? ProposalRow({ codi, series: item, potEditar })
+          : ActiveRow({ codi, series: item, potEditar }),
       ),
-      buit,
+      empty,
     })}
   </div>` as Html;
 }
 
-export function FilaProposta({
+export function ProposalRow({
   codi,
-  serie,
+  series,
   potEditar,
 }: {
   codi: string;
-  serie: SerieVista;
+  series: SeriesView;
   potEditar: boolean;
 }): Html {
-  const base = `/e/${codi}/recurrents/${serie.id}`;
+  const base = `/e/${codi}/recurrents/${series.id}`;
 
-  return html`<tr id="serie-${serie.id}">
+  return html`<tr id="serie-${series.id}">
     <td>
-      <span class="nom">${serie.label}</span>
+      <span class="nom">${series.label}</span>
       ${
-        serie.categoryName
-          ? html`<br /><small class="text-suau">${serie.categoryName}</small>`
+        series.categoryName
+          ? html`<br /><small class="text-suau">${series.categoryName}</small>`
           : ""
       }
-      <br /><small class="text-suau">${String(serie.occurrencesCount)} aparicions</small>
+      <br /><small class="text-suau">${String(series.occurrencesCount)} aparicions</small>
     </td>
-    <td>${CADENCIES[serie.cadence]}</td>
-    <td class="dreta">${formatMoney(serie.expectedAmount)}</td>
+    <td>${CADENCIES[series.cadence]}</td>
+    <td class="dreta">${formatMoney(series.expectedAmount)}</td>
     <td>
       ${
-        serie.nextExpectedDate
-          ? html`<time datetime="${serie.nextExpectedDate}">
-            ${formatDate(serie.nextExpectedDate)}
+        series.nextExpectedDate
+          ? html`<time datetime="${series.nextExpectedDate}">
+            ${formatDate(series.nextExpectedDate)}
           </time>`
           : html`<span class="text-suau">—</span>`
       }
     </td>
-    <td class="dreta">${String(Math.round(serie.confidence * 100))}%</td>
+    <td class="dreta">${String(Math.round(series.confidence * 100))}%</td>
     ${
       potEditar
         ? html`<td>
           <form
             class="fila-accions"
             hx-post="${base}/confirma"
-            hx-target="#serie-${serie.id}"
+            hx-target="#serie-${series.id}"
             hx-swap="outerHTML"
           >
-            ${Tria({
-              nom: "cadence",
-              etiqueta: "Cadencia",
-              valor: serie.cadence,
-              opcions: (Object.keys(CADENCIES) as Cadence[]).map((c) => ({
+            ${Select({
+              name: "cadence",
+              tag: "Cadencia",
+              valor: series.cadence,
+              options: (Object.keys(CADENCIES) as Cadence[]).map((c) => ({
                 valor: c,
                 text: CADENCIES[c],
               })),
             })}
-            ${Tria({
-              nom: "amount_mode",
-              etiqueta: "Import",
+            ${Select({
+              name: "amount_mode",
+              tag: "Import",
               valor: "exact",
-              opcions: (Object.keys(MODES) as AmountMode[]).map((m) => ({
+              options: (Object.keys(MODES) as AmountMode[]).map((m) => ({
                 valor: m,
                 text: MODES[m],
               })),
@@ -175,7 +175,7 @@ export function FilaProposta({
               type="button"
               class="boto"
               hx-post="${base}/descarta"
-              hx-target="#serie-${serie.id}"
+              hx-target="#serie-${series.id}"
               hx-swap="outerHTML"
             >
               Descarta
@@ -187,50 +187,50 @@ export function FilaProposta({
   </tr>` as Html;
 }
 
-export function FilaActiva({
+export function ActiveRow({
   codi,
-  serie,
+  series,
   potEditar,
   editant = false,
-  aparicions = null,
+  occurrences = null,
 }: {
   codi: string;
-  serie: SerieVista;
+  series: SeriesView;
   potEditar: boolean;
   /** Mode edicio: import + Descarta. */
   editant?: boolean;
   /** Si no es null, es mostren els moviments reals enllaçats. */
-  aparicions?: AparicioVista[] | null;
+  occurrences?: OccurrenceView[] | null;
 }): Html {
-  const base = `/e/${codi}/recurrents/${serie.id}`;
-  const importAbsolut = money(serie.expectedAmount).abs().toFixed(2);
-  const mostrant = aparicions !== null;
+  const base = `/e/${codi}/recurrents/${series.id}`;
+  const importAbsolut = money(series.expectedAmount).abs().toFixed(2);
+  const mostrant = occurrences !== null;
 
-  return html`<tr id="serie-${serie.id}" class="${serie.status === "ended" ? "inactiva" : ""}">
+  return html`<tr id="serie-${series.id}" class="${series.status === "ended" ? "inactiva" : ""}">
     <td>
-      <span class="nom">${serie.label}</span>
-      <span class="etiqueta" title="Com s'estima l'import">${MODES[serie.amountMode]}</span>
+      <span class="nom">${series.label}</span>
+      <span class="etiqueta" title="Com s'estima l'import">${MODES[series.amountMode]}</span>
       ${
-        serie.status === "ended"
+        series.status === "ended"
           ? html`<span class="etiqueta etiqueta-suau">acabada</span>`
           : ""
       }
       ${
-        serie.categoryName
-          ? html`<br /><small class="text-suau">${serie.categoryName}</small>`
+        series.categoryName
+          ? html`<br /><small class="text-suau">${series.categoryName}</small>`
           : ""
       }
       ${
         mostrant
           ? html`<ul class="llista-aparicions">
             ${
-              aparicions.length === 0
+              occurrences.length === 0
                 ? html`<li class="text-suau">Encara no hi ha cap moviment enllaçat.</li>`
-                : aparicions.map(
+                : occurrences.map(
                     (a) =>
                       html`<li>
                         <time datetime="${a.bookingDate}">
-                          ${dataCurta.format(new Date(`${a.bookingDate}T00:00:00`))}
+                          ${dateCurta.format(new Date(`${a.bookingDate}T00:00:00`))}
                         </time>
                         <span>${a.description}</span>
                         <span class="dreta">${formatMoney(a.amount)}</span>
@@ -241,14 +241,14 @@ export function FilaActiva({
           : ""
       }
     </td>
-    <td>${CADENCIES[serie.cadence]}</td>
+    <td>${CADENCIES[series.cadence]}</td>
     <td class="dreta">
       ${
-        potEditar && editant && serie.status === "active"
+        potEditar && editant && series.status === "active"
           ? html`<form
             class="fila-accions"
             hx-post="${base}/import"
-            hx-target="#serie-${serie.id}"
+            hx-target="#serie-${series.id}"
             hx-swap="outerHTML"
           >
             <label class="camp camp-linia camp-estret">
@@ -258,45 +258,45 @@ export function FilaActiva({
                 name="amount"
                 inputmode="decimal"
                 value="${importAbsolut}"
-                aria-label="Import de ${serie.label}"
+                aria-label="Import de ${series.label}"
               />
             </label>
             <button type="submit" class="boto">Desa</button>
           </form>`
-          : formatMoney(serie.expectedAmount)
+          : formatMoney(series.expectedAmount)
       }
     </td>
-    <td class="dreta">${formatMoney(serie.monthlyCost)}</td>
+    <td class="dreta">${formatMoney(series.monthlyCost)}</td>
     <td>
       ${
-        serie.nextExpectedDate
-          ? html`<time datetime="${serie.nextExpectedDate}">
-            ${formatDate(serie.nextExpectedDate)}
+        series.nextExpectedDate
+          ? html`<time datetime="${series.nextExpectedDate}">
+            ${formatDate(series.nextExpectedDate)}
           </time>`
           : html`<span class="text-suau">—</span>`
       }
     </td>
     <td>
       ${
-        potEditar && serie.status === "active"
+        potEditar && series.status === "active"
           ? html`<input
             type="checkbox"
             name="include_in_forecast"
-            ${serie.includeInForecast ? raw("checked") : ""}
-            aria-label="Inclou ${serie.label} a la previsio"
+            ${series.includeInForecast ? raw("checked") : ""}
+            aria-label="Inclou ${series.label} a la previsio"
             hx-post="${base}/previsio"
-            hx-target="#serie-${serie.id}"
+            hx-target="#serie-${series.id}"
             hx-swap="outerHTML"
           />`
-          : serie.includeInForecast
+          : series.includeInForecast
             ? "Si"
             : "No"
       }
     </td>
     <td>
-      ${AccionsSerie({
+      ${SeriesActions({
         codi,
-        serie,
+        series,
         potEditar,
         editant,
         mostrant,
@@ -305,41 +305,41 @@ export function FilaActiva({
   </tr>` as Html;
 }
 
-function AccionsSerie({
+function SeriesActions({
   codi,
-  serie,
+  series,
   potEditar,
   editant,
   mostrant,
 }: {
   codi: string;
-  serie: SerieVista;
+  series: SeriesView;
   potEditar: boolean;
   editant: boolean;
   mostrant: boolean;
 }): Html {
-  const base = `/e/${codi}/recurrents/${serie.id}`;
-  const botoMostra = html`<button
+  const base = `/e/${codi}/recurrents/${series.id}`;
+  const buttonShow = html`<button
     type="button"
     class="boto-icona"
-    aria-label="${mostrant ? "Amaga" : "Mostra"} els moviments de ${serie.label}"
+    aria-label="${mostrant ? "Amaga" : "Mostra"} els moviments de ${series.label}"
     title="${mostrant ? "Amaga els moviments" : "Mostra els moviments"}"
     hx-get="${base}/fragment/fila${mostrant ? "" : "?mostra=1"}"
-    hx-target="#serie-${serie.id}"
+    hx-target="#serie-${series.id}"
     hx-swap="outerHTML"
   >
-    ${iconaUll}
+    ${iconUll}
   </button>`;
 
-  if (potEditar && serie.status === "active" && editant) {
+  if (potEditar && series.status === "active" && editant) {
     return html`<div class="fila-accions">
       <button
         type="button"
         class="boto"
         hx-post="${base}/descarta"
-        hx-target="#serie-${serie.id}"
+        hx-target="#serie-${series.id}"
         hx-swap="outerHTML"
-        hx-confirm="Vols descartar «${serie.label}»? El detector ja no la tornara a proposar."
+        hx-confirm="Vols descartar «${series.label}»? El detector ja no la tornara a proposar."
       >
         Descarta
       </button>
@@ -347,7 +347,7 @@ function AccionsSerie({
         type="button"
         class="boto boto-discret"
         hx-get="${base}/fragment/fila"
-        hx-target="#serie-${serie.id}"
+        hx-target="#serie-${series.id}"
         hx-swap="outerHTML"
       >
         Cancel·la
@@ -355,32 +355,32 @@ function AccionsSerie({
     </div>` as Html;
   }
 
-  if (potEditar && serie.status === "active") {
+  if (potEditar && series.status === "active") {
     return html`<div class="fila-accions">
       <button
         type="button"
         class="boto-icona"
-        aria-label="Edita ${serie.label}"
+        aria-label="Edita ${series.label}"
         title="Edita"
         hx-get="${base}/fragment/fila?editant=1"
-        hx-target="#serie-${serie.id}"
+        hx-target="#serie-${series.id}"
         hx-swap="outerHTML"
       >
-        ${iconaLlapis}
+        ${iconLlapis}
       </button>
-      ${botoMostra}
+      ${buttonShow}
     </div>` as Html;
   }
 
-  return html`<div class="fila-accions">${botoMostra}</div>` as Html;
+  return html`<div class="fila-accions">${buttonShow}</div>` as Html;
 }
 
-export interface BarraFiltresProps {
+export interface FilterBarProps {
   codi: string;
   filters: RecurringFilters;
 }
 
-export function BarraFiltres({ codi, filters }: BarraFiltresProps): Html {
+export function FilterBar({ codi, filters }: FilterBarProps): Html {
   return html`<form
     class="filtres"
     hx-get="/e/${codi}/recurrents/fragment/actives"
@@ -388,25 +388,25 @@ export function BarraFiltres({ codi, filters }: BarraFiltresProps): Html {
     hx-swap="outerHTML"
     hx-push-url="false"
   >
-    ${Casella({
-      nom: "inclou_acabades",
-      etiqueta: "Inclou les acabades",
+    ${Checkbox({
+      name: "inclou_acabades",
+      tag: "Inclou les acabades",
       marcat: filters.inclou_acabades,
       valor: "1",
-      atributs: 'onchange="this.form.requestSubmit()"',
+      attributes: 'onchange="this.form.requestSubmit()"',
     })}
   </form>` as Html;
 }
 
-export interface FormAltaProps {
+export interface CreateFormProps {
   codi: string;
-  grups: GrupCategories[];
-  valors?: Partial<CreaSerieInput> & { amount?: string };
+  groups: CategoryGroup[];
+  valors?: Partial<CreateSeriesInput> & { amount?: string };
   errors?: FieldErrors;
 }
 
 /** Formulari per afegir una serie activa a ma. */
-export function FormAlta({ codi, grups, valors = {}, errors }: FormAltaProps): Html {
+export function CreateForm({ codi, groups, valors = {}, errors }: CreateFormProps): Html {
   return html`<form
     id="form-recurrent-nou"
     class="filtres"
@@ -414,58 +414,58 @@ export function FormAlta({ codi, grups, valors = {}, errors }: FormAltaProps): H
     hx-target="#form-recurrent-nou"
     hx-swap="outerHTML"
   >
-    ${Camp({
-      nom: "label",
-      etiqueta: "Nom",
+    ${Field({
+      name: "label",
+      tag: "Nom",
       valor: valors.label ?? "",
       errors,
       requerit: true,
       maxlength: 200,
     })}
-    ${Tria({
-      nom: "category_id",
-      etiqueta: "Categoria",
+    ${Select({
+      name: "category_id",
+      tag: "Categoria",
       valor: valors.category_id ?? "",
-      grups: grups.map((g) => ({
-        etiqueta: g.etiqueta,
-        opcions: g.opcions.map((o) => ({ valor: o.valor, text: o.text })),
+      groups: groups.map((g) => ({
+        tag: g.tag,
+        options: g.options.map((o) => ({ valor: o.valor, text: o.text })),
       })),
-      buit: "Tria’n una",
+      empty: "Tria’n una",
       errors,
     })}
-    ${Tria({
-      nom: "cadence",
-      etiqueta: "Cadencia",
+    ${Select({
+      name: "cadence",
+      tag: "Cadencia",
       valor: valors.cadence ?? "monthly",
-      opcions: (Object.keys(CADENCIES) as Cadence[]).map((c) => ({
+      options: (Object.keys(CADENCIES) as Cadence[]).map((c) => ({
         valor: c,
         text: CADENCIES[c],
       })),
       errors,
     })}
-    ${Camp({
-      nom: "amount",
-      etiqueta: "Import",
+    ${Field({
+      name: "amount",
+      tag: "Import",
       valor: valors.amount ?? "",
       errors,
       requerit: true,
       step: "0.01",
       placeholder: "12.99",
     })}
-    ${Tria({
-      nom: "sentit",
-      etiqueta: "Sentit",
+    ${Select({
+      name: "sentit",
+      tag: "Sentit",
       valor: valors.sentit ?? "out",
-      opcions: [
+      options: [
         { valor: "out", text: "Despesa" },
         { valor: "in", text: "Ingres" },
       ],
       errors,
     })}
-    ${Camp({
-      nom: "next_expected_date",
-      etiqueta: "Proxima data",
-      tipus: "date",
+    ${Field({
+      name: "next_expected_date",
+      tag: "Proxima data",
+      type: "date",
       valor: valors.next_expected_date ?? todayLocal(),
       errors,
       requerit: true,

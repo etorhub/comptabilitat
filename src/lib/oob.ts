@@ -30,17 +30,17 @@ import type { HtmlEscapedString } from "hono/utils/html";
  * node sencer, el de recanvi hauria de dur l'`aria-live`, i el navegador nomes
  * anuncia una regio viva que ja existia quan s'hi ha posat el text.
  */
-export type ModeOob = "outerHTML" | "innerHTML";
+export type OobMode = "outerHTML" | "innerHTML";
 
-export interface ObjectiuOob {
+export interface OobTarget {
   /** Qui el dibuixa. */
   amo: string;
   /** Quan canvia. */
   quan: string;
-  mode: ModeOob;
+  mode: OobMode;
 }
 
-export const OBJECTIUS_OOB = {
+export const OOB_TARGETS = {
   toast: {
     amo: "lib/http.ts",
     quan: "qualsevol error o confirmacio",
@@ -106,9 +106,9 @@ export const OBJECTIUS_OOB = {
     quan: "canvia l'estat del planificador",
     mode: "outerHTML",
   },
-} as const satisfies Record<string, ObjectiuOob>;
+} as const satisfies Record<string, OobTarget>;
 
-export type IdOob = keyof typeof OBJECTIUS_OOB;
+export type OobId = keyof typeof OOB_TARGETS;
 
 /**
  * L'`id` d'un objectiu i, si toca, el seu `hx-swap-oob`.
@@ -118,7 +118,7 @@ export type IdOob = keyof typeof OBJECTIUS_OOB;
  * El tipus de `id` es el que lliga el registre amb el codi: un objectiu que no
  * hi sigui no compila.
  */
-export function atributsOob(id: IdOob, oob = false): HtmlEscapedString {
+export function oobAttributes(id: OobId, oob = false): HtmlEscapedString {
   return raw(`id="${id}"${oob ? ' hx-swap-oob="true"' : ""}`) as HtmlEscapedString;
 }
 
@@ -128,6 +128,6 @@ export function atributsOob(id: IdOob, oob = false): HtmlEscapedString {
  * Nomes per als de mode `innerHTML`: el node que es dibuixa no es l'objectiu,
  * sino una capsa que duu el contingut nou cap a ell.
  */
-export function embolcallOob(id: IdOob): HtmlEscapedString {
+export function oobWrapper(id: OobId): HtmlEscapedString {
   return raw(`hx-swap-oob="innerHTML:#${id}"`) as HtmlEscapedString;
 }

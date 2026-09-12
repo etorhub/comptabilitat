@@ -15,9 +15,9 @@ import type { CategoryKind } from "../db/schema/index.ts";
 import { slugify } from "./slugs.ts";
 
 /** [nom del pare, color, [fills]] */
-export type Arbre = readonly (readonly [string, string, readonly string[]])[];
+export type Tree = readonly (readonly [string, string, readonly string[]])[];
 
-export const EXPENSE_TREE: Arbre = [
+export const EXPENSE_TREE: Tree = [
   [
     "Habitatge",
     "#0ea5e9",
@@ -67,14 +67,14 @@ export const EXPENSE_TREE: Arbre = [
   ["Altres despeses", "#94a3b8", ["Efectiu retirat", "Sense classificar"]],
 ];
 
-export const INCOME_TREE: Arbre = [
+export const INCOME_TREE: Tree = [
   ["Ingressos del treball", "#16a34a", ["Nomina", "Facturacio i autonoms", "Pagues extra"]],
   ["Rendes", "#10b981", ["Lloguers cobrats", "Interessos i dividends"]],
   ["Prestacions", "#34d399", ["Pensions", "Subsidis i ajuts"]],
   ["Altres ingressos", "#4ade80", ["Devolucions", "Vendes", "Ingressos diversos"]],
 ];
 
-export const TRANSFER_TREE: Arbre = [
+export const TRANSFER_TREE: Tree = [
   [
     "Traspassos",
     "#8b5cf6",
@@ -93,7 +93,7 @@ export const DEFAULT_LEDGERS: readonly (readonly [string, string, string, string
  * a cridar no duplica res.
  */
 export async function seedCategories(ledgerId: number): Promise<number> {
-  const arbres: readonly (readonly [CategoryKind, Arbre])[] = [
+  const arbres: readonly (readonly [CategoryKind, Tree])[] = [
     ["expense", EXPENSE_TREE],
     ["income", INCOME_TREE],
     ["transfer", TRANSFER_TREE],
@@ -111,24 +111,24 @@ export async function seedCategories(ledgerId: number): Promise<number> {
   let creades = 0;
   let posicio = 0;
 
-  for (const [kind, arbre] of arbres) {
-    for (const [nomPare, color, fills] of arbre) {
-      const slugPare = slugify(nomPare);
-      let idPare: number | undefined;
+  for (const [kind, tree] of arbres) {
+    for (const [nomPare, color, children] of tree) {
+      const parentSlug = slugify(nomPare);
+      let parentId: number | undefined;
 
-      if (existents.has(slugPare)) {
+      if (existents.has(parentSlug)) {
         const [ja] = await db
           .select({ id: categories.id })
           .from(categories)
-          .where(and(eq(categories.ledgerId, ledgerId), eq(categories.slug, slugPare)))
+          .where(and(eq(categories.ledgerId, ledgerId), eq(categories.slug, parentSlug)))
           .limit(1);
-        idPare = ja?.id;
+        parentId = ja?.id;
       } else {
         const [creat] = await db
           .insert(categories)
           .values({
             ledgerId,
-            slug: slugPare,
+            slug: parentSlug,
             name: nomPare,
             kind,
             color,
@@ -138,25 +138,25 @@ export async function seedCategories(ledgerId: number): Promise<number> {
             parentId: null,
           })
           .returning({ id: categories.id });
-        idPare = creat?.id;
+        parentId = creat?.id;
         creades += 1;
       }
       posicio += 1;
-      if (idPare === undefined) continue;
+      if (parentId === undefined) continue;
 
-      for (const nomFill of fills) {
-        const slugFill = `${slugPare}-${slugify(nomFill)}`;
-        if (existents.has(slugFill)) continue;
+      for (const childName of children) {
+        const slugChild = `${parentSlug}-${slugify(childName)}`;
+        if (existents.has(slugChild)) continue;
         await db.insert(categories).values({
           ledgerId,
-          slug: slugFill,
-          name: nomFill,
+          slug: slugChild,
+          name: childName,
           kind,
           color,
           icon: "",
           isSystem: true,
           position: posicio,
-          parentId: idPare,
+          parentId: parentId,
         });
         creades += 1;
         posicio += 1;
@@ -169,7 +169,7 @@ export async function seedCategories(ledgerId: number): Promise<number> {
 
 /** Crea els tres espais inicials amb el seu pla, si no hi son. */
 export async function seedLedgers(): Promise<Ledger[]> {
-  const creats: Ledger[] = [];
+  const created: Ledger[] = [];
 
   for (const [posicio, [code, name, color, description]] of DEFAULT_LEDGERS.entries()) {
     const [ja] = await db.select().from(ledgers).where(eq(ledgers.code, code)).limit(1);
@@ -195,9 +195,9 @@ export async function seedLedgers(): Promise<Ledger[]> {
 
     if (creat) {
       await seedCategories(creat.id);
-      creats.push(creat);
+      created.push(creat);
     }
   }
 
-  return creats;
+  return created;
 }

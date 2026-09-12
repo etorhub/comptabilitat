@@ -6,14 +6,14 @@ import { z } from "zod/v4";
 
 import { ledgerRoleSchema } from "../../db/schema/index.ts";
 
-export const MIN_CONTRASENYA = 10;
+export const MIN_PASSWORD = 10;
 
 export const userCreateSchema = z.object({
   email: z.email("Aixo no sembla una adreça de correu").transform((v) => v.toLowerCase()),
   full_name: z.string().trim().max(255).default(""),
   password: z
     .string()
-    .min(MIN_CONTRASENYA, `La contrasenya ha de tenir ${MIN_CONTRASENYA} carácters o mes`),
+    .min(MIN_PASSWORD, `La contrasenya ha de tenir ${MIN_PASSWORD} carácters o mes`),
   is_admin: z
     .union([z.literal("on"), z.literal("1"), z.literal("true")])
     .optional()
@@ -36,7 +36,7 @@ export const userUpdateSchema = z.object({
 export const passwordResetSchema = z.object({
   password: z
     .string()
-    .min(MIN_CONTRASENYA, `La contrasenya ha de tenir ${MIN_CONTRASENYA} carácters o mes`),
+    .min(MIN_PASSWORD, `La contrasenya ha de tenir ${MIN_PASSWORD} carácters o mes`),
 });
 
 /** Concessio d'acces a un espai. `role` buit vol dir treure'l. */

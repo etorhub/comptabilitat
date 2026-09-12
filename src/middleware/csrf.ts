@@ -34,8 +34,8 @@ export const csrfMiddleware: MiddlewareHandler = async (c, next) => {
     return next();
   }
 
-  const cami = new URL(c.req.url).pathname;
-  if (EXEMPTES.some((patro) => patro.test(cami))) {
+  const path = new URL(c.req.url).pathname;
+  if (EXEMPTES.some((patro) => patro.test(path))) {
     return next();
   }
 
@@ -47,8 +47,8 @@ export const csrfMiddleware: MiddlewareHandler = async (c, next) => {
    * Amb sessio, la llavor es el resum del testimoni de sessio. Sense (el
    * formulari d'entrada), es la galeta d'un sol us que va posar el `GET`.
    */
-  const llavor = c.get("sessionTokenHash") ?? getCookie(c, CSRF_SEED_COOKIE) ?? null;
-  if (llavor === null) {
+  const seed = c.get("sessionTokenHash") ?? getCookie(c, CSRF_SEED_COOKIE) ?? null;
+  if (seed === null) {
     return toastOnly(c, "La sessio s'ha tancat. Torna a carregar la pagina.", 403);
   }
 
@@ -56,18 +56,18 @@ export const csrfMiddleware: MiddlewareHandler = async (c, next) => {
   // formularis que no passen per HTMX (l'entrada).
   let presentat = c.req.header(CSRF_HEADER);
   if (presentat === undefined) {
-    const tipus = c.req.header("Content-Type") ?? "";
+    const type = c.req.header("Content-Type") ?? "";
     if (
-      tipus.includes("application/x-www-form-urlencoded") ||
-      tipus.includes("multipart/form-data")
+      type.includes("application/x-www-form-urlencoded") ||
+      type.includes("multipart/form-data")
     ) {
-      const cos = await c.req.parseBody();
-      const camp = cos[CSRF_FIELD];
-      if (typeof camp === "string") presentat = camp;
+      const body = await c.req.parseBody();
+      const field = body[CSRF_FIELD];
+      if (typeof field === "string") presentat = field;
     }
   }
 
-  if (!(await csrfTokenValid(llavor, presentat))) {
+  if (!(await csrfTokenValid(seed, presentat))) {
     return toastOnly(c, "El formulari ha caducat. Torna a carregar la pagina.", 403);
   }
 

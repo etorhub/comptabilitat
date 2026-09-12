@@ -5,28 +5,28 @@
 import { describe, expect, test } from "bun:test";
 
 import { money } from "../../src/lib/money.ts";
-import { rectaMinimsQuadrats } from "../../src/services/forecast.ts";
+import { leastSquaresLine } from "../../src/services/forecast.ts";
 
 describe("rectaMinimsQuadrats", () => {
   test("una serie lineal pura recupera els extrems", () => {
     // 1000, 990, …, 700: baixa 10 per dia durant 30 passos (31 punts).
     const valors = Array.from({ length: 31 }, (_, i) => money(1000).minus(money(10).times(i)));
-    const recta = rectaMinimsQuadrats(valors);
+    const line = leastSquaresLine(valors);
 
-    expect(recta).toHaveLength(31);
-    expect(Number(recta[0])).toBeCloseTo(1000, 1);
-    expect(Number(recta[30])).toBeCloseTo(700, 1);
-    const primer = recta[0];
-    const ultim = recta[30];
-    expect(primer).toBeDefined();
-    expect(ultim).toBeDefined();
-    expect(ultim?.lt(primer ?? money(0))).toBe(true);
+    expect(line).toHaveLength(31);
+    expect(Number(line[0])).toBeCloseTo(1000, 1);
+    expect(Number(line[30])).toBeCloseTo(700, 1);
+    const first = line[0];
+    const last = line[30];
+    expect(first).toBeDefined();
+    expect(last).toBeDefined();
+    expect(last?.lt(first ?? money(0))).toBe(true);
   });
 
   test("una serie plana es queda plana", () => {
     const valors = Array.from({ length: 10 }, () => money(500));
-    const recta = rectaMinimsQuadrats(valors);
-    for (const v of recta) expect(Number(v)).toBeCloseTo(500, 2);
+    const line = leastSquaresLine(valors);
+    for (const v of line) expect(Number(v)).toBeCloseTo(500, 2);
   });
 
   test("amb dents de serra, la recta suavitza pero conserva el sentit", () => {
@@ -40,11 +40,11 @@ describe("rectaMinimsQuadrats", () => {
       money(800),
       money(750),
     ];
-    const recta = rectaMinimsQuadrats(valors);
-    const primer = recta[0];
-    const ultim = recta.at(-1);
-    expect(primer).toBeDefined();
-    expect(ultim).toBeDefined();
-    expect(ultim?.lt(primer ?? money(0))).toBe(true);
+    const line = leastSquaresLine(valors);
+    const first = line[0];
+    const last = line.at(-1);
+    expect(first).toBeDefined();
+    expect(last).toBeDefined();
+    expect(last?.lt(first ?? money(0))).toBe(true);
   });
 });

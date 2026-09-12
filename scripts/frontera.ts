@@ -26,12 +26,12 @@ import { readdir } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 
 /** Els directoris que han de poder marxar, i el que se'ls permet importar. */
-const EXTRAIBLES = [{ dir: "htmx-contract", paquets: ["bun:test"] }] as const;
+const Extractables = [{ dir: "htmx-contract", paquets: ["bun:test"] }] as const;
 
-const ARREL = resolve(import.meta.dir, "..");
+const Root = resolve(import.meta.dir, "..");
 
-export interface Problema {
-  fitxer: string;
+export interface Problem {
+  file: string;
   linia: number;
   motiu: string;
 }
@@ -97,18 +97,18 @@ const PARAULES_SET = new Set(PARAULES);
  * Les linies es conserven perque els numeros que surten a l'informe siguin els
  * del fitxer de debo.
  */
-function neteja(font: string, { textos }: { textos: boolean }): string {
+function clean(font: string, { textos }: { textos: boolean }): string {
   let out = "";
   let i = 0;
   while (i < font.length) {
     const c = font[i];
-    const seguent = font[i + 1];
+    const next = font[i + 1];
 
-    if (c === "/" && seguent === "/") {
+    if (c === "/" && next === "/") {
       while (i < font.length && font[i] !== "\n") i++;
       continue;
     }
-    if (c === "/" && seguent === "*") {
+    if (c === "/" && next === "*") {
       i += 2;
       while (i < font.length && !(font[i] === "*" && font[i + 1] === "/")) {
         if (font[i] === "\n") out += "\n";
@@ -135,7 +135,7 @@ function neteja(font: string, { textos }: { textos: boolean }): string {
 }
 
 /** Els especificadors d'importacio, amb el numero de linia. */
-function importacions(font: string): { spec: string; linia: number }[] {
+function imports(font: string): { spec: string; linia: number }[] {
   const out: { spec: string; linia: number }[] = [];
   const patro = /(?:\bfrom\s*|(?:\bimport|\brequire)\s*\(\s*)["']([^"']+)["']/g;
   let match: RegExpExecArray | null;
@@ -148,35 +148,35 @@ function importacions(font: string): { spec: string; linia: number }[] {
 }
 
 /** Els noms que declara un fitxer. */
-function declaracions(codi: string): { nom: string; linia: number }[] {
-  const out: { nom: string; linia: number }[] = [];
+function declaracions(codi: string): { name: string; linia: number }[] {
+  const out: { name: string; linia: number }[] = [];
   const patro = /\b(?:function|const|let|var|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/g;
   let match: RegExpExecArray | null;
   while ((match = patro.exec(codi)) !== null) {
-    const nom = match[1];
-    if (nom === undefined) continue;
-    out.push({ nom, linia: codi.slice(0, match.index).split("\n").length });
+    const name = match[1];
+    if (name === undefined) continue;
+    out.push({ name, linia: codi.slice(0, match.index).split("\n").length });
   }
   return out;
 }
 
 /** `comprovaResposta` → ["comprova", "resposta"] */
-function trossos(nom: string): string[] {
-  return nom
+function parts(name: string): string[] {
+  return name
     .replaceAll(/([a-z\d])([A-Z])/g, "$1 $2")
     .split(/[\s_$]+/)
     .map((t) => t.toLowerCase())
     .filter(Boolean);
 }
 
-async function fitxersTs(dir: string): Promise<string[]> {
+async function filesTs(dir: string): Promise<string[]> {
   const entrades = await readdir(dir, { withFileTypes: true, recursive: true });
   return entrades
     .filter((e) => e.isFile() && e.name.endsWith(".ts"))
     .map((e) => join(e.parentPath, e.name));
 }
 
-export interface Extraible {
+export interface Extractable {
   dir: string;
   paquets: readonly string[];
 }
@@ -189,28 +189,28 @@ export interface Extraible {
  * provar no es una comprovacio: aquesta ja va dir un cop que tot estava be
  * mentre no mirava les importacions.
  */
-export async function comprovaFrontera(
-  extraibles: readonly Extraible[] = EXTRAIBLES,
-  arrel: string = ARREL,
-): Promise<Problema[]> {
-  const problemes: Problema[] = [];
+export async function checkBoundary(
+  extraibles: readonly Extractable[] = Extractables,
+  root: string = Root,
+): Promise<Problem[]> {
+  const problems: Problem[] = [];
 
   for (const { dir, paquets } of extraibles) {
-    const base = join(arrel, dir);
+    const base = join(root, dir);
     const permesos = new Set<string>(paquets);
 
-    for (const fitxer of await fitxersTs(base)) {
-      const relatiu = relative(arrel, fitxer);
-      const font = await Bun.file(fitxer).text();
-      const ambTextos = neteja(font, { textos: true });
-      const codi = neteja(font, { textos: false });
+    for (const file of await filesTs(base)) {
+      const relatiu = relative(root, file);
+      const font = await Bun.file(file).text();
+      const withStrings = clean(font, { textos: true });
+      const codi = clean(font, { textos: false });
 
-      for (const { spec, linia } of importacions(ambTextos)) {
+      for (const { spec, linia } of imports(withStrings)) {
         if (spec.startsWith(".")) {
-          const desti = resolve(fitxer, "..", spec);
+          const desti = resolve(file, "..", spec);
           if (!desti.startsWith(base + "/")) {
-            problemes.push({
-              fitxer: relatiu,
+            problems.push({
+              file: relatiu,
               linia,
               motiu: `importa "${spec}", que es fora de ${dir}/`,
             });
@@ -218,41 +218,41 @@ export async function comprovaFrontera(
           continue;
         }
         if (!permesos.has(spec)) {
-          problemes.push({
-            fitxer: relatiu,
+          problems.push({
+            file: relatiu,
             linia,
             motiu: `importa el paquet "${spec}", que no es a la llista blanca de ${dir}/`,
           });
         }
       }
 
-      for (const { nom, linia } of declaracions(codi)) {
-        const catalanes = trossos(nom).filter((t) => PARAULES_SET.has(t));
+      for (const { name, linia } of declaracions(codi)) {
+        const catalanes = parts(name).filter((t) => PARAULES_SET.has(t));
         if (catalanes.length === 0) continue;
-        problemes.push({
-          fitxer: relatiu,
+        problems.push({
+          file: relatiu,
           linia,
-          motiu: `\`${nom}\` sembla catala (${catalanes.join(", ")}); ${dir}/ es en angles`,
+          motiu: `\`${name}\` sembla catala (${catalanes.join(", ")}); ${dir}/ es en angles`,
         });
       }
     }
   }
 
-  return problemes;
+  return problems;
 }
 
 async function principal(): Promise<void> {
-  const problemes = await comprovaFrontera();
+  const problems = await checkBoundary();
 
-  if (problemes.length === 0) {
-    const noms = EXTRAIBLES.map((e) => `${e.dir}/`).join(", ");
-    console.log(`[frontera] ${noms} es pot endur tal com esta.`);
+  if (problems.length === 0) {
+    const names = Extractables.map((e) => `${e.dir}/`).join(", ");
+    console.log(`[frontera] ${names} es pot endur tal com esta.`);
     return;
   }
 
   console.error("[frontera] la frontera dels directoris extraibles no es respecta:\n");
-  for (const problema of problemes) {
-    console.error(`  ${problema.fitxer}:${problema.linia}  ${problema.motiu}`);
+  for (const problem of problems) {
+    console.error(`  ${problem.file}:${problem.linia}  ${problem.motiu}`);
   }
   console.error(
     "\nAquests directoris han de poder marxar a un paquet seu amb un `git mv`.\n" +

@@ -22,23 +22,19 @@ import {
   transactions,
   type Ledger,
 } from "../src/db/schema/index.ts";
-import {
-  comprovaDescoberts,
-  construeixPrevisio,
-  esdevenimentsPrevistos,
-} from "../src/services/forecast.ts";
-import { confirmaSerie, detectaRecurrents } from "../src/services/recurring.ts";
-import { ingressosIDespeses, serieMensual } from "../src/services/reports.ts";
+import { checkOverdrafts, buildForecast, eventsExpected } from "../src/services/forecast.ts";
+import { confirmSeries, detectRecurring } from "../src/services/recurring.ts";
+import { incomeAndExpenses, monthlySeries } from "../src/services/reports.ts";
 import { seedCategories } from "../src/services/seed.ts";
 import { addDays, todayLocal } from "../src/lib/time.ts";
 import { money } from "../src/lib/money.ts";
 
-let espai: Ledger;
+let workspace: Ledger;
 let accountId = 0;
 
-async function moviment(
-  clau: string,
-  data: string,
+async function transaction(
+  key: string,
+  date: string,
   quantitat: string,
   extra: Partial<{
     transferGroupId: string;
@@ -52,10 +48,10 @@ async function moviment(
     .insert(transactions)
     .values({
       accountId,
-      ledgerId: espai.id,
-      dedupKey: clau,
+      ledgerId: workspace.id,
+      dedupKey: key,
       source: "manual",
-      bookingDate: data,
+      bookingDate: date,
       amount: quantitat,
       currency: "EUR",
       status: extra.status ?? "booked",
@@ -78,7 +74,7 @@ async function moviment(
 }
 
 /** Una serie activa a la previsio, sense passar pel detector. */
-async function serieActiva(opts: {
+async function activeSeries(opts: {
   amount: string;
   intervalDays: number;
   nextExpectedDate: string;
@@ -86,10 +82,10 @@ async function serieActiva(opts: {
   categoryId: number;
   merchantId?: number | null;
 }) {
-  const [serie] = await db
+  const [series] = await db
     .insert(recurringSeries)
     .values({
-      ledgerId: espai.id,
+      ledgerId: workspace.id,
       signature: `c${opts.categoryId}|m${opts.merchantId ?? "-"}|out-test-${opts.label ?? opts.amount}`,
       label: opts.label ?? "Rebut previst",
       merchantId: opts.merchantId ?? null,
@@ -108,7 +104,7 @@ async function serieActiva(opts: {
       includeInForecast: true,
     })
     .returning();
-  return serie;
+  return series;
 }
 
 beforeEach(async () => {
@@ -137,10 +133,10 @@ beforeEach(async () => {
       alertRecipients: [],
     })
     .returning();
-  espai = creat as Ledger;
-  await seedCategories(espai.id);
+  workspace = creat as Ledger;
+  await seedCategories(workspace.id);
 
-  const [connexio] = await db
+  const [connection] = await db
     .insert(bankConnections)
     .values({
       name: "P",
@@ -151,11 +147,11 @@ beforeEach(async () => {
       lastError: "",
     })
     .returning();
-  const [compte] = await db
+  const [account] = await db
     .insert(accounts)
     .values({
-      connectionId: connexio?.id ?? 0,
-      ledgerId: espai.id,
+      connectionId: connection?.id ?? 0,
+      ledgerId: workspace.id,
       ebAccountUid: "uid-f",
       name: "C",
       product: "",
@@ -167,7 +163,7 @@ beforeEach(async () => {
       raw: {},
     })
     .returning();
-  accountId = compte?.id ?? 0;
+  accountId = account?.id ?? 0;
 
   // Saldo conegut d'avui.
   await db.insert(balances).values({
@@ -183,34 +179,37 @@ beforeEach(async () => {
 describe("la projeccio", () => {
   test("sense schedules, la linia es plana al saldo d'avui", async () => {
     for (let i = 0; i < 9; i += 1) {
-      await moviment(`d${i}`, addDays(todayLocal(), -i * 10), "-100.00");
+      await transaction(`d${i}`, addDays(todayLocal(), -i * 10), "-100.00");
     }
 
-    const previsio = await construeixPrevisio(espai, 30);
-    expect(previsio.punts).toHaveLength(31);
-    expect(Number(previsio.punts[0]?.esperat)).toBeCloseTo(1000, 1);
-    expect(Number(previsio.punts[30]?.esperat)).toBeCloseTo(1000, 1);
-    expect(previsio.despesaDiaria).toBe("0.00");
-    expect(previsio.primerDescobert).toBeNull();
+    const forecast = await buildForecast(workspace, 30);
+    expect(forecast.points).toHaveLength(31);
+    expect(Number(forecast.points[0]?.esperat)).toBeCloseTo(1000, 1);
+    expect(Number(forecast.points[30]?.esperat)).toBeCloseTo(1000, 1);
+    expect(forecast.despesaDiaria).toBe("0.00");
+    expect(forecast.firstOverdraft).toBeNull();
     // Mateixa amplada a esquerra (real) i dreta (previsio), amb avui a les dues.
-    expect(previsio.historic.length).toBe(31);
-    expect(previsio.historic[previsio.historic.length - 1]?.dia).toBe(todayLocal());
-    expect(Number(previsio.historic[previsio.historic.length - 1]?.saldo)).toBeCloseTo(1000, 1);
+    expect(forecast.historic.length).toBe(31);
+    expect(forecast.historic[forecast.historic.length - 1]?.day).toBe(todayLocal());
+    expect(Number(forecast.historic[forecast.historic.length - 1]?.balance)).toBeCloseTo(
+      1000,
+      1,
+    );
   });
 
   test("sense despesa residual, les bandes coincideixen amb l'esperat", async () => {
-    const previsio = await construeixPrevisio(espai, 30);
-    const ultim = previsio.punts[30];
+    const forecast = await buildForecast(workspace, 30);
+    const last = forecast.points[30];
 
-    expect(ultim?.optimista).toBe(ultim?.esperat);
-    expect(ultim?.pessimista).toBe(ultim?.esperat);
+    expect(last?.optimista).toBe(last?.esperat);
+    expect(last?.pessimista).toBe(last?.esperat);
   });
 
   test("una serie suggested no baixa el saldo; confirmada si", async () => {
-    const [comerc] = await db
+    const [merchant] = await db
       .insert(merchants)
       .values({
-        ledgerId: espai.id,
+        ledgerId: workspace.id,
         normalizedName: "NETFLIX",
         displayName: "Netflix",
         defaultCategoryId: null,
@@ -221,10 +220,10 @@ describe("la projeccio", () => {
       })
       .returning();
 
-    const [categoria] = await db
+    const [category] = await db
       .insert(categories)
       .values({
-        ledgerId: espai.id,
+        ledgerId: workspace.id,
         parentId: null,
         slug: "subscripcions-test",
         name: "Subscripcions",
@@ -236,36 +235,36 @@ describe("la projeccio", () => {
       })
       .returning();
 
-    const avui = todayLocal();
-    for (const [i, dies] of [90, 60, 30].entries()) {
-      await moviment(`n${i}`, addDays(avui, -dies), "-12.99", {
-        categoryId: categoria?.id ?? 0,
-        merchantId: comerc?.id ?? 0,
+    const today = todayLocal();
+    for (const [i, days] of [90, 60, 30].entries()) {
+      await transaction(`n${i}`, addDays(today, -days), "-12.99", {
+        categoryId: category?.id ?? 0,
+        merchantId: merchant?.id ?? 0,
       });
     }
 
-    await detectaRecurrents(espai.id);
+    await detectRecurring(workspace.id);
 
-    const senseConfirmar = await construeixPrevisio(espai, 40);
-    expect(Number(senseConfirmar.punts[40]?.esperat)).toBeCloseTo(1000, 1);
+    const unconfirmed = await buildForecast(workspace, 40);
+    expect(Number(unconfirmed.points[40]?.esperat)).toBeCloseTo(1000, 1);
 
-    const [proposta] = await db
+    const [proposal] = await db
       .select()
       .from(recurringSeries)
-      .where(eq(recurringSeries.ledgerId, espai.id));
-    expect(proposta).toBeDefined();
-    if (!proposta) throw new Error("calia una proposta");
-    await confirmaSerie(proposta.id, { cadence: "monthly", amountMode: "exact" });
+      .where(eq(recurringSeries.ledgerId, workspace.id));
+    expect(proposal).toBeDefined();
+    if (!proposal) throw new Error("calia una proposta");
+    await confirmSeries(proposal.id, { cadence: "monthly", amountMode: "exact" });
 
-    const ambConfirmar = await construeixPrevisio(espai, 40);
-    expect(money(ambConfirmar.punts[40]?.esperat).lt(money("1000"))).toBe(true);
+    const withConfirm = await buildForecast(workspace, 40);
+    expect(money(withConfirm.points[40]?.esperat).lt(money("1000"))).toBe(true);
   });
 
   test("una serie activa anual apareix als esdeveniments previstos", async () => {
-    const [categoria] = await db
+    const [category] = await db
       .insert(categories)
       .values({
-        ledgerId: espai.id,
+        ledgerId: workspace.id,
         parentId: null,
         slug: "asseguranca-anual",
         name: "Assegurança anual",
@@ -277,32 +276,32 @@ describe("la projeccio", () => {
       })
       .returning();
 
-    await serieActiva({
+    await activeSeries({
       amount: "-450.00",
       intervalDays: 365,
       nextExpectedDate: addDays(todayLocal(), 20),
       label: "Assegurança casa",
-      categoryId: categoria?.id ?? 0,
+      categoryId: category?.id ?? 0,
     });
 
     const horitzo = addDays(todayLocal(), 400);
-    const esdeveniments = await esdevenimentsPrevistos(espai.id, horitzo);
-    expect(esdeveniments.some((e) => e.amount === "-450.00")).toBe(true);
+    const events = await eventsExpected(workspace.id, horitzo);
+    expect(events.some((e) => e.amount === "-450.00")).toBe(true);
 
-    const previsio = await construeixPrevisio(espai, 400);
-    const ambRebut = previsio.punts.find((p) =>
-      money(p.esperat).lt(money(previsio.punts[0]?.esperat ?? "0")),
+    const forecast = await buildForecast(workspace, 400);
+    const withBill = forecast.points.find((p) =>
+      money(p.esperat).lt(money(forecast.points[0]?.esperat ?? "0")),
     );
-    expect(ambRebut).toBeDefined();
+    expect(withBill).toBeDefined();
   });
 });
 
 describe("l'avis de descobert", () => {
   test("salta quan un schedule confirmat creua el llindar", async () => {
-    const [categoria] = await db
+    const [category] = await db
       .insert(categories)
       .values({
-        ledgerId: espai.id,
+        ledgerId: workspace.id,
         parentId: null,
         slug: "lloguer-gran",
         name: "Lloguer",
@@ -315,30 +314,33 @@ describe("l'avis de descobert", () => {
       .returning();
 
     // 200 EUR cada 5 dies: en menys de 60 dies s'acaben els 1000.
-    await serieActiva({
+    await activeSeries({
       amount: "-200.00",
       intervalDays: 5,
       nextExpectedDate: addDays(todayLocal(), 1),
       label: "Lloguer",
-      categoryId: categoria?.id ?? 0,
+      categoryId: category?.id ?? 0,
     });
 
-    const previsio = await construeixPrevisio(espai, 60);
-    expect(previsio.primerDescobert).not.toBeNull();
+    const forecast = await buildForecast(workspace, 60);
+    expect(forecast.firstOverdraft).not.toBeNull();
 
-    const creats = await comprovaDescoberts(espai, 60);
-    expect(creats).toBe(1);
+    const created = await checkOverdrafts(workspace, 60);
+    expect(created).toBe(1);
 
-    const [avis] = await db.select().from(alerts).where(eq(alerts.type, "projected_overdraft"));
-    expect(avis?.title).toContain("possible descobert");
-    expect(avis?.ledgerId).toBe(espai.id);
+    const [alert] = await db
+      .select()
+      .from(alerts)
+      .where(eq(alerts.type, "projected_overdraft"));
+    expect(alert?.title).toContain("possible descobert");
+    expect(alert?.ledgerId).toBe(workspace.id);
   });
 
   test("no es repeteix dins de la mateixa setmana", async () => {
-    const [categoria] = await db
+    const [category] = await db
       .insert(categories)
       .values({
-        ledgerId: espai.id,
+        ledgerId: workspace.id,
         parentId: null,
         slug: "lloguer-gran-2",
         name: "Lloguer",
@@ -350,83 +352,83 @@ describe("l'avis de descobert", () => {
       })
       .returning();
 
-    await serieActiva({
+    await activeSeries({
       amount: "-200.00",
       intervalDays: 5,
       nextExpectedDate: addDays(todayLocal(), 1),
       label: "Lloguer",
-      categoryId: categoria?.id ?? 0,
+      categoryId: category?.id ?? 0,
     });
 
-    await comprovaDescoberts(espai, 60);
-    const segon = await comprovaDescoberts(espai, 60);
+    await checkOverdrafts(workspace, 60);
+    const segon = await checkOverdrafts(workspace, 60);
     expect(segon).toBe(0);
   });
 
   test("no salta si el saldo aguanta", async () => {
-    expect(await comprovaDescoberts(espai, 60)).toBe(0);
+    expect(await checkOverdrafts(workspace, 60)).toBe(0);
   });
 });
 
 describe("els agregats dels informes", () => {
   test("els traspassos i els exclosos no son ni ingres ni despesa", async () => {
-    const avui = todayLocal();
-    await moviment("normal", avui, "-50.00");
-    await moviment("traspas", avui, "-500.00", { transferGroupId: "g1" });
-    await moviment("exclos", avui, "-500.00", { isExcluded: true });
-    await moviment("pendent", avui, "-500.00", { status: "pending" });
+    const today = todayLocal();
+    await transaction("normal", today, "-50.00");
+    await transaction("traspas", today, "-500.00", { transferGroupId: "g1" });
+    await transaction("exclos", today, "-500.00", { isExcluded: true });
+    await transaction("pendent", today, "-500.00", { status: "pending" });
 
-    const totals = await ingressosIDespeses([espai.id], null, null);
-    expect(Number(totals.despeses)).toBe(50);
+    const totals = await incomeAndExpenses([workspace.id], null, null);
+    expect(Number(totals.expenses)).toBe(50);
   });
 
   test("la serie mensual separa els mesos", async () => {
-    await moviment("a", "2026-01-15", "-100.00");
-    await moviment("b", "2026-02-10", "-200.00");
-    await moviment("c", "2026-02-20", "300.00");
+    await transaction("a", "2026-01-15", "-100.00");
+    await transaction("b", "2026-02-10", "-200.00");
+    await transaction("c", "2026-02-20", "300.00");
 
-    const serie = await serieMensual([espai.id], "2026-01-01", "2026-03-01");
-    expect(serie).toHaveLength(2);
-    expect(serie[0]?.periode).toBe("2026-01");
-    expect(Number(serie[0]?.despeses)).toBe(100);
-    expect(Number(serie[0]?.despesesVariables)).toBe(100);
-    expect(Number(serie[0]?.despesesFixes)).toBe(0);
-    expect(serie[1]?.periode).toBe("2026-02");
-    expect(Number(serie[1]?.despeses)).toBe(200);
-    expect(Number(serie[1]?.ingressos)).toBe(300);
-    expect(Number(serie[1]?.net)).toBe(100);
+    const series = await monthlySeries([workspace.id], "2026-01-01", "2026-03-01");
+    expect(series).toHaveLength(2);
+    expect(series[0]?.periode).toBe("2026-01");
+    expect(Number(series[0]?.expenses)).toBe(100);
+    expect(Number(series[0]?.despesesVariables)).toBe(100);
+    expect(Number(series[0]?.despesesFixes)).toBe(0);
+    expect(series[1]?.periode).toBe("2026-02");
+    expect(Number(series[1]?.expenses)).toBe(200);
+    expect(Number(series[1]?.income)).toBe(300);
+    expect(Number(series[1]?.cleaned)).toBe(100);
   });
 
   test("la serie mensual separa despeses fixes i variables", async () => {
-    const [categoria] = await db
+    const [category] = await db
       .select({ id: categories.id })
       .from(categories)
-      .where(eq(categories.ledgerId, espai.id))
+      .where(eq(categories.ledgerId, workspace.id))
       .limit(1);
-    const categoryId = categoria?.id ?? 0;
+    const categoryId = category?.id ?? 0;
 
-    const fixaId = await moviment("fixa", "2026-03-05", "-80.00", { categoryId });
-    await moviment("variable", "2026-03-12", "-40.00");
+    const fixedId = await transaction("fixa", "2026-03-05", "-80.00", { categoryId });
+    await transaction("variable", "2026-03-12", "-40.00");
 
-    const serie = await serieActiva({
+    const series = await activeSeries({
       amount: "-80.00",
       intervalDays: 30,
       nextExpectedDate: addDays(todayLocal(), 20),
       categoryId,
       label: "Lloguer",
     });
-    expect(serie).toBeDefined();
+    expect(series).toBeDefined();
     await db.insert(recurringOccurrences).values({
-      seriesId: serie?.id ?? 0,
-      transactionId: fixaId,
+      seriesId: series?.id ?? 0,
+      transactionId: fixedId,
       occurredOn: "2026-03-05",
       amount: "-80.00",
     });
 
-    const punts = await serieMensual([espai.id], "2026-03-01", "2026-04-01");
-    expect(punts).toHaveLength(1);
-    expect(Number(punts[0]?.despeses)).toBe(120);
-    expect(Number(punts[0]?.despesesFixes)).toBe(80);
-    expect(Number(punts[0]?.despesesVariables)).toBe(40);
+    const points = await monthlySeries([workspace.id], "2026-03-01", "2026-04-01");
+    expect(points).toHaveLength(1);
+    expect(Number(points[0]?.expenses)).toBe(120);
+    expect(Number(points[0]?.despesesFixes)).toBe(80);
+    expect(Number(points[0]?.despesesVariables)).toBe(40);
   });
 });

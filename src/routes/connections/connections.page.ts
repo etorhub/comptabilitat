@@ -6,15 +6,19 @@ import { html } from "hono/html";
 
 import type { Ledger } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
-import { FormConnecta, Llista, type ConnexioVista } from "./connections.fragment.ts";
+import { FormConnecta, List, type ConnectionView } from "./connections.fragment.ts";
 
 export interface ConnectionsPageProps {
-  connexions: ConnexioVista[];
-  espais: Ledger[];
+  connections: ConnectionView[];
+  workspaces: Ledger[];
   retorn?: { ok: boolean; motiu: string } | undefined;
 }
 
-export function ConnectionsPage({ connexions, espais, retorn }: ConnectionsPageProps): Html {
+export function ConnectionsPage({
+  connections,
+  workspaces,
+  retorn,
+}: ConnectionsPageProps): Html {
   return html`
     <header class="capçalera">
       <h1>Connexions bancaries</h1>
@@ -37,6 +41,6 @@ export function ConnectionsPage({ connexions, espais, retorn }: ConnectionsPageP
         : ""
     }
 
-    ${FormConnecta()} ${Llista({ connexions, espais })}
+    ${FormConnecta()} ${List({ connections, workspaces })}
   ` as Html;
 }

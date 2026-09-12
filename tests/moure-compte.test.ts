@@ -26,15 +26,15 @@ import {
   userLedgerPermissions,
   users,
 } from "../src/db/schema/index.ts";
-import { mouCompteDEspai } from "../src/services/accounts.ts";
+import { moveAccountToWorkspace } from "../src/services/accounts.ts";
 import { seedCategories } from "../src/services/seed.ts";
 
 let personalId = 0;
 let calellaId = 0;
-let compteA = 0;
-let compteB = 0;
+let accountA = 0;
+let accountB = 0;
 
-async function categoria(ledgerId: number, slug: string) {
+async function category(ledgerId: number, slug: string) {
   const [c] = await db
     .select()
     .from(categories)
@@ -44,8 +44,8 @@ async function categoria(ledgerId: number, slug: string) {
   return c;
 }
 
-interface OpcionsMoviment {
-  compte?: number;
+interface TransactionOptions {
+  account?: number;
   ledgerId?: number;
   amount?: string;
   descripcio?: string;
@@ -54,11 +54,11 @@ interface OpcionsMoviment {
   transferGroupId?: string | null;
 }
 
-async function moviment(o: OpcionsMoviment = {}): Promise<number> {
+async function transaction(o: TransactionOptions = {}): Promise<number> {
   const [f] = await db
     .insert(transactions)
     .values({
-      accountId: o.compte ?? compteA,
+      accountId: o.account ?? accountA,
       ledgerId: o.ledgerId ?? personalId,
       dedupKey: `k-${Math.random()}`,
       source: "enablebanking",
@@ -85,7 +85,7 @@ async function moviment(o: OpcionsMoviment = {}): Promise<number> {
   return f?.id ?? 0;
 }
 
-async function llegeix(id: number) {
+async function read(id: number) {
   const [f] = await db.select().from(transactions).where(eq(transactions.id, id));
   if (!f) throw new Error("ha desaparegut");
   return f;
@@ -101,7 +101,7 @@ beforeEach(async () => {
   await db.delete(users);
   await db.delete(ledgers);
 
-  const espais = await db
+  const workspaces = await db
     .insert(ledgers)
     .values(
       ["personal", "calella"].map((code, i) => ({
@@ -117,12 +117,12 @@ beforeEach(async () => {
       })),
     )
     .returning();
-  personalId = espais.find((e) => e.code === "personal")?.id ?? 0;
-  calellaId = espais.find((e) => e.code === "calella")?.id ?? 0;
+  personalId = workspaces.find((e) => e.code === "personal")?.id ?? 0;
+  calellaId = workspaces.find((e) => e.code === "calella")?.id ?? 0;
   await seedCategories(personalId);
   await seedCategories(calellaId);
 
-  const [connexio] = await db
+  const [connection] = await db
     .insert(bankConnections)
     .values({
       name: "S",
@@ -134,11 +134,11 @@ beforeEach(async () => {
     })
     .returning();
 
-  const comptes = await db
+  const accountList = await db
     .insert(accounts)
     .values(
       ["uid-a", "uid-b"].map((uid) => ({
-        connectionId: connexio?.id ?? 0,
+        connectionId: connection?.id ?? 0,
         ledgerId: personalId,
         ebAccountUid: uid,
         name: uid,
@@ -152,35 +152,35 @@ beforeEach(async () => {
       })),
     )
     .returning();
-  compteA = comptes.find((c) => c.ebAccountUid === "uid-a")?.id ?? 0;
-  compteB = comptes.find((c) => c.ebAccountUid === "uid-b")?.id ?? 0;
+  accountA = accountList.find((c) => c.ebAccountUid === "uid-a")?.id ?? 0;
+  accountB = accountList.find((c) => c.ebAccountUid === "uid-b")?.id ?? 0;
 });
 
 describe("el que ha triat una persona", () => {
   test("es conserva a l'altre espai, lligat pel slug", async () => {
-    const origen = await categoria(personalId, "alimentacio-supermercat");
-    const id = await moviment({ categoryId: origen.id, categorySource: "user" });
+    const origin = await category(personalId, "alimentacio-supermercat");
+    const id = await transaction({ categoryId: origin.id, categorySource: "user" });
 
-    const resum = await mouCompteDEspai(compteA, calellaId);
+    const summary = await moveAccountToWorkspace(accountA, calellaId);
 
-    expect(resum.conservades).toBe(1);
-    const desti = await categoria(calellaId, "alimentacio-supermercat");
-    const fila = await llegeix(id);
-    expect(fila.ledgerId).toBe(calellaId);
-    expect(fila.categoryId).toBe(desti.id);
-    expect(fila.categorySource).toBe("user");
-    expect(fila.needsReview).toBe(false);
+    expect(summary.conservades).toBe(1);
+    const desti = await category(calellaId, "alimentacio-supermercat");
+    const row = await read(id);
+    expect(row.ledgerId).toBe(calellaId);
+    expect(row.categoryId).toBe(desti.id);
+    expect(row.categorySource).toBe("user");
+    expect(row.needsReview).toBe(false);
   });
 
   test("i el que havia posat una regla, no", async () => {
-    const origen = await categoria(personalId, "alimentacio-supermercat");
-    const id = await moviment({ categoryId: origen.id, categorySource: "rule" });
+    const origin = await category(personalId, "alimentacio-supermercat");
+    const id = await transaction({ categoryId: origin.id, categorySource: "rule" });
 
-    const resum = await mouCompteDEspai(compteA, calellaId);
+    const summary = await moveAccountToWorkspace(accountA, calellaId);
 
-    expect(resum.conservades).toBe(0);
+    expect(summary.conservades).toBe(0);
     // Se'n va a la safata: a l'espai nou hi manen les seves regles.
-    expect((await llegeix(id)).categorySource).not.toBe("user");
+    expect((await read(id)).categorySource).not.toBe("user");
   });
 
   test("si la categoria nomes existia a l'espai vell, va a revisar", async () => {
@@ -198,35 +198,43 @@ describe("el que ha triat una persona", () => {
         position: 99,
       })
       .returning();
-    const id = await moviment({ categoryId: propia?.id ?? 0, categorySource: "user" });
+    const id = await transaction({ categoryId: propia?.id ?? 0, categorySource: "user" });
 
-    const resum = await mouCompteDEspai(compteA, calellaId);
+    const summary = await moveAccountToWorkspace(accountA, calellaId);
 
-    expect(resum.conservades).toBe(0);
-    expect((await llegeix(id)).needsReview).toBe(true);
+    expect(summary.conservades).toBe(0);
+    expect((await read(id)).needsReview).toBe(true);
   });
 });
 
 describe("els traspassos de l'espai que es deixa", () => {
   test("la cama que es queda torna a comptar", async () => {
-    const grup = "g".repeat(32);
-    const seva = await moviment({ compte: compteA, amount: "-400.00", transferGroupId: grup });
-    const altra = await moviment({ compte: compteB, amount: "400.00", transferGroupId: grup });
+    const group = "g".repeat(32);
+    const seva = await transaction({
+      account: accountA,
+      amount: "-400.00",
+      transferGroupId: group,
+    });
+    const altra = await transaction({
+      account: accountB,
+      amount: "400.00",
+      transferGroupId: group,
+    });
 
-    const resum = await mouCompteDEspai(compteA, calellaId);
+    const summary = await moveAccountToWorkspace(accountA, calellaId);
 
-    expect(resum.traspassosDesfets).toBe(1);
+    expect(summary.undoneTransfers).toBe(1);
     // La que es queda ja no apunta a un aparellament que no existeix, aixi que
     // torna a sortir als informes de Personal.
-    expect((await llegeix(altra)).transferGroupId).toBeNull();
-    expect((await llegeix(seva)).transferGroupId).toBeNull();
+    expect((await read(altra)).transferGroupId).toBeNull();
+    expect((await read(seva)).transferGroupId).toBeNull();
   });
 });
 
 describe("o tot, o res", () => {
   test("si peta a mitges, el compte no queda mig mogut", async () => {
-    const origen = await categoria(personalId, "alimentacio-supermercat");
-    const id = await moviment({ categoryId: origen.id, categorySource: "user" });
+    const origin = await category(personalId, "alimentacio-supermercat");
+    const id = await transaction({ categoryId: origin.id, categorySource: "user" });
 
     await db.execute(sql`
       create or replace function peta_el_trasllat() returns trigger as $$
@@ -238,31 +246,31 @@ describe("o tot, o res", () => {
     `);
 
     try {
-      await expect(mouCompteDEspai(compteA, calellaId)).rejects.toThrow();
+      await expect(moveAccountToWorkspace(accountA, calellaId)).rejects.toThrow();
     } finally {
       await db.execute(sql`drop trigger if exists peta_el_trasllat on merchants`);
       await db.execute(sql`drop function if exists peta_el_trasllat()`);
     }
 
     // Res no s'ha mogut: ni el compte, ni el moviment, ni la seva categoria.
-    const [compte] = await db.select().from(accounts).where(eq(accounts.id, compteA));
-    expect(compte?.ledgerId).toBe(personalId);
-    const fila = await llegeix(id);
-    expect(fila.ledgerId).toBe(personalId);
-    expect(fila.categoryId).toBe(origen.id);
-    expect(fila.categorySource).toBe("user");
+    const [account] = await db.select().from(accounts).where(eq(accounts.id, accountA));
+    expect(account?.ledgerId).toBe(personalId);
+    const row = await read(id);
+    expect(row.ledgerId).toBe(personalId);
+    expect(row.categoryId).toBe(origin.id);
+    expect(row.categorySource).toBe("user");
   });
 });
 
 describe("treure el compte de tot espai", () => {
   test("deixa els moviments sense espai i sense classificar", async () => {
-    const origen = await categoria(personalId, "alimentacio-supermercat");
-    const id = await moviment({ categoryId: origen.id, categorySource: "user" });
+    const origin = await category(personalId, "alimentacio-supermercat");
+    const id = await transaction({ categoryId: origin.id, categorySource: "user" });
 
-    await mouCompteDEspai(compteA, null);
+    await moveAccountToWorkspace(accountA, null);
 
-    const fila = await llegeix(id);
-    expect(fila.ledgerId).toBeNull();
-    expect(fila.categoryId).toBeNull();
+    const row = await read(id);
+    expect(row.ledgerId).toBeNull();
+    expect(row.categoryId).toBeNull();
   });
 });

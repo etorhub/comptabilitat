@@ -8,7 +8,7 @@
 import { and, eq, ne } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { ComptadorRevisio } from "../../components/layout.ts";
+import { ReviewCounter } from "../../components/layout.ts";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { accounts, categories, roleAtLeast, transactions } from "../../db/schema/index.ts";
@@ -16,7 +16,7 @@ import {
   NotFoundError,
   clearToast,
   fragment,
-  idDeLaRuta,
+  idFromRoute,
   page,
   pushUrl,
   toast,
@@ -24,32 +24,27 @@ import {
   withOob,
 } from "../../lib/http.ts";
 import { currentRole, currentWorkspace, requireEditor } from "../../middleware/workspace.ts";
-import { opcionsCategories } from "../../services/categories.ts";
+import { categoryOptions } from "../../services/categories.ts";
 import {
-  categoritzaEnBloc,
-  categoritzaMoviment,
-  confirmaDeLaRevisio,
+  categorizeBulk,
+  categorizeTransaction,
+  confirmFromReview,
 } from "../../services/categoritzacio.ts";
-import { comptaPerRevisar } from "../../services/comptadors.ts";
+import { countToReview } from "../../services/comptadors.ts";
+import { addTag, addTagBulk, workspaceTags, removeTag } from "../../services/tags.ts";
 import {
-  afegeixEtiqueta,
-  afegeixEtiquetaEnBloc,
-  etiquetesEspai,
-  treuEtiqueta,
-} from "../../services/tags.ts";
-import {
-  filaMoviment,
-  llistaMoviments,
-  movimentDeLespai,
-  safataRevisio,
-  targetesDisponibles,
+  transactionRow,
+  listTransactions,
+  transactionInWorkspace,
+  reviewQueue,
+  cardsAvailable,
 } from "../../services/transactions.ts";
 import {
-  Fila,
+  Row,
   FilaConcepte,
   FiltreTargetes,
-  RevisioFeta,
-  Taula,
+  ReviewDone,
+  Table,
 } from "./transactions.fragment.ts";
 import { ReviewPage, TransactionsPage } from "./transactions.page.ts";
 import {
@@ -57,7 +52,7 @@ import {
   bulkTagSchema,
   categorizeSchema,
   maskSchema,
-  PER_PAGINA,
+  PER_PAGE,
   tagAddRowSchema,
   tagMutationSchema,
   transactionFiltersSchema,
@@ -66,66 +61,74 @@ import {
 
 export const transactionsRoutes = new Hono();
 
-async function dades(ledgerId: number, query: Record<string, string | string[]>) {
+async function data(ledgerId: number, query: Record<string, string | string[]>) {
   const filters = transactionFiltersSchema.parse(query);
-  const [pagina, grups, comptes, etiquetesConegudes, targetesConegudes] = await Promise.all([
-    llistaMoviments(ledgerId, {
-      accountId: filters.compte,
-      dataDes: filters.des,
-      dataFins: filters.fins,
-      categoryIds: filters.categoria === null ? [] : [filters.categoria],
-      merchantId: null,
-      cerca: filters.cerca,
-      etiqueta: filters.etiqueta,
-      tipusOperacio: filters.tipus,
-      targetes: filters.targeta,
-      nomesRevisio: filters.revisio,
-      nomesSenseClassificar: filters.sense_classificar,
-      incloTraspassos: filters.traspassos,
-      limit: PER_PAGINA,
-      offset: filters.pagina * PER_PAGINA,
-    }),
-    opcionsCategories(ledgerId),
-    db
-      .select({ valor: accounts.id, text: accounts.name })
-      .from(accounts)
-      .where(eq(accounts.ledgerId, ledgerId))
-      .orderBy(accounts.name),
-    etiquetesEspai(ledgerId),
-    targetesDisponibles(ledgerId, filters.compte),
-  ]);
-  return { filters, pagina, grups, comptes, etiquetesConegudes, targetesConegudes };
+  const [paged, groups, accountList, etiquetesConegudes, targetesConegudes] = await Promise.all(
+    [
+      listTransactions(ledgerId, {
+        accountId: filters.compte,
+        dateFrom: filters.des,
+        dateTo: filters.fins,
+        categoryIds: filters.categoria === null ? [] : [filters.categoria],
+        merchantId: null,
+        search: filters.cerca,
+        tag: filters.etiqueta,
+        tipusOperacio: filters.type,
+        cards: filters.card,
+        nomesRevisio: filters.revisio,
+        nomesSenseClassificar: filters.sense_classificar,
+        incloTraspassos: filters.traspassos,
+        limit: PER_PAGE,
+        offset: filters.pagina * PER_PAGE,
+      }),
+      categoryOptions(ledgerId),
+      db
+        .select({ valor: accounts.id, text: accounts.name })
+        .from(accounts)
+        .where(eq(accounts.ledgerId, ledgerId))
+        .orderBy(accounts.name),
+      workspaceTags(ledgerId),
+      cardsAvailable(ledgerId, filters.compte),
+    ],
+  );
+  return { filters, page: paged, groups, accountList, etiquetesConegudes, targetesConegudes };
 }
 
 /** Query string amb `tipus` i `targeta` repetits (checkboxes multiples). */
-function queryDePeticio(c: {
+function requestQuery(c: {
   req: { query: () => Record<string, string>; queries: (k: string) => string[] | undefined };
 }) {
   let q: Record<string, string | string[]> = c.req.query();
-  const tipus = c.req.queries("tipus") ?? [];
-  if (tipus.length > 0) q = { ...q, tipus };
-  const targeta = c.req.queries("targeta") ?? [];
-  if (targeta.length > 0) q = { ...q, targeta };
+  const type = c.req.queries("tipus") ?? [];
+  if (type.length > 0) q = { ...q, type };
+  const card = c.req.queries("targeta") ?? [];
+  if (card.length > 0) q = { ...q, card };
   return q;
 }
 
 /** La categoria ha de ser d'aquest espai. */
-async function categoriaValida(categoryId: number | null, ledgerId: number): Promise<boolean> {
+async function validCategory(categoryId: number | null, ledgerId: number): Promise<boolean> {
   if (categoryId === null) return true;
-  const [categoria] = await db
+  const [category] = await db
     .select({ id: categories.id })
     .from(categories)
     .where(and(eq(categories.id, categoryId), eq(categories.ledgerId, ledgerId)))
     .limit(1);
-  return categoria !== undefined;
+  return category !== undefined;
 }
 
 // --- Pagina ----------------------------------------------------------------
 
 transactionsRoutes.get("/", async (c) => {
-  const espai = currentWorkspace(c);
-  const { filters, pagina, grups, comptes, etiquetesConegudes, targetesConegudes } =
-    await dades(espai.id, queryDePeticio(c));
+  const workspace = currentWorkspace(c);
+  const {
+    page: paged,
+    filters,
+    groups,
+    accountList,
+    etiquetesConegudes,
+    targetesConegudes,
+  } = await data(workspace.id, requestQuery(c));
 
   return page(
     c,
@@ -133,10 +136,10 @@ transactionsRoutes.get("/", async (c) => {
       c,
       "Moviments",
       TransactionsPage({
-        codi: espai.code,
-        pagina,
-        grups,
-        comptes,
+        codi: workspace.code,
+        page: paged,
+        groups,
+        accountList,
         filters,
         potEditar: roleAtLeast(currentRole(c), "editor"),
         etiquetesConegudes,
@@ -149,28 +152,31 @@ transactionsRoutes.get("/", async (c) => {
 // --- Fragments -------------------------------------------------------------
 
 transactionsRoutes.get("/fragment/taula", async (c) => {
-  const espai = currentWorkspace(c);
-  const { filters, pagina, grups, etiquetesConegudes, targetesConegudes } = await dades(
-    espai.id,
-    queryDePeticio(c),
-  );
+  const workspace = currentWorkspace(c);
+  const {
+    page: paged,
+    filters,
+    groups,
+    etiquetesConegudes,
+    targetesConegudes,
+  } = await data(workspace.id, requestQuery(c));
 
-  pushUrl(c, `/e/${espai.code}/moviments${transactionFiltersToQuery(filters)}`);
+  pushUrl(c, `/e/${workspace.code}/moviments${transactionFiltersToQuery(filters)}`);
 
   return fragment(
     c,
     await withOob(
-      Taula({
-        codi: espai.code,
-        pagina,
-        grups,
+      Table({
+        codi: workspace.code,
+        page: paged,
+        groups,
         filters,
         potEditar: roleAtLeast(currentRole(c), "editor"),
         etiquetesConegudes,
       }),
       FiltreTargetes({
-        targetes: targetesConegudes,
-        seleccionades: filters.targeta,
+        cards: targetesConegudes,
+        seleccionades: filters.card,
         oob: true,
       }),
     ),
@@ -179,23 +185,23 @@ transactionsRoutes.get("/fragment/taula", async (c) => {
 
 /** Una fila sola, per cancel·lar una edicio. */
 transactionsRoutes.get("/:id/fragment/fila", async (c) => {
-  const espai = currentWorkspace(c);
-  const moviment = await movimentDeLespai(
-    idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix"),
-    espai.id,
+  const workspace = currentWorkspace(c);
+  const transaction = await transactionInWorkspace(
+    idFromRoute(c.req.param("id"), "Aquest moviment no existeix"),
+    workspace.id,
   );
-  const [grups, etiquetesConegudes] = await Promise.all([
-    opcionsCategories(espai.id),
-    etiquetesEspai(espai.id),
+  const [groups, etiquetesConegudes] = await Promise.all([
+    categoryOptions(workspace.id),
+    workspaceTags(workspace.id),
   ]);
 
   return fragment(
     c,
     await withOob(
-      Fila({
-        codi: espai.code,
-        moviment,
-        grups,
+      Row({
+        codi: workspace.code,
+        transaction,
+        groups,
         potEditar: roleAtLeast(currentRole(c), "editor"),
         etiquetesConegudes,
       }),
@@ -206,22 +212,22 @@ transactionsRoutes.get("/:id/fragment/fila", async (c) => {
 
 /** La fila amb el desplegable de categoria obert per editar-la. */
 transactionsRoutes.get("/:id/fragment/categoria", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const moviment = await movimentDeLespai(
-    idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix"),
-    espai.id,
+  const workspace = currentWorkspace(c);
+  const transaction = await transactionInWorkspace(
+    idFromRoute(c.req.param("id"), "Aquest moviment no existeix"),
+    workspace.id,
   );
-  const [grups, etiquetesConegudes] = await Promise.all([
-    opcionsCategories(espai.id),
-    etiquetesEspai(espai.id),
+  const [groups, etiquetesConegudes] = await Promise.all([
+    categoryOptions(workspace.id),
+    workspaceTags(workspace.id),
   ]);
 
   return fragment(
     c,
-    Fila({
-      codi: espai.code,
-      moviment,
-      grups,
+    Row({
+      codi: workspace.code,
+      transaction,
+      groups,
       potEditar: true,
       editantCategoria: true,
       etiquetesConegudes,
@@ -231,37 +237,37 @@ transactionsRoutes.get("/:id/fragment/categoria", requireEditor, async (c) => {
 
 /** La fila convertida en el camp de l'alias. */
 transactionsRoutes.get("/:id/fragment/concepte", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const moviment = await movimentDeLespai(
-    idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix"),
-    espai.id,
+  const workspace = currentWorkspace(c);
+  const transaction = await transactionInWorkspace(
+    idFromRoute(c.req.param("id"), "Aquest moviment no existeix"),
+    workspace.id,
   );
-  return fragment(c, FilaConcepte({ codi: espai.code, moviment }));
+  return fragment(c, FilaConcepte({ codi: workspace.code, transaction }));
 });
 
 // --- Mutacions -------------------------------------------------------------
 
 /** Torna la fila actualitzada, el comptador de revisio i un avis. */
-async function respostaFila(
+async function rowResponse(
   c: Parameters<typeof fragment>[0],
-  espaiId: number,
+  workspaceId: number,
   codi: string,
   id: number,
-  missatge?: { text: string; to: "success" | "info" },
+  message?: { text: string; to: "success" | "info" },
 ) {
-  const [moviment, grups, perRevisar, etiquetesConegudes] = await Promise.all([
-    movimentDeLespai(id, espaiId),
-    opcionsCategories(espaiId),
-    comptaPerRevisar(espaiId),
-    etiquetesEspai(espaiId),
+  const [transaction, groups, perRevisar, etiquetesConegudes] = await Promise.all([
+    transactionInWorkspace(id, workspaceId),
+    categoryOptions(workspaceId),
+    countToReview(workspaceId),
+    workspaceTags(workspaceId),
   ]);
 
   return fragment(
     c,
     await withOob(
-      Fila({ codi, moviment, grups, potEditar: true, etiquetesConegudes }),
-      ComptadorRevisio(perRevisar, true),
-      missatge ? toast(missatge.text, missatge.to) : clearToast(),
+      Row({ codi, transaction, groups, potEditar: true, etiquetesConegudes }),
+      ReviewCounter(perRevisar, true),
+      message ? toast(message.text, message.to) : clearToast(),
     ),
   );
 }
@@ -274,25 +280,25 @@ async function respostaFila(
  * comerç d'aquest espai.
  */
 transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix");
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquest moviment no existeix");
   const parsed = categorizeSchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success) return toastOnly(c, "La categoria no es valida", 422);
-  if (!(await categoriaValida(parsed.data.category_id, espai.id))) {
+  if (!(await validCategory(parsed.data.category_id, workspace.id))) {
     return toastOnly(c, "La categoria no es d'aquest espai", 422);
   }
 
-  const fila = await filaMoviment(id, espai.id);
+  const row = await transactionRow(id, workspace.id);
 
-  const { recordats } = await categoritzaMoviment(id, fila, parsed.data.category_id, {
+  const { recordats } = await categorizeTransaction(id, row, parsed.data.category_id, {
     recordaComerc: parsed.data.recorda_comerc,
   });
 
-  return respostaFila(
+  return rowResponse(
     c,
-    espai.id,
-    espai.code,
+    workspace.id,
+    workspace.code,
     id,
     recordats > 1
       ? { text: `Recordat per a ${recordats} moviments d'aquest comerç`, to: "success" }
@@ -307,23 +313,23 @@ transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
  * si no, el mateix moviment sortiria amagat en un compte i sencer a l'altre.
  */
 transactionsRoutes.post("/:id/concepte", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix");
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquest moviment no existeix");
   const parsed = maskSchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success) {
-    const moviment = await movimentDeLespai(id, espai.id);
+    const transaction = await transactionInWorkspace(id, workspace.id);
     return fragment(
       c,
       await withOob(
-        FilaConcepte({ codi: espai.code, moviment }),
+        FilaConcepte({ codi: workspace.code, transaction }),
         toast("El text es massa llarg"),
       ),
       422,
     );
   }
 
-  const fila = await filaMoviment(id, espai.id);
+  const row = await transactionRow(id, workspace.id);
   const alies = parsed.data.display_description;
 
   await db
@@ -331,16 +337,16 @@ transactionsRoutes.post("/:id/concepte", requireEditor, async (c) => {
     .set({ displayDescription: alies })
     .where(eq(transactions.id, id));
 
-  if (fila.transferGroupId !== null) {
+  if (row.transferGroupId !== null) {
     await db
       .update(transactions)
       .set({ displayDescription: alies })
       .where(
-        and(eq(transactions.transferGroupId, fila.transferGroupId), ne(transactions.id, id)),
+        and(eq(transactions.transferGroupId, row.transferGroupId), ne(transactions.id, id)),
       );
   }
 
-  return respostaFila(c, espai.id, espai.code, id, {
+  return rowResponse(c, workspace.id, workspace.code, id, {
     text: alies === null ? "El concepte del banc torna a ser visible" : "Concepte amagat",
     to: "success",
   });
@@ -355,50 +361,52 @@ transactionsRoutes.post("/:id/concepte", requireEditor, async (c) => {
  * sobrevivia als canvis de filtre i de pagina.
  */
 transactionsRoutes.post("/bloc", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const cos = await c.req.parseBody({ all: true });
-  const parsed = bulkCategorizeSchema.safeParse(cos);
+  const workspace = currentWorkspace(c);
+  const body = await c.req.parseBody({ all: true });
+  const parsed = bulkCategorizeSchema.safeParse(body);
 
   if (!parsed.success) {
     return toastOnly(c, "No hi ha cap moviment triat", 422);
   }
-  if (!(await categoriaValida(parsed.data.category_id, espai.id))) {
+  if (!(await validCategory(parsed.data.category_id, workspace.id))) {
     return toastOnly(c, "La categoria no es d'aquest espai", 422);
   }
 
   // El servei ho fa tot o res i llança un 404 si algun identificador no es
   // d'aquest espai: una peticio a mitges deixaria l'usuari sense saber que ha
   // canviat.
-  const { aplicats } = await categoritzaEnBloc(
-    parsed.data.moviment,
-    espai.id,
+  const { aplicats } = await categorizeBulk(
+    parsed.data.transaction,
+    workspace.id,
     parsed.data.category_id,
     { recordaComerc: parsed.data.recorda_comerc },
   );
 
-  const { filters, pagina, grups, etiquetesConegudes } = await dades(
-    espai.id,
-    queryDePeticio(c),
-  );
-  const perRevisar = await comptaPerRevisar(espai.id);
+  const {
+    page: paged,
+    filters,
+    groups,
+    etiquetesConegudes,
+  } = await data(workspace.id, requestQuery(c));
+  const perRevisar = await countToReview(workspace.id);
 
   // Els filtres venen a l'adreça del `hx-post`, de manera que la taula torna
   // amb la mateixa vista que hi havia; i es torna a empenyer l'adreça perque
   // la barra d'adreces i el que es veu no diguin coses diferents.
-  pushUrl(c, `/e/${espai.code}/moviments${transactionFiltersToQuery(filters)}`);
+  pushUrl(c, `/e/${workspace.code}/moviments${transactionFiltersToQuery(filters)}`);
 
   return fragment(
     c,
     await withOob(
-      Taula({
-        codi: espai.code,
-        pagina,
-        grups,
+      Table({
+        codi: workspace.code,
+        page: paged,
+        groups,
         filters,
         potEditar: true,
         etiquetesConegudes,
       }),
-      ComptadorRevisio(perRevisar, true),
+      ReviewCounter(perRevisar, true),
       toast(
         `S'ha posat la categoria a ${aplicats} ${aplicats === 1 ? "moviment" : "moviments"}`,
         "success",
@@ -414,45 +422,47 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
  * l'espai.
  */
 transactionsRoutes.post("/bloc/etiquetes", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const cos = await c.req.parseBody({ all: true });
-  const parsed = bulkTagSchema.safeParse(cos);
+  const workspace = currentWorkspace(c);
+  const body = await c.req.parseBody({ all: true });
+  const parsed = bulkTagSchema.safeParse(body);
 
   if (!parsed.success) {
-    const missatge =
+    const message =
       parsed.error.issues[0]?.message === "No hi ha cap moviment triat"
         ? "No hi ha cap moviment triat"
         : "L'etiqueta no es valida";
-    return toastOnly(c, missatge, 422);
+    return toastOnly(c, message, 422);
   }
 
   try {
-    await afegeixEtiquetaEnBloc(parsed.data.moviment, espai.id, parsed.data.etiqueta_bloc);
+    await addTagBulk(parsed.data.transaction, workspace.id, parsed.data.etiqueta_bloc);
   } catch (err) {
     if (err instanceof NotFoundError) return toastOnly(c, "No s'ha trobat", 404);
     throw err;
   }
 
-  const { filters, pagina, grups, etiquetesConegudes } = await dades(
-    espai.id,
-    queryDePeticio(c),
-  );
-  pushUrl(c, `/e/${espai.code}/moviments${transactionFiltersToQuery(filters)}`);
+  const {
+    page: paged,
+    filters,
+    groups,
+    etiquetesConegudes,
+  } = await data(workspace.id, requestQuery(c));
+  pushUrl(c, `/e/${workspace.code}/moviments${transactionFiltersToQuery(filters)}`);
 
   return fragment(
     c,
     await withOob(
-      Taula({
-        codi: espai.code,
-        pagina,
-        grups,
+      Table({
+        codi: workspace.code,
+        page: paged,
+        groups,
         filters,
         potEditar: true,
         etiquetesConegudes,
       }),
       toast(
-        `S'ha posat l'etiqueta a ${parsed.data.moviment.length} ${
-          parsed.data.moviment.length === 1 ? "moviment" : "moviments"
+        `S'ha posat l'etiqueta a ${parsed.data.transaction.length} ${
+          parsed.data.transaction.length === 1 ? "moviment" : "moviments"
         }`,
         "success",
       ),
@@ -462,53 +472,53 @@ transactionsRoutes.post("/bloc/etiquetes", requireEditor, async (c) => {
 
 /** Afegeix una etiqueta a un moviment des de la fila. */
 transactionsRoutes.post("/:id/etiquetes", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix");
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquest moviment no existeix");
   // Assegura que el moviment es de l'espai abans de validar el cos.
-  await movimentDeLespai(id, espai.id);
+  await transactionInWorkspace(id, workspace.id);
   const parsed = tagAddRowSchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success) {
-    const [grups, etiquetesConegudes, moviment] = await Promise.all([
-      opcionsCategories(espai.id),
-      etiquetesEspai(espai.id),
-      movimentDeLespai(id, espai.id),
+    const [groups, etiquetesConegudes, transaction] = await Promise.all([
+      categoryOptions(workspace.id),
+      workspaceTags(workspace.id),
+      transactionInWorkspace(id, workspace.id),
     ]);
     return fragment(
       c,
       await withOob(
-        Fila({ codi: espai.code, moviment, grups, potEditar: true, etiquetesConegudes }),
+        Row({ codi: workspace.code, transaction, groups, potEditar: true, etiquetesConegudes }),
         toast(parsed.error.issues[0]?.message ?? "L'etiqueta no es valida"),
       ),
       422,
     );
   }
 
-  await afegeixEtiqueta(id, espai.id, parsed.data.nova_etiqueta);
-  return respostaFila(c, espai.id, espai.code, id);
+  await addTag(id, workspace.id, parsed.data.nova_etiqueta);
+  return rowResponse(c, workspace.id, workspace.code, id);
 });
 
 /** Treu una etiqueta d'un moviment. */
 transactionsRoutes.post("/:id/etiquetes/treure", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix");
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquest moviment no existeix");
   const parsed = tagMutationSchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success) {
     return toastOnly(c, "L'etiqueta no es valida", 422);
   }
 
-  await treuEtiqueta(id, espai.id, parsed.data.etiqueta);
-  return respostaFila(c, espai.id, espai.code, id);
+  await removeTag(id, workspace.id, parsed.data.tag);
+  return rowResponse(c, workspace.id, workspace.code, id);
 });
 
 // --- Safata de revisio -------------------------------------------------------
 
 transactionsRoutes.get("/revisio", async (c) => {
-  const espai = currentWorkspace(c);
-  const [{ items, total }, grups] = await Promise.all([
-    safataRevisio(espai.id),
-    opcionsCategories(espai.id),
+  const workspace = currentWorkspace(c);
+  const [{ items, total }, groups] = await Promise.all([
+    reviewQueue(workspace.id),
+    categoryOptions(workspace.id),
   ]);
 
   return page(
@@ -516,7 +526,7 @@ transactionsRoutes.get("/revisio", async (c) => {
     await workspacePage(
       c,
       "Per revisar",
-      ReviewPage({ codi: espai.code, items, grups, total }),
+      ReviewPage({ codi: workspace.code, items, groups, total }),
     ),
   );
 });
@@ -529,32 +539,32 @@ transactionsRoutes.get("/revisio", async (c) => {
  * l'element de la cua en lloc de redibuixar-ne la fila.
  */
 transactionsRoutes.post("/:id/revisa", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquest moviment no existeix");
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquest moviment no existeix");
   const parsed = categorizeSchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success || parsed.data.category_id === null) {
     return toastOnly(c, "Tria una categoria per confirmar-lo", 422);
   }
-  if (!(await categoriaValida(parsed.data.category_id, espai.id))) {
+  if (!(await validCategory(parsed.data.category_id, workspace.id))) {
     return toastOnly(c, "La categoria no es d'aquest espai", 422);
   }
 
-  const fila = await filaMoviment(id, espai.id);
+  const row = await transactionRow(id, workspace.id);
 
   // El mateix que canviar-la des de la llista, i a mes tanca la proposta del
   // model dient si l'encertava.
-  await confirmaDeLaRevisio(id, fila, parsed.data.category_id, {
+  await confirmFromReview(id, row, parsed.data.category_id, {
     recordaComerc: parsed.data.recorda_comerc,
   });
 
-  const perRevisar = await comptaPerRevisar(espai.id);
+  const perRevisar = await countToReview(workspace.id);
 
   return fragment(
     c,
     await withOob(
-      RevisioFeta(id),
-      ComptadorRevisio(perRevisar, true),
+      ReviewDone(id),
+      ReviewCounter(perRevisar, true),
       toast("Confirmat", "success"),
     ),
   );

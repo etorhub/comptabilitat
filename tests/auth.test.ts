@@ -13,14 +13,14 @@ import { userLedgerPermissions, users, userSessions } from "../src/db/schema/ind
 import { hashPassword, hashToken, newSessionToken } from "../src/lib/auth.ts";
 import { csrfTokenFor } from "../src/lib/csrf.ts";
 
-const CONTRASENYA = "provaprovaprova";
+const PASSWORD = "provaprovaprova";
 
-interface Entrada {
+interface Login {
   seedCookie: string;
   csrfCamp: string;
 }
 
-async function preparaEntrada(): Promise<Entrada> {
+async function prepareLogin(): Promise<Login> {
   const res = await app.request("/entrada");
   const html = await res.text();
   return {
@@ -40,7 +40,7 @@ beforeAll(async () => {
   await db.insert(users).values({
     email: "pau@exemple.cat",
     fullName: "Pau",
-    passwordHash: await hashPassword(CONTRASENYA),
+    passwordHash: await hashPassword(PASSWORD),
     isAdmin: false,
     isActive: true,
   });
@@ -48,38 +48,38 @@ beforeAll(async () => {
 
 describe("CSRF", () => {
   test("sense testimoni, la peticio es rebutja", async () => {
-    const { seedCookie } = await preparaEntrada();
+    const { seedCookie } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
-      body: cosEntrada({ email: "pau@exemple.cat", password: CONTRASENYA }),
+      body: cosEntrada({ email: "pau@exemple.cat", password: PASSWORD }),
     });
     expect(res.status).toBe(403);
   });
 
   test("amb un testimoni inventat, tambe", async () => {
-    const { seedCookie } = await preparaEntrada();
+    const { seedCookie } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
-      body: cosEntrada({ _csrf: "inventat", email: "pau@exemple.cat", password: CONTRASENYA }),
+      body: cosEntrada({ _csrf: "inventat", email: "pau@exemple.cat", password: PASSWORD }),
     });
     expect(res.status).toBe(403);
   });
 
   test("el testimoni d'una sessio no serveix per a una altra", async () => {
     const altre = await csrfTokenFor(hashToken(newSessionToken()));
-    const { seedCookie } = await preparaEntrada();
+    const { seedCookie } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
-      body: cosEntrada({ _csrf: altre, email: "pau@exemple.cat", password: CONTRASENYA }),
+      body: cosEntrada({ _csrf: altre, email: "pau@exemple.cat", password: PASSWORD }),
     });
     expect(res.status).toBe(403);
   });
 
   test("una peticio d'un altre lloc es rebutja encara que dugui testimoni", async () => {
-    const { seedCookie, csrfCamp } = await preparaEntrada();
+    const { seedCookie, csrfCamp } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
       headers: {
@@ -87,7 +87,7 @@ describe("CSRF", () => {
         Cookie: seedCookie,
         "Sec-Fetch-Site": "cross-site",
       },
-      body: cosEntrada({ _csrf: csrfCamp, email: "pau@exemple.cat", password: CONTRASENYA }),
+      body: cosEntrada({ _csrf: csrfCamp, email: "pau@exemple.cat", password: PASSWORD }),
     });
     expect(res.status).toBe(403);
   });
@@ -95,11 +95,11 @@ describe("CSRF", () => {
 
 describe("entrada", () => {
   test("amb les dades bones, obre sessio", async () => {
-    const { seedCookie, csrfCamp } = await preparaEntrada();
+    const { seedCookie, csrfCamp } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
-      body: cosEntrada({ _csrf: csrfCamp, email: "pau@exemple.cat", password: CONTRASENYA }),
+      body: cosEntrada({ _csrf: csrfCamp, email: "pau@exemple.cat", password: PASSWORD }),
     });
 
     expect(res.status).toBe(303);
@@ -110,11 +110,11 @@ describe("entrada", () => {
   });
 
   test("de la sessio, a la base de dades nomes hi ha el resum", async () => {
-    const { seedCookie, csrfCamp } = await preparaEntrada();
+    const { seedCookie, csrfCamp } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
-      body: cosEntrada({ _csrf: csrfCamp, email: "pau@exemple.cat", password: CONTRASENYA }),
+      body: cosEntrada({ _csrf: csrfCamp, email: "pau@exemple.cat", password: PASSWORD }),
     });
 
     const token = (res.headers.get("set-cookie") ?? "")
@@ -132,7 +132,7 @@ describe("entrada", () => {
     // La mateixa llavor per als dos intents: aixi l'unica cosa que canvia
     // entre les dues respostes es el correu, i qualsevol altra diferencia
     // seria una manera d'endevinar qui esta donat d'alta.
-    const { seedCookie, csrfCamp } = await preparaEntrada();
+    const { seedCookie, csrfCamp } = await prepareLogin();
     const capçaleres = {
       "Content-Type": "application/x-www-form-urlencoded",
       Cookie: seedCookie,
@@ -164,16 +164,16 @@ describe("entrada", () => {
     await db.insert(users).values({
       email: "fora@exemple.cat",
       fullName: "Fora",
-      passwordHash: await hashPassword(CONTRASENYA),
+      passwordHash: await hashPassword(PASSWORD),
       isAdmin: false,
       isActive: false,
     });
 
-    const { seedCookie, csrfCamp } = await preparaEntrada();
+    const { seedCookie, csrfCamp } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
-      body: cosEntrada({ _csrf: csrfCamp, email: "fora@exemple.cat", password: CONTRASENYA }),
+      body: cosEntrada({ _csrf: csrfCamp, email: "fora@exemple.cat", password: PASSWORD }),
     });
 
     expect(res.status).toBe(401);
@@ -190,14 +190,14 @@ describe("pagines protegides", () => {
   });
 
   test("el desti no pot portar a un altre lloc web", async () => {
-    const { seedCookie, csrfCamp } = await preparaEntrada();
+    const { seedCookie, csrfCamp } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
       body: cosEntrada({
         _csrf: csrfCamp,
         email: "pau@exemple.cat",
-        password: CONTRASENYA,
+        password: PASSWORD,
         desti: "//maliciós.example.com/",
       }),
     });

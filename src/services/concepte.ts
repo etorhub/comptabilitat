@@ -14,11 +14,11 @@ import { stripAccents } from "./normalization.ts";
  * s'ensenya. Es reexporten aqui perque aquest era el seu lloc original i no
  * calgui remenar tots els imports.
  */
-export { detectaTipusOperacio, TIPUS_OPERACIO } from "./normalization.ts";
-export type { TipusOperacio } from "./normalization.ts";
-import { detectaTipusOperacio, type TipusOperacio } from "./normalization.ts";
+export { detectOperationType, OPERATION_TYPES } from "./normalization.ts";
+export type { OperationType } from "./normalization.ts";
+import { detectOperationType, type OperationType } from "./normalization.ts";
 
-export interface ConcepteParsejat {
+export interface ParsedDescription {
   /** Text net per a la columna Concepte. */
   titol: string;
   /** Darrers 4 digits de la targeta, o null si no n'hi ha. */
@@ -26,7 +26,7 @@ export interface ConcepteParsejat {
   /** Text bancari sense PAN/targeta/comissio: per al `title` del boto. */
   originalNetejat: string;
   /** Tipus d'operacio per a l'etiqueta i el filtre. */
-  tipus: TipusOperacio;
+  type: OperationType;
 }
 
 /** Prefixos d'operacio que no formen part del concepte llegible. */
@@ -66,9 +66,9 @@ const PREFIXOS: RegExp[] = [
  * Accepta `TARJ. :*484017`, `TARJETA 5489010385484017` i PANs nus de 13–19
  * digits etiquetats. Mai deixa un bloc de 13–19 digits al titol.
  */
-function treuTargeta(text: string): { text: string; darrers4: string | null } {
+function removeCard(text: string): { text: string; darrers4: string | null } {
   let darrers4: string | null = null;
-  let net = text;
+  let cleaned = text;
 
   const marcar = (digits: string) => {
     const nets = digits.replace(/\D/g, "");
@@ -76,38 +76,41 @@ function treuTargeta(text: string): { text: string; darrers4: string | null } {
   };
 
   // TARJ. / TARJETA + digits (amb o sense * i :).
-  net = net.replace(/\bTARJ(?:ETA)?\.?\s*:?\s*\*?(\d{4,19})\b/gi, (_m, digits: string) => {
-    marcar(digits);
-    return " ";
-  });
+  cleaned = cleaned.replace(
+    /\bTARJ(?:ETA)?\.?\s*:?\s*\*?(\d{4,19})\b/gi,
+    (_m, digits: string) => {
+      marcar(digits);
+      return " ";
+    },
+  );
 
   // PAN emmascarat amb X o *: 5402XXXXXXXX1234, 1234******5678
-  net = net.replace(/\b\d{2,6}[X*]{3,}(\d{2,6})\b/gi, (_m, cua: string) => {
+  cleaned = cleaned.replace(/\b\d{2,6}[X*]{3,}(\d{2,6})\b/gi, (_m, cua: string) => {
     marcar(cua);
     return " ";
   });
-  net = net.replace(/\b[X*]{4,}(\d{2,6})\b/gi, (_m, cua: string) => {
+  cleaned = cleaned.replace(/\b[X*]{4,}(\d{2,6})\b/gi, (_m, cua: string) => {
     marcar(cua);
     return " ";
   });
 
   // PAN sencer etiquetat residual (per si queda sense la paraula TARJETA).
-  net = net.replace(/\b(\d{13,19})\b/g, (_m, digits: string) => {
+  cleaned = cleaned.replace(/\b(\d{13,19})\b/g, (_m, digits: string) => {
     marcar(digits);
     return " ";
   });
 
   // Formes emmascarades residual: *484017 o ****4017
-  net = net.replace(/\*{1,}\d{2,6}\b/g, (m) => {
+  cleaned = cleaned.replace(/\*{1,}\d{2,6}\b/g, (m) => {
     const digits = m.replace(/\D/g, "");
     if (digits.length >= 4 && !darrers4) darrers4 = digits.slice(-4);
     return " ";
   });
 
-  return { text: net, darrers4 };
+  return { text: cleaned, darrers4 };
 }
 
-function treuComissio(text: string): string {
+function stripFee(text: string): string {
   return text.replace(/\bCOMISI[OÓ]N\s+\d+[.,]\d{2}\b/gi, " ");
 }
 
@@ -115,7 +118,7 @@ function treuComissio(text: string): string {
  * Part humana d'un `concepto:`: trossos separats per `/`, descartant cadastre
  * i quotes (`Q.IBI 95,25`).
  */
-function trossosConcepte(despres: string): string {
+function descriptionParts(despres: string): string {
   const parts = despres
     .split("/")
     .map((p) => p.trim())
@@ -138,33 +141,33 @@ function trossosConcepte(despres: string): string {
     }
     // Despres de la coma en un tros «Torre dels Pardals,0066, P0202 …»
     // ens quedem amb el que hi ha abans de la primera coma amb digits.
-    let net = part;
-    const comaAmbRef = /,\s*(?:\d|[PQ]\d)/i.exec(net);
-    if (comaAmbRef && comaAmbRef.index !== undefined) {
-      net = net.slice(0, comaAmbRef.index).trim();
+    let cleaned = part;
+    const commaWithRef = /,\s*(?:\d|[PQ]\d)/i.exec(cleaned);
+    if (commaWithRef && commaWithRef.index !== undefined) {
+      cleaned = cleaned.slice(0, commaWithRef.index).trim();
     }
     // Treu cues «Q.IBI …» encara dins del mateix tros.
-    net = net.replace(/\s+Q\.\s*[A-Z]+\s+\d+[.,]\d{2}.*$/i, "").trim();
-    if (!net) continue;
-    if (!/[+/-]/.test(net) && !/\s/.test(net)) {
-      const alnum = net.replace(/[^A-Z0-9]/gi, "");
+    cleaned = cleaned.replace(/\s+Q\.\s*[A-Z]+\s+\d+[.,]\d{2}.*$/i, "").trim();
+    if (!cleaned) continue;
+    if (!/[+/-]/.test(cleaned) && !/\s/.test(cleaned)) {
+      const alnum = cleaned.replace(/[^A-Z0-9]/gi, "");
       if (alnum.length >= 10) continue;
     }
-    humans.push(net);
+    humans.push(cleaned);
   }
 
   return humans.join(" · ");
 }
 
-function treuPrefix(text: string): string {
-  const net = text.trim();
+function removePrefix(text: string): string {
+  const cleaned = text.trim();
   for (const pattern of PREFIXOS) {
-    const replaced = net.replace(pattern, "");
-    if (replaced !== net) {
+    const replaced = cleaned.replace(pattern, "");
+    if (replaced !== cleaned) {
       return replaced.trim();
     }
   }
-  return net;
+  return cleaned;
 }
 
 /**
@@ -173,7 +176,7 @@ function treuPrefix(text: string): string {
  * Nomes talla despres d'una coma si el que queda sembla poblacio/pais
  * (poques paraules, sense digitos de negoci).
  */
-function treuCuaLloc(text: string): string {
+function stripTrailingSlot(text: string): string {
   // Ultima coma + cua en majuscules / pais (ignora comes finals).
   const match = /^(.*?),\s*([A-ZÀ-ÜÑ][A-ZÀ-ÜÑa-zà-üñ' .-]{0,40})\s*,?\s*$/u.exec(text.trim());
   if (!match) return text.trim().replace(/,+\s*$/, "");
@@ -188,15 +191,15 @@ function treuCuaLloc(text: string): string {
   return cap;
 }
 
-function treuSorollWeb(text: string): string {
-  let net = text.trim();
-  net = net.replace(/^WWW\./i, "");
+function stripWebNoise(text: string): string {
+  let cleaned = text.trim();
+  cleaned = cleaned.replace(/^WWW\./i, "");
   // Sufix de referencia Amazon: *QE6I19905
-  net = net.replace(/\*[A-Z0-9]{5,}\b/gi, "");
-  return net.trim();
+  cleaned = cleaned.replace(/\*[A-Z0-9]{5,}\b/gi, "");
+  return cleaned.trim();
 }
 
-function netejaEspais(text: string): string {
+function collapseSpaces(text: string): string {
   return text
     .replace(/\s*[,;]+\s*$/g, "")
     .replace(/\s{2,}/g, " ")
@@ -253,36 +256,36 @@ function titolLlegible(majuscules: string): string {
  * Els noms de transferencia amb accents o minuscules es deixen tal qual.
  */
 function presenta(text: string): string {
-  const net = text.trim();
-  if (!net) return net;
+  const cleaned = text.trim();
+  if (!cleaned) return cleaned;
   // Conserva el casing del banc si ja porta minuscules.
-  if (/[a-zà-üñ]/.test(net)) {
-    return net;
+  if (/[a-zà-üñ]/.test(cleaned)) {
+    return cleaned;
   }
   // Titol compost (concepte de rebut amb ·): cada tros a part.
-  if (net.includes(" · ")) {
-    return net
+  if (cleaned.includes(" · ")) {
+    return cleaned
       .split(" · ")
-      .map((tros) => {
-        if (/[+/-]/.test(tros)) return tros;
-        const c = stripAccents(tros)
+      .map((part) => {
+        if (/[+/-]/.test(part)) return part;
+        const c = stripAccents(part)
           .toUpperCase()
           .replace(/[^A-Z0-9&'.\s]/g, " ")
           .trim();
-        return c ? titolLlegible(c) : tros;
+        return c ? titolLlegible(c) : part;
       })
       .join(" · ");
   }
   // Conserva + / - en codis tipus IBI+TM2026-3T.
-  if (/[+/-]/.test(net) && !/\s/.test(net)) {
-    return net;
+  if (/[+/-]/.test(cleaned) && !/\s/.test(cleaned)) {
+    return cleaned;
   }
-  const clau = stripAccents(net)
+  const key = stripAccents(cleaned)
     .toUpperCase()
     .replace(/[^A-Z0-9&'.\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  return clau ? titolLlegible(clau) : net;
+  return key ? titolLlegible(key) : cleaned;
 }
 
 /**
@@ -291,50 +294,50 @@ function presenta(text: string): string {
  * Si no reconeix el patro, torna el text original **sense** PAN, targeta ni
  * comissio. Millor un concepte una mica brut que un numero de targeta.
  */
-export function parsejaConcepte(text: string): ConcepteParsejat {
-  const cru = text.trim();
-  if (!cru) {
-    return { titol: "", darrers4: null, originalNetejat: "", tipus: "altres" };
+export function parseDescription(text: string): ParsedDescription {
+  const raw = text.trim();
+  if (!raw) {
+    return { titol: "", darrers4: null, originalNetejat: "", type: "altres" };
   }
 
-  const tipus = detectaTipusOperacio(cru);
-  const { text: senseTargeta, darrers4 } = treuTargeta(cru);
-  const senseComissio = treuComissio(senseTargeta);
-  const originalNetejat = netejaEspais(senseComissio);
+  const type = detectOperationType(raw);
+  const { text: senseTargeta, darrers4 } = removeCard(raw);
+  const withoutFee = stripFee(senseTargeta);
+  const originalNetejat = collapseSpaces(withoutFee);
 
   // «concepto:» — el titol es el que ve despres.
-  const matchConcepte = /(?:^|[,;]\s*)concepto\s*:\s*(.*)$/i.exec(originalNetejat);
-  if (matchConcepte) {
-    const despres = (matchConcepte[1] ?? "").trim();
-    const humans = trossosConcepte(despres);
+  const matchDescription = /(?:^|[,;]\s*)concepto\s*:\s*(.*)$/i.exec(originalNetejat);
+  if (matchDescription) {
+    const despres = (matchDescription[1] ?? "").trim();
+    const humans = descriptionParts(despres);
     const titol = presenta(humans || despres);
     return {
       titol: titol || originalNetejat,
       darrers4,
       originalNetejat,
-      tipus,
+      type,
     };
   }
 
-  let cos = originalNetejat;
-  cos = treuPrefix(cos);
+  let body = originalNetejat;
+  body = removePrefix(body);
   // «EN MERCADONA» despres de treure COMPRA TARJ.
-  cos = cos.replace(/^(?:EN|A|DE|DEL|LA|EL|POR)\s+/i, "");
-  cos = treuCuaLloc(cos);
+  body = body.replace(/^(?:EN|A|DE|DEL|LA|EL|POR)\s+/i, "");
+  body = stripTrailingSlot(body);
   // Pot haver-hi mes d'una cua («, LUXEMBOURG» despres de treure el prefix).
-  cos = treuCuaLloc(cos);
-  cos = treuSorollWeb(cos);
-  cos = netejaEspais(cos);
+  body = stripTrailingSlot(body);
+  body = stripWebNoise(body);
+  body = collapseSpaces(body);
 
   // Seguretat: cap bloc de 13–19 digits ha de sobreviure.
-  cos = cos.replace(/\b\d{13,19}\b/g, " ");
-  cos = netejaEspais(cos);
+  body = body.replace(/\b\d{13,19}\b/g, " ");
+  body = collapseSpaces(body);
 
-  const titol = presenta(cos);
+  const titol = presenta(body);
   return {
     titol: titol || originalNetejat,
     darrers4,
     originalNetejat,
-    tipus,
+    type,
   };
 }

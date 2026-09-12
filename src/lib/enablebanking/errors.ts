@@ -7,7 +7,7 @@
  */
 
 /** Camps de la resposta del banc que poden dur dades personals. */
-const CAMPS_SENSIBLES = [
+const FIELDS_SENSIBLES = [
   "psu",
   "account",
   "accounts",
@@ -35,7 +35,7 @@ export class EnableBankingError extends Error {
     this.name = "EnableBankingError";
     this.statusCode = options.statusCode ?? null;
     this.code = options.code ?? null;
-    this.payload = netejaPayload(options.payload ?? {});
+    this.payload = cleanPayload(options.payload ?? {});
   }
 }
 
@@ -61,14 +61,14 @@ export class MissingCredentialsError extends EnableBankingError {
  * del banc hi pot dur noms, IBAN i contraparts. Aixo es una xarxa, no una
  * excusa per ensenyar-lo: el que arriba a la pantalla es el missatge.
  */
-function netejaPayload(payload: Record<string, unknown>): Record<string, unknown> {
-  const net: Record<string, unknown> = {};
-  for (const [clau, valor] of Object.entries(payload)) {
-    const minuscula = clau.toLowerCase();
-    if (CAMPS_SENSIBLES.some((sensible) => minuscula.includes(sensible))) continue;
+function cleanPayload(payload: Record<string, unknown>): Record<string, unknown> {
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, valor] of Object.entries(payload)) {
+    const minuscula = key.toLowerCase();
+    if (FIELDS_SENSIBLES.some((sensible) => minuscula.includes(sensible))) continue;
     if (typeof valor === "string" || typeof valor === "number" || typeof valor === "boolean") {
-      net[clau] = valor;
+      cleaned[key] = valor;
     }
   }
-  return net;
+  return cleaned;
 }

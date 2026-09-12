@@ -17,7 +17,7 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { ComptadorAvisos } from "../../components/layout.ts";
+import { AlertCounter } from "../../components/layout.ts";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { alerts } from "../../db/schema/index.ts";
@@ -25,21 +25,21 @@ import {
   NotFoundError,
   clearToast,
   fragment,
-  idDeLaRuta,
+  idFromRoute,
   page,
   pushUrl,
   withOob,
 } from "../../lib/http.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
-import { comptaAvisosNous } from "../../services/comptadors.ts";
-import { LlistaAvisos, TargetaAvis } from "./alerts.fragment.ts";
+import { countNewAlerts } from "../../services/comptadors.ts";
+import { AlertsList, AlertCard } from "./alerts.fragment.ts";
 import { AlertsPage } from "./alerts.page.ts";
 import { alertFiltersSchema, alertFiltersToQuery } from "./alerts.schema.ts";
 
 export const alertsRoutes = new Hono();
 
 /** Els avisos de l'espai, els mes nous primer. */
-async function llegeixAvisos(ledgerId: number, descartats: boolean, limit: number) {
+async function readAlerts(ledgerId: number, descartats: boolean, limit: number) {
   const estats = descartats
     ? (["new", "read", "dismissed"] as const)
     : (["new", "read"] as const);
@@ -58,91 +58,91 @@ async function llegeixAvisos(ledgerId: number, descartats: boolean, limit: numbe
  * Comprovar-ho aqui es el que impedeix descartar l'avis d'un altre espai
  * endevinant-ne l'identificador.
  */
-async function avisDeLespai(id: number, ledgerId: number) {
-  const [avis] = await db
+async function alertInWorkspace(id: number, ledgerId: number) {
+  const [alert] = await db
     .select()
     .from(alerts)
     .where(and(eq(alerts.id, id), eq(alerts.ledgerId, ledgerId)))
     .limit(1);
-  if (!avis) throw new NotFoundError("Aquest avis no existeix");
-  return avis;
+  if (!alert) throw new NotFoundError("Aquest avis no existeix");
+  return alert;
 }
 
 // --- Pagina ----------------------------------------------------------------
 
 alertsRoutes.get("/", async (c) => {
-  const espai = currentWorkspace(c);
+  const workspace = currentWorkspace(c);
   const filters = alertFiltersSchema.parse(c.req.query());
-  const avisos = await llegeixAvisos(espai.id, filters.descartats, filters.limit);
+  const alertList = await readAlerts(workspace.id, filters.descartats, filters.limit);
 
   return page(
     c,
-    await workspacePage(c, "Avisos", AlertsPage({ codi: espai.code, avisos, filters })),
+    await workspacePage(c, "Avisos", AlertsPage({ codi: workspace.code, alertList, filters })),
   );
 });
 
 // --- Fragments -------------------------------------------------------------
 
 alertsRoutes.get("/fragment/llista", async (c) => {
-  const espai = currentWorkspace(c);
+  const workspace = currentWorkspace(c);
   const filters = alertFiltersSchema.parse(c.req.query());
-  const avisos = await llegeixAvisos(espai.id, filters.descartats, filters.limit);
+  const alertList = await readAlerts(workspace.id, filters.descartats, filters.limit);
 
   // L'adreça que ha de quedar a la barra i a l'historial es la de la pagina.
-  pushUrl(c, `/e/${espai.code}/avisos${alertFiltersToQuery(filters)}`);
+  pushUrl(c, `/e/${workspace.code}/avisos${alertFiltersToQuery(filters)}`);
 
-  return fragment(c, LlistaAvisos({ codi: espai.code, avisos, filters }));
+  return fragment(c, AlertsList({ codi: workspace.code, alertList, filters }));
 });
 
 // --- Mutacions -------------------------------------------------------------
 
 alertsRoutes.post("/:id/llegit", async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquest avis no existeix");
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquest avis no existeix");
 
-  const avis = await avisDeLespai(id, espai.id);
+  const alert = await alertInWorkspace(id, workspace.id);
 
   // Nomes te sentit sobre un avis nou; si ja estava llegit, no toquem res.
   const actualitzat =
-    avis.status === "new"
+    alert.status === "new"
       ? ((
           await db.update(alerts).set({ status: "read" }).where(eq(alerts.id, id)).returning()
-        )[0] ?? avis)
-      : avis;
+        )[0] ?? alert)
+      : alert;
 
   return fragment(
     c,
     // El tros que ha canviat, el comptador de la barra lateral fora de banda,
     // i el `#toast` net per esborrar l'error que hi pogues haver.
     await withOob(
-      TargetaAvis({
-        codi: espai.code,
-        avis: actualitzat,
+      AlertCard({
+        codi: workspace.code,
+        alert: actualitzat,
         filters: alertFiltersSchema.parse(c.req.query()),
       }),
-      ComptadorAvisos(await comptaAvisosNous(espai.id), true),
+      AlertCounter(await countNewAlerts(workspace.id), true),
       clearToast(),
     ),
   );
 });
 
 alertsRoutes.post("/:id/descarta", async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquest avis no existeix");
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquest avis no existeix");
 
-  await avisDeLespai(id, espai.id);
+  await alertInWorkspace(id, workspace.id);
   await db.update(alerts).set({ status: "dismissed" }).where(eq(alerts.id, id));
 
   // La llista sencera i no nomes la targeta: descartar l'ultim avis pendent
   // ha de deixar veure que no en queda cap.
-  const filtres = alertFiltersSchema.parse(c.req.query());
-  const avisos = await llegeixAvisos(espai.id, filtres.descartats, filtres.limit);
+  const filters = alertFiltersSchema.parse(c.req.query());
+  const alertList = await readAlerts(workspace.id, filters.descartats, filters.limit);
 
   return fragment(
     c,
     await withOob(
-      LlistaAvisos({ codi: espai.code, avisos, filters: filtres }),
-      ComptadorAvisos(await comptaAvisosNous(espai.id), true),
+      AlertsList({ codi: workspace.code, alertList, filters: filters }),
+      AlertCounter(await countNewAlerts(workspace.id), true),
       clearToast(),
     ),
   );

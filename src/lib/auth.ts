@@ -186,46 +186,46 @@ export async function purgeExpiredSessions(): Promise<number> {
  * Es compta per correu **i** per adreça, de manera que ni provar moltes
  * contrasenyes d'un compte ni provar un compte des de moltes adreces passa.
  */
-const MAX_INTENTS = 10;
+const MAX_ATTEMPTS = 10;
 const FINESTRA_MS = 15 * 60 * 1000;
 
-interface Intent {
+interface Attempt {
   count: number;
   firstAt: number;
 }
 
-const intents = new Map<string, Intent>();
+const attempts = new Map<string, Attempt>();
 
-function clauNeta(now: number): void {
-  for (const [clau, intent] of intents) {
-    if (now - intent.firstAt > FINESTRA_MS) intents.delete(clau);
+function cleanKey(now: number): void {
+  for (const [key, attempt] of attempts) {
+    if (now - attempt.firstAt > FINESTRA_MS) attempts.delete(key);
   }
 }
 
 export function loginBlocked(email: string, ip: string): boolean {
   const now = Date.now();
-  clauNeta(now);
-  return [`e:${email.toLowerCase()}`, `i:${ip}`].some((clau) => {
-    const intent = intents.get(clau);
-    return intent !== undefined && intent.count >= MAX_INTENTS;
+  cleanKey(now);
+  return [`e:${email.toLowerCase()}`, `i:${ip}`].some((key) => {
+    const attempt = attempts.get(key);
+    return attempt !== undefined && attempt.count >= MAX_ATTEMPTS;
   });
 }
 
 export function recordFailedLogin(email: string, ip: string): void {
   const now = Date.now();
-  for (const clau of [`e:${email.toLowerCase()}`, `i:${ip}`]) {
-    const intent = intents.get(clau);
-    if (intent === undefined || now - intent.firstAt > FINESTRA_MS) {
-      intents.set(clau, { count: 1, firstAt: now });
+  for (const key of [`e:${email.toLowerCase()}`, `i:${ip}`]) {
+    const attempt = attempts.get(key);
+    if (attempt === undefined || now - attempt.firstAt > FINESTRA_MS) {
+      attempts.set(key, { count: 1, firstAt: now });
     } else {
-      intent.count += 1;
+      attempt.count += 1;
     }
   }
 }
 
 export function clearFailedLogins(email: string, ip: string): void {
-  intents.delete(`e:${email.toLowerCase()}`);
-  intents.delete(`i:${ip}`);
+  attempts.delete(`e:${email.toLowerCase()}`);
+  attempts.delete(`i:${ip}`);
 }
 
 // --- Permisos --------------------------------------------------------------

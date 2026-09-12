@@ -6,17 +6,17 @@ import { html } from "hono/html";
 
 import type { CategoryKind } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
-import type { GrupCategories, NodeCategoria } from "../../services/categories.ts";
-import { Arbre, FormAlta } from "./categories.fragment.ts";
+import type { CategoryGroup, NodeCategory } from "../../services/categories.ts";
+import { Tree, CreateForm } from "./categories.fragment.ts";
 
 export interface CategoriesPageProps {
   codi: string;
-  arbre: Record<CategoryKind, NodeCategoria[]>;
-  grups: GrupCategories[];
+  tree: Record<CategoryKind, NodeCategory[]>;
+  groups: CategoryGroup[];
   potEditar: boolean;
 }
 
-export function CategoriesPage({ codi, arbre, grups, potEditar }: CategoriesPageProps): Html {
+export function CategoriesPage({ codi, tree, groups, potEditar }: CategoriesPageProps): Html {
   return html`
     <header class="capçalera">
       <h1>Categories</h1>
@@ -26,7 +26,7 @@ export function CategoriesPage({ codi, arbre, grups, potEditar }: CategoriesPage
       </p>
     </header>
 
-    ${potEditar ? FormAlta({ codi, grups }) : ""}
-    ${Arbre({ codi, arbre, potEditar })}
+    ${potEditar ? CreateForm({ codi, groups }) : ""}
+    ${Tree({ codi, tree, potEditar })}
   ` as Html;
 }

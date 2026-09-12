@@ -9,7 +9,7 @@
 import { z } from "zod/v4";
 
 /** Mínim de la contrasenya. El mateix que tenia el Python. */
-export const MIN_CONTRASENYA = 10;
+export const MIN_PASSWORD = 10;
 
 export const loginSchema = z.object({
   email: z
@@ -35,10 +35,7 @@ export const passwordChangeSchema = z
     current_password: z.string().min(1, "Cal la contrasenya actual"),
     new_password: z
       .string()
-      .min(
-        MIN_CONTRASENYA,
-        `La contrasenya nova ha de tenir ${MIN_CONTRASENYA} carácters o mes`,
-      ),
+      .min(MIN_PASSWORD, `La contrasenya nova ha de tenir ${MIN_PASSWORD} carácters o mes`),
     confirm_password: z.string().min(1, "Cal repetir la contrasenya nova"),
   })
   .refine((d) => d.new_password === d.confirm_password, {

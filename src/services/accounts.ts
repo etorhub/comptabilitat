@@ -11,17 +11,17 @@ import { and, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { accounts, categories, ledgers, transactions } from "../db/schema/index.ts";
 import { NotFoundError } from "../lib/http.ts";
-import { classificaPendents } from "./classification.ts";
-import { obteOCreaComerc } from "./merchants.ts";
+import { classifyPending } from "./classification.ts";
+import { getOrCreateMerchant } from "./merchants.ts";
 import { normalizeDescription } from "./normalization.ts";
 
-export interface ResumMoviment {
+export interface TransactionSummary {
   /** Moviments que han canviat d'espai. */
   moguts: number;
   /** Als quals s'ha pogut conservar la categoria que havia triat una persona. */
   conservades: number;
   /** Traspassos de l'espai vell que s'han hagut de desfer. */
-  traspassosDesfets: number;
+  undoneTransfers: number;
 }
 
 /**
@@ -42,27 +42,27 @@ export interface ResumMoviment {
  * es idempotent i es pot tornar a executar, i si falles el pitjor que passa es
  * que uns quants moviments es quedin per revisar, que es l'estat segur.
  */
-export async function mouCompteDEspai(
+export async function moveAccountToWorkspace(
   compteId: number,
   nouEspai: number | null,
-): Promise<ResumMoviment> {
-  const [compte] = await db.select().from(accounts).where(eq(accounts.id, compteId)).limit(1);
-  if (!compte) throw new NotFoundError("Aquest compte no existeix");
+): Promise<TransactionSummary> {
+  const [account] = await db.select().from(accounts).where(eq(accounts.id, compteId)).limit(1);
+  if (!account) throw new NotFoundError("Aquest compte no existeix");
 
   if (nouEspai !== null) {
-    const [espai] = await db
+    const [workspace] = await db
       .select({ id: ledgers.id })
       .from(ledgers)
       .where(eq(ledgers.id, nouEspai))
       .limit(1);
-    if (!espai) throw new NotFoundError("Aquest espai no existeix");
+    if (!workspace) throw new NotFoundError("Aquest espai no existeix");
   }
 
-  if (nouEspai === compte.ledgerId) {
-    return { moguts: 0, conservades: 0, traspassosDesfets: 0 };
+  if (nouEspai === account.ledgerId) {
+    return { moguts: 0, conservades: 0, undoneTransfers: 0 };
   }
 
-  const resum = await db.transaction(async (tx) => {
+  const summary = await db.transaction(async (tx) => {
     // --- El que s'ha de recordar abans d'esborrar-ho ---
 
     // Les decisions d'una persona, apuntades pel slug, que es el que vol dir
@@ -79,30 +79,30 @@ export async function mouCompteDEspai(
     // queda a l'espai vell, i si no li traiem el grup es queda apuntant a un
     // aparellament que ja no existeix: fora dels informes per sempre, sense
     // res amb que tornar a aparellar-se.
-    const grups = (
+    const groups = (
       await tx
-        .selectDistinct({ grup: transactions.transferGroupId })
+        .selectDistinct({ group: transactions.transferGroupId })
         .from(transactions)
         .where(
           and(eq(transactions.accountId, compteId), isNotNull(transactions.transferGroupId)),
         )
     )
-      .map((f) => f.grup)
+      .map((f) => f.group)
       .filter((g): g is string => g !== null);
 
-    let traspassosDesfets = 0;
-    if (grups.length > 0) {
+    let undoneTransfers = 0;
+    if (groups.length > 0) {
       const orfes = await tx
         .update(transactions)
         .set({ transferGroupId: null })
         .where(
           and(
-            inArray(transactions.transferGroupId, grups),
+            inArray(transactions.transferGroupId, groups),
             ne(transactions.accountId, compteId),
           ),
         )
         .returning({ id: transactions.id });
-      traspassosDesfets = orfes.length;
+      undoneTransfers = orfes.length;
     }
 
     // --- El trasllat ---
@@ -127,24 +127,24 @@ export async function mouCompteDEspai(
     let conservades = 0;
     if (nouEspai !== null) {
       // --- El que es recupera ---
-      conservades = await tornaLesDecisions(tx, nouEspai, decisions);
-      await refesLesContraparts(tx, compteId, nouEspai);
+      conservades = await returnsLesDecisions(tx, nouEspai, decisions);
+      await redoCounterparties(tx, compteId, nouEspai);
     }
 
     // Els comerços dels **dos** espais queden desquadrats: els de l'espai nou
     // perque `obteOCreaComerc` puja el comptador d'un en un i aqui s'ha cridat
     // un cop per grup, i els de l'espai vell perque compten moviments que ja
     // no hi son.
-    await requadraElsComptadors(tx, [compte.ledgerId, nouEspai]);
+    await boxTheCounters(tx, [account.ledgerId, nouEspai]);
 
-    return { moguts: moguts.length, conservades, traspassosDesfets };
+    return { moguts: moguts.length, conservades, undoneTransfers };
   });
 
   // Fora de la transaccio a posta: `classificaPendents` obre les seves
   // consultes i no veuria res del que encara no s'ha desat.
-  if (nouEspai !== null) await classificaPendents(nouEspai);
+  if (nouEspai !== null) await classifyPending(nouEspai);
 
-  return resum;
+  return summary;
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -153,7 +153,7 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
  * Torna a posar les categories que havia triat una persona, lligant-les pel
  * slug a l'espai nou. Retorna quantes se n'han pogut recuperar.
  */
-async function tornaLesDecisions(
+async function returnsLesDecisions(
   tx: Tx,
   nouEspai: number,
   decisions: { movimentId: number; slug: string }[],
@@ -169,22 +169,19 @@ async function tornaLesDecisions(
   const perSlug = new Map(destins.map((c) => [c.slug, c.id]));
 
   // Un `update` per categoria de desti, no per moviment.
-  const perCategoria = new Map<number, number[]>();
-  for (const decisio of decisions) {
-    const categoriaId = perSlug.get(decisio.slug);
-    if (categoriaId === undefined) continue;
-    perCategoria.set(categoriaId, [
-      ...(perCategoria.get(categoriaId) ?? []),
-      decisio.movimentId,
-    ]);
+  const byCategory = new Map<number, number[]>();
+  for (const decision of decisions) {
+    const categoryId = perSlug.get(decision.slug);
+    if (categoryId === undefined) continue;
+    byCategory.set(categoryId, [...(byCategory.get(categoryId) ?? []), decision.movimentId]);
   }
 
   let conservades = 0;
-  for (const [categoriaId, ids] of perCategoria) {
+  for (const [categoryId, ids] of byCategory) {
     await tx
       .update(transactions)
       .set({
-        categoryId: categoriaId,
+        categoryId: categoryId,
         categorySource: "user",
         categoryConfidence: 1,
         needsReview: false,
@@ -202,7 +199,7 @@ async function tornaLesDecisions(
  * Va per grup i no per moviment: un compte amb tres mil apunts sol tenir
  * unes desenes de contraparts, i la diferencia son milers de consultes.
  */
-async function refesLesContraparts(tx: Tx, compteId: number, nouEspai: number): Promise<void> {
+async function redoCounterparties(tx: Tx, compteId: number, nouEspai: number): Promise<void> {
   const seus = await tx
     .select({
       id: transactions.id,
@@ -213,48 +210,49 @@ async function refesLesContraparts(tx: Tx, compteId: number, nouEspai: number): 
     .from(transactions)
     .where(and(eq(transactions.accountId, compteId), isNull(transactions.merchantId)));
 
-  interface Grup {
+  interface Group {
     normalitzat: string;
     mostrar: string;
     ultimDia: string | null;
     ids: number[];
   }
-  const perClau = new Map<string, Grup>();
+  const byKey = new Map<string, Group>();
 
-  for (const moviment of seus) {
+  for (const transaction of seus) {
     const [normalitzat, mostrar] = normalizeDescription(
-      moviment.description,
-      moviment.counterparty,
+      transaction.description,
+      transaction.counterparty,
     );
     if (!normalitzat) continue;
 
-    const clau = normalitzat.slice(0, 200);
-    const grup = perClau.get(clau);
-    if (grup === undefined) {
-      perClau.set(clau, {
-        normalitzat: clau,
+    const key = normalitzat.slice(0, 200);
+    const group = byKey.get(key);
+    if (group === undefined) {
+      byKey.set(key, {
+        normalitzat: key,
         mostrar,
-        ultimDia: moviment.bookingDate,
-        ids: [moviment.id],
+        ultimDia: transaction.bookingDate,
+        ids: [transaction.id],
       });
     } else {
-      grup.ids.push(moviment.id);
-      if (moviment.bookingDate > (grup.ultimDia ?? "")) grup.ultimDia = moviment.bookingDate;
+      group.ids.push(transaction.id);
+      if (transaction.bookingDate > (group.ultimDia ?? ""))
+        group.ultimDia = transaction.bookingDate;
     }
   }
 
-  for (const grup of perClau.values()) {
-    const comerc = await obteOCreaComerc(
+  for (const group of byKey.values()) {
+    const merchant = await getOrCreateMerchant(
       nouEspai,
-      grup.normalitzat,
-      grup.mostrar,
-      grup.ultimDia,
+      group.normalitzat,
+      group.mostrar,
+      group.ultimDia,
       tx,
     );
     await tx
       .update(transactions)
-      .set({ normalizedDescription: grup.normalitzat, merchantId: comerc?.id ?? null })
-      .where(inArray(transactions.id, grup.ids));
+      .set({ normalizedDescription: group.normalitzat, merchantId: merchant?.id ?? null })
+      .where(inArray(transactions.id, group.ids));
   }
 }
 
@@ -266,8 +264,8 @@ async function refesLesContraparts(tx: Tx, compteId: number, nouEspai: number): 
  * pot anar-se'n de mare: es el que es veu a la llista de comerços i el que
  * ordena la cua del model local.
  */
-async function requadraElsComptadors(tx: Tx, espais: (number | null)[]): Promise<void> {
-  const ids = [...new Set(espais.filter((e): e is number => e !== null))];
+async function boxTheCounters(tx: Tx, workspaces: (number | null)[]): Promise<void> {
+  const ids = [...new Set(workspaces.filter((e): e is number => e !== null))];
   if (ids.length === 0) return;
 
   await tx.execute(sql`

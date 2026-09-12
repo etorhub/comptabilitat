@@ -22,9 +22,9 @@ import {
 import { hashPassword } from "../src/lib/auth.ts";
 import { config } from "../src/lib/config.ts";
 import { app } from "../src/server.ts";
-import { CONTRASENYA, entra } from "./ajuda.ts";
+import { PASSWORD, signIn } from "./ajuda.ts";
 
-const SESSIO = {
+const Session = {
   session_id: "sessio-abc",
   access: { valid_until: "2026-11-20T10:00:00.000Z" },
   aspsp: { name: "Santander", country: "ES" },
@@ -54,11 +54,11 @@ const ajustos = config as {
   publicBaseUrl: string;
 };
 
-let banc: ReturnType<typeof Bun.serve> | undefined;
+let bank: ReturnType<typeof Bun.serve> | undefined;
 let calellaId = 0;
-let sessioAdmin = { cookie: "", csrf: "" };
+let adminSession = { cookie: "", csrf: "" };
 
-async function clauRsaPem(): Promise<string> {
+async function keyRsaPem(): Promise<string> {
   const parell = await crypto.subtle.generateKey(
     {
       name: "RSASSA-PKCS1-v1_5",
@@ -77,48 +77,48 @@ async function clauRsaPem(): Promise<string> {
 }
 
 async function autoritza(
-  sessio: { cookie: string; csrf: string },
-  cos: Record<string, string>,
+  session: { cookie: string; csrf: string },
+  body: Record<string, string>,
 ): Promise<Response> {
   return app.request("/connexions/autoritza", {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      Cookie: sessio.cookie,
-      "X-CSRF-Token": sessio.csrf,
+      Cookie: session.cookie,
+      "X-CSRF-Token": session.csrf,
       "HX-Request": "true",
     },
-    body: new URLSearchParams(cos).toString(),
+    body: new URLSearchParams(body).toString(),
   });
 }
 
-async function retornDelBanc(params: Record<string, string>): Promise<Response> {
+async function bankCallback(params: Record<string, string>): Promise<Response> {
   return app.request(`/api/auth/callback?${new URLSearchParams(params).toString()}`);
 }
 
-async function connexio() {
-  const [fila] = await db.select().from(bankConnections).limit(1);
-  return fila;
+async function connection() {
+  const [row] = await db.select().from(bankConnections).limit(1);
+  return row;
 }
 
 beforeAll(async () => {
-  banc = Bun.serve({
+  bank = Bun.serve({
     port: 0,
     fetch(req) {
-      const cami = new URL(req.url).pathname;
-      if (cami === "/auth") return Response.json({ url: "https://banc.example/sca?x=1" });
-      if (cami === "/sessions") return Response.json(SESSIO);
+      const path = new URL(req.url).pathname;
+      if (path === "/auth") return Response.json({ url: "https://banc.example/sca?x=1" });
+      if (path === "/sessions") return Response.json(Session);
       return new Response("no", { status: 404 });
     },
   });
 
   ajustos.ebApplicationId = "app-de-proves";
-  ajustos.ebPrivateKey = await clauRsaPem();
-  ajustos.ebApiOrigin = `http://127.0.0.1:${banc.port}`;
+  ajustos.ebPrivateKey = await keyRsaPem();
+  ajustos.ebApiOrigin = `http://127.0.0.1:${bank.port}`;
 });
 
 afterAll(async () => {
-  await banc?.stop(true);
+  await bank?.stop(true);
 });
 
 beforeEach(async () => {
@@ -130,7 +130,7 @@ beforeEach(async () => {
   await db.delete(users);
   await db.delete(ledgers);
 
-  const espais = await db
+  const workspaces = await db
     .insert(ledgers)
     .values(
       ["personal", "calella"].map((code, i) => ({
@@ -146,9 +146,9 @@ beforeEach(async () => {
       })),
     )
     .returning();
-  calellaId = espais.find((e) => e.code === "calella")?.id ?? 0;
+  calellaId = workspaces.find((e) => e.code === "calella")?.id ?? 0;
 
-  const passwordHash = await hashPassword(CONTRASENYA);
+  const passwordHash = await hashPassword(PASSWORD);
   await db.insert(users).values([
     {
       email: "admin@exemple.cat",
@@ -166,58 +166,58 @@ beforeEach(async () => {
     },
   ]);
 
-  sessioAdmin = await entra("admin@exemple.cat");
+  adminSession = await signIn("admin@exemple.cat");
 });
 
 describe("el flux d'autoritzacio", () => {
   test("dona d'alta els comptes, sense espai assignat", async () => {
-    const res = await autoritza(sessioAdmin, { aspsp_name: "Santander" });
+    const res = await autoritza(adminSession, { aspsp_name: "Santander" });
 
     // Per HTMX, una redireccio es un 204 amb `HX-Redirect`: la pagina del
     // banc no pot anar dins d'un `<div>`.
     expect(res.status).toBe(204);
     expect(res.headers.get("HX-Redirect")).toBe("https://banc.example/sca?x=1");
 
-    const pendent = await connexio();
+    const pendent = await connection();
     expect(pendent?.status).toBe("pending");
-    const estat = pendent?.ebAuthState ?? "";
-    expect(estat).not.toBe("");
+    const state = pendent?.ebAuthState ?? "";
+    expect(state).not.toBe("");
 
-    const retorn = await retornDelBanc({ code: "codi-1", state: estat });
+    const retorn = await bankCallback({ code: "codi-1", state: state });
     expect(retorn.status).toBe(303);
     expect(retorn.headers.get("location")).toContain("estat=ok");
 
-    const activa = await connexio();
-    expect(activa?.status).toBe("active");
-    expect(activa?.ebSessionId).toBe("sessio-abc");
-    expect(activa?.validUntil).not.toBeNull();
-    expect(activa?.ebAuthState).toBeNull();
+    const active = await connection();
+    expect(active?.status).toBe("active");
+    expect(active?.ebSessionId).toBe("sessio-abc");
+    expect(active?.validUntil).not.toBeNull();
+    expect(active?.ebAuthState).toBeNull();
 
-    const comptes = await db.select().from(accounts).orderBy(accounts.ebAccountUid);
-    expect(comptes.map((c) => c.ebAccountUid)).toEqual(["uid-1", "uid-2"]);
+    const accountList = await db.select().from(accounts).orderBy(accounts.ebAccountUid);
+    expect(accountList.map((c) => c.ebAccountUid)).toEqual(["uid-1", "uid-2"]);
     // Els comptes arriben sense espai: l'assigna l'usuari despres.
-    expect(comptes.every((c) => c.ledgerId === null)).toBe(true);
+    expect(accountList.every((c) => c.ledgerId === null)).toBe(true);
   });
 
   test("un estat desconegut no crea cap sessio", async () => {
-    const retorn = await retornDelBanc({ code: "codi-1", state: "inventat" });
+    const retorn = await bankCallback({ code: "codi-1", state: "inventat" });
 
     expect(retorn.status).toBe(303);
     expect(retorn.headers.get("location")).toContain("estat=error");
-    expect(await connexio()).toBeUndefined();
+    expect(await connection()).toBeUndefined();
   });
 
   test("el banc pot tornar un error", async () => {
-    const retorn = await retornDelBanc({ error: "access_denied" });
+    const retorn = await bankCallback({ error: "access_denied" });
 
     expect(retorn.status).toBe(303);
     expect(retorn.headers.get("location")).toContain("estat=error");
   });
 
   test("renovar el consentiment conserva els comptes i el seu espai", async () => {
-    await autoritza(sessioAdmin, { aspsp_name: "Santander" });
-    const primera = await connexio();
-    await retornDelBanc({ code: "codi-1", state: primera?.ebAuthState ?? "" });
+    await autoritza(adminSession, { aspsp_name: "Santander" });
+    const first = await connection();
+    await bankCallback({ code: "codi-1", state: first?.ebAuthState ?? "" });
 
     await db
       .update(accounts)
@@ -225,20 +225,20 @@ describe("el flux d'autoritzacio", () => {
       .where(eq(accounts.ebAccountUid, "uid-1"));
 
     // Segona autoritzacio sobre la mateixa connexio, com quan caduca el consentiment.
-    await autoritza(sessioAdmin, { connection_id: String(primera?.id ?? 0) });
-    const segona = await connexio();
-    await retornDelBanc({ code: "codi-2", state: segona?.ebAuthState ?? "" });
+    await autoritza(adminSession, { connection_id: String(first?.id ?? 0) });
+    const segona = await connection();
+    await bankCallback({ code: "codi-2", state: segona?.ebAuthState ?? "" });
 
-    const comptes = await db.select().from(accounts);
-    expect(comptes.length).toBe(2);
-    const uid1 = comptes.find((c) => c.ebAccountUid === "uid-1");
+    const accountList = await db.select().from(accounts);
+    expect(accountList.length).toBe(2);
+    const uid1 = accountList.find((c) => c.ebAccountUid === "uid-1");
     expect(uid1?.ledgerId).toBe(calellaId);
   });
 });
 
 describe("qui pot gestionar les connexions", () => {
   test("un usuari normal no en veu res", async () => {
-    const anna = await entra("anna@exemple.cat");
+    const anna = await signIn("anna@exemple.cat");
 
     // Aqui hi ha un canvi respecte de l'aplicacio de Python, que responia 403:
     // ara es un 404, com amb els espais. Qui no ho es, no ha de saber que hi ha.
@@ -246,6 +246,6 @@ describe("qui pot gestionar les connexions", () => {
       (await app.request("/connexions", { headers: { Cookie: anna.cookie } })).status,
     ).toBe(404);
     expect((await autoritza(anna, {})).status).toBe(404);
-    expect(await connexio()).toBeUndefined();
+    expect(await connection()).toBeUndefined();
   });
 });

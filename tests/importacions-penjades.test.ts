@@ -14,42 +14,38 @@ import { eq } from "drizzle-orm";
 
 import { db } from "../src/db/client.ts";
 import { bankConnections, syncRuns } from "../src/db/schema/index.ts";
-import {
-  jaSincronitza,
-  tancaImportacionsObertes,
-  tancaImportacionsPenjades,
-} from "../src/services/sync.ts";
-import { feinaManteniment } from "../src/workers/jobs/maintenance.ts";
+import { alreadySyncing, closeOpenImports, closeStuckImports } from "../src/services/sync.ts";
+import { maintenanceJob } from "../src/workers/jobs/maintenance.ts";
 
-let connexioId = 0;
+let connectionId = 0;
 
 function faHores(hores: number): Date {
   return new Date(Date.now() - hores * 60 * 60 * 1000);
 }
 
-async function execucio(estat: "running" | "success", començada: Date): Promise<number> {
-  const [fila] = await db
+async function run(state: "running" | "success", començada: Date): Promise<number> {
+  const [row] = await db
     .insert(syncRuns)
     .values({
-      connectionId: connexioId,
+      connectionId: connectionId,
       trigger: "manual",
-      status: estat,
+      status: state,
       startedAt: començada,
-      finishedAt: estat === "running" ? null : new Date(),
+      finishedAt: state === "running" ? null : new Date(),
       accountsSynced: 0,
       transactionsInserted: 0,
       transactionsUpdated: 0,
       error: "",
     })
     .returning();
-  return fila?.id ?? 0;
+  return row?.id ?? 0;
 }
 
 beforeEach(async () => {
   await db.delete(syncRuns);
   await db.delete(bankConnections);
 
-  const [connexio] = await db
+  const [connection] = await db
     .insert(bankConnections)
     .values({
       name: "S",
@@ -60,61 +56,61 @@ beforeEach(async () => {
       lastError: "",
     })
     .returning();
-  connexioId = connexio?.id ?? 0;
+  connectionId = connection?.id ?? 0;
 });
 
 describe("el manteniment", () => {
   test("tanca les que fa hores que no es mouen", async () => {
-    const morta = await execucio("running", faHores(5));
+    const morta = await run("running", faHores(5));
 
-    expect(await tancaImportacionsPenjades()).toBe(1);
+    expect(await closeStuckImports()).toBe(1);
 
-    const [fila] = await db.select().from(syncRuns).where(eq(syncRuns.id, morta));
-    expect(fila?.status).toBe("failed");
-    expect(fila?.finishedAt).not.toBeNull();
-    expect(fila?.error).toContain("a mitges");
+    const [row] = await db.select().from(syncRuns).where(eq(syncRuns.id, morta));
+    expect(row?.status).toBe("failed");
+    expect(row?.finishedAt).not.toBeNull();
+    expect(row?.error).toContain("a mitges");
   });
 
   test("pero no toca les que acaben de començar", async () => {
-    const viva = await execucio("running", faHores(0));
+    const viva = await run("running", faHores(0));
 
-    expect(await tancaImportacionsPenjades()).toBe(0);
+    expect(await closeStuckImports()).toBe(0);
 
-    const [fila] = await db.select().from(syncRuns).where(eq(syncRuns.id, viva));
-    expect(fila?.status).toBe("running");
+    const [row] = await db.select().from(syncRuns).where(eq(syncRuns.id, viva));
+    expect(row?.status).toBe("running");
   });
 
   test("i la feina de manteniment ho diu", async () => {
-    await execucio("running", faHores(5));
-    expect(await feinaManteniment()).toContain("1 importacions penjades");
+    await run("running", faHores(5));
+    expect(await maintenanceJob()).toContain("1 importacions penjades");
   });
 });
 
 describe("dues importacions alhora", () => {
   test("amb una de viva, no se'n comença cap altra", async () => {
-    await execucio("running", faHores(0));
-    expect(await jaSincronitza(connexioId)).toBe(true);
+    await run("running", faHores(0));
+    expect(await alreadySyncing(connectionId)).toBe(true);
   });
 
   test("una de penjada no bloqueja per sempre", async () => {
-    await execucio("running", faHores(5));
-    expect(await jaSincronitza(connexioId)).toBe(false);
+    await run("running", faHores(5));
+    expect(await alreadySyncing(connectionId)).toBe(false);
   });
 
   test("ni una que ja ha acabat", async () => {
-    await execucio("success", faHores(0));
-    expect(await jaSincronitza(connexioId)).toBe(false);
+    await run("success", faHores(0));
+    expect(await alreadySyncing(connectionId)).toBe(false);
   });
 });
 
 describe("l'aturada del servidor", () => {
   test("marca com a interrompudes les que hi hagi obertes", async () => {
-    const oberta = await execucio("running", faHores(0));
+    const oberta = await run("running", faHores(0));
 
-    expect(await tancaImportacionsObertes()).toBe(1);
+    expect(await closeOpenImports()).toBe(1);
 
-    const [fila] = await db.select().from(syncRuns).where(eq(syncRuns.id, oberta));
-    expect(fila?.status).toBe("failed");
-    expect(fila?.error).toContain("s'ha aturat");
+    const [row] = await db.select().from(syncRuns).where(eq(syncRuns.id, oberta));
+    expect(row?.status).toBe("failed");
+    expect(row?.error).toContain("s'ha aturat");
   });
 });

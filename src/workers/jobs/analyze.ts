@@ -6,22 +6,22 @@ import { eq } from "drizzle-orm";
 
 import { db } from "../../db/client.ts";
 import { ledgers } from "../../db/schema/index.ts";
-import { comprovaDescoberts } from "../../services/forecast.ts";
+import { checkOverdrafts } from "../../services/forecast.ts";
 import {
-  comprovaRebutsQueFalten,
-  detectaRecurrents,
-  resumRecurrents,
+  checkMissingBills,
+  detectRecurring,
+  summaryRecurring,
 } from "../../services/recurring.ts";
 
-export async function feinaAnalisi(): Promise<string> {
+export async function analysisJob(): Promise<string> {
   const linies: string[] = [];
 
-  for (const espai of await db.select().from(ledgers).where(eq(ledgers.isActive, true))) {
-    const recurrents = await detectaRecurrents(espai.id);
-    const falten = await comprovaRebutsQueFalten(espai.id);
-    const descoberts = await comprovaDescoberts(espai);
+  for (const workspace of await db.select().from(ledgers).where(eq(ledgers.isActive, true))) {
+    const recurring = await detectRecurring(workspace.id);
+    const falten = await checkMissingBills(workspace.id);
+    const overdrafts = await checkOverdrafts(workspace);
     linies.push(
-      `${espai.name}: ${resumRecurrents(recurrents)}, ${falten} rebuts que falten, ${descoberts} avisos de descobert`,
+      `${workspace.name}: ${summaryRecurring(recurring)}, ${falten} rebuts que falten, ${overdrafts} avisos de descobert`,
     );
   }
 

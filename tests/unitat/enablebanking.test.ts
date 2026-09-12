@@ -16,16 +16,16 @@ import { dedupKey, parseTransaction } from "../../src/lib/enablebanking/parsing.
 import casos from "../fixtures/enablebanking.json";
 
 interface Cas {
-  cru: Record<string, unknown>;
-  esperat: Record<string, unknown> | null;
+  raw: Record<string, unknown>;
+  expected: Record<string, unknown> | null;
 }
 
 describe("es comporta igual que la implementacio de Python", () => {
   test(`${(casos as Cas[]).length} respostes gravades donen el mateix`, () => {
     for (const cas of casos as Cas[]) {
-      const obtingut = parseTransaction(cas.cru);
+      const obtingut = parseTransaction(cas.raw);
 
-      if (cas.esperat === null) {
+      if (cas.expected === null) {
         expect(obtingut).toBeNull();
         continue;
       }
@@ -36,7 +36,7 @@ describe("es comporta igual que la implementacio de Python", () => {
       expect({
         ...resta,
         dedupKey: dedupKey(obtingut as NonNullable<typeof obtingut>),
-      }).toEqual(cas.esperat as never);
+      }).toEqual(cas.expected as never);
     }
   });
 });
@@ -57,8 +57,8 @@ describe("la clau de deduplicacio", () => {
   };
 
   test("fa servir la referencia del banc quan n'hi ha", () => {
-    const clau = dedupKey({ ...base, entryReference: "REF-123" });
-    expect(clau).toBe("ref:REF-123");
+    const key = dedupKey({ ...base, entryReference: "REF-123" });
+    expect(key).toBe("ref:REF-123");
   });
 
   test("sense referencia, es un resum estable", () => {

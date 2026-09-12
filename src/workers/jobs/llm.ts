@@ -9,14 +9,14 @@ import { eq } from "drizzle-orm";
 
 import { db } from "../../db/client.ts";
 import { ledgers } from "../../db/schema/index.ts";
-import { classificaComercos, resumLlm } from "../../services/llm-classification.ts";
+import { classifyMerchants, summaryLlm } from "../../services/llm-classification.ts";
 
-export async function feinaModelLocal(limit = 50): Promise<string> {
+export async function localModelJob(limit = 50): Promise<string> {
   const linies: string[] = [];
 
-  for (const espai of await db.select().from(ledgers).where(eq(ledgers.isActive, true))) {
-    const estadistiques = await classificaComercos(espai.id, { limit });
-    linies.push(`${espai.name}: ${resumLlm(estadistiques)}`);
+  for (const workspace of await db.select().from(ledgers).where(eq(ledgers.isActive, true))) {
+    const stats = await classifyMerchants(workspace.id, { limit });
+    linies.push(`${workspace.name}: ${summaryLlm(stats)}`);
   }
 
   return linies.join("\n") || "no hi ha cap espai actiu";

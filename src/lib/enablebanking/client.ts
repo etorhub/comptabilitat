@@ -37,14 +37,14 @@ const JWT_REFRESH_MARGIN = 120;
  * llegir. Es conserva perque el desplegament hi depen, pero el secret muntat
  * (`EB_PRIVATE_KEY_PATH`) es millor i es el que hauria de fer-se servir.
  */
-async function llegeixClauPrivada(): Promise<string> {
+async function readPrivateKey(): Promise<string> {
   if (config.ebPrivateKey) return config.ebPrivateKey;
   if (config.ebPrivateKeyB64) {
     return Buffer.from(config.ebPrivateKeyB64, "base64").toString("utf8");
   }
 
-  const fitxer = Bun.file(config.ebPrivateKeyPath);
-  if (await fitxer.exists()) return fitxer.text();
+  const file = Bun.file(config.ebPrivateKeyPath);
+  if (await file.exists()) return file.text();
 
   throw new MissingCredentialsError(
     `No s'ha trobat la clau privada d'Enable Banking a ${config.ebPrivateKeyPath}. ` +
@@ -53,11 +53,11 @@ async function llegeixClauPrivada(): Promise<string> {
 }
 
 /** Marca de temps UTC amb sufix Z, que es el que espera Enable Banking. */
-function isoZ(data: Date): string {
-  return `${data.toISOString().slice(0, 23)}Z`;
+function isoZ(date: Date): string {
+  return `${date.toISOString().slice(0, 23)}Z`;
 }
 
-export interface OpcionsClient {
+export interface ClientOptions {
   applicationId?: string;
   privateKey?: string;
   baseUrl?: string;
@@ -72,11 +72,11 @@ export class EnableBankingClient {
   private token: string | null = null;
   private tokenExpiresAt = 0;
 
-  constructor(opcions: OpcionsClient = {}) {
-    this.applicationId = opcions.applicationId ?? config.ebApplicationId;
-    this.baseUrl = (opcions.baseUrl ?? config.ebApiOrigin).replace(/\/$/, "");
-    this.timeoutMs = opcions.timeoutMs ?? 60_000;
-    this.privateKeyPem = opcions.privateKey ?? null;
+  constructor(options: ClientOptions = {}) {
+    this.applicationId = options.applicationId ?? config.ebApplicationId;
+    this.baseUrl = (options.baseUrl ?? config.ebApiOrigin).replace(/\/$/, "");
+    this.timeoutMs = options.timeoutMs ?? 60_000;
+    this.privateKeyPem = options.privateKey ?? null;
   }
 
   private async jwt(): Promise<string> {
@@ -88,8 +88,8 @@ export class EnableBankingClient {
       throw new MissingCredentialsError("Falta EB_APPLICATION_ID");
     }
 
-    this.privateKeyPem ??= await llegeixClauPrivada();
-    const clau = await importPKCS8(this.privateKeyPem, "RS256");
+    this.privateKeyPem ??= await readPrivateKey();
+    const key = await importPKCS8(this.privateKeyPem, "RS256");
 
     const emes = Math.floor(ara);
     this.token = await new SignJWT({})
@@ -98,7 +98,7 @@ export class EnableBankingClient {
       .setAudience("api.enablebanking.com")
       .setIssuedAt(emes)
       .setExpirationTime(emes + JWT_TTL_SECONDS)
-      .sign(clau);
+      .sign(key);
 
     this.tokenExpiresAt = emes + JWT_TTL_SECONDS;
     return this.token;
@@ -107,12 +107,12 @@ export class EnableBankingClient {
   private async request<T = Record<string, unknown>>(
     method: string,
     path: string,
-    opcions: { params?: Record<string, string | null | undefined>; json?: unknown } = {},
+    options: { params?: Record<string, string | null | undefined>; json?: unknown } = {},
   ): Promise<T> {
     const url = new URL(`${this.baseUrl}${path}`);
-    for (const [clau, valor] of Object.entries(opcions.params ?? {})) {
+    for (const [key, valor] of Object.entries(options.params ?? {})) {
       if (valor !== null && valor !== undefined && valor !== "") {
-        url.searchParams.set(clau, valor);
+        url.searchParams.set(key, valor);
       }
     }
 
@@ -122,9 +122,9 @@ export class EnableBankingClient {
         method,
         headers: {
           Authorization: `Bearer ${await this.jwt()}`,
-          ...(opcions.json !== undefined ? { "Content-Type": "application/json" } : {}),
+          ...(options.json !== undefined ? { "Content-Type": "application/json" } : {}),
         },
-        body: opcions.json !== undefined ? JSON.stringify(opcions.json) : undefined,
+        body: options.json !== undefined ? JSON.stringify(options.json) : undefined,
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (error) {
@@ -159,7 +159,7 @@ export class EnableBankingClient {
   }
 
   /** Inicia l'autoritzacio i retorna la URL on ha d'anar la persona. */
-  startAuthorization(opcions: {
+  startAuthorization(options: {
     aspspName: string;
     aspspCountry: string;
     redirectUrl: string;
@@ -167,16 +167,16 @@ export class EnableBankingClient {
     psuType?: string;
     validDays?: number;
   }) {
-    const dies = opcions.validDays ?? config.ebConsentDays;
-    const valid = new Date(Date.now() + dies * 86_400_000);
+    const days = options.validDays ?? config.ebConsentDays;
+    const valid = new Date(Date.now() + days * 86_400_000);
 
     return this.request<{ url?: string; authorization_url?: string }>("POST", "/auth", {
       json: {
         access: { valid_until: isoZ(valid) },
-        aspsp: { name: opcions.aspspName, country: opcions.aspspCountry },
-        state: opcions.state,
-        redirect_url: opcions.redirectUrl,
-        psu_type: opcions.psuType ?? "personal",
+        aspsp: { name: options.aspspName, country: options.aspspCountry },
+        state: options.state,
+        redirect_url: options.redirectUrl,
+        psu_type: options.psuType ?? "personal",
       },
     });
   }
@@ -216,7 +216,7 @@ export class EnableBankingClient {
    */
   async *iterTransactions(
     accountUid: string,
-    opcions: {
+    options: {
       dateFrom: string;
       dateTo?: string | null;
       transactionStatus?: string | null;
@@ -227,23 +227,23 @@ export class EnableBankingClient {
     // ha de mirar: hi ha decisions —esborrar pendents que el banc ja no
     // reporta— que amb una llista incompleta esborrarien coses vives.
   ): AsyncGenerator<Record<string, unknown>, boolean> {
-    const maxPages = opcions.maxPages ?? 200;
+    const maxPages = options.maxPages ?? 200;
     let continuationKey: string | null = null;
 
-    for (let pagina = 0; pagina < maxPages; pagina += 1) {
+    for (let page = 0; page < maxPages; page += 1) {
       const payload: {
         transactions?: Record<string, unknown>[];
         continuation_key?: string;
       } = await this.request("GET", `/accounts/${accountUid}/transactions`, {
         params: {
-          date_from: opcions.dateFrom,
-          date_to: opcions.dateTo,
-          transaction_status: opcions.transactionStatus,
+          date_from: options.dateFrom,
+          date_to: options.dateTo,
+          transaction_status: options.transactionStatus,
           continuation_key: continuationKey,
         },
       });
 
-      for (const moviment of payload.transactions ?? []) yield moviment;
+      for (const transaction of payload.transactions ?? []) yield transaction;
 
       continuationKey = payload.continuation_key ?? null;
       if (continuationKey === null) return false;
@@ -274,25 +274,25 @@ async function aError(resposta: Response): Promise<EnableBankingError> {
 
   const message = String(payload.message ?? payload.error ?? text ?? "");
   const code = payload.code ?? payload.error ?? null;
-  const cerca = `${code ?? ""} ${message}`.toUpperCase();
+  const search = `${code ?? ""} ${message}`.toUpperCase();
 
-  const opcions = {
+  const options = {
     statusCode: resposta.status,
     code: code === null ? null : String(code),
     payload,
   };
 
-  if (cerca.includes("EXPIRED_SESSION") || cerca.includes("SESSION_EXPIRED")) {
-    return new SessionExpiredError(message, opcions);
+  if (search.includes("EXPIRED_SESSION") || search.includes("SESSION_EXPIRED")) {
+    return new SessionExpiredError(message, options);
   }
 
   // Els bancs limiten quant enrere es pot consultar; el missatge varia molt.
   if (
     (resposta.status === 400 || resposta.status === 422) &&
-    ["DATE", "PERIOD", "RANGE", "FROM"].some((paraula) => cerca.includes(paraula))
+    ["DATE", "PERIOD", "RANGE", "FROM"].some((paraula) => search.includes(paraula))
   ) {
-    return new DateRangeError(message, opcions);
+    return new DateRangeError(message, options);
   }
 
-  return new EnableBankingError(message, opcions);
+  return new EnableBankingError(message, options);
 }

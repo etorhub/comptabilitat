@@ -25,11 +25,11 @@ import { db } from "./client.ts";
 /** El cap d'Alembic quan es va canviar de pila. */
 const CAP_ALEMBIC = "b2c3d4e5f6a7";
 
-async function existeix(taula: string): Promise<boolean> {
-  const resultat = await db.execute<{ existeix: boolean }>(
-    sql`select to_regclass(${`public.${taula}`}) is not null as existeix`,
+async function existeix(table: string): Promise<boolean> {
+  const result = await db.execute<{ existeix: boolean }>(
+    sql`select to_regclass(${`public.${table}`}) is not null as existeix`,
   );
-  return Boolean(resultat[0]?.existeix);
+  return Boolean(result[0]?.existeix);
 }
 
 /**
@@ -40,12 +40,12 @@ async function existeix(taula: string): Promise<boolean> {
  */
 async function baseline(motiu: string): Promise<void> {
   const journal = await Bun.file("drizzle/meta/_journal.json").json();
-  const primera = journal.entries?.[0];
-  if (!primera) throw new Error("No hi ha cap migracio a drizzle/meta/_journal.json");
+  const first = journal.entries?.[0];
+  if (!first) throw new Error("No hi ha cap migracio a drizzle/meta/_journal.json");
 
-  const sqlPrimera = await Bun.file(`drizzle/${primera.tag}.sql`).text();
+  const firstSql = await Bun.file(`drizzle/${first.tag}.sql`).text();
   // El migrador identifica cada migracio pel resum del seu SQL.
-  const resum = new Bun.CryptoHasher("sha256").update(sqlPrimera).digest("hex");
+  const summary = new Bun.CryptoHasher("sha256").update(firstSql).digest("hex");
 
   await db.execute(sql`create schema if not exists drizzle`);
   await db.execute(sql`
@@ -56,16 +56,16 @@ async function baseline(motiu: string): Promise<void> {
     )
   `);
   await db.execute(
-    sql`insert into drizzle."__drizzle_migrations" (hash, created_at) values (${resum}, ${primera.when})`,
+    sql`insert into drizzle."__drizzle_migrations" (hash, created_at) values (${summary}, ${first.when})`,
   );
 
   console.info(
-    `[migracions] base de dades existent (${motiu}): la migracio ${primera.tag} ` +
+    `[migracions] base de dades existent (${motiu}): la migracio ${first.tag} ` +
       "es marca com a aplicada sense executar-la.",
   );
 }
 
-export async function aplicaMigracions(): Promise<void> {
+export async function applyMigrations(): Promise<void> {
   const teAlembic = await existeix("alembic_version");
 
   /**
@@ -76,14 +76,14 @@ export async function aplicaMigracions(): Promise<void> {
    * mirar-ne nomes l'existencia faria saltar la base i tornariem a provar de
    * crear unes taules que ja hi son.
    */
-  const teHistorialDrizzle = await db
+  const hasDrizzleHistory = await db
     .execute<{ n: number }>(sql`select count(*)::int as n from drizzle."__drizzle_migrations"`)
-    .then((files) => Number(files[0]?.n ?? 0) > 0)
+    .then((rows) => Number(rows[0]?.n ?? 0) > 0)
     .catch(() => false);
 
   // Nomes es fa la base la primera vegada: si ja hi ha historial de Drizzle,
   // aquesta base de dades ja ha passat pel canvi de pila.
-  if (!teHistorialDrizzle) {
+  if (!hasDrizzleHistory) {
     if (teAlembic) {
       const cap = await db
         .execute<{ version_num: string }>(sql`select version_num from alembic_version limit 1`)
@@ -115,7 +115,7 @@ export async function aplicaMigracions(): Promise<void> {
 if (import.meta.main) {
   const { closeDb } = await import("./client.ts");
   try {
-    await aplicaMigracions();
+    await applyMigrations();
   } finally {
     await closeDb();
   }

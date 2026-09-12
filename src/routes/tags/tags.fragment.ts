@@ -6,22 +6,22 @@ import { html, raw } from "hono/html";
 
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
-import type { GrupCategories } from "../../services/categories.ts";
-import type { ResumEtiqueta } from "../../services/tags.ts";
-import type { PaginaMoviments } from "../../services/transactions.ts";
-import { Fila } from "../transactions/transactions.fragment.ts";
-import { PER_PAGINA, type TagDetailQuery } from "./tags.schema.ts";
+import type { CategoryGroup } from "../../services/categories.ts";
+import type { TagSummary } from "../../services/tags.ts";
+import type { TransactionsPage } from "../../services/transactions.ts";
+import { Row } from "../transactions/transactions.fragment.ts";
+import { PER_PAGE, type TagDetailQuery } from "./tags.schema.ts";
 
-export function LlistaEtiquetes({
+export function TagsList({
   codi,
-  etiquetes,
+  tags,
   potEditar,
 }: {
   codi: string;
-  etiquetes: ResumEtiqueta[];
+  tags: TagSummary[];
   potEditar: boolean;
 }): Html {
-  if (etiquetes.length === 0) {
+  if (tags.length === 0) {
     return html`<div id="llista-etiquetes">
       <p class="buit text-suau">
         Encara no hi ha cap etiqueta. Afegeix-ne una des d'un moviment: escriu
@@ -43,39 +43,39 @@ export function LlistaEtiquetes({
         </tr>
       </thead>
       <tbody>
-        ${etiquetes.map((e) => FilaResum({ codi, resum: e, potEditar }))}
+        ${tags.map((e) => SummaryRow({ codi, summary: e, potEditar }))}
       </tbody>
     </table>
   </div>` as Html;
 }
 
-function FilaResum({
+function SummaryRow({
   codi,
-  resum,
+  summary,
   potEditar,
 }: {
   codi: string;
-  resum: ResumEtiqueta;
+  summary: TagSummary;
   potEditar: boolean;
 }): Html {
-  const href = `/e/${codi}/etiquetes/${encodeURIComponent(resum.nom)}`;
-  const netNegatiu = resum.net.startsWith("-");
+  const href = `/e/${codi}/etiquetes/${encodeURIComponent(summary.name)}`;
+  const cleanNegative = summary.net.startsWith("-");
   return html`<tr>
     <td>
-      <a href="${href}">${resum.nom}</a>
+      <a href="${href}">${summary.name}</a>
     </td>
-    <td class="dreta">${String(resum.moviments)}</td>
-    <td class="dreta positiu">${formatMoney(resum.ingressos)}</td>
-    <td class="dreta negatiu">${formatMoney(resum.despeses)}</td>
-    <td class="dreta ${netNegatiu ? "negatiu" : "positiu"}">${formatMoney(resum.net)}</td>
+    <td class="dreta">${String(summary.transactionCount)}</td>
+    <td class="dreta positiu">${formatMoney(summary.income)}</td>
+    <td class="dreta negatiu">${formatMoney(summary.expenses)}</td>
+    <td class="dreta ${cleanNegative ? "negatiu" : "positiu"}">${formatMoney(summary.net)}</td>
     ${
       potEditar
         ? html`<td class="dreta">
           <button
             type="button"
             class="boto boto-discret"
-            hx-post="/e/${codi}/etiquetes/${encodeURIComponent(resum.nom)}/esborra"
-            hx-confirm="Treure «${resum.nom}» de tots els moviments d'aquest espai?"
+            hx-post="/e/${codi}/etiquetes/${encodeURIComponent(summary.name)}/esborra"
+            hx-confirm="Treure «${summary.name}» de tots els moviments d'aquest espai?"
           >
             Esborra
           </button>
@@ -85,23 +85,23 @@ function FilaResum({
   </tr>` as Html;
 }
 
-export function CapçaleraDetall({
+export function CapAleraDetail({
   codi,
-  resum,
+  summary,
   potEditar,
 }: {
   codi: string;
-  resum: ResumEtiqueta;
+  summary: TagSummary;
   potEditar: boolean;
 }): Html {
-  const netNegatiu = resum.net.startsWith("-");
+  const cleanNegative = summary.net.startsWith("-");
   return html`<header class="capçalera">
     <p class="text-suau">
       <a href="/e/${codi}/etiquetes">← Etiquetes</a>
     </p>
     <div class="capçalera-fila">
       <h1>
-        <span class="etiqueta etiqueta-dada">${resum.nom}</span>
+        <span class="etiqueta etiqueta-dada">${summary.name}</span>
       </h1>
       ${
         potEditar
@@ -109,8 +109,8 @@ export function CapçaleraDetall({
             <button
               type="button"
               class="boto boto-discret"
-              hx-post="/e/${codi}/etiquetes/${encodeURIComponent(resum.nom)}/esborra"
-              hx-confirm="Treure «${resum.nom}» de tots els moviments d'aquest espai?"
+              hx-post="/e/${codi}/etiquetes/${encodeURIComponent(summary.name)}/esborra"
+              hx-confirm="Treure «${summary.name}» de tots els moviments d'aquest espai?"
             >
               Esborra de tots els moviments
             </button>
@@ -119,38 +119,38 @@ export function CapçaleraDetall({
       }
     </div>
     <p class="text-suau">
-      ${String(resum.moviments)}
-      ${resum.moviments === 1 ? "moviment" : "moviments"} · ingressos
-      ${formatMoney(resum.ingressos)} · despeses ${formatMoney(resum.despeses)} · net
-      <span class="${netNegatiu ? "negatiu" : "positiu"}">${formatMoney(resum.net)}</span>
+      ${String(summary.transactionCount)}
+      ${summary.transactionCount === 1 ? "moviment" : "moviments"} · ingressos
+      ${formatMoney(summary.income)} · despeses ${formatMoney(summary.expenses)} · net
+      <span class="${cleanNegative ? "negatiu" : "positiu"}">${formatMoney(summary.net)}</span>
     </p>
   </header>` as Html;
 }
 
-export function TaulaDetall({
+export function DetailTable({
   codi,
-  nom,
-  pagina,
-  grups,
+  name,
+  page,
+  groups,
   potEditar,
   query,
   etiquetesConegudes,
 }: {
   codi: string;
-  nom: string;
-  pagina: PaginaMoviments;
-  grups: GrupCategories[];
+  name: string;
+  page: TransactionsPage;
+  groups: CategoryGroup[];
   potEditar: boolean;
   query: TagDetailQuery;
   etiquetesConegudes: string[];
 }): Html {
-  const desde = pagina.total === 0 ? 0 : pagina.offset + 1;
-  const fins = Math.min(pagina.offset + pagina.limit, pagina.total);
-  const enc = encodeURIComponent(nom);
+  const desde = page.total === 0 ? 0 : page.offset + 1;
+  const fins = Math.min(page.offset + page.limit, page.total);
+  const enc = encodeURIComponent(name);
 
   return html`<div id="taula-etiqueta">
     ${
-      pagina.items.length === 0
+      page.items.length === 0
         ? html`<p class="buit text-suau">Cap moviment amb aquesta etiqueta.</p>`
         : html`
           <div class="desplaçable">
@@ -166,11 +166,11 @@ export function TaulaDetall({
                 </tr>
               </thead>
               <tbody>
-                ${pagina.items.map((moviment) =>
-                  Fila({
+                ${page.items.map((transaction) =>
+                  Row({
                     codi,
-                    moviment,
-                    grups,
+                    transaction,
+                    groups,
                     potEditar,
                     etiquetesConegudes,
                   }),
@@ -180,17 +180,17 @@ export function TaulaDetall({
           </div>
           <nav class="paginacio" aria-label="Paginacio">
             <span class="text-suau">
-              ${String(desde)}–${String(fins)} de ${String(pagina.total)} · suma
-              ${formatMoney(pagina.totalImport)}
+              ${String(desde)}–${String(fins)} de ${String(page.total)} · suma
+              ${formatMoney(page.totalImport)}
             </span>
-            ${PassosDetall({ codi, enc, query, total: pagina.total })}
+            ${DetailSteps({ codi, enc, query, total: page.total })}
           </nav>
         `
     }
   </div>` as Html;
 }
 
-function PassosDetall({
+function DetailSteps({
   codi,
   enc,
   query,
@@ -201,8 +201,8 @@ function PassosDetall({
   query: TagDetailQuery;
   total: number;
 }): Html {
-  const ultima = Math.max(0, Math.ceil(total / PER_PAGINA) - 1);
-  const enllac = (p: number) => {
+  const last = Math.max(0, Math.ceil(total / PER_PAGE) - 1);
+  const link = (p: number) => {
     const params = p > 0 ? `?pagina=${p}` : "";
     return `/e/${codi}/etiquetes/${enc}/fragment/taula${params}`;
   };
@@ -212,7 +212,7 @@ function PassosDetall({
       type="button"
       class="boto boto-discret"
       ${query.pagina <= 0 ? raw("disabled") : ""}
-      hx-get="${enllac(query.pagina - 1)}"
+      hx-get="${link(query.pagina - 1)}"
       hx-target="#taula-etiqueta"
       hx-swap="outerHTML"
     >
@@ -221,8 +221,8 @@ function PassosDetall({
     <button
       type="button"
       class="boto boto-discret"
-      ${query.pagina >= ultima ? raw("disabled") : ""}
-      hx-get="${enllac(query.pagina + 1)}"
+      ${query.pagina >= last ? raw("disabled") : ""}
+      hx-get="${link(query.pagina + 1)}"
       hx-target="#taula-etiqueta"
       hx-swap="outerHTML"
     >

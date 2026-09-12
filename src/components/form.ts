@@ -22,25 +22,25 @@ export function zodErrors(error: {
 }): FieldErrors {
   const errors: FieldErrors = {};
   for (const issue of error.issues) {
-    const clau = issue.path.length > 0 ? issue.path.map(String).join(".") : "_";
-    (errors[clau] ??= []).push(issue.message);
+    const key = issue.path.length > 0 ? issue.path.map(String).join(".") : "_";
+    (errors[key] ??= []).push(issue.message);
   }
   return errors;
 }
 
 /** El primer missatge d'error d'un camp, si n'hi ha. */
-export function fieldError(errors: FieldErrors | undefined, camp: string): string | undefined {
-  return errors?.[camp]?.[0];
+export function fieldError(errors: FieldErrors | undefined, field: string): string | undefined {
+  return errors?.[field]?.[0];
 }
 
-interface CampProps {
-  nom: string;
-  etiqueta: string;
-  tipus?: string;
+interface FieldProps {
+  name: string;
+  tag: string;
+  type?: string;
   valor?: string | number | null | undefined;
   errors?: FieldErrors | undefined;
   requerit?: boolean;
-  ajuda?: string;
+  help?: string;
   autocomplete?: string;
   autofocus?: boolean;
   maxlength?: number;
@@ -50,15 +50,15 @@ interface CampProps {
   id?: string;
 }
 
-export function Camp(props: CampProps): Html {
+export function Field(props: FieldProps): Html {
   const {
-    nom,
-    etiqueta,
-    tipus = "text",
+    name,
+    tag,
+    type = "text",
     valor,
     errors,
     requerit = false,
-    ajuda,
+    help,
     autocomplete,
     autofocus = false,
     maxlength,
@@ -66,17 +66,17 @@ export function Camp(props: CampProps): Html {
     placeholder,
   } = props;
 
-  const id = props.id ?? nom;
-  const error = fieldError(errors, nom);
+  const id = props.id ?? name;
+  const error = fieldError(errors, name);
   const idError = `${id}-error`;
-  const idAjuda = `${id}-ajuda`;
-  const descriu = [error ? idError : null, ajuda ? idAjuda : null].filter(Boolean).join(" ");
+  const helpId = `${id}-ajuda`;
+  const descriu = [error ? idError : null, help ? helpId : null].filter(Boolean).join(" ");
 
   return html`<label class="camp">
-    <span class="camp-etiqueta">${etiqueta}${requerit ? html`<abbr title="obligatori">*</abbr>` : ""}</span>
+    <span class="camp-etiqueta">${tag}${requerit ? html`<abbr title="obligatori">*</abbr>` : ""}</span>
     <input
-      type="${tipus}"
-      name="${nom}"
+      type="${type}"
+      name="${name}"
       id="${id}"
       value="${valor ?? ""}"
       ${requerit ? raw("required") : ""}
@@ -88,33 +88,33 @@ export function Camp(props: CampProps): Html {
       ${error ? raw('aria-invalid="true"') : ""}
       ${descriu ? raw(`aria-describedby="${descriu}"`) : ""}
     />
-    ${ajuda ? html`<small id="${idAjuda}" class="camp-ajuda">${ajuda}</small>` : ""}
+    ${help ? html`<small id="${helpId}" class="camp-ajuda">${help}</small>` : ""}
     ${error ? html`<p id="${idError}" class="camp-error">${error}</p>` : ""}
   </label>` as Html;
 }
 
-export interface Opcio {
+export interface Option {
   valor: string | number;
   text: string;
 }
 
-export interface GrupOpcions {
-  etiqueta: string;
-  opcions: Opcio[];
+export interface OptionsGroup {
+  tag: string;
+  options: Option[];
 }
 
-interface TriaProps {
-  nom: string;
-  etiqueta: string;
+interface SelectProps {
+  name: string;
+  tag: string;
   valor?: string | number | null | undefined;
   /** Opcions planes, o grups per a un `<optgroup>`. */
-  opcions?: Opcio[];
-  grups?: GrupOpcions[];
+  options?: Option[];
+  groups?: OptionsGroup[];
   /** Text de l'opcio buida. Si no n'hi ha, el camp es obligatori de fet. */
-  buit?: string;
+  empty?: string;
   errors?: FieldErrors | undefined;
-  ajuda?: string;
-  atributs?: string;
+  help?: string;
+  attributes?: string;
   /**
    * L'`id` de l'element. Per defecte es el nom del camp, pero **quan el
    * mateix camp es dibuixa mes d'un cop a la pagina (una fila per moviment,
@@ -132,63 +132,63 @@ interface TriaProps {
  * nivells, que es exactament el que un `<optgroup>` sap fer: navegacio amb
  * teclat, cerca escrivint i accessibilitat, de franc i sense JavaScript.
  */
-export function Tria(props: TriaProps): Html {
-  const { nom, etiqueta, valor, opcions, grups, buit, errors, ajuda, atributs } = props;
-  const id = props.id ?? nom;
-  const error = fieldError(errors, nom);
+export function Select(props: SelectProps): Html {
+  const { name, tag, valor, options, groups, empty, errors, help, attributes } = props;
+  const id = props.id ?? name;
+  const error = fieldError(errors, name);
   const idError = `${id}-error`;
   const valorActual = valor === null || valor === undefined ? "" : String(valor);
 
-  const opcio = (o: Opcio) =>
+  const option = (o: Option) =>
     html`<option value="${o.valor}" ${String(o.valor) === valorActual ? raw("selected") : ""}>
       ${o.text}
     </option>`;
 
   return html`<label class="camp">
-    <span class="camp-etiqueta">${etiqueta}</span>
+    <span class="camp-etiqueta">${tag}</span>
     <select
-      name="${nom}"
+      name="${name}"
       id="${id}"
       ${error ? raw('aria-invalid="true"') : ""}
       ${error ? raw(`aria-describedby="${idError}"`) : ""}
-      ${atributs ? raw(atributs) : ""}
+      ${attributes ? raw(attributes) : ""}
     >
       ${
-        buit !== undefined
-          ? html`<option value="" ${valorActual === "" ? raw("selected") : ""}>${buit}</option>`
+        empty !== undefined
+          ? html`<option value="" ${valorActual === "" ? raw("selected") : ""}>${empty}</option>`
           : ""
       }
-      ${opcions?.map(opcio) ?? ""}
+      ${options?.map(option) ?? ""}
       ${
-        grups?.map(
-          (g) => html`<optgroup label="${g.etiqueta}">${g.opcions.map(opcio)}</optgroup>`,
+        groups?.map(
+          (g) => html`<optgroup label="${g.tag}">${g.options.map(option)}</optgroup>`,
         ) ?? ""
       }
     </select>
-    ${ajuda ? html`<small class="camp-ajuda">${ajuda}</small>` : ""}
+    ${help ? html`<small class="camp-ajuda">${help}</small>` : ""}
     ${error ? html`<p id="${idError}" class="camp-error">${error}</p>` : ""}
   </label>` as Html;
 }
 
-interface CasellaProps {
-  nom: string;
-  etiqueta: string;
+interface CheckboxProps {
+  name: string;
+  tag: string;
   marcat?: boolean;
-  atributs?: string;
+  attributes?: string;
   valor?: string;
 }
 
-export function Casella(props: CasellaProps): Html {
-  const { nom, etiqueta, marcat = false, atributs, valor } = props;
+export function Checkbox(props: CheckboxProps): Html {
+  const { name, tag, marcat = false, attributes, valor } = props;
   return html`<label class="casella">
     <input
       type="checkbox"
-      name="${nom}"
+      name="${name}"
       ${valor ? raw(`value="${valor}"`) : ""}
       ${marcat ? raw("checked") : ""}
-      ${atributs ? raw(atributs) : ""}
+      ${attributes ? raw(attributes) : ""}
     />
-    <span>${etiqueta}</span>
+    <span>${tag}</span>
   </label>` as Html;
 }
 
@@ -196,8 +196,8 @@ export function Casella(props: CasellaProps): Html {
  * Error que no es de cap camp en concret (la clau `_`), per ensenyar-lo a
  * dalt del formulari.
  */
-export function ErrorGeneral(errors: FieldErrors | undefined) {
-  const missatge = fieldError(errors, "_");
-  if (!missatge) return "";
-  return html`<p class="form-error" role="alert">${missatge}</p>`;
+export function FormError(errors: FieldErrors | undefined) {
+  const message = fieldError(errors, "_");
+  if (!message) return "";
+  return html`<p class="form-error" role="alert">${message}</p>`;
 }

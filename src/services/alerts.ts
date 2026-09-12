@@ -14,7 +14,7 @@ import { eq } from "drizzle-orm";
 import { db, type Transactor } from "../db/client.ts";
 import { alerts, type Alert, type AlertSeverity, type AlertType } from "../db/schema/index.ts";
 
-export interface AvisNou {
+export interface AlertNew {
   type: AlertType;
   ledgerId: number | null;
   dedupKey: string;
@@ -25,29 +25,29 @@ export interface AvisNou {
 }
 
 /** Crea l'avis, o retorna `null` si ja n'hi havia un d'igual. */
-export async function creaAvis(
-  avis: AvisNou,
-  connexio: Transactor = db,
+export async function createAlert(
+  alert: AlertNew,
+  connection: Transactor = db,
 ): Promise<Alert | null> {
-  const [existent] = await connexio
+  const [existent] = await connection
     .select({ id: alerts.id })
     .from(alerts)
-    .where(eq(alerts.dedupKey, avis.dedupKey))
+    .where(eq(alerts.dedupKey, alert.dedupKey))
     .limit(1);
 
   if (existent) return null;
 
-  const [creat] = await connexio
+  const [creat] = await connection
     .insert(alerts)
     .values({
-      ledgerId: avis.ledgerId,
-      type: avis.type,
-      severity: avis.severity ?? "warning",
+      ledgerId: alert.ledgerId,
+      type: alert.type,
+      severity: alert.severity ?? "warning",
       status: "new",
-      dedupKey: avis.dedupKey.slice(0, 200),
-      title: avis.title.slice(0, 250),
-      body: avis.body ?? "",
-      payload: avis.payload ?? {},
+      dedupKey: alert.dedupKey.slice(0, 200),
+      title: alert.title.slice(0, 250),
+      body: alert.body ?? "",
+      payload: alert.payload ?? {},
       notifiedAt: null,
     })
     .returning();

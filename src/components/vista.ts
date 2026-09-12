@@ -17,22 +17,22 @@ import { html } from "hono/html";
 import type { Html } from "../lib/html.ts";
 
 /** El que es veu quan una llista no te res. */
-export function EstatBuit(missatge: Html | string): Html {
-  return html`<p class="buit text-suau">${missatge}</p>` as Html;
+export function EmptyState(message: Html | string): Html {
+  return html`<p class="buit text-suau">${message}</p>` as Html;
 }
 
-export interface TaulaDadesProps {
+export interface DataTableProps {
   /** Les cel·les de la capçalera, ja dibuixades: `<th>…</th><th>…</th>`. */
   columnes: Html;
-  files: Html[];
+  rows: Html[];
   /** El que es veu si `files` es buida. */
-  buit: Html | string;
+  empty: Html | string;
   /** Sobre la taula: una barra d'accions… Nomes surt si hi ha files. */
   abans?: Html | "";
   /** Sota la taula: la paginacio, un resum… Nomes surt si hi ha files. */
   peu?: Html | "";
   /** Classe de mes per a la `<table>`, quan una vista en te de propies. */
-  classe?: string;
+  cssClass?: string;
 }
 
 /**
@@ -41,33 +41,33 @@ export interface TaulaDadesProps {
  * El que va abans i el que va despres nomes surten quan hi ha files: ni una
  * barra per triar-ne cap ni paginar el no-res volen dir res.
  */
-export function TaulaDades({
+export function DataTable({
   columnes,
-  files,
-  buit,
+  rows,
+  empty,
   abans = "",
   peu = "",
-  classe,
-}: TaulaDadesProps): Html {
-  if (files.length === 0) return EstatBuit(buit);
+  cssClass,
+}: DataTableProps): Html {
+  if (rows.length === 0) return EmptyState(empty);
 
   return html`${abans}
     <div class="desplaçable">
-      <table class="dades${classe === undefined ? "" : ` ${classe}`}">
+      <table class="dades${cssClass === undefined ? "" : ` ${cssClass}`}">
         <thead>
           <tr>
             ${columnes}
           </tr>
         </thead>
         <tbody>
-          ${files}
+          ${rows}
         </tbody>
       </table>
     </div>
     ${peu}` as Html;
 }
 
-export interface Pagina {
+export interface Page {
   total: number;
   limit: number;
   offset: number;
@@ -80,22 +80,22 @@ export interface Pagina {
  * «1–0 de 0» amb la llista buida, perque comptava des de `offset + 1` sense
  * mirar el total.
  */
-export function Paginacio({
-  pagina,
+export function Pagination({
+  page,
   passos,
-  resum = "",
+  summary = "",
 }: {
-  pagina: Pagina;
+  page: Page;
   passos: Html | "";
   /** Al costat del rang: una suma, un recompte… */
-  resum?: Html | "";
+  summary?: Html | "";
 }): Html {
-  const desde = pagina.total === 0 ? 0 : pagina.offset + 1;
-  const fins = Math.min(pagina.offset + pagina.limit, pagina.total);
+  const desde = page.total === 0 ? 0 : page.offset + 1;
+  const fins = Math.min(page.offset + page.limit, page.total);
 
   return html`<nav class="paginacio" aria-label="Paginacio">
     <span class="text-suau">
-      ${String(desde)}–${String(fins)} de ${String(pagina.total)}${resum}
+      ${String(desde)}–${String(fins)} de ${String(page.total)}${summary}
     </span>
     ${passos}
   </nav>` as Html;
@@ -108,11 +108,11 @@ export function Paginacio({
  * pot venir d'una fila de la base de dades, i una cometa el trencaria a fora
  * de l'atribut.
  */
-export function Etiqueta(text: string, opcions: { suau?: boolean; titol?: string } = {}): Html {
-  const classe = opcions.suau === true ? "etiqueta etiqueta-suau" : "etiqueta";
+export function Badge(text: string, options: { suau?: boolean; titol?: string } = {}): Html {
+  const cssClass = options.suau === true ? "etiqueta etiqueta-suau" : "etiqueta";
   return html`<span
-    class="${classe}"
-    ${opcions.titol === undefined ? "" : html`title="${opcions.titol}"`}
+    class="${cssClass}"
+    ${options.titol === undefined ? "" : html`title="${options.titol}"`}
     >${text}</span
   >` as Html;
 }
@@ -133,6 +133,6 @@ export function Etiqueta(text: string, opcions: { suau?: boolean; titol?: string
  * `aria-hidden`: qui no hi veu no en treu res, d'una roda que gira. Qui ho
  * necessita saber ho sabra pel boto, que queda desactivat.
  */
-export function Filador(): Html {
+export function Spinner(): Html {
   return html`<span class="filador htmx-indicator" aria-hidden="true"></span>` as Html;
 }

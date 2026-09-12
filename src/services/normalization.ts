@@ -20,15 +20,15 @@
  */
 
 /** Detecta el tipus abans de treure cap prefix (sobre el text cru del banc). */
-export type TipusOperacio = "targeta" | "transferencia" | "bizum" | "rebut" | "altres";
+export type OperationType = "targeta" | "transferencia" | "bizum" | "rebut" | "altres";
 
-export const TIPUS_OPERACIO = [
+export const OPERATION_TYPES = [
   "targeta",
   "transferencia",
   "bizum",
   "rebut",
   "altres",
-] as const satisfies readonly TipusOperacio[];
+] as const satisfies readonly OperationType[];
 
 /**
  * El tipus d'operacio decideix on va la contrapart (`services/contraparts.ts`):
@@ -36,7 +36,7 @@ export const TIPUS_OPERACIO = [
  * traspas entre persones, continua sent comerç: el titular ho ha decidit
  * expressament (moltes compres per Bizum son a un negoci, no a una persona).
  */
-export function detectaTipusOperacio(text: string): TipusOperacio {
+export function detectOperationType(text: string): OperationType {
   const t = text.trim();
   if (!t) return "altres";
 
@@ -323,13 +323,13 @@ export function normalizeDescription(description: string, counterparty = ""): [s
   const tokens = text.split(/\s+/).filter(Boolean);
 
   while (tokens.length > 0) {
-    const ultim = tokens[tokens.length - 1] as string;
-    if (TRAILING_NOISE.has(ultim) || esNumero(ultim)) tokens.pop();
+    const last = tokens[tokens.length - 1] as string;
+    if (TRAILING_NOISE.has(last) || esNumero(last)) tokens.pop();
     else break;
   }
   while (tokens.length > 0) {
-    const primer = tokens[0] as string;
-    if (esNumero(primer) || LEADING_STOPWORDS.has(primer) || MONTHS.has(primer)) tokens.shift();
+    const first = tokens[0] as string;
+    if (esNumero(first) || LEADING_STOPWORDS.has(first) || MONTHS.has(first)) tokens.shift();
     else break;
   }
 

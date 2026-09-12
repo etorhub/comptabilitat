@@ -1,6 +1,6 @@
 [
   {
-    "cru": {
+    "raw": {
       "entry_reference": "REF-001",
       "status": "BOOK",
       "transaction_amount": {
@@ -20,7 +20,7 @@
         "description": "Card payment"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": "REF-001",
       "transactionId": null,
       "bookingDate": "2026-03-01",
@@ -35,7 +35,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "status": "BOOK",
       "transaction_amount": {
         "amount": "1800.00",
@@ -48,7 +48,7 @@
       },
       "remittance_information": "NOMINA MARZO"
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-03-05",
@@ -63,7 +63,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "status": "PDNG",
       "transaction_amount": {
         "amount": "12.99",
@@ -75,7 +75,7 @@
         "name": "Netflix"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-03-07",
@@ -90,7 +90,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "status": "BOOKED",
       "transaction_amount": {
         "amount": "9.99",
@@ -104,7 +104,7 @@
       "remittance_information": ["Aigües de Barcelona", "  "],
       "note": "Aigües de Barcelona"
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-03-08",
@@ -119,7 +119,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "status": "RJCT",
       "transaction_amount": {
         "amount": "5.00",
@@ -127,27 +127,27 @@
       },
       "booking_date": "2026-03-09"
     },
-    "esperat": null
+    "expected": null
   },
   {
-    "cru": {
+    "raw": {
       "status": "BOOK",
       "booking_date": "2026-03-10"
     },
-    "esperat": null
+    "expected": null
   },
   {
-    "cru": {
+    "raw": {
       "status": "BOOK",
       "transaction_amount": {
         "amount": "5.00",
         "currency": "EUR"
       }
     },
-    "esperat": null
+    "expected": null
   },
   {
-    "cru": {
+    "raw": {
       "status": "BOOK",
       "transaction_amount": {
         "amount": "3.50",
@@ -159,7 +159,7 @@
         "name": "Bar"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-03-11",
@@ -174,7 +174,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": "E0",
       "status": "PDNG",
       "transaction_amount": {
@@ -196,7 +196,7 @@
         "sub_code": "CCRD"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": "E0",
       "transactionId": null,
       "bookingDate": "2026-02-27",
@@ -211,7 +211,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "BOOK",
       "transaction_amount": {
@@ -230,7 +230,7 @@
       "note": "",
       "bank_transaction_code": {}
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-02-18",
@@ -245,7 +245,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "BOOK",
       "transaction_amount": {
@@ -264,7 +264,7 @@
       "note": "",
       "bank_transaction_code": {}
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-04-02",
@@ -279,7 +279,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": "E3",
       "status": "BOOK",
       "transaction_amount": {
@@ -298,7 +298,7 @@
       "note": "",
       "bank_transaction_code": {}
     },
-    "esperat": {
+    "expected": {
       "entryReference": "E3",
       "transactionId": null,
       "bookingDate": "2026-10-19",
@@ -313,7 +313,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "BOOK",
       "transaction_amount": {
@@ -335,7 +335,7 @@
         "sub_code": "CCRD"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-06-15",
@@ -350,7 +350,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "BOOKED",
       "transaction_amount": {
@@ -369,7 +369,7 @@
       "note": "",
       "bank_transaction_code": {}
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-06-24",
@@ -384,7 +384,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": "E6",
       "status": "PENDING",
       "transaction_amount": {
@@ -405,7 +405,7 @@
         "description": "X"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": "E6",
       "transactionId": null,
       "bookingDate": "2026-08-14",
@@ -420,7 +420,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "PDNG",
       "transaction_amount": {
@@ -439,7 +439,7 @@
       "note": "",
       "bank_transaction_code": {}
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-02-09",
@@ -454,7 +454,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "PDNG",
       "transaction_amount": {
@@ -476,7 +476,7 @@
         "sub_code": "CCRD"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-12-13",
@@ -491,7 +491,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": "E9",
       "status": "BOOK",
       "transaction_amount": {
@@ -513,7 +513,7 @@
         "sub_code": "CCRD"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": "E9",
       "transactionId": null,
       "bookingDate": "2026-03-24",
@@ -528,7 +528,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "BOOKED",
       "transaction_amount": {
@@ -547,7 +547,7 @@
       "note": "nota",
       "bank_transaction_code": {}
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-07-28",
@@ -562,7 +562,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "PENDING",
       "transaction_amount": {
@@ -583,7 +583,7 @@
         "description": "X"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-03-05",
@@ -598,7 +598,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": "E12",
       "status": "BOOKED",
       "transaction_amount": {
@@ -617,7 +617,7 @@
       "note": "",
       "bank_transaction_code": {}
     },
-    "esperat": {
+    "expected": {
       "entryReference": "E12",
       "transactionId": null,
       "bookingDate": "2026-07-18",
@@ -632,7 +632,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "BOOK",
       "transaction_amount": {
@@ -654,7 +654,7 @@
         "sub_code": "CCRD"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-07-13",
@@ -669,7 +669,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "BOOK",
       "transaction_amount": {
@@ -688,7 +688,7 @@
       "note": "",
       "bank_transaction_code": {}
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-02-11",
@@ -703,7 +703,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": "E15",
       "status": "BOOK",
       "transaction_amount": {
@@ -722,7 +722,7 @@
       "note": "nota",
       "bank_transaction_code": {}
     },
-    "esperat": {
+    "expected": {
       "entryReference": "E15",
       "transactionId": null,
       "bookingDate": "2026-04-20",
@@ -737,7 +737,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "PDNG",
       "transaction_amount": {
@@ -759,7 +759,7 @@
         "sub_code": "CCRD"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-08-16",
@@ -774,7 +774,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "PDNG",
       "transaction_amount": {
@@ -793,7 +793,7 @@
       "note": "",
       "bank_transaction_code": {}
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-09-01",
@@ -808,7 +808,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": "E18",
       "status": "BOOK",
       "transaction_amount": {
@@ -829,7 +829,7 @@
         "description": "X"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": "E18",
       "transactionId": null,
       "bookingDate": "2026-12-28",
@@ -844,7 +844,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "BOOKED",
       "transaction_amount": {
@@ -866,7 +866,7 @@
         "sub_code": "CCRD"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-10-26",
@@ -881,7 +881,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "PENDING",
       "transaction_amount": {
@@ -900,7 +900,7 @@
       "note": "nota",
       "bank_transaction_code": {}
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-05-16",
@@ -915,7 +915,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": "E21",
       "status": "PDNG",
       "transaction_amount": {
@@ -937,7 +937,7 @@
         "sub_code": "CCRD"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": "E21",
       "transactionId": null,
       "bookingDate": "2026-04-04",
@@ -952,7 +952,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "PENDING",
       "transaction_amount": {
@@ -971,7 +971,7 @@
       "note": "nota",
       "bank_transaction_code": {}
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-11-12",
@@ -986,7 +986,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "BOOKED",
       "transaction_amount": {
@@ -1007,7 +1007,7 @@
         "description": "X"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-11-11",
@@ -1022,7 +1022,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": "E24",
       "status": "BOOK",
       "transaction_amount": {
@@ -1041,7 +1041,7 @@
       "note": "nota",
       "bank_transaction_code": {}
     },
-    "esperat": {
+    "expected": {
       "entryReference": "E24",
       "transactionId": null,
       "bookingDate": "2026-01-05",
@@ -1056,7 +1056,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "PDNG",
       "transaction_amount": {
@@ -1078,7 +1078,7 @@
         "sub_code": "CCRD"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-01-26",
@@ -1093,7 +1093,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "BOOKED",
       "transaction_amount": {
@@ -1115,7 +1115,7 @@
         "sub_code": "CCRD"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-09-08",
@@ -1130,7 +1130,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": "E27",
       "status": "PDNG",
       "transaction_amount": {
@@ -1152,7 +1152,7 @@
         "sub_code": "CCRD"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": "E27",
       "transactionId": null,
       "bookingDate": "2026-09-05",
@@ -1167,7 +1167,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "BOOKED",
       "transaction_amount": {
@@ -1189,7 +1189,7 @@
         "sub_code": "CCRD"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-06-22",
@@ -1204,7 +1204,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "PDNG",
       "transaction_amount": {
@@ -1223,7 +1223,7 @@
       "note": "",
       "bank_transaction_code": {}
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-09-01",
@@ -1238,7 +1238,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": "E30",
       "status": "PDNG",
       "transaction_amount": {
@@ -1260,7 +1260,7 @@
         "sub_code": "CCRD"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": "E30",
       "transactionId": null,
       "bookingDate": "2026-12-17",
@@ -1275,7 +1275,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "PENDING",
       "transaction_amount": {
@@ -1294,7 +1294,7 @@
       "note": "",
       "bank_transaction_code": {}
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-02-22",
@@ -1309,7 +1309,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "PDNG",
       "transaction_amount": {
@@ -1330,7 +1330,7 @@
         "description": "X"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-03-09",
@@ -1345,7 +1345,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": "E33",
       "status": "PENDING",
       "transaction_amount": {
@@ -1366,7 +1366,7 @@
         "description": "X"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": "E33",
       "transactionId": null,
       "bookingDate": "2026-12-14",
@@ -1381,7 +1381,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "PDNG",
       "transaction_amount": {
@@ -1402,7 +1402,7 @@
         "description": "X"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-06-18",
@@ -1417,7 +1417,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "PDNG",
       "transaction_amount": {
@@ -1439,7 +1439,7 @@
         "sub_code": "CCRD"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-04-04",
@@ -1454,7 +1454,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": "E36",
       "status": "PDNG",
       "transaction_amount": {
@@ -1475,7 +1475,7 @@
         "description": "X"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": "E36",
       "transactionId": null,
       "bookingDate": "2026-07-05",
@@ -1490,7 +1490,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "BOOK",
       "transaction_amount": {
@@ -1512,7 +1512,7 @@
         "sub_code": "CCRD"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-02-09",
@@ -1527,7 +1527,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": null,
       "status": "BOOKED",
       "transaction_amount": {
@@ -1546,7 +1546,7 @@
       "note": "",
       "bank_transaction_code": {}
     },
-    "esperat": {
+    "expected": {
       "entryReference": null,
       "transactionId": null,
       "bookingDate": "2026-01-11",
@@ -1561,7 +1561,7 @@
     }
   },
   {
-    "cru": {
+    "raw": {
       "entry_reference": "E39",
       "status": "BOOKED",
       "transaction_amount": {
@@ -1582,7 +1582,7 @@
         "description": "X"
       }
     },
-    "esperat": {
+    "expected": {
       "entryReference": "E39",
       "transactionId": null,
       "bookingDate": "2026-01-06",

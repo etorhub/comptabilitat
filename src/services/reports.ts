@@ -17,118 +17,118 @@ import { db } from "../db/client.ts";
 import { categories, merchants, transactions } from "../db/schema/index.ts";
 import { Decimal, money, toMoneyString, type MoneyString } from "../lib/money.ts";
 import { todayLocal } from "../lib/time.ts";
-import { movimentsComptables } from "./filtres.ts";
+import { countableTransactions } from "./filtres.ts";
 
 /** Vegeu `services/filtres.ts`: la definicio viu en un sol lloc. */
-function filtreBase(
+function baseFilter(
   ledgerIds: number[],
-  dataDes: string | null,
-  dataFins: string | null,
+  dateFrom: string | null,
+  dateTo: string | null,
 ): SQL | undefined {
-  return movimentsComptables({ espais: ledgerIds, des: dataDes, fins: dataFins });
+  return countableTransactions({ workspaces: ledgerIds, des: dateFrom, fins: dateTo });
 }
 
 /** Primer dia del mes i primer dia del mes següent. */
-export function limitsDelMes(referencia?: string): [string, string] {
+export function monthBounds(referencia?: string): [string, string] {
   const base = referencia ?? todayLocal();
   const any = Number(base.slice(0, 4));
   const mes = Number(base.slice(5, 7));
-  const primer = `${base.slice(0, 7)}-01`;
-  const seguent =
+  const first = `${base.slice(0, 7)}-01`;
+  const next =
     mes === 12 ? `${any + 1}-01-01` : `${any}-${String(mes + 1).padStart(2, "0")}-01`;
-  return [primer, seguent];
+  return [first, next];
 }
 
-export interface IngressosDespeses {
-  ingressos: MoneyString;
+export interface IncomeAndExpenses {
+  income: MoneyString;
   /** En positiu, tot i que a la base de dades son negatius. */
-  despeses: MoneyString;
-  net: MoneyString;
+  expenses: MoneyString;
+  cleaned: MoneyString;
 }
 
-export async function ingressosIDespeses(
+export async function incomeAndExpenses(
   ledgerIds: number[],
-  dataDes: string | null,
-  dataFins: string | null,
-): Promise<IngressosDespeses> {
+  dateFrom: string | null,
+  dateTo: string | null,
+): Promise<IncomeAndExpenses> {
   if (ledgerIds.length === 0) {
-    return { ingressos: "0.00", despeses: "0.00", net: "0.00" };
+    return { income: "0.00", expenses: "0.00", cleaned: "0.00" };
   }
 
-  const [fila] = await db
+  const [row] = await db
     .select({
-      ingressos: sql<string>`coalesce(sum(case when ${transactions.amount} > 0 then ${transactions.amount} else 0 end), 0)`,
-      despeses: sql<string>`coalesce(sum(case when ${transactions.amount} < 0 then -${transactions.amount} else 0 end), 0)`,
+      income: sql<string>`coalesce(sum(case when ${transactions.amount} > 0 then ${transactions.amount} else 0 end), 0)`,
+      expenses: sql<string>`coalesce(sum(case when ${transactions.amount} < 0 then -${transactions.amount} else 0 end), 0)`,
     })
     .from(transactions)
-    .where(filtreBase(ledgerIds, dataDes, dataFins));
+    .where(baseFilter(ledgerIds, dateFrom, dateTo));
 
-  const ingressos = money(fila?.ingressos ?? "0");
-  const despeses = money(fila?.despeses ?? "0");
+  const income = money(row?.income ?? "0");
+  const expenses = money(row?.expenses ?? "0");
 
   return {
-    ingressos: toMoneyString(ingressos),
-    despeses: toMoneyString(despeses),
-    net: toMoneyString(ingressos.minus(despeses)),
+    income: toMoneyString(income),
+    expenses: toMoneyString(expenses),
+    cleaned: toMoneyString(income.minus(expenses)),
   };
 }
 
-export interface PuntMensual {
+export interface MonthlyPoint {
   periode: string;
-  ingressos: MoneyString;
+  income: MoneyString;
   /** Total de despeses (= fixes + variables). */
-  despeses: MoneyString;
+  expenses: MoneyString;
   /** Despeses lligades a una aparicio de serie recurrent. */
   despesesFixes: MoneyString;
   /** Despeses que no son d'una serie recurrent. */
   despesesVariables: MoneyString;
-  net: MoneyString;
+  cleaned: MoneyString;
 }
 
 /** El moviment te almenys una aparicio a `recurring_occurrences`. */
-const esDespesaFixa = sql`exists (
+const isFixedExpense = sql`exists (
   select 1 from recurring_occurrences
   where recurring_occurrences.transaction_id = ${transactions.id}
 )`;
 
 /** Ingressos, despeses (fixes / variables) i resultat de cada mes. */
-export async function serieMensual(
+export async function monthlySeries(
   ledgerIds: number[],
-  dataDes: string,
-  dataFins: string,
-): Promise<PuntMensual[]> {
+  dateFrom: string,
+  dateTo: string,
+): Promise<MonthlyPoint[]> {
   if (ledgerIds.length === 0) return [];
 
   const periode = sql<string>`substring(${transactions.bookingDate}::text, 1, 7)`;
 
-  const files = await db
+  const rows = await db
     .select({
       periode,
-      ingressos: sql<string>`coalesce(sum(case when ${transactions.amount} > 0 then ${transactions.amount} else 0 end), 0)`,
-      despeses: sql<string>`coalesce(sum(case when ${transactions.amount} < 0 then -${transactions.amount} else 0 end), 0)`,
-      despesesFixes: sql<string>`coalesce(sum(case when ${transactions.amount} < 0 and ${esDespesaFixa} then -${transactions.amount} else 0 end), 0)`,
-      despesesVariables: sql<string>`coalesce(sum(case when ${transactions.amount} < 0 and not ${esDespesaFixa} then -${transactions.amount} else 0 end), 0)`,
+      income: sql<string>`coalesce(sum(case when ${transactions.amount} > 0 then ${transactions.amount} else 0 end), 0)`,
+      expenses: sql<string>`coalesce(sum(case when ${transactions.amount} < 0 then -${transactions.amount} else 0 end), 0)`,
+      despesesFixes: sql<string>`coalesce(sum(case when ${transactions.amount} < 0 and ${isFixedExpense} then -${transactions.amount} else 0 end), 0)`,
+      despesesVariables: sql<string>`coalesce(sum(case when ${transactions.amount} < 0 and not ${isFixedExpense} then -${transactions.amount} else 0 end), 0)`,
     })
     .from(transactions)
-    .where(filtreBase(ledgerIds, dataDes, dataFins))
+    .where(baseFilter(ledgerIds, dateFrom, dateTo))
     .groupBy(periode)
     .orderBy(periode);
 
-  return files.map((f) => {
-    const ingressos = money(f.ingressos);
-    const despeses = money(f.despeses);
+  return rows.map((f) => {
+    const income = money(f.income);
+    const expenses = money(f.expenses);
     return {
       periode: f.periode,
-      ingressos: toMoneyString(ingressos),
-      despeses: toMoneyString(despeses),
+      income: toMoneyString(income),
+      expenses: toMoneyString(expenses),
       despesesFixes: toMoneyString(money(f.despesesFixes)),
       despesesVariables: toMoneyString(money(f.despesesVariables)),
-      net: toMoneyString(ingressos.minus(despeses)),
+      cleaned: toMoneyString(income.minus(expenses)),
     };
   });
 }
 
-export interface TrosCategoria {
+export interface CategoryPart {
   categoryId: number | null;
   categoryName: string;
   color: string;
@@ -144,45 +144,45 @@ export interface TrosCategoria {
  * Els moviments d'una subcategoria compten sota el seu pare; els que no en
  * tenen o no estan classificats, es queden com estan.
  */
-export async function repartimentCategories(
+export async function categoryBreakdown(
   ledgerIds: number[],
-  dataDes: string | null,
-  dataFins: string | null,
-  despeses = true,
+  dateFrom: string | null,
+  dateTo: string | null,
+  expenses = true,
   limit = 30,
-): Promise<TrosCategoria[]> {
+): Promise<CategoryPart[]> {
   if (ledgerIds.length === 0) return [];
 
-  const pare = sql`pare`;
-  const grupId = sql<number | null>`coalesce(pare.id, ${categories.id})`;
-  const grupNom = sql<string | null>`coalesce(pare.name, ${categories.name})`;
-  const grupColor = sql<string | null>`coalesce(pare.color, ${categories.color})`;
+  const parent = sql`pare`;
+  const groupId = sql<number | null>`coalesce(pare.id, ${categories.id})`;
+  const groupName = sql<string | null>`coalesce(pare.name, ${categories.name})`;
+  const groupColor = sql<string | null>`coalesce(pare.color, ${categories.color})`;
   const total = sql<string>`sum(abs(${transactions.amount}))`;
 
-  const files = await db
+  const rows = await db
     .select({
-      groupId: grupId,
-      groupName: grupNom,
-      color: grupColor,
+      groupId: groupId,
+      groupName: groupName,
+      color: groupColor,
       amount: total,
       transaccions: count(transactions.id),
     })
     .from(transactions)
     .leftJoin(categories, eq(categories.id, transactions.categoryId))
-    .leftJoin(sql`categories as ${pare}`, sql`pare.id = ${categories.parentId}`)
+    .leftJoin(sql`categories as ${parent}`, sql`pare.id = ${categories.parentId}`)
     .where(
       and(
-        filtreBase(ledgerIds, dataDes, dataFins),
-        despeses ? sql`${transactions.amount} < 0` : sql`${transactions.amount} > 0`,
+        baseFilter(ledgerIds, dateFrom, dateTo),
+        expenses ? sql`${transactions.amount} < 0` : sql`${transactions.amount} > 0`,
       ),
     )
-    .groupBy(grupId, grupNom, grupColor)
+    .groupBy(groupId, groupName, groupColor)
     .orderBy(sql`sum(abs(${transactions.amount})) desc`)
     .limit(limit);
 
-  const suma = files.reduce((acc, f) => acc.plus(money(f.amount)), new Decimal(0));
+  const suma = rows.reduce((acc, f) => acc.plus(money(f.amount)), new Decimal(0));
 
-  return files.map((f) => ({
+  return rows.map((f) => ({
     categoryId: f.groupId,
     categoryName: f.groupName ?? "Sense classificar",
     color: f.color ?? "#94a3b8",
@@ -192,7 +192,7 @@ export async function repartimentCategories(
   }));
 }
 
-export interface TrosComerc {
+export interface MerchantPart {
   merchantId: number | null;
   merchantName: string;
   amount: MoneyString;
@@ -206,17 +206,17 @@ export interface TrosComerc {
  * precisament el que s'ha volgut amagar, i un rang com aquest el tornaria a
  * ensenyar.
  */
-export async function repartimentComercos(
+export async function merchantBreakdown(
   ledgerIds: number[],
-  dataDes: string | null,
-  dataFins: string | null,
+  dateFrom: string | null,
+  dateTo: string | null,
   limit = 20,
-): Promise<TrosComerc[]> {
+): Promise<MerchantPart[]> {
   if (ledgerIds.length === 0) return [];
 
   const total = sql<string>`sum(abs(${transactions.amount}))`;
 
-  const files = await db
+  const rows = await db
     .select({
       merchantId: transactions.merchantId,
       merchantName: merchants.displayName,
@@ -227,7 +227,7 @@ export async function repartimentComercos(
     .innerJoin(merchants, eq(merchants.id, transactions.merchantId))
     .where(
       and(
-        filtreBase(ledgerIds, dataDes, dataFins),
+        baseFilter(ledgerIds, dateFrom, dateTo),
         sql`${transactions.amount} < 0`,
         isNull(transactions.displayDescription),
       ),
@@ -236,7 +236,7 @@ export async function repartimentComercos(
     .orderBy(sql`sum(abs(${transactions.amount})) desc`)
     .limit(limit);
 
-  return files.map((f) => ({
+  return rows.map((f) => ({
     merchantId: f.merchantId,
     merchantName: f.merchantName ?? "—",
     amount: toMoneyString(money(f.amount)),
@@ -244,18 +244,18 @@ export async function repartimentComercos(
   }));
 }
 
-export async function comptaPendentsRevisio(ledgerIds: number[]): Promise<number> {
+export async function countPendingReview(ledgerIds: number[]): Promise<number> {
   if (ledgerIds.length === 0) return 0;
-  const [fila] = await db
+  const [row] = await db
     .select({ n: count() })
     .from(transactions)
     .where(and(inArray(transactions.ledgerId, ledgerIds), eq(transactions.needsReview, true)));
-  return fila?.n ?? 0;
+  return row?.n ?? 0;
 }
 
-export async function comptaSenseClassificar(ledgerIds: number[]): Promise<number> {
+export async function countUnclassified(ledgerIds: number[]): Promise<number> {
   if (ledgerIds.length === 0) return 0;
-  const [fila] = await db
+  const [row] = await db
     .select({ n: count() })
     .from(transactions)
     .where(
@@ -266,7 +266,7 @@ export async function comptaSenseClassificar(ledgerIds: number[]): Promise<numbe
         eq(transactions.isExcluded, false),
       ),
     );
-  return fila?.n ?? 0;
+  return row?.n ?? 0;
 }
 
 export { sum };

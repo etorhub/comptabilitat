@@ -15,7 +15,7 @@
 import { describe, expect, test } from "bun:test";
 import { html } from "hono/html";
 
-import { EstatBuit, Paginacio, TaulaDades } from "../../src/components/vista.ts";
+import { EmptyState, Pagination, DataTable } from "../../src/components/vista.ts";
 import type { Html } from "../../src/lib/html.ts";
 
 const COLUMNES = html`<th>Nom</th>
@@ -27,62 +27,62 @@ function text(node: Html): string {
 
 describe("TaulaDades", () => {
   test("sense files no dibuixa cap taula, nomes l'avis", () => {
-    const sortida = text(
-      TaulaDades({ columnes: COLUMNES, files: [], buit: "Aqui no hi ha res." }),
+    const output = text(
+      DataTable({ columnes: COLUMNES, rows: [], empty: "Aqui no hi ha res." }),
     );
 
-    expect(sortida).toContain("Aqui no hi ha res.");
-    expect(sortida).toContain('class="buit text-suau"');
-    expect(sortida).not.toContain("<table");
-    expect(sortida).not.toContain("<thead");
+    expect(output).toContain("Aqui no hi ha res.");
+    expect(output).toContain('class="buit text-suau"');
+    expect(output).not.toContain("<table");
+    expect(output).not.toContain("<thead");
   });
 
   test("amb files dibuixa la taula i no l'avis", () => {
-    const sortida = text(
-      TaulaDades({
+    const output = text(
+      DataTable({
         columnes: COLUMNES,
-        files: [
+        rows: [
           html`<tr id="fila-1">
           <td>u</td>
         </tr>` as Html,
         ],
-        buit: "Aqui no hi ha res.",
+        empty: "Aqui no hi ha res.",
       }),
     );
 
-    expect(sortida).toContain('<table class="dades">');
-    expect(sortida).toContain('id="fila-1"');
-    expect(sortida).not.toContain("Aqui no hi ha res.");
+    expect(output).toContain('<table class="dades">');
+    expect(output).toContain('id="fila-1"');
+    expect(output).not.toContain("Aqui no hi ha res.");
   });
 
   test("el que va abans i el peu nomes surten si hi ha files", () => {
     const props = {
       columnes: COLUMNES,
-      buit: "Res.",
+      empty: "Res.",
       abans: html`<div id="barra"></div>` as Html,
       peu: html`<div id="peu"></div>` as Html,
     };
 
-    const amb = text(TaulaDades({ ...props, files: [html`<tr></tr>` as Html] }));
-    expect(amb).toContain('id="barra"');
-    expect(amb).toContain('id="peu"');
+    const withRows = text(DataTable({ ...props, rows: [html`<tr></tr>` as Html] }));
+    expect(withRows).toContain('id="barra"');
+    expect(withRows).toContain('id="peu"');
 
     // Ni una barra per triar files que no hi son ni paginar el no-res.
-    const sense = text(TaulaDades({ ...props, files: [] }));
-    expect(sense).not.toContain('id="barra"');
-    expect(sense).not.toContain('id="peu"');
+    const without = text(DataTable({ ...props, rows: [] }));
+    expect(without).not.toContain('id="barra"');
+    expect(without).not.toContain('id="peu"');
   });
 
   test("la classe de mes s'afegeix a la de sempre", () => {
-    const sortida = text(
-      TaulaDades({
+    const output = text(
+      DataTable({
         columnes: COLUMNES,
-        files: [html`<tr></tr>` as Html],
-        buit: "Res.",
-        classe: "taula-moviments",
+        rows: [html`<tr></tr>` as Html],
+        empty: "Res.",
+        cssClass: "taula-moviments",
       }),
     );
-    expect(sortida).toContain('<table class="dades taula-moviments">');
+    expect(output).toContain('<table class="dades taula-moviments">');
   });
 });
 
@@ -90,27 +90,27 @@ describe("Paginacio", () => {
   test("amb la llista buida compta des de zero", () => {
     // La copia dels comerços deia «1–0 de 0»: sumava 1 a l'offset sense
     // mirar si hi havia res.
-    const sortida = text(Paginacio({ pagina: { total: 0, limit: 50, offset: 0 }, passos: "" }));
-    expect(sortida).toContain("0–0 de 0");
+    const output = text(Pagination({ page: { total: 0, limit: 50, offset: 0 }, passos: "" }));
+    expect(output).toContain("0–0 de 0");
   });
 
   test("dona el rang de la pagina que toca", () => {
-    const sortida = text(
-      Paginacio({ pagina: { total: 214, limit: 30, offset: 30 }, passos: "" }),
+    const output = text(
+      Pagination({ page: { total: 214, limit: 30, offset: 30 }, passos: "" }),
     );
-    expect(sortida).toContain("31–60 de 214");
+    expect(output).toContain("31–60 de 214");
   });
 
   test("l'ultima pagina no passa del total", () => {
-    const sortida = text(
-      Paginacio({ pagina: { total: 214, limit: 30, offset: 210 }, passos: "" }),
+    const output = text(
+      Pagination({ page: { total: 214, limit: 30, offset: 210 }, passos: "" }),
     );
-    expect(sortida).toContain("211–214 de 214");
+    expect(output).toContain("211–214 de 214");
   });
 });
 
 describe("EstatBuit", () => {
   test("escapa el text que li donen", () => {
-    expect(text(EstatBuit("<script>alert(1)</script>"))).not.toContain("<script>");
+    expect(text(EmptyState("<script>alert(1)</script>"))).not.toContain("<script>");
   });
 });

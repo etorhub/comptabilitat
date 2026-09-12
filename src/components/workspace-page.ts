@@ -10,7 +10,7 @@ import type { Context } from "hono";
 
 import { Layout } from "./layout.ts";
 import type { Html } from "../lib/html.ts";
-import { comptadors } from "../services/comptadors.ts";
+import { counters } from "../services/comptadors.ts";
 import { currentUser } from "../middleware/session.ts";
 import { currentWorkspace, myWorkspaces } from "../middleware/workspace.ts";
 
@@ -20,11 +20,11 @@ export async function workspacePage(
   children: unknown,
 ): Promise<Html> {
   const user = currentUser(c);
-  const espai = currentWorkspace(c);
+  const workspace = currentWorkspace(c);
 
-  const [espais, { perRevisar, avisosNous }] = await Promise.all([
+  const [workspaces, { perRevisar, avisosNous }] = await Promise.all([
     myWorkspaces(user.id),
-    comptadors(espai.id),
+    counters(workspace.id),
   ]);
 
   return Layout({
@@ -32,8 +32,8 @@ export async function workspacePage(
     user,
     csrfToken: c.get("csrfToken") ?? "",
     ruta: c.req.path,
-    espais,
-    espai,
+    workspaces,
+    workspace,
     perRevisar,
     avisosNous,
     children,

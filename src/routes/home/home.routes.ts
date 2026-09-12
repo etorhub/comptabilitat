@@ -18,9 +18,9 @@ export const homeRoutes = new Hono();
 
 homeRoutes.get("/", requireUser, async (c) => {
   const user = currentUser(c);
-  const espais = await myWorkspaces(user.id);
-  const primer = espais[0];
-  return c.redirect(primer ? `/e/${primer.code}` : "/sense-espais", 303);
+  const workspaces = await myWorkspaces(user.id);
+  const first = workspaces[0];
+  return c.redirect(first ? `/e/${first.code}` : "/sense-espais", 303);
 });
 
 homeRoutes.get("/sense-espais", requireUser, async (c) => {
@@ -32,7 +32,7 @@ homeRoutes.get("/sense-espais", requireUser, async (c) => {
       user,
       csrfToken: c.get("csrfToken") ?? "",
       ruta: c.req.path,
-      espais: [],
+      workspaces: [],
       children: html`
         <header class="capçalera"><h1>Encara no tens cap espai</h1></header>
         <p class="text-suau">

@@ -14,7 +14,7 @@ import {
   ConflictError,
   clearToast,
   fragment,
-  idDeLaRuta,
+  idFromRoute,
   page,
   toast,
   withOob,
@@ -22,21 +22,21 @@ import {
 import { roleAtLeast } from "../../db/schema/index.ts";
 import { currentRole, currentWorkspace, requireEditor } from "../../middleware/workspace.ts";
 import {
-  arbreCategories,
-  categoriaDeLespai,
-  creaCategoria,
-  esborraCategoria,
-  movimentsDe,
-  opcionsCategories,
-  reanomenaCategoria,
+  categoryTree,
+  categoryInWorkspace,
+  createCategory,
+  deleteCategory,
+  transactionsOf,
+  categoryOptions,
+  renameCategory,
 } from "../../services/categories.ts";
 import {
-  Arbre,
-  Fila,
-  FilaEdicio,
-  FilaEsborrada,
-  FormAlta,
-  FormReassignacio,
+  Tree,
+  Row,
+  EditRow,
+  DeletedRow,
+  CreateForm,
+  ReassignmentForm,
 } from "./categories.fragment.ts";
 import { CategoriesPage } from "./categories.page.ts";
 import {
@@ -48,15 +48,15 @@ import {
 export const categoriesRoutes = new Hono();
 
 /** La vista d'una categoria, tal com la vol la fila de la taula. */
-async function vistaDe(id: number, ledgerId: number) {
-  const arbre = await arbreCategories(ledgerId);
-  for (const nodes of Object.values(arbre)) {
-    for (const pare of nodes) {
-      if (pare.id === id) {
-        return { vista: pare, filla: false, fillesIds: pare.filles.map((f) => f.id) };
+async function viewOf(id: number, ledgerId: number) {
+  const tree = await categoryTree(ledgerId);
+  for (const nodes of Object.values(tree)) {
+    for (const parent of nodes) {
+      if (parent.id === id) {
+        return { view: parent, filla: false, fillesIds: parent.filles.map((f) => f.id) };
       }
-      const filla = pare.filles.find((f) => f.id === id);
-      if (filla) return { vista: filla, filla: true, fillesIds: [] };
+      const filla = parent.filles.find((f) => f.id === id);
+      if (filla) return { view: filla, filla: true, fillesIds: [] };
     }
   }
   return null;
@@ -65,11 +65,11 @@ async function vistaDe(id: number, ledgerId: number) {
 // --- Pagina ----------------------------------------------------------------
 
 categoriesRoutes.get("/", async (c) => {
-  const espai = currentWorkspace(c);
+  const workspace = currentWorkspace(c);
   const potEditar = roleAtLeast(currentRole(c), "editor");
-  const [arbre, grups] = await Promise.all([
-    arbreCategories(espai.id),
-    opcionsCategories(espai.id),
+  const [tree, groups] = await Promise.all([
+    categoryTree(workspace.id),
+    categoryOptions(workspace.id),
   ]);
 
   return page(
@@ -77,7 +77,7 @@ categoriesRoutes.get("/", async (c) => {
     await workspacePage(
       c,
       "Categories",
-      CategoriesPage({ codi: espai.code, arbre, grups, potEditar }),
+      CategoriesPage({ codi: workspace.code, tree, groups, potEditar }),
     ),
   );
 });
@@ -86,21 +86,21 @@ categoriesRoutes.get("/", async (c) => {
 
 /** Una fila sola: serveix per cancel·lar una edicio o una reassignacio. */
 categoriesRoutes.get("/:id/fragment/fila", async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquesta categoria no existeix");
-  await categoriaDeLespai(id, espai.id);
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquesta categoria no existeix");
+  await categoryInWorkspace(id, workspace.id);
 
-  const trobada = await vistaDe(id, espai.id);
-  if (!trobada) return fragment(c, FilaEsborrada(id));
+  const found = await viewOf(id, workspace.id);
+  if (!found) return fragment(c, DeletedRow(id));
 
   return fragment(
     c,
     await withOob(
-      Fila({
-        codi: espai.code,
-        categoria: trobada.vista,
+      Row({
+        codi: workspace.code,
+        category: found.view,
         potEditar: roleAtLeast(currentRole(c), "editor"),
-        filla: trobada.filla,
+        filla: found.filla,
       }),
       clearToast(),
     ),
@@ -109,37 +109,37 @@ categoriesRoutes.get("/:id/fragment/fila", async (c) => {
 
 /** La fila convertida en camp de text. */
 categoriesRoutes.get("/:id/fragment/edicio", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquesta categoria no existeix");
-  await categoriaDeLespai(id, espai.id);
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquesta categoria no existeix");
+  await categoryInWorkspace(id, workspace.id);
 
-  const trobada = await vistaDe(id, espai.id);
-  if (!trobada) return fragment(c, FilaEsborrada(id));
+  const found = await viewOf(id, workspace.id);
+  if (!found) return fragment(c, DeletedRow(id));
 
-  return fragment(c, FilaEdicio({ codi: espai.code, categoria: trobada.vista }));
+  return fragment(c, EditRow({ codi: workspace.code, category: found.view }));
 });
 
 // --- Mutacions -------------------------------------------------------------
 
 categoriesRoutes.post("/", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const cos = await c.req.parseBody();
-  const parsed = categoryCreateSchema.safeParse(cos);
+  const workspace = currentWorkspace(c);
+  const body = await c.req.parseBody();
+  const parsed = categoryCreateSchema.safeParse(body);
 
-  const grups = await opcionsCategories(espai.id);
+  const groups = await categoryOptions(workspace.id);
 
   if (!parsed.success) {
     return fragment(
       c,
       await withOob(
-        FormAlta({
-          codi: espai.code,
-          grups,
+        CreateForm({
+          codi: workspace.code,
+          groups,
           errors: zodErrors(parsed.error),
           valors: {
-            name: typeof cos.name === "string" ? cos.name : "",
-            kind: typeof cos.kind === "string" ? cos.kind : "expense",
-            parent_id: typeof cos.parent_id === "string" ? cos.parent_id : "",
+            name: typeof body.name === "string" ? body.name : "",
+            kind: typeof body.kind === "string" ? body.kind : "expense",
+            parent_id: typeof body.parent_id === "string" ? body.parent_id : "",
           },
         }),
         toast("Revisa el formulari", "error"),
@@ -148,7 +148,7 @@ categoriesRoutes.post("/", requireEditor, async (c) => {
     );
   }
 
-  await creaCategoria(espai.id, {
+  await createCategory(workspace.id, {
     name: parsed.data.name,
     kind: parsed.data.kind,
     parentId: parsed.data.parent_id,
@@ -158,53 +158,53 @@ categoriesRoutes.post("/", requireEditor, async (c) => {
 
   // L'arbre sencer canvia (hi ha una fila nova, i potser un grup nou), aixi
   // que es torna sencer, fora de banda, amb el formulari net.
-  const [arbre, grupsNous] = await Promise.all([
-    arbreCategories(espai.id),
-    opcionsCategories(espai.id),
+  const [tree, grupsNous] = await Promise.all([
+    categoryTree(workspace.id),
+    categoryOptions(workspace.id),
   ]);
 
   return fragment(
     c,
     await withOob(
-      FormAlta({ codi: espai.code, grups: grupsNous }),
-      Arbre({ codi: espai.code, arbre, potEditar: true, oob: true }),
+      CreateForm({ codi: workspace.code, groups: grupsNous }),
+      Tree({ codi: workspace.code, tree, potEditar: true, oob: true }),
       toast(`S'ha afegit «${parsed.data.name}»`, "success"),
     ),
   );
 });
 
 categoriesRoutes.patch("/:id", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquesta categoria no existeix");
-  const cos = await c.req.parseBody();
-  const parsed = categoryUpdateSchema.safeParse(cos);
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquesta categoria no existeix");
+  const body = await c.req.parseBody();
+  const parsed = categoryUpdateSchema.safeParse(body);
 
   if (!parsed.success) {
-    const trobada = await vistaDe(id, espai.id);
-    if (!trobada) return fragment(c, FilaEsborrada(id));
+    const found = await viewOf(id, workspace.id);
+    if (!found) return fragment(c, DeletedRow(id));
     return fragment(
       c,
       await withOob(
-        FilaEdicio({ codi: espai.code, categoria: trobada.vista }),
+        EditRow({ codi: workspace.code, category: found.view }),
         toast(zodErrors(parsed.error).name?.[0] ?? "Revisa el nom", "error"),
       ),
       422,
     );
   }
 
-  await reanomenaCategoria(id, espai.id, parsed.data.name);
+  await renameCategory(id, workspace.id, parsed.data.name);
 
-  const trobada = await vistaDe(id, espai.id);
-  if (!trobada) return fragment(c, FilaEsborrada(id));
+  const found = await viewOf(id, workspace.id);
+  if (!found) return fragment(c, DeletedRow(id));
 
   return fragment(
     c,
     await withOob(
-      Fila({
-        codi: espai.code,
-        categoria: trobada.vista,
+      Row({
+        codi: workspace.code,
+        category: found.view,
         potEditar: true,
-        filla: trobada.filla,
+        filla: found.filla,
       }),
       clearToast(),
     ),
@@ -219,8 +219,8 @@ categoriesRoutes.patch("/:id", requireEditor, async (c) => {
  * (protegida, te filles) van al `#toast` com sempre.
  */
 categoriesRoutes.delete("/:id", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquesta categoria no existeix");
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquesta categoria no existeix");
   const parsed = categoryDeleteSchema.safeParse({
     ...(await c.req.parseBody().catch(() => ({}))),
     ...c.req.query(),
@@ -228,25 +228,25 @@ categoriesRoutes.delete("/:id", requireEditor, async (c) => {
   const reassignTo = parsed.success ? parsed.data.reassign_to : null;
 
   try {
-    await esborraCategoria(id, espai.id, reassignTo);
+    await deleteCategory(id, workspace.id, reassignTo);
   } catch (error) {
     if (error instanceof ConflictError) {
-      const trobada = await vistaDe(id, espai.id);
-      if (!trobada) return fragment(c, FilaEsborrada(id));
+      const found = await viewOf(id, workspace.id);
+      if (!found) return fragment(c, DeletedRow(id));
 
       // Totes menys ella mateixa i les seves filles: moure-hi els moviments
       // no serviria de res si desapareix igualment.
-      const excloure = [id, ...trobada.fillesIds];
-      const grups = await opcionsCategories(espai.id, excloure);
+      const excloure = [id, ...found.fillesIds];
+      const groups = await categoryOptions(workspace.id, excloure);
 
       return fragment(
         c,
         await withOob(
-          FormReassignacio({
-            codi: espai.code,
-            categoria: trobada.vista,
-            moviments: await movimentsDe(id),
-            grups,
+          ReassignmentForm({
+            codi: workspace.code,
+            category: found.view,
+            transactionList: await transactionsOf(id),
+            groups,
           }),
           toast(error.message, "info", error.detail),
         ),
@@ -258,12 +258,12 @@ categoriesRoutes.delete("/:id", requireEditor, async (c) => {
 
   // Esborrar-ne una canvia els totals acumulats dels pares, aixi que l'arbre
   // torna sencer.
-  const arbre = await arbreCategories(espai.id);
+  const tree = await categoryTree(workspace.id);
   return fragment(
     c,
     await withOob(
-      FilaEsborrada(id),
-      Arbre({ codi: espai.code, arbre, potEditar: true, oob: true }),
+      DeletedRow(id),
+      Tree({ codi: workspace.code, tree, potEditar: true, oob: true }),
       toast("Categoria esborrada", "success"),
     ),
   );

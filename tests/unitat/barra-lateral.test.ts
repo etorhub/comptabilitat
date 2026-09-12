@@ -19,7 +19,7 @@ import { Layout } from "../../src/components/layout.ts";
 import { clearToast, toast } from "../../src/lib/http.ts";
 import type { Ledger, LedgerRole, User } from "../../src/db/schema/index.ts";
 
-const usuari = {
+const user = {
   id: 1,
   email: "algu@exemple.cat",
   fullName: "Algu",
@@ -27,17 +27,19 @@ const usuari = {
   isActive: true,
 } as User;
 
-const espai = { id: 7, code: "personal", name: "Personal" } as Ledger;
-const espais = [{ ...espai, role: "owner" as LedgerRole } as Ledger & { role: LedgerRole }];
+const workspace = { id: 7, code: "personal", name: "Personal" } as Ledger;
+const workspaces = [
+  { ...workspace, role: "owner" as LedgerRole } as Ledger & { role: LedgerRole },
+];
 
-async function barra(ruta: string): Promise<string> {
+async function bar(ruta: string): Promise<string> {
   return String(
     await Layout({
       titol: "Prova",
-      user: usuari,
+      user: user,
       csrfToken: "x",
-      espais,
-      espai,
+      workspaces,
+      workspace,
       ruta,
       children: "",
     }),
@@ -45,41 +47,41 @@ async function barra(ruta: string): Promise<string> {
 }
 
 /** L'`href` de l'enllaç marcat com a pagina actual. */
-function marcat(pagina: string): string[] {
-  return [...pagina.matchAll(/<a href="([^"]+)" aria-current="page">/g)].map((m) => m[1] ?? "");
+function marcat(page: string): string[] {
+  return [...page.matchAll(/<a href="([^"]+)" aria-current="page">/g)].map((m) => m[1] ?? "");
 }
 
 describe("aria-current a la barra lateral", () => {
   test("marca la pagina que s'esta mirant, i nomes una", async () => {
-    expect(marcat(await barra("/e/personal/moviments"))).toEqual(["/e/personal/moviments"]);
+    expect(marcat(await bar("/e/personal/moviments"))).toEqual(["/e/personal/moviments"]);
     // I els del grup de configuracio, que el master va moure a part.
-    expect(marcat(await barra("/e/personal/etiquetes"))).toEqual(["/e/personal/etiquetes"]);
-    expect(marcat(await barra("/e/personal/categories"))).toEqual(["/e/personal/categories"]);
+    expect(marcat(await bar("/e/personal/etiquetes"))).toEqual(["/e/personal/etiquetes"]);
+    expect(marcat(await bar("/e/personal/categories"))).toEqual(["/e/personal/categories"]);
   });
 
   test("guanya el cami mes llarg, no el primer que encaixa", async () => {
     // «Panell» es `/e/personal`, que es el començament de tots els altres.
-    expect(marcat(await barra("/e/personal/avisos"))).toEqual(["/e/personal/avisos"]);
+    expect(marcat(await bar("/e/personal/avisos"))).toEqual(["/e/personal/avisos"]);
     // I «Moviments» ho es de «Per revisar».
-    expect(marcat(await barra("/e/personal/moviments/revisio"))).toEqual([
+    expect(marcat(await bar("/e/personal/moviments/revisio"))).toEqual([
       "/e/personal/moviments/revisio",
     ]);
     // El panell, a la seva, si que es marca.
-    expect(marcat(await barra("/e/personal"))).toEqual(["/e/personal"]);
+    expect(marcat(await bar("/e/personal"))).toEqual(["/e/personal"]);
   });
 
   test("tambe a les pantalles d'administracio", async () => {
-    expect(marcat(await barra("/usuaris"))).toEqual(["/usuaris"]);
-    expect(marcat(await barra("/connexions"))).toEqual(["/connexions"]);
-    expect(marcat(await barra("/feines"))).toEqual(["/feines"]);
+    expect(marcat(await bar("/usuaris"))).toEqual(["/usuaris"]);
+    expect(marcat(await bar("/connexions"))).toEqual(["/connexions"]);
+    expect(marcat(await bar("/feines"))).toEqual(["/feines"]);
   });
 
   test("una adreça que no es de cap enllaç no en marca cap", async () => {
-    expect(marcat(await barra("/contrasenya"))).toEqual([]);
+    expect(marcat(await bar("/contrasenya"))).toEqual([]);
   });
 
   test("una pagina qualsevol neix amb la regio viva", async () => {
-    expect(await barra("/e/personal")).toContain('<div id="toast" aria-live="polite">');
+    expect(await bar("/e/personal")).toContain('<div id="toast" aria-live="polite">');
   });
 });
 
@@ -93,33 +95,33 @@ describe("aria-current a la barra lateral", () => {
  */
 describe("el calaix de la navegacio", () => {
   test("la casella i tots els `for` que hi apunten es diuen igual", async () => {
-    const pagina = await barra("/e/personal");
+    const page = await bar("/e/personal");
 
-    expect(pagina).toContain('<input type="checkbox" id="menu-obert"');
+    expect(page).toContain('<input type="checkbox" id="menu-obert"');
     // El d'obrir, el rerefons i el de tancar.
-    expect([...pagina.matchAll(/for="menu-obert"/g)]).toHaveLength(3);
+    expect([...page.matchAll(/for="menu-obert"/g)]).toHaveLength(3);
   });
 
   test("els botons del calaix diuen que fan", async () => {
-    const pagina = await barra("/e/personal");
+    const page = await bar("/e/personal");
 
     // Son `<label>` amb una icona a dins: sense aixo no diuen res.
-    expect(pagina).toContain('aria-label="Obre el menu"');
-    expect(pagina).toContain('aria-label="Tanca el menu"');
+    expect(page).toContain('aria-label="Obre el menu"');
+    expect(page).toContain('aria-label="Tanca el menu"');
   });
 
   test("els comptadors no es dupliquen a la barra de dalt", async () => {
     // Son objectius fora de banda i cada identificador te un sol amo: si es
     // dibuixessin dos cops, l'intercanvi nomes en trobaria un i l'altre
     // quedaria encallat amb el numero vell. Vegeu AGENTS.md.
-    const pagina = await barra("/e/personal");
+    const page = await bar("/e/personal");
 
-    expect([...pagina.matchAll(/id="comptador-revisio"/g)]).toHaveLength(1);
-    expect([...pagina.matchAll(/id="comptador-avisos"/g)]).toHaveLength(1);
+    expect([...page.matchAll(/id="comptador-revisio"/g)]).toHaveLength(1);
+    expect([...page.matchAll(/id="comptador-avisos"/g)]).toHaveLength(1);
   });
 
   test("la barra de dalt diu a quin espai ets", async () => {
-    expect(await barra("/e/personal")).toContain(
+    expect(await bar("/e/personal")).toContain(
       '<span class="barra-mobil-espai text-suau">Personal</span>',
     );
   });

@@ -16,17 +16,17 @@ import type { Html } from "../lib/html.ts";
 
 import type { Ledger, LedgerRole, User } from "../db/schema/index.ts";
 import { CSRF_HEADER } from "../lib/csrf.ts";
-import { hrefEstatic } from "../lib/estatics.ts";
-import { atributsOob } from "../lib/oob.ts";
+import { staticHref } from "../lib/estatics.ts";
+import { oobAttributes } from "../lib/oob.ts";
 
 export interface LayoutProps {
   titol: string;
   user: User;
   csrfToken: string;
   /** Espais on l'usuari te acces, per al selector. */
-  espais: (Ledger & { role: LedgerRole })[];
+  workspaces: (Ledger & { role: LedgerRole })[];
   /** Espai actiu, si la pagina n'esta dins. */
-  espai?: Ledger | undefined;
+  workspace?: Ledger | undefined;
   /**
    * L'adreça que s'esta mirant (`c.req.path`), per marcar-la al menu.
    *
@@ -75,11 +75,11 @@ document.body.addEventListener("htmx:afterSettle", function () {
  * a cada carrega de pagina no els val. `aria-hidden`, perque qui les ha
  * d'entendre ho fa per l'`aria-label` del `<label>` que les conte.
  */
-const iconaMenu = raw(
+const iconMenu = raw(
   `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>`,
 );
 
-const iconaTanca = raw(
+const closeIcon = raw(
   `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>`,
 );
 
@@ -88,8 +88,8 @@ export function Layout(props: LayoutProps): Html {
     titol,
     user,
     csrfToken,
-    espais,
-    espai,
+    workspaces,
+    workspace,
     perRevisar = 0,
     avisosNous = 0,
     ruta = "",
@@ -106,22 +106,22 @@ export function Layout(props: LayoutProps): Html {
         -->
         <meta name="color-scheme" content="light" />
         <title>${titol} · Comptabilitat</title>
-        <link rel="icon" href="${hrefEstatic("favicon.svg")}" />
+        <link rel="icon" href="${staticHref("favicon.svg")}" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap"
         />
-        <link rel="stylesheet" href="${hrefEstatic("app.css")}" />
-        <script src="${hrefEstatic("htmx.min.js")}" defer></script>
+        <link rel="stylesheet" href="${staticHref("app.css")}" />
+        <script src="${staticHref("htmx.min.js")}" defer></script>
         <!--
           Els grafics son una illa: ECharts i un fitxer que llegeix les dades
           que el servidor ha escrit a la pagina. Sense empaquetador i sense
           cap estat de client.
         -->
-        <script src="${hrefEstatic("echarts.min.js")}" defer></script>
-        <script src="${hrefEstatic("grafics.js")}" defer></script>
+        <script src="${staticHref("echarts.min.js")}" defer></script>
+        <script src="${staticHref("grafics.js")}" defer></script>
       </head>
       <!--
         El testimoni CSRF surt aqui i enlloc mes. Va lligat a la sessio, de
@@ -142,17 +142,17 @@ export function Layout(props: LayoutProps): Html {
 
         <header class="barra-mobil">
           <label for="menu-obert" class="boto-menu" aria-label="Obre el menu">
-            ${iconaMenu}
+            ${iconMenu}
           </label>
           <span class="marca">Comptabilitat</span>
-          ${espai ? html`<span class="barra-mobil-espai text-suau">${espai.name}</span>` : ""}
+          ${workspace ? html`<span class="barra-mobil-espai text-suau">${workspace.name}</span>` : ""}
         </header>
 
         <div class="disposicio">
           <!-- Tocar fora del calaix el tanca. Per a qui hi veu, i prou. -->
           <label for="menu-obert" class="rerefons-menu" aria-hidden="true"></label>
 
-          ${Sidebar({ user, espais, espai, perRevisar, avisosNous, ruta })}
+          ${Sidebar({ user, workspaces, workspace, perRevisar, avisosNous, ruta })}
 
           <main id="contingut" class="principal">${props.children}</main>
         </div>
@@ -169,8 +169,8 @@ export function Layout(props: LayoutProps): Html {
 
 interface SidebarProps {
   user: User;
-  espais: (Ledger & { role: LedgerRole })[];
-  espai?: Ledger | undefined;
+  workspaces: (Ledger & { role: LedgerRole })[];
+  workspace?: Ledger | undefined;
   perRevisar: number;
   avisosNous: number;
   ruta: string;
@@ -183,13 +183,13 @@ interface SidebarProps {
  * de tots els altres, i `/e/x/moviments` ho es de `/e/x/moviments/revisio`.
  * Amb el primer que encaixes, «Panell» sortiria marcat a tot arreu.
  */
-function enllacActiu(rutes: string[], ruta: string): string | undefined {
-  const camins = rutes.filter((href) => ruta === href || ruta.startsWith(`${href}/`));
-  return camins.toSorted((a, b) => b.length - a.length)[0];
+function activeLink(rutes: string[], ruta: string): string | undefined {
+  const paths = rutes.filter((href) => ruta === href || ruta.startsWith(`${href}/`));
+  return paths.toSorted((a, b) => b.length - a.length)[0];
 }
 
-function Sidebar({ user, espais, espai, perRevisar, avisosNous, ruta }: SidebarProps) {
-  const codi = espai?.code;
+function Sidebar({ user, workspaces, workspace, perRevisar, avisosNous, ruta }: SidebarProps) {
+  const codi = workspace?.code;
 
   const enllacos: { href: string; text: string; comptador?: Html }[] = codi
     ? [
@@ -200,7 +200,7 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous, ruta }: SidebarP
           // d'ells. A l'aplicacio de React era `/e/:codi/revisio`.
           href: `/e/${codi}/moviments/revisio`,
           text: "Per revisar",
-          comptador: ComptadorRevisio(perRevisar),
+          comptador: ReviewCounter(perRevisar),
         },
         { href: `/e/${codi}/recurrents`, text: "Recurrents" },
         { href: `/e/${codi}/previsio`, text: "Previsio" },
@@ -213,11 +213,11 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous, ruta }: SidebarP
         { href: `/e/${codi}/configuracio`, text: "Espai" },
         { href: `/e/${codi}/categories`, text: "Categories" },
         { href: `/e/${codi}/etiquetes`, text: "Etiquetes" },
-        { href: `/e/${codi}/avisos`, text: "Avisos", comptador: ComptadorAvisos(avisosNous) },
+        { href: `/e/${codi}/avisos`, text: "Avisos", comptador: AlertCounter(avisosNous) },
       ]
     : [];
 
-  const actiu = enllacActiu(
+  const active = activeLink(
     [
       ...enllacos.map((e) => e.href),
       ...configuracio.map((e) => e.href),
@@ -227,17 +227,17 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous, ruta }: SidebarP
   );
   // L'espai va dins: sense aixo, cada enllaç que no es l'actual acabaria
   // amb un `<a href="…" >`.
-  const marca = (href: string) => (href === actiu ? raw(' aria-current="page"') : "");
+  const marca = (href: string) => (href === active ? raw(' aria-current="page"') : "");
 
   return html`<nav class="barra" aria-label="Navegacio principal">
     <div class="barra-cap">
       <span class="marca">Comptabilitat</span>
       <!-- Nomes es veu quan la barra es un calaix, es a dir, al mobil. -->
-      <label for="menu-obert" class="tanca-menu" aria-label="Tanca el menu">${iconaTanca}</label>
+      <label for="menu-obert" class="tanca-menu" aria-label="Tanca el menu">${closeIcon}</label>
     </div>
 
     ${
-      espais.length > 0
+      workspaces.length > 0
         ? html`<label class="camp">
           <span class="camp-etiqueta">Espai</span>
           <select
@@ -245,7 +245,7 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous, ruta }: SidebarP
             aria-label="Canvia d'espai"
             onchange="window.location.href = '/e/' + this.value"
           >
-            ${espais.map(
+            ${workspaces.map(
               (e) =>
                 html`<option value="${e.code}" ${e.code === codi ? raw("selected") : ""}>
                   ${e.name}
@@ -258,10 +258,10 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous, ruta }: SidebarP
 
     <ul class="menu">
       ${enllacos.map(
-        (enllac) => html`<li>
-          <a href="${enllac.href}"${marca(enllac.href)}>
-            <span>${enllac.text}</span>
-            ${enllac.comptador ?? ""}
+        (link) => html`<li>
+          <a href="${link.href}"${marca(link.href)}>
+            <span>${link.text}</span>
+            ${link.comptador ?? ""}
           </a>
         </li>`,
       )}
@@ -273,10 +273,10 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous, ruta }: SidebarP
           <h2 class="menu-titol">Configuracio</h2>
           <ul class="menu">
             ${configuracio.map(
-              (enllac) => html`<li>
-                <a href="${enllac.href}"${marca(enllac.href)}>
-                  <span>${enllac.text}</span>
-                  ${enllac.comptador ?? ""}
+              (link) => html`<li>
+                <a href="${link.href}"${marca(link.href)}>
+                  <span>${link.text}</span>
+                  ${link.comptador ?? ""}
                 </a>
               </li>`,
             )}
@@ -316,17 +316,17 @@ function Sidebar({ user, espais, espai, perRevisar, avisosNous, ruta }: SidebarP
  * cada mutacio tornava a demanar-ho gairebe tot. Ara qui canvia el nombre el
  * torna, i prou. Vegeu `AGENTS.md`.
  */
-export function ComptadorRevisio(n: number, oob = false) {
+export function ReviewCounter(n: number, oob = false) {
   return html`<span
-    ${atributsOob("comptador-revisio", oob)}
+    ${oobAttributes("comptador-revisio", oob)}
     class="comptador ${n > 0 ? "comptador-actiu" : ""}"
     >${n > 0 ? String(n) : ""}</span
   >`;
 }
 
-export function ComptadorAvisos(n: number, oob = false) {
+export function AlertCounter(n: number, oob = false) {
   return html`<span
-    ${atributsOob("comptador-avisos", oob)}
+    ${oobAttributes("comptador-avisos", oob)}
     class="comptador ${n > 0 ? "comptador-avis" : ""}"
     >${n > 0 ? String(n) : ""}</span
   >`;

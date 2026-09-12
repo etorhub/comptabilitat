@@ -13,21 +13,21 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db, type Transactor } from "../db/client.ts";
 import { llmSuggestions, merchants, transactions } from "../db/schema/index.ts";
 import { NotFoundError } from "../lib/http.ts";
-import { recordaEleccioComerc } from "./merchants.ts";
+import { rememberMerchantChoice } from "./merchants.ts";
 
 /** El que vol dir «ho ha decidit una persona». */
-export const DECISIO_HUMANA = {
+export const HUMAN_DECISION = {
   categorySource: "user",
   categoryConfidence: 1,
   needsReview: false,
 } as const;
 
-export interface OpcionsCategoritzar {
+export interface CategorizeOptions {
   /** Recorda-ho per a tot el comerç d'aquest espai. */
   recordaComerc?: boolean;
 }
 
-export interface ResultatCategoritzar {
+export interface CategorizeResult {
   /** Quants moviments del mateix comerç han heretat la decisio. */
   recordats: number;
 }
@@ -38,21 +38,21 @@ export interface ResultatCategoritzar {
  * Tot va dins d'una transaccio: si la memoria del comerç s'escriu i el
  * moviment no —o al reves— l'espai queda dient dues coses diferents.
  */
-export async function categoritzaMoviment(
+export async function categorizeTransaction(
   movimentId: number,
-  fila: { merchantId: number | null },
+  row: { merchantId: number | null },
   categoryId: number | null,
-  opcions: OpcionsCategoritzar = {},
-): Promise<ResultatCategoritzar> {
+  options: CategorizeOptions = {},
+): Promise<CategorizeResult> {
   return db.transaction(async (tx) => {
     await tx
       .update(transactions)
-      .set({ categoryId, ...DECISIO_HUMANA })
+      .set({ categoryId, ...HUMAN_DECISION })
       .where(eq(transactions.id, movimentId));
 
     let recordats = 0;
-    if (opcions.recordaComerc === true && fila.merchantId !== null) {
-      recordats = await recordaComercDeLaFila(tx, fila.merchantId, categoryId);
+    if (options.recordaComerc === true && row.merchantId !== null) {
+      recordats = await rememberMerchantFromRow(tx, row.merchantId, categoryId);
     }
 
     return { recordats };
@@ -65,11 +65,11 @@ export async function categoritzaMoviment(
  * **Tot o res**: si algun identificador no es de l'espai, no se n'aplica cap.
  * Una peticio a mitges deixaria qui la fa sense saber que ha canviat.
  */
-export async function categoritzaEnBloc(
+export async function categorizeBulk(
   movimentIds: number[],
   ledgerId: number,
   categoryId: number | null,
-  opcions: { recordaComerc?: boolean } = {},
+  options: { recordaComerc?: boolean } = {},
 ): Promise<{ aplicats: number }> {
   const demanats = [...new Set(movimentIds)];
 
@@ -85,7 +85,7 @@ export async function categoritzaEnBloc(
 
     await tx
       .update(transactions)
-      .set({ categoryId, ...DECISIO_HUMANA })
+      .set({ categoryId, ...HUMAN_DECISION })
       .where(
         inArray(
           transactions.id,
@@ -93,12 +93,12 @@ export async function categoritzaEnBloc(
         ),
       );
 
-    if (opcions.recordaComerc === true) {
-      const comercIds = [
+    if (options.recordaComerc === true) {
+      const merchantIds = [
         ...new Set(meus.map((m) => m.merchantId).filter((x): x is number => x !== null)),
       ];
-      for (const comercId of comercIds) {
-        await recordaComercDeLaFila(tx, comercId, categoryId);
+      for (const merchantId of merchantIds) {
+        await rememberMerchantFromRow(tx, merchantId, categoryId);
       }
     }
 
@@ -112,50 +112,50 @@ export async function categoritzaEnBloc(
  * Es el mateix que canviar-li la categoria, i a mes **tanca la proposta del
  * model** dient si l'encertava: es l'unica manera de saber si val la pena.
  */
-export async function confirmaDeLaRevisio(
+export async function confirmFromReview(
   movimentId: number,
-  fila: { merchantId: number | null },
+  row: { merchantId: number | null },
   categoryId: number,
-  opcions: OpcionsCategoritzar = {},
-): Promise<ResultatCategoritzar> {
-  const resultat = await categoritzaMoviment(movimentId, fila, categoryId, opcions);
-  await tancaLaPropostaDelModel(fila.merchantId, categoryId);
-  return resultat;
+  options: CategorizeOptions = {},
+): Promise<CategorizeResult> {
+  const result = await categorizeTransaction(movimentId, row, categoryId, options);
+  await closeModelProposal(row.merchantId, categoryId);
+  return result;
 }
 
 /** Diu si la proposta del model per a aquest comerç era bona. */
-async function tancaLaPropostaDelModel(
+async function closeModelProposal(
   merchantId: number | null,
   categoryId: number,
 ): Promise<void> {
   if (merchantId === null) return;
 
-  const [proposta] = await db
+  const [proposal] = await db
     .select()
     .from(llmSuggestions)
     .where(and(eq(llmSuggestions.merchantId, merchantId), isNull(llmSuggestions.accepted)))
     .limit(1);
-  if (!proposta) return;
+  if (!proposal) return;
 
   await db
     .update(llmSuggestions)
     .set({
-      accepted: proposta.suggestedCategoryId === categoryId,
+      accepted: proposal.suggestedCategoryId === categoryId,
       reviewedAt: new Date(),
     })
-    .where(eq(llmSuggestions.id, proposta.id));
+    .where(eq(llmSuggestions.id, proposal.id));
 }
 
-async function recordaComercDeLaFila(
+async function rememberMerchantFromRow(
   tx: Transactor,
   merchantId: number,
   categoryId: number | null,
 ): Promise<number> {
-  const [comerc] = await tx
+  const [merchant] = await tx
     .select()
     .from(merchants)
     .where(eq(merchants.id, merchantId))
     .limit(1);
-  if (!comerc) return 0;
-  return recordaEleccioComerc(comerc, categoryId, true, tx);
+  if (!merchant) return 0;
+  return rememberMerchantChoice(merchant, categoryId, true, tx);
 }

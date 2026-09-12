@@ -17,7 +17,7 @@ import {
   AppError,
   ConflictError,
   fragment,
-  idDeLaRuta,
+  idFromRoute,
   NotFoundError,
   page,
   pushUrl,
@@ -27,50 +27,50 @@ import {
 import { currentUser } from "../../middleware/session.ts";
 import { myWorkspaces } from "../../middleware/workspace.ts";
 import {
-  darreresPerFeina,
-  engegaFeina,
-  feinaEnCurs,
-  llegeixEnCurs,
-  llegeixExecucio,
-  llegeixFills,
-  llegeixHistorial,
-  nomsEnCurs,
-  resumSalut,
-  syncRunsDeLExecucio,
+  lastRunPerJob,
+  startJob,
+  jobRunning,
+  readRunning,
+  readRun,
+  readChildren,
+  readHistory,
+  runningJobNames,
+  summaryHealth,
+  syncRunsForRun,
 } from "../../services/job-runs.ts";
-import { feinaAnalisi } from "../../workers/jobs/analyze.ts";
-import { feinaClassificacio } from "../../workers/jobs/classify.ts";
-import { feinaModelLocal } from "../../workers/jobs/llm.ts";
-import { feinaManteniment } from "../../workers/jobs/maintenance.ts";
-import { feinaAvisos, feinaAvisosUrgents } from "../../workers/jobs/notify.ts";
-import { passadaDiaria, passadaNocturna, passadaTotes } from "../../workers/jobs/pipelines.ts";
-import { feinaSincronitzacio } from "../../workers/jobs/sync.ts";
+import { analysisJob } from "../../workers/jobs/analyze.ts";
+import { classificationJob } from "../../workers/jobs/classify.ts";
+import { localModelJob } from "../../workers/jobs/llm.ts";
+import { maintenanceJob } from "../../workers/jobs/maintenance.ts";
+import { alertsJob, urgentAlertsJob } from "../../workers/jobs/notify.ts";
+import { dailyPass, nightlyPass, passAll } from "../../workers/jobs/pipelines.ts";
+import { syncJob } from "../../workers/jobs/sync.ts";
 import {
-  AgendaSalut,
-  DetallExecucio,
-  EnCurs,
-  entradesAgenda,
-  type EntradaFeina,
-  LlistaFeines,
-  LlistaHistorial,
+  ScheduleHealth,
+  RunDetail,
+  Running,
+  scheduleEntries,
+  type JobEntry,
+  JobsList,
+  HistoryList,
 } from "./jobs.fragment.ts";
 import { JobsPage } from "./jobs.page.ts";
-import { intentDeLaConsulta, PARAMETRE_INTENT } from "../../lib/sondeig.ts";
+import { attemptFromQuery, ATTEMPT_PARAM } from "../../lib/sondeig.ts";
 import {
-  type FeinaId,
-  FEINES,
-  feinaSchema,
-  filtresAServei,
-  historialFiltersSchema,
-  historialFiltersToQuery,
+  type JobId,
+  JOBS,
+  jobSchema,
+  filtersToService,
+  historyFiltersSchema,
+  historyFiltersToQuery,
 } from "./jobs.schema.ts";
 
 export const jobsRoutes = new Hono();
 
-const FEINES_MODEL: ReadonlySet<FeinaId> = new Set(["passada-nocturna", "llm"]);
+const JOBS_MODEL: ReadonlySet<JobId> = new Set(["passada-nocturna", "llm"]);
 
-function catalog(): { passades: EntradaFeina[]; individuals: EntradaFeina[] } {
-  const passades: EntradaFeina[] = [
+function catalog(): { passes: JobEntry[]; individuals: JobEntry[] } {
+  const passes: JobEntry[] = [
     {
       id: "passada-diaria",
       titol: "Passada diaria",
@@ -78,19 +78,19 @@ function catalog(): { passades: EntradaFeina[]; individuals: EntradaFeina[] } {
     },
   ];
   if (config.ollamaEnabled) {
-    passades.push({
+    passes.push({
       id: "passada-nocturna",
       titol: "Passada nocturna",
       descripcio: "El model local proposa categories i es torna a classificar.",
     });
   }
-  passades.push({
+  passes.push({
     id: "totes",
     titol: "Totes les feines",
     descripcio: "Passada diaria, nocturna (si hi ha model), avisos i manteniment.",
   });
 
-  const individuals: EntradaFeina[] = [
+  const individuals: JobEntry[] = [
     {
       id: "sync",
       titol: "Sincronitzacio",
@@ -132,64 +132,64 @@ function catalog(): { passades: EntradaFeina[]; individuals: EntradaFeina[] } {
     },
   );
 
-  return { passades, individuals };
+  return { passes, individuals };
 }
 
-function resolFeina(id: FeinaId): () => Promise<string> {
+function resolveJob(id: JobId): () => Promise<string> {
   switch (id) {
     case "passada-diaria":
-      return passadaDiaria;
+      return dailyPass;
     case "passada-nocturna":
-      return passadaNocturna;
+      return nightlyPass;
     case "sync":
-      return () => feinaSincronitzacio();
+      return () => syncJob();
     case "classify":
-      return feinaClassificacio;
+      return classificationJob;
     case "llm":
-      return () => feinaModelLocal();
+      return () => localModelJob();
     case "analyze":
-      return feinaAnalisi;
+      return analysisJob;
     case "notify":
-      return feinaAvisos;
+      return alertsJob;
     case "notify-urgents":
-      return feinaAvisosUrgents;
+      return urgentAlertsJob;
     case "maintenance":
-      return feinaManteniment;
+      return maintenanceJob;
     case "totes":
-      return () => passadaTotes();
+      return () => passAll();
   }
 }
 
-async function dadesPagina(filters = historialFiltersSchema.parse({})) {
-  const { passades, individuals } = catalog();
-  const noms = [...new Set([...passades, ...individuals].map((f) => f.id))];
-  const [darreres, enCursRuns, enCursNoms, salut, historial] = await Promise.all([
-    darreresPerFeina([...noms, ...FEINES]),
-    llegeixEnCurs(),
-    nomsEnCurs(),
-    resumSalut(),
-    llegeixHistorial(filtresAServei(filters)),
+async function pageData(filters = historyFiltersSchema.parse({})) {
+  const { passes, individuals } = catalog();
+  const names = [...new Set([...passes, ...individuals].map((f) => f.id))];
+  const [darreres, enCursRuns, enCursNoms, salut, history] = await Promise.all([
+    lastRunPerJob([...names, ...JOBS]),
+    readRunning(),
+    runningJobNames(),
+    summaryHealth(),
+    readHistory(filtersToService(filters)),
   ]);
-  return { passades, individuals, darreres, enCursRuns, enCursNoms, salut, historial, filters };
+  return { passes, individuals, darreres, enCursRuns, enCursNoms, salut, history, filters };
 }
 
-async function oobMonitor(filters = historialFiltersSchema.parse({})) {
-  const dades = await dadesPagina(filters);
+async function oobMonitor(filters = historyFiltersSchema.parse({})) {
+  const data = await pageData(filters);
   return [
-    AgendaSalut({
-      entrades: entradesAgenda(dades.darreres),
-      salut: dades.salut,
+    ScheduleHealth({
+      entrades: scheduleEntries(data.darreres),
+      salut: data.salut,
       oob: true,
     }),
-    EnCurs({ runs: dades.enCursRuns, oob: true }),
-    LlistaFeines({
-      passades: dades.passades,
-      individuals: dades.individuals,
-      darreres: dades.darreres,
-      enCurs: dades.enCursNoms,
+    Running({ runs: data.enCursRuns, oob: true }),
+    JobsList({
+      passes: data.passes,
+      individuals: data.individuals,
+      darreres: data.darreres,
+      enCurs: data.enCursNoms,
       oob: true,
     }),
-    LlistaHistorial({ pagina: dades.historial, filters: dades.filters, oob: true }),
+    HistoryList({ page: data.history, filters: data.filters, oob: true }),
   ];
 }
 
@@ -198,8 +198,8 @@ async function oobMonitor(filters = historialFiltersSchema.parse({})) {
 jobsRoutes.get("/", async (c) => {
   const jo = currentUser(c);
   const meus = await myWorkspaces(jo.id);
-  const filters = historialFiltersSchema.parse(c.req.query());
-  const dades = await dadesPagina(filters);
+  const filters = historyFiltersSchema.parse(c.req.query());
+  const data = await pageData(filters);
 
   return page(
     c,
@@ -208,8 +208,8 @@ jobsRoutes.get("/", async (c) => {
       user: jo,
       csrfToken: c.get("csrfToken") ?? "",
       ruta: c.req.path,
-      espais: meus,
-      children: JobsPage(dades),
+      workspaces: meus,
+      children: JobsPage(data),
     }),
   );
 });
@@ -217,37 +217,37 @@ jobsRoutes.get("/", async (c) => {
 // --- Fragments -------------------------------------------------------------
 
 jobsRoutes.get("/fragment/historial", async (c) => {
-  const filters = historialFiltersSchema.parse(c.req.query());
-  const historial = await llegeixHistorial(filtresAServei(filters));
-  pushUrl(c, `/feines${historialFiltersToQuery(filters)}`);
-  return fragment(c, LlistaHistorial({ pagina: historial, filters }));
+  const filters = historyFiltersSchema.parse(c.req.query());
+  const history = await readHistory(filtersToService(filters));
+  pushUrl(c, `/feines${historyFiltersToQuery(filters)}`);
+  return fragment(c, HistoryList({ page: history, filters }));
 });
 
 jobsRoutes.get("/fragment/en-curs", async (c) => {
-  const dades = await dadesPagina(historialFiltersSchema.parse({}));
+  const data = await pageData(historyFiltersSchema.parse({}));
   // El compte d'intents ve a l'adreça: el sondeig te limit i el porta el
   // servidor, no el client. Vegeu `lib/sondeig.ts`.
-  const intent = intentDeLaConsulta(c.req.query(PARAMETRE_INTENT));
+  const attempt = attemptFromQuery(c.req.query(ATTEMPT_PARAM));
   // El target principal es `#en-curs` (sense oob); la resta va fora de banda.
   return fragment(
     c,
     await withOob(
-      EnCurs({ runs: dades.enCursRuns, intent }),
-      AgendaSalut({
-        entrades: entradesAgenda(dades.darreres),
-        salut: dades.salut,
+      Running({ runs: data.enCursRuns, attempt }),
+      ScheduleHealth({
+        entrades: scheduleEntries(data.darreres),
+        salut: data.salut,
         oob: true,
       }),
-      LlistaFeines({
-        passades: dades.passades,
-        individuals: dades.individuals,
-        darreres: dades.darreres,
-        enCurs: dades.enCursNoms,
+      JobsList({
+        passes: data.passes,
+        individuals: data.individuals,
+        darreres: data.darreres,
+        enCurs: data.enCursNoms,
         oob: true,
       }),
-      LlistaHistorial({
-        pagina: dades.historial,
-        filters: dades.filters,
+      HistoryList({
+        page: data.history,
+        filters: data.filters,
         oob: true,
       }),
     ),
@@ -255,32 +255,32 @@ jobsRoutes.get("/fragment/en-curs", async (c) => {
 });
 
 jobsRoutes.get("/fragment/execucio/:id", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"), "Aquesta execució no existeix");
-  const run = await llegeixExecucio(id);
+  const id = idFromRoute(c.req.param("id"), "Aquesta execució no existeix");
+  const run = await readRun(id);
   if (run === null) throw new NotFoundError("Aquesta execució no existeix");
-  const [fills, syncs] = await Promise.all([llegeixFills(id), syncRunsDeLExecucio(run)]);
-  return fragment(c, DetallExecucio({ run, fills, syncs }));
+  const [children, syncs] = await Promise.all([readChildren(id), syncRunsForRun(run)]);
+  return fragment(c, RunDetail({ run, children, syncs }));
 });
 
 // --- Mutacions -------------------------------------------------------------
 
 jobsRoutes.post("/", async (c) => {
-  const parsed = feinaSchema.safeParse(await c.req.parseBody());
+  const parsed = jobSchema.safeParse(await c.req.parseBody());
   if (!parsed.success) {
     c.header("HX-Reswap", "none");
     return fragment(c, toast("Aquesta feina no existeix"), 422);
   }
 
-  const id = parsed.data.feina;
-  if (FEINES_MODEL.has(id) && !config.ollamaEnabled) {
+  const id = parsed.data.job;
+  if (JOBS_MODEL.has(id) && !config.ollamaEnabled) {
     throw new AppError("El model local no esta actiu", 422);
   }
 
-  if (await feinaEnCurs(id)) {
+  if (await jobRunning(id)) {
     throw new ConflictError("Aquesta feina ja esta corrent");
   }
 
-  await engegaFeina(id, "manual", resolFeina(id));
+  await startJob(id, "manual", resolveJob(id));
 
   c.header("HX-Reswap", "none");
   return fragment(

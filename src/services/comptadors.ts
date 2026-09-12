@@ -17,7 +17,7 @@ import { db } from "../db/client.ts";
 import { alerts, transactions } from "../db/schema/index.ts";
 
 /** Moviments que esperen que algu els confirmi la categoria. */
-export async function comptaPerRevisar(ledgerId: number): Promise<number> {
+export async function countToReview(ledgerId: number): Promise<number> {
   const [row] = await db
     .select({ n: count() })
     .from(transactions)
@@ -26,7 +26,7 @@ export async function comptaPerRevisar(ledgerId: number): Promise<number> {
 }
 
 /** Avisos que ningu no ha mirat encara. */
-export async function comptaAvisosNous(ledgerId: number): Promise<number> {
+export async function countNewAlerts(ledgerId: number): Promise<number> {
   const [row] = await db
     .select({ n: count() })
     .from(alerts)
@@ -34,16 +34,16 @@ export async function comptaAvisosNous(ledgerId: number): Promise<number> {
   return row?.n ?? 0;
 }
 
-export interface Comptadors {
+export interface Counters {
   perRevisar: number;
   avisosNous: number;
 }
 
 /** Els dos alhora, per dibuixar una pagina sencera. */
-export async function comptadors(ledgerId: number): Promise<Comptadors> {
+export async function counters(ledgerId: number): Promise<Counters> {
   const [perRevisar, avisosNous] = await Promise.all([
-    comptaPerRevisar(ledgerId),
-    comptaAvisosNous(ledgerId),
+    countToReview(ledgerId),
+    countNewAlerts(ledgerId),
   ]);
   return { perRevisar, avisosNous };
 }

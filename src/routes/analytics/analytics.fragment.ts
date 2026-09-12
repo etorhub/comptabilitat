@@ -10,14 +10,14 @@
 
 import { html } from "hono/html";
 
-import { TaulaDades } from "../../components/vista.ts";
+import { DataTable } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 import { jsonScript } from "../../lib/http.ts";
 import { formatMoney, toChartNumber } from "../../lib/money.ts";
 import { formatDate } from "../../lib/time.ts";
-import type { PuntSaldo } from "../../services/balances.ts";
-import type { Previsio } from "../../services/forecast.ts";
-import type { PuntMensual, TrosCategoria, TrosComerc } from "../../services/reports.ts";
+import type { BalancePoint } from "../../services/balances.ts";
+import type { Forecast } from "../../services/forecast.ts";
+import type { MonthlyPoint, CategoryPart, MerchantPart } from "../../services/reports.ts";
 
 /**
  * L'embolcall d'un grafic.
@@ -26,32 +26,32 @@ import type { PuntMensual, TrosCategoria, TrosComerc } from "../../services/repo
  * a qui fa servir un lector de pantalla. La taula que sol anar-hi al costat es
  * la versio llegible de les mateixes dades.
  */
-function Grafic({
-  tipus,
+function Chart({
+  type,
   id,
   titol,
   descripcio,
-  dades,
+  data,
   alçada = 260,
 }: {
-  tipus: string;
+  type: string;
   id: string;
   titol: string;
   descripcio: string;
-  dades: unknown;
+  data: unknown;
   alçada?: number;
 }): Html {
   return html`<section class="superficie targeta">
     <h2>${titol}</h2>
     <div
-      data-grafic="${tipus}"
+      data-grafic="${type}"
       id="${id}"
       class="grafic"
       style="--alçada:${String(alçada)}px"
       role="img"
       aria-label="${descripcio}"
     >
-      ${jsonScript(`${id}-dades`, dades)}
+      ${jsonScript(`${id}-dades`, data)}
     </div>
   </section>` as Html;
 }
@@ -67,29 +67,29 @@ function Grafic({
  * l'unic que necessita `number`, aixi que es ell qui el demana, amb
  * `toChartNumber()`.
  */
-export function GraficMensual(dades: PuntMensual[]): Html {
-  return Grafic({
-    tipus: "mensual",
+export function MonthlyChart(data: MonthlyPoint[]): Html {
+  return Chart({
+    type: "mensual",
     id: "grafic-mensual",
     titol: "Mes a mes",
     descripcio: "Ingressos, despeses fixes i variables, i resultat de cada mes",
-    dades: dades.map((d) => ({
+    data: data.map((d) => ({
       periode: d.periode,
-      ingressos: toChartNumber(d.ingressos),
+      income: toChartNumber(d.income),
       despesesFixes: toChartNumber(d.despesesFixes),
       despesesVariables: toChartNumber(d.despesesVariables),
-      net: toChartNumber(d.net),
+      cleaned: toChartNumber(d.cleaned),
     })),
   });
 }
 
-export function GraficCategories(dades: TrosCategoria[]): Html {
-  return Grafic({
-    tipus: "categories",
+export function CategoryChart(data: CategoryPart[]): Html {
+  return Chart({
+    type: "categories",
     id: "grafic-categories",
     titol: "On van les despeses",
     descripcio: "Repartiment de la despesa per categoria",
-    dades: dades.map((d) => ({
+    data: data.map((d) => ({
       categoryName: d.categoryName,
       color: d.color,
       amount: toChartNumber(d.amount),
@@ -97,23 +97,23 @@ export function GraficCategories(dades: TrosCategoria[]): Html {
   });
 }
 
-export function GraficSaldos(dades: PuntSaldo[]): Html {
-  return Grafic({
-    tipus: "saldos",
+export function BalanceChart(data: BalancePoint[]): Html {
+  return Chart({
+    type: "saldos",
     id: "grafic-saldos",
     titol: "Evolucio del saldo",
     descripcio: "Saldo dia a dia, reconstruit cap enrere des del saldo d'avui",
-    dades: dades.map((d) => ({ dia: d.dia, saldo: toChartNumber(d.saldo) })),
+    data: data.map((d) => ({ day: d.day, balance: toChartNumber(d.balance) })),
   });
 }
 
-export function GraficComercos(dades: TrosComerc[]): Html {
-  return Grafic({
-    tipus: "comercos",
+export function MerchantChart(data: MerchantPart[]): Html {
+  return Chart({
+    type: "comercos",
     id: "grafic-comercos",
     titol: "On es gasta mes",
     descripcio: "Els comerços amb mes despesa",
-    dades: dades.map((d) => ({
+    data: data.map((d) => ({
       merchantName: d.merchantName,
       amount: toChartNumber(d.amount),
     })),
@@ -121,28 +121,28 @@ export function GraficComercos(dades: TrosComerc[]): Html {
   });
 }
 
-export function GraficPrevisio(previsio: Previsio): Html {
-  const diesRebut = [...new Set(previsio.esdeveniments.map((e) => e.dia))];
-  return Grafic({
-    tipus: "previsio",
+export function ForecastChart(forecast: Forecast): Html {
+  const billDays = [...new Set(forecast.events.map((e) => e.day))];
+  return Chart({
+    type: "previsio",
     id: "grafic-previsio",
     titol: "Saldo previst",
-    descripcio: `Saldo real dels darrers ${previsio.horitzoDies} dies i projeccio a ${previsio.horitzoDies} dies`,
-    dades: {
-      historic: previsio.historic.map((p) => ({
-        dia: p.dia,
-        saldo: toChartNumber(p.saldo),
+    descripcio: `Saldo real dels darrers ${forecast.horitzoDies} dies i projeccio a ${forecast.horitzoDies} dies`,
+    data: {
+      historic: forecast.historic.map((p) => ({
+        day: p.day,
+        balance: toChartNumber(p.balance),
       })),
-      punts: previsio.punts.map((p) => ({
-        dia: p.dia,
+      points: forecast.points.map((p) => ({
+        day: p.day,
         esperat: toChartNumber(p.esperat),
         optimista: toChartNumber(p.optimista),
         pessimista: toChartNumber(p.pessimista),
         tendencia: toChartNumber(p.tendencia),
       })),
-      llindar: toChartNumber(previsio.llindar),
-      primerDescobert: previsio.primerDescobert,
-      diesRebut,
+      llindar: toChartNumber(forecast.llindar),
+      firstOverdraft: forecast.firstOverdraft,
+      billDays,
     },
     alçada: 320,
   });
@@ -150,22 +150,22 @@ export function GraficPrevisio(previsio: Previsio): Html {
 
 // --- Xifres ----------------------------------------------------------------
 
-export interface XifraProps {
-  etiqueta: string;
+export interface StatProps {
+  tag: string;
   valor: string;
-  detall?: Html | string;
+  detail?: Html | string;
   to?: "positiu" | "negatiu" | "";
   href?: string;
 }
 
-export function Xifra({ etiqueta, valor, detall, to = "", href }: XifraProps): Html {
-  const cos = html`<span class="xifra-etiqueta">${etiqueta}</span>
+export function Stat({ tag, valor, detail, to = "", href }: StatProps): Html {
+  const body = html`<span class="xifra-etiqueta">${tag}</span>
     <strong class="xifra-valor ${to}">${valor}</strong>
-    ${detall ? html`<small class="text-suau">${detall}</small>` : ""}`;
+    ${detail ? html`<small class="text-suau">${detail}</small>` : ""}`;
 
   return href
-    ? (html`<a class="xifra xifra-enllac" href="${href}">${cos}</a>` as Html)
-    : (html`<div class="xifra">${cos}</div>` as Html);
+    ? (html`<a class="xifra xifra-enllac" href="${href}">${body}</a>` as Html)
+    : (html`<div class="xifra">${body}</div>` as Html);
 }
 
 // --- Taules llegibles ------------------------------------------------------
@@ -176,44 +176,44 @@ export function Xifra({ etiqueta, valor, detall, to = "", href }: XifraProps): H
  * No es un extra: es el que fa que la pagina serveixi sense JavaScript i el
  * que pot llegir un lector de pantalla.
  */
-export function TaulaCategories(dades: TrosCategoria[]): Html {
-  return TaulaDades({
+export function CategoriesTable(data: CategoryPart[]): Html {
+  return DataTable({
     columnes: html`<th>Categoria</th>
       <th class="dreta">Import</th>
       <th class="dreta">Part</th>
       <th class="dreta">Moviments</th>` as Html,
-    files: dades.map(
-      (tros) =>
+    rows: data.map(
+      (part) =>
         html`<tr>
           <td>
-            <span class="punt" style="background:${tros.color}" aria-hidden="true"></span>
-            ${tros.categoryName}
+            <span class="punt" style="background:${part.color}" aria-hidden="true"></span>
+            ${part.categoryName}
           </td>
-          <td class="dreta">${formatMoney(tros.amount)}</td>
-          <td class="dreta">${String(Math.round(tros.share * 100))}%</td>
-          <td class="dreta">${String(tros.transactions)}</td>
+          <td class="dreta">${formatMoney(part.amount)}</td>
+          <td class="dreta">${String(Math.round(part.share * 100))}%</td>
+          <td class="dreta">${String(part.transactions)}</td>
         </tr>` as Html,
     ),
-    buit: "Encara no hi ha despeses classificades.",
+    empty: "Encara no hi ha despeses classificades.",
   });
 }
 
-export function TaulaEsdeveniments(previsio: Previsio): Html {
-  return TaulaDades({
+export function EventsTable(forecast: Forecast): Html {
+  return DataTable({
     columnes: html`<th>Dia</th>
       <th>Rebut</th>
       <th class="dreta">Import</th>` as Html,
-    files: previsio.esdeveniments.map(
+    rows: forecast.events.map(
       (e) =>
         html`<tr>
-          <td><time datetime="${e.dia}">${formatDate(e.dia)}</time></td>
+          <td><time datetime="${e.day}">${formatDate(e.day)}</time></td>
           <td>${e.label}</td>
           <td class="dreta ${e.amount.startsWith("-") ? "negatiu" : "positiu"}">
             ${formatMoney(e.amount)}
           </td>
         </tr>` as Html,
     ),
-    buit: "No hi ha cap rebut previst dins d'aquest horitzo.",
+    empty: "No hi ha cap rebut previst dins d'aquest horitzo.",
   });
 }
 
@@ -227,12 +227,18 @@ export function TaulaEsdeveniments(previsio: Previsio): Html {
  * al panell mateix que l'hagi de refrescar sense recarregar. Es veu al dia
  * perque **cada cop que es carrega el panell es torna a calcular**.
  */
-export function SaldoCapcalera({ saldo, data }: { saldo: string; data: string | null }): Html {
+export function HeaderBalance({
+  balance,
+  date,
+}: {
+  balance: string;
+  date: string | null;
+}): Html {
   return html`<div id="saldo-capcalera" class="xifra">
     <span class="xifra-etiqueta">Saldo</span>
-    <strong class="xifra-valor">${formatMoney(saldo)}</strong>
+    <strong class="xifra-valor">${formatMoney(balance)}</strong>
     <small class="text-suau">
-      ${data ? html`a ${formatDate(data)}` : "encara no s'ha importat cap saldo"}
+      ${date ? html`a ${formatDate(date)}` : "encara no s'ha importat cap saldo"}
     </small>
   </div>` as Html;
 }

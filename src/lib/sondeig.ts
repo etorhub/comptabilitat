@@ -27,7 +27,7 @@ import type { HtmlEscapedString } from "hono/utils/html";
 import { pollAttributes, readAttempt } from "../../htmx-contract/poll.ts";
 
 /** El parametre on viatja el compte. */
-export const PARAMETRE_INTENT = "intent";
+export const ATTEMPT_PARAM = "intent";
 
 /**
  * Trenta minuts a dos segons.
@@ -37,15 +37,15 @@ export const PARAMETRE_INTENT = "intent";
  * impedeix començar-ne una altra: val mes que el sondeig es rendeixi tard que
  * no pas que es rendeixi mentre la feina encara corre.
  */
-export const MAX_INTENTS = 900;
+export const MAX_ATTEMPTS = 900;
 
-export interface OpcionsSondeig {
+export interface PollOptions {
   /** L'adreça del fragment que se sondeja. */
   url: string;
   /** On va la resposta. */
-  objectiu: string;
+  target: string;
   /** Quin intent ha dibuixat aixo. El primer es 0. */
-  intent: number;
+  attempt: number;
   /** Cada quants segons. */
   cadaSegons?: number;
   maxIntents?: number;
@@ -58,24 +58,24 @@ export interface OpcionsSondeig {
  * no n'hi ha prou de deixar d'emetre el disparador en silenci, perque llavors
  * la pagina es queda ensenyant un filador que no avançara mai.
  */
-export function sondeig(opcions: OpcionsSondeig): HtmlEscapedString | "" {
-  const atributs = pollAttributes({
-    url: opcions.url,
-    target: opcions.objectiu,
-    everyMs: (opcions.cadaSegons ?? 2) * 1000,
-    attempt: opcions.intent,
-    maxAttempts: opcions.maxIntents ?? MAX_INTENTS,
-    attemptParam: PARAMETRE_INTENT,
+export function poll(options: PollOptions): HtmlEscapedString | "" {
+  const attributes = pollAttributes({
+    url: options.url,
+    target: options.target,
+    everyMs: (options.cadaSegons ?? 2) * 1000,
+    attempt: options.attempt,
+    maxAttempts: options.maxIntents ?? MAX_ATTEMPTS,
+    attemptParam: ATTEMPT_PARAM,
   });
-  return atributs === null ? "" : (raw(atributs) as HtmlEscapedString);
+  return attributes === null ? "" : (raw(attributes) as HtmlEscapedString);
 }
 
 /** Si aquest intent ja es fora del limit. */
-export function sondeigExhaurit(intent: number, maxIntents = MAX_INTENTS): boolean {
-  return intent >= maxIntents;
+export function pollExhausted(attempt: number, maxIntents = MAX_ATTEMPTS): boolean {
+  return attempt >= maxIntents;
 }
 
 /** El compte d'intents que ve de la cadena de consulta. */
-export function intentDeLaConsulta(valor: string | null | undefined): number {
+export function attemptFromQuery(valor: string | null | undefined): number {
   return readAttempt(valor);
 }

@@ -15,17 +15,17 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { Taula } from "../../src/routes/transactions/transactions.fragment.ts";
-import type { GrupCategories } from "../../src/services/categories.ts";
-import type { MovimentVista } from "../../src/services/transactions.ts";
+import { Table } from "../../src/routes/transactions/transactions.fragment.ts";
+import type { CategoryGroup } from "../../src/services/categories.ts";
+import type { TransactionView } from "../../src/services/transactions.ts";
 import { transactionFiltersSchema } from "../../src/routes/transactions/transactions.schema.ts";
 
-const grups: GrupCategories[] = [
-  { etiqueta: "Alimentacio", opcions: [{ valor: 1, text: "Supermercat" }] },
-  { etiqueta: "Transport", opcions: [{ valor: 2, text: "Benzina" }] },
+const groups: CategoryGroup[] = [
+  { tag: "Alimentacio", options: [{ valor: 1, text: "Supermercat" }] },
+  { tag: "Transport", options: [{ valor: 2, text: "Benzina" }] },
 ];
 
-function moviment(id: number): MovimentVista {
+function transaction(id: number): TransactionView {
   return {
     id,
     bookingDate: "2026-02-10",
@@ -57,13 +57,13 @@ function moviment(id: number): MovimentVista {
   };
 }
 
-async function taula(potEditar: boolean, quantes = 3): Promise<string> {
-  const items = Array.from({ length: quantes }, (_, i) => moviment(i + 1));
+async function table(potEditar: boolean, quantes = 3): Promise<string> {
+  const items = Array.from({ length: quantes }, (_, i) => transaction(i + 1));
   return String(
-    await Taula({
+    await Table({
       codi: "personal",
-      pagina: { items, total: quantes, offset: 0, limit: 50, totalImport: "-90.00" },
-      grups,
+      page: { items, total: quantes, offset: 0, limit: 50, totalImport: "-90.00" },
+      groups,
       filters: transactionFiltersSchema.parse({}),
       potEditar,
     }),
@@ -71,11 +71,11 @@ async function taula(potEditar: boolean, quantes = 3): Promise<string> {
 }
 
 /** Els `name=` que hi ha dins de cada `<form>` del marcatge. */
-function campsPerFormulari(marcatge: string): string[][] {
+function fieldsPerForm(markup: string): string[][] {
   const formularis: string[][] = [];
-  for (const tros of marcatge.split(/<form\b/i).slice(1)) {
-    const cos = tros.split(/<\/form>/i)[0] ?? "";
-    formularis.push([...cos.matchAll(/\sname="([^"]+)"/g)].map((m) => m[1] as string));
+  for (const part of markup.split(/<form\b/i).slice(1)) {
+    const body = part.split(/<\/form>/i)[0] ?? "";
+    formularis.push([...body.matchAll(/\sname="([^"]+)"/g)].map((m) => m[1] as string));
   }
   return formularis;
 }
@@ -84,13 +84,13 @@ describe("la taula de moviments", () => {
   test("hi ha una tria de categoria per fila, mes la de la barra", async () => {
     // Aixo no comprova res per si sol: hi es perque les dues proves de sota
     // no puguin passar per no haver trobat res a mirar.
-    const marcatge = await taula(true, 5);
-    expect([...marcatge.matchAll(/name="category_id"/g)]).toHaveLength(6);
-    expect([...marcatge.matchAll(/name="moviment"/g)]).toHaveLength(5);
+    const markup = await table(true, 5);
+    expect([...markup.matchAll(/name="category_id"/g)]).toHaveLength(6);
+    expect([...markup.matchAll(/name="moviment"/g)]).toHaveLength(5);
   });
 
   test("cap formulari no duu dos cops el mateix camp", async () => {
-    const formularis = campsPerFormulari(await taula(true, 5));
+    const formularis = fieldsPerForm(await table(true, 5));
     for (const camps of formularis) {
       expect(new Set(camps).size).toBe(camps.length);
     }
@@ -99,15 +99,15 @@ describe("la taula de moviments", () => {
   test("les tries de categoria no comparteixen cap formulari", async () => {
     // Es el nus del problema: si totes son dins del mateix `<form>`, HTMX les
     // envia totes i l'ultima tapa la que has tocat.
-    const marcatge = await taula(true, 5);
-    for (const camps of campsPerFormulari(marcatge)) {
+    const markup = await table(true, 5);
+    for (const camps of fieldsPerForm(markup)) {
       expect(camps.filter((c) => c === "category_id").length).toBeLessThanOrEqual(1);
     }
   });
 
   test("el camp d'etiqueta de fila no comparteix formulari amb la barra", async () => {
-    const marcatge = await taula(true, 3);
-    for (const camps of campsPerFormulari(marcatge)) {
+    const markup = await table(true, 3);
+    for (const camps of fieldsPerForm(markup)) {
       const teFila = camps.includes("nova_etiqueta");
       const teBarra = camps.includes("etiqueta_bloc") || camps.includes("category_id");
       // Un formulari de fila nomes te nova_etiqueta (+ etiqueta al treure).
@@ -120,86 +120,86 @@ describe("la taula de moviments", () => {
         expect(camps).not.toContain("nova_etiqueta");
       }
     }
-    expect(marcatge).toContain('name="nova_etiqueta"');
-    expect(marcatge).toContain('name="etiqueta_bloc"');
+    expect(markup).toContain('name="nova_etiqueta"');
+    expect(markup).toContain('name="etiqueta_bloc"');
   });
 
   test("cada tria de categoria te el seu propi identificador", async () => {
-    const marcatge = await taula(true, 5);
-    const ids = [...marcatge.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1] as string);
+    const markup = await table(true, 5);
+    const ids = [...markup.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1] as string);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
   test("la seleccio en bloc s'endu nomes el que toca", async () => {
-    const marcatge = await taula(true, 3);
-    expect(marcatge).toContain(
+    const markup = await table(true, 3);
+    expect(markup).toContain(
       `hx-include="#bloc-categoria, #taula-moviments input[name='moviment']:checked"`,
     );
-    expect(marcatge).toContain(
+    expect(markup).toContain(
       `hx-include="#bloc-etiqueta, #taula-moviments input[name='moviment']:checked"`,
     );
   });
 
   test("qui nomes mira no veu ni caselles ni tries", async () => {
-    const marcatge = await taula(false, 3);
-    expect(marcatge).not.toContain('name="moviment"');
-    expect(marcatge).not.toContain('name="category_id"');
-    expect(marcatge).not.toContain('name="nova_etiqueta"');
+    const markup = await table(false, 3);
+    expect(markup).not.toContain('name="moviment"');
+    expect(markup).not.toContain('name="category_id"');
+    expect(markup).not.toContain('name="nova_etiqueta"');
   });
 
   test("el xip de targeta mostra els darrers 4 i mai el PAN", async () => {
-    const ambTargeta: MovimentVista = {
-      ...moviment(9),
+    const ambTargeta: TransactionView = {
+      ...transaction(9),
       description: "Amazon",
       descriptionHint: "COMPRA WWW.AMAZON, LUXEMBOURG",
       darrers4: "4017",
       tipusOperacio: "targeta",
     };
-    const marcatge = String(
-      await Taula({
+    const markup = String(
+      await Table({
         codi: "personal",
-        pagina: {
+        page: {
           items: [ambTargeta],
           total: 1,
           offset: 0,
           limit: 50,
           totalImport: "-30.00",
         },
-        grups,
+        groups,
         filters: transactionFiltersSchema.parse({}),
         potEditar: true,
       }),
     );
-    expect(marcatge).toContain('class="xip-targeta"');
-    expect(marcatge).toContain("*4017");
-    expect(marcatge).toContain("Targeta acabada en 4017");
-    expect(marcatge).not.toContain("5489010385484017");
+    expect(markup).toContain('class="xip-targeta"');
+    expect(markup).toContain("*4017");
+    expect(markup).toContain("Targeta acabada en 4017");
+    expect(markup).not.toContain("5489010385484017");
   });
 
   test("una transferencia mostra l'etiqueta sense ser traspas propi", async () => {
-    const transferencia: MovimentVista = {
-      ...moviment(10),
+    const transferencia: TransactionView = {
+      ...transaction(10),
       description: "María Lourdes Cortés Braña",
       tipusOperacio: "transferencia",
       transferGroupId: null,
     };
-    const marcatge = String(
-      await Taula({
+    const markup = String(
+      await Table({
         codi: "personal",
-        pagina: {
+        page: {
           items: [transferencia],
           total: 1,
           offset: 0,
           limit: 50,
           totalImport: "-30.00",
         },
-        grups,
+        groups,
         filters: transactionFiltersSchema.parse({}),
         potEditar: false,
       }),
     );
-    expect(marcatge).toContain("transferència");
-    expect(marcatge).not.toContain(">traspas<");
+    expect(markup).toContain("transferència");
+    expect(markup).not.toContain(">traspas<");
   });
 });
 
@@ -214,20 +214,20 @@ describe("la taula de moviments", () => {
  */
 describe("la taula de moviments en fitxes", () => {
   test("la taula demana el dibuix en fitxes", async () => {
-    expect(await taula(true, 2)).toContain('class="dades taula-moviments taula-fitxes"');
+    expect(await table(true, 2)).toContain('class="dades taula-moviments taula-fitxes"');
   });
 
   test("cada cella duu el nom de la seva columna", async () => {
-    const marcatge = await taula(true, 2);
+    const markup = await table(true, 2);
 
-    for (const nom of ["Tria", "Data", "Concepte", "Comerç", "Categoria", "Import"]) {
-      expect(marcatge).toContain(`data-etiqueta="${nom}"`);
+    for (const name of ["Tria", "Data", "Concepte", "Comerç", "Categoria", "Import"]) {
+      expect(markup).toContain(`data-etiqueta="${name}"`);
     }
   });
 
   test("no hi ha cap cella sense nom", async () => {
     // Nomes les files, no el capçal: els `<th>` ja diuen com es diuen.
-    const celles = [...(await taula(true, 3)).matchAll(/<td\b[^>]*>/g)].map((m) => m[0]);
+    const celles = [...(await table(true, 3)).matchAll(/<td\b[^>]*>/g)].map((m) => m[0]);
 
     expect(celles.length).toBeGreaterThan(0);
     for (const cella of celles) {
@@ -236,9 +236,9 @@ describe("la taula de moviments en fitxes", () => {
   });
 
   test("qui nomes mira te fitxa igualment, sense la cella de tria", async () => {
-    const marcatge = await taula(false, 2);
+    const markup = await table(false, 2);
 
-    expect(marcatge).toContain('data-etiqueta="Data"');
-    expect(marcatge).not.toContain('data-etiqueta="Tria"');
+    expect(markup).toContain('data-etiqueta="Data"');
+    expect(markup).not.toContain('data-etiqueta="Tria"');
   });
 });

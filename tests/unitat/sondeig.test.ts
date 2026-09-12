@@ -12,9 +12,9 @@
 import { describe, expect, test } from "bun:test";
 
 import { checkDocument, type RuleName, type Violation } from "../../htmx-contract/index.ts";
-import { EstatSync } from "../../src/routes/connections/connections.fragment.ts";
-import { EnCurs } from "../../src/routes/jobs/jobs.fragment.ts";
-import { MAX_INTENTS } from "../../src/lib/sondeig.ts";
+import { SyncState } from "../../src/routes/connections/connections.fragment.ts";
+import { Running } from "../../src/routes/jobs/jobs.fragment.ts";
+import { MAX_ATTEMPTS } from "../../src/lib/sondeig.ts";
 import type { JobRun, SyncRun } from "../../src/db/schema/index.ts";
 
 function regles(violacions: Violation[]): RuleName[] {
@@ -24,7 +24,7 @@ function regles(violacions: Violation[]): RuleName[] {
 // Sense `as`: el tipus ve de la taula de Drizzle, i si algun dia hi apareix
 // una columna nova val mes que aixo peti aqui que no pas que dibuixem una
 // fila que no s'assembla a les de debo.
-function execucioSync(status: SyncRun["status"]): SyncRun {
+function syncRun(status: SyncRun["status"]): SyncRun {
   return {
     id: 1,
     connectionId: 4,
@@ -39,7 +39,7 @@ function execucioSync(status: SyncRun["status"]): SyncRun {
   };
 }
 
-function feina(): JobRun {
+function job(): JobRun {
   return {
     id: 1,
     jobName: "sync",
@@ -55,7 +55,7 @@ function feina(): JobRun {
 
 describe("l'estat d'una importacio", () => {
   test("mentre corre, sondeja —i el sondeig es acotat", async () => {
-    const html = String(await EstatSync({ connexioId: 4, execucio: execucioSync("running") }));
+    const html = String(await SyncState({ connectionId: 4, run: syncRun("running") }));
     expect(html).toContain("hx-trigger=");
     expect(regles(await checkDocument(html, { fragment: true }))).not.toContain(
       "unbounded-poll",
@@ -64,13 +64,13 @@ describe("l'estat d'una importacio", () => {
 
   test("el compte d'intents viatja a l'adreça, no al client", async () => {
     const html = String(
-      await EstatSync({ connexioId: 4, execucio: execucioSync("running"), intent: 7 }),
+      await SyncState({ connectionId: 4, run: syncRun("running"), attempt: 7 }),
     );
     expect(html).toContain("intent=8");
   });
 
   test("quan acaba, deixa de sondejar", async () => {
-    const html = String(await EstatSync({ connexioId: 4, execucio: execucioSync("success") }));
+    const html = String(await SyncState({ connectionId: 4, run: syncRun("success") }));
     expect(html).not.toContain("hx-trigger=");
   });
 
@@ -78,10 +78,10 @@ describe("l'estat d'una importacio", () => {
     // Aixo es exactament la importacio interrompuda de la `f80df91`: l'estat
     // no arribara mai a terminal perque no hi ha ningu que l'hi porti.
     const html = String(
-      await EstatSync({
-        connexioId: 4,
-        execucio: execucioSync("running"),
-        intent: MAX_INTENTS,
+      await SyncState({
+        connectionId: 4,
+        run: syncRun("running"),
+        attempt: MAX_ATTEMPTS,
       }),
     );
     expect(html).not.toContain("hx-trigger=");
@@ -91,7 +91,7 @@ describe("l'estat d'una importacio", () => {
 
 describe("les feines en curs", () => {
   test("mentre n'hi ha, sondeja de manera acotada", async () => {
-    const html = String(await EnCurs({ runs: [feina()] }));
+    const html = String(await Running({ runs: [job()] }));
     expect(html).toContain("hx-trigger=");
     expect(regles(await checkDocument(html, { fragment: true }))).not.toContain(
       "unbounded-poll",
@@ -99,12 +99,12 @@ describe("les feines en curs", () => {
   });
 
   test("sense cap feina, no sondeja", async () => {
-    const html = String(await EnCurs({ runs: [] }));
+    const html = String(await Running({ runs: [] }));
     expect(html).not.toContain("hx-trigger=");
   });
 
   test("passat el limit, s'atura i ho diu", async () => {
-    const html = String(await EnCurs({ runs: [feina()], intent: MAX_INTENTS }));
+    const html = String(await Running({ runs: [job()], attempt: MAX_ATTEMPTS }));
     expect(html).not.toContain("hx-trigger=");
     expect(html).toContain("s'ha deixat de comprovar");
   });
@@ -112,6 +112,6 @@ describe("les feines en curs", () => {
 
 describe("el limit", () => {
   test("es mitja hora a dos segons, prou per a una importacio de debo", () => {
-    expect((MAX_INTENTS * 2) / 60).toBe(30);
+    expect((MAX_ATTEMPTS * 2) / 60).toBe(30);
   });
 });

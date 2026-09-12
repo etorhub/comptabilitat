@@ -30,12 +30,12 @@ import {
 import { seedCategories } from "../src/services/seed.ts";
 import { dedupKey, parseTransaction } from "../src/lib/enablebanking/parsing.ts";
 
-let espaiId = 0;
-let connexio: BankConnection;
-let compte: Account;
+let workspaceId = 0;
+let connection: BankConnection;
+let account: Account;
 
 /** Un moviment tal com el torna el banc. */
-function crua(over: Record<string, unknown> = {}): Record<string, unknown> {
+function raw(over: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     status: "BOOK",
     transaction_amount: { amount: "45.20", currency: "EUR" },
@@ -58,11 +58,11 @@ async function importa(
   items: Record<string, unknown>[],
   llistaIncompleta = false,
 ): Promise<void> {
-  const { desaMoviments } = await import("../src/services/import.ts");
+  const { saveTransactions } = await import("../src/services/import.ts");
   const analitzats = items
     .map(parseTransaction)
     .filter((x): x is NonNullable<typeof x> => x !== null);
-  await desaMoviments(compte, analitzats, llistaIncompleta);
+  await saveTransactions(account, analitzats, llistaIncompleta);
 }
 
 beforeEach(async () => {
@@ -76,7 +76,7 @@ beforeEach(async () => {
   await db.delete(categories);
   await db.delete(ledgers);
 
-  const [espai] = await db
+  const [workspace] = await db
     .insert(ledgers)
     .values({
       code: "personal",
@@ -90,8 +90,8 @@ beforeEach(async () => {
       alertRecipients: [],
     })
     .returning();
-  espaiId = espai?.id ?? 0;
-  await seedCategories(espaiId);
+  workspaceId = workspace?.id ?? 0;
+  await seedCategories(workspaceId);
 
   const [con] = await db
     .insert(bankConnections)
@@ -105,13 +105,13 @@ beforeEach(async () => {
       lastError: "",
     })
     .returning();
-  connexio = con as BankConnection;
+  connection = con as BankConnection;
 
   const [acc] = await db
     .insert(accounts)
     .values({
-      connectionId: connexio.id,
-      ledgerId: espaiId,
+      connectionId: connection.id,
+      ledgerId: workspaceId,
       ebAccountUid: "uid-sync",
       name: "Compte",
       product: "",
@@ -123,25 +123,25 @@ beforeEach(async () => {
       raw: {},
     })
     .returning();
-  compte = acc as Account;
+  account = acc as Account;
 });
 
 describe("importar", () => {
   test("desa els moviments nous", async () => {
-    await importa([crua(), crua({ entry_reference: "R2", booking_date: "2026-03-02" })]);
+    await importa([raw(), raw({ entry_reference: "R2", booking_date: "2026-03-02" })]);
     const desats = await db.select().from(transactions);
     expect(desats).toHaveLength(2);
   });
 
   test("no els duplica si es torna a importar el mateix", async () => {
-    const items = [crua({ entry_reference: "R1" }), crua({ entry_reference: "R2" })];
+    const items = [raw({ entry_reference: "R1" }), raw({ entry_reference: "R2" })];
     await importa(items);
     await importa(items);
     expect(await db.select().from(transactions)).toHaveLength(2);
   });
 
   test("els classifica i els dona un comerç", async () => {
-    await importa([crua({ entry_reference: "R1" })]);
+    await importa([raw({ entry_reference: "R1" })]);
     const [t] = await db.select().from(transactions);
 
     // El punt de dins de la sigla es queda; el final se'n va. Es el que fa
@@ -149,17 +149,17 @@ describe("importar", () => {
     expect(t?.normalizedDescription).toBe("MERCADONA S.A");
     expect(t?.merchantId).not.toBeNull();
 
-    const [comerc] = await db.select().from(merchants);
-    expect(comerc?.ledgerId).toBe(espaiId);
-    expect(comerc?.displayName).toBe("Mercadona S.A");
+    const [merchant] = await db.select().from(merchants);
+    expect(merchant?.ledgerId).toBe(workspaceId);
+    expect(merchant?.displayName).toBe("Mercadona S.A");
   });
 
   test("apunta fins on ha arribat l'historic", async () => {
     await importa([
-      crua({ entry_reference: "R1", booking_date: "2026-01-15" }),
-      crua({ entry_reference: "R2", booking_date: "2026-03-20" }),
+      raw({ entry_reference: "R1", booking_date: "2026-01-15" }),
+      raw({ entry_reference: "R2", booking_date: "2026-03-20" }),
     ]);
-    const [actualitzat] = await db.select().from(accounts).where(eq(accounts.id, compte.id));
+    const [actualitzat] = await db.select().from(accounts).where(eq(accounts.id, account.id));
     expect(actualitzat?.historyStartDate).toBe("2026-01-15");
     expect(actualitzat?.lastBookedDate).toBe("2026-03-20");
   });
@@ -167,12 +167,12 @@ describe("importar", () => {
 
 describe("un apunt pendent que es consolida", () => {
   test("no es duplica: es reaprofita la fila", async () => {
-    await importa([crua({ status: "PDNG", booking_date: "2026-03-01" })]);
+    await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
 
     // El mateix import, dos dies mes tard i ja definitiu.
     await importa([
-      crua({ status: "BOOK", booking_date: "2026-03-03", entry_reference: "R-DEF" }),
+      raw({ status: "BOOK", booking_date: "2026-03-03", entry_reference: "R-DEF" }),
     ]);
 
     const desats = await db.select().from(transactions);
@@ -182,48 +182,51 @@ describe("un apunt pendent que es consolida", () => {
   });
 
   test("i conserva la categoria que hi havia posat una persona", async () => {
-    await importa([crua({ status: "PDNG", booking_date: "2026-03-01" })]);
+    await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
 
-    const [categoria] = await db
+    const [category] = await db
       .select()
       .from(categories)
       .where(
-        and(eq(categories.ledgerId, espaiId), eq(categories.slug, "alimentacio-supermercat")),
+        and(
+          eq(categories.ledgerId, workspaceId),
+          eq(categories.slug, "alimentacio-supermercat"),
+        ),
       )
       .limit(1);
 
     await db
       .update(transactions)
-      .set({ categoryId: categoria?.id, categorySource: "user", needsReview: false })
-      .where(eq(transactions.accountId, compte.id));
+      .set({ categoryId: category?.id, categorySource: "user", needsReview: false })
+      .where(eq(transactions.accountId, account.id));
 
     await importa([
-      crua({ status: "BOOK", booking_date: "2026-03-03", entry_reference: "R-DEF" }),
+      raw({ status: "BOOK", booking_date: "2026-03-03", entry_reference: "R-DEF" }),
     ]);
 
     const [t] = await db.select().from(transactions);
-    expect(t?.categoryId).toBe(categoria?.id ?? 0);
+    expect(t?.categoryId).toBe(category?.id ?? 0);
     expect(t?.categorySource).toBe("user");
   });
 
   test("massa lluny en el temps, no s'aparella", async () => {
-    await importa([crua({ status: "PDNG", booking_date: "2026-03-01" })]);
+    await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     // Nou dies despres: fora de la finestra de cinc.
     await importa([
-      crua({ status: "BOOK", booking_date: "2026-03-10", entry_reference: "R-LLUNY" }),
+      raw({ status: "BOOK", booking_date: "2026-03-10", entry_reference: "R-LLUNY" }),
     ]);
     expect(await db.select().from(transactions)).toHaveLength(2);
   });
 
   test("amb un import diferent, tampoc", async () => {
-    const pendent = crua({ status: "PDNG", booking_date: "2026-03-01" });
+    const pendent = raw({ status: "PDNG", booking_date: "2026-03-01" });
     await importa([pendent]);
 
     // El banc continua reportant el pendent i, a mes, un apunt nou d'un altre
     // import. Com que no coincideixen, no s'han d'aparellar.
     await importa([
       pendent,
-      crua({
+      raw({
         status: "BOOK",
         booking_date: "2026-03-02",
         entry_reference: "R-ALTRE",
@@ -237,13 +240,13 @@ describe("un apunt pendent que es consolida", () => {
   });
 
   test("un pendent que el banc deixa de reportar desapareix", async () => {
-    await importa([crua({ status: "PDNG", booking_date: "2026-03-01" })]);
+    await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
 
     // Ara el banc nomes reporta un apunt d'un altre import: el pendent que
     // ja no consta s'esborra, com feia el Python.
     await importa([
-      crua({
+      raw({
         status: "BOOK",
         booking_date: "2026-03-02",
         entry_reference: "R-ALTRE",
@@ -257,7 +260,7 @@ describe("un apunt pendent que es consolida", () => {
   });
 
   test("pero no si la llista del banc ve escapçada", async () => {
-    await importa([crua({ status: "PDNG", booking_date: "2026-03-01" })]);
+    await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
 
     // El mateix cas d'abans, pero el banc ha arribat al limit de pagines: «no
@@ -265,7 +268,7 @@ describe("un apunt pendent que es consolida", () => {
     // les notes i la categoria que hi hagues.
     await importa(
       [
-        crua({
+        raw({
           status: "BOOK",
           booking_date: "2026-03-02",
           entry_reference: "R-ALTRE",
@@ -282,8 +285,8 @@ describe("un apunt pendent que es consolida", () => {
 describe("els pendents que el banc ja no reporta", () => {
   test("s'esborren", async () => {
     await importa([
-      crua({ status: "PDNG", booking_date: "2026-03-01" }),
-      crua({
+      raw({ status: "PDNG", booking_date: "2026-03-01" }),
+      raw({
         status: "PDNG",
         booking_date: "2026-03-01",
         transaction_amount: { amount: "7.00", currency: "EUR" },
@@ -292,16 +295,16 @@ describe("els pendents que el banc ja no reporta", () => {
     expect(await db.select().from(transactions)).toHaveLength(2);
 
     // La segona vegada el banc nomes en reporta un.
-    await importa([crua({ status: "PDNG", booking_date: "2026-03-01" })]);
+    await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
   });
 });
 
 describe("el que el banc canvia d'un moviment que ja teniem", () => {
   test("s'actualitza sense duplicar", async () => {
-    await importa([crua({ entry_reference: "R1", booking_date: "2026-03-01" })]);
+    await importa([raw({ entry_reference: "R1", booking_date: "2026-03-01" })]);
     await importa([
-      crua({
+      raw({
         entry_reference: "R1",
         booking_date: "2026-03-01",
         transaction_amount: { amount: "50.00", currency: "EUR" },
@@ -316,10 +319,10 @@ describe("el que el banc canvia d'un moviment que ja teniem", () => {
 
 describe("la clau de deduplicacio", () => {
   test("la que es desa es la que calcula el parser", async () => {
-    const item = crua({ entry_reference: "R-CLAU" });
+    const item = raw({ entry_reference: "R-CLAU" });
     await importa([item]);
-    const analitzat = parseTransaction(item);
+    const analyzed = parseTransaction(item);
     const [t] = await db.select().from(transactions);
-    expect(t?.dedupKey).toBe(dedupKey(analitzat as NonNullable<typeof analitzat>));
+    expect(t?.dedupKey).toBe(dedupKey(analyzed as NonNullable<typeof analyzed>));
   });
 });

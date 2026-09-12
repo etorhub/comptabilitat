@@ -24,8 +24,8 @@ validateConfig();
 // l'entrypoint de Python amb Alembic. Vegeu `db/migrate.ts` per al cas del
 // primer arrencada sobre una base de dades que ja existeix.
 if (process.env.SKIP_MIGRATIONS !== "true") {
-  const { aplicaMigracions } = await import("./db/migrate.ts");
-  await aplicaMigracions();
+  const { applyMigrations } = await import("./db/migrate.ts");
+  await applyMigrations();
 }
 
 const app = new Hono();
@@ -77,12 +77,12 @@ app.notFound((c) => {
  * registre, no a la pantalla: podria dur-hi dades del banc.
  */
 app.onError((err, c) => {
-  const { status, missatge, detall } = describeError(err);
+  const { status, message, detail } = describeError(err);
   if (c.req.header("HX-Request") === "true") {
-    return toastOnly(c, missatge, status, "error", detall);
+    return toastOnly(c, message, status, "error", detail);
   }
   c.status(status as 400);
-  return c.html(ErrorPage(missatge));
+  return c.html(ErrorPage(message));
 });
 
 /**
@@ -102,8 +102,8 @@ function aturaEndreçadament(senyal: string): void {
   console.info(`[servidor] ${senyal}: aturant-se…`);
   void (async () => {
     try {
-      const { tancaImportacionsObertes } = await import("./services/sync.ts");
-      await tancaImportacionsObertes();
+      const { closeOpenImports } = await import("./services/sync.ts");
+      await closeOpenImports();
     } catch (error) {
       console.error("[servidor] no s'han pogut tancar les importacions:", error);
     } finally {

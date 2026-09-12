@@ -23,10 +23,10 @@ import {
 } from "../src/db/schema/index.ts";
 import { AppError } from "../src/lib/http.ts";
 import {
-  assignaCategoria,
-  llistaComercos,
-  obteOCreaComerc,
-  reassignaNormalitzacio,
+  assignCategory,
+  listMerchants,
+  getOrCreateMerchant,
+  reassignNormalization,
 } from "../src/services/merchants.ts";
 import { seedCategories } from "../src/services/seed.ts";
 
@@ -35,7 +35,7 @@ let altreLedgerId = 0;
 let accountId = 0;
 let merchantId = 0;
 
-async function categoriaPerSlug(slug: string, ledger = ledgerId) {
+async function categoryBySlug(slug: string, ledger = ledgerId) {
   const [c] = await db
     .select()
     .from(categories)
@@ -45,7 +45,11 @@ async function categoriaPerSlug(slug: string, ledger = ledgerId) {
   return c;
 }
 
-async function moviment(dedupKey: string, source: "user" | "none", categoryId: number | null) {
+async function transaction(
+  dedupKey: string,
+  source: "user" | "none",
+  categoryId: number | null,
+) {
   await db.insert(transactions).values({
     accountId,
     ledgerId,
@@ -82,7 +86,7 @@ beforeEach(async () => {
   await db.delete(users);
   await db.delete(ledgers);
 
-  const espais = await db
+  const workspaces = await db
     .insert(ledgers)
     .values(
       ["personal", "calella"].map((code, i) => ({
@@ -98,12 +102,12 @@ beforeEach(async () => {
       })),
     )
     .returning();
-  ledgerId = espais.find((e) => e.code === "personal")?.id ?? 0;
-  altreLedgerId = espais.find((e) => e.code === "calella")?.id ?? 0;
+  ledgerId = workspaces.find((e) => e.code === "personal")?.id ?? 0;
+  altreLedgerId = workspaces.find((e) => e.code === "calella")?.id ?? 0;
   await seedCategories(ledgerId);
   await seedCategories(altreLedgerId);
 
-  const [connexio] = await db
+  const [connection] = await db
     .insert(bankConnections)
     .values({
       name: "P",
@@ -114,10 +118,10 @@ beforeEach(async () => {
       lastError: "",
     })
     .returning();
-  const [compte] = await db
+  const [account] = await db
     .insert(accounts)
     .values({
-      connectionId: connexio?.id ?? 0,
+      connectionId: connection?.id ?? 0,
       ledgerId,
       ebAccountUid: "uid-m",
       name: "C",
@@ -130,9 +134,9 @@ beforeEach(async () => {
       raw: {},
     })
     .returning();
-  accountId = compte?.id ?? 0;
+  accountId = account?.id ?? 0;
 
-  const [comerc] = await db
+  const [merchant] = await db
     .insert(merchants)
     .values({
       ledgerId,
@@ -145,19 +149,19 @@ beforeEach(async () => {
       lastSeenAt: null,
     })
     .returning();
-  merchantId = comerc?.id ?? 0;
+  merchantId = merchant?.id ?? 0;
 });
 
 describe("assignar la categoria d'un comerç", () => {
   test("no toca mai el que ha classificat una persona", async () => {
-    const restaurants = await categoriaPerSlug("restauracio-restaurants");
-    const bars = await categoriaPerSlug("restauracio-bars-i-cafeteries");
+    const restaurants = await categoryBySlug("restauracio-restaurants");
+    const bars = await categoryBySlug("restauracio-bars-i-cafeteries");
 
-    await moviment("meu", "user", restaurants.id);
-    await moviment("automatic-1", "none", null);
-    await moviment("automatic-2", "none", null);
+    await transaction("meu", "user", restaurants.id);
+    await transaction("automatic-1", "none", null);
+    await transaction("automatic-2", "none", null);
 
-    const canviats = await assignaCategoria(merchantId, ledgerId, bars.id);
+    const canviats = await assignCategory(merchantId, ledgerId, bars.id);
     expect(canviats).toBe(2);
 
     const [meu] = await db.select().from(transactions).where(eq(transactions.dedupKey, "meu"));
@@ -176,20 +180,20 @@ describe("assignar la categoria d'un comerç", () => {
   });
 
   test("deixa el comerç confirmat", async () => {
-    const bars = await categoriaPerSlug("restauracio-bars-i-cafeteries");
-    await assignaCategoria(merchantId, ledgerId, bars.id);
+    const bars = await categoryBySlug("restauracio-bars-i-cafeteries");
+    await assignCategory(merchantId, ledgerId, bars.id);
 
-    const [comerc] = await db.select().from(merchants).where(eq(merchants.id, merchantId));
-    expect(comerc?.isConfirmed).toBe(true);
-    expect(comerc?.categorySource).toBe("user");
-    expect(comerc?.defaultCategoryId).toBe(bars.id);
+    const [merchant] = await db.select().from(merchants).where(eq(merchants.id, merchantId));
+    expect(merchant?.isConfirmed).toBe(true);
+    expect(merchant?.categorySource).toBe("user");
+    expect(merchant?.defaultCategoryId).toBe(bars.id);
   });
 
   test("es pot demanar que no s'apliqui als que ja hi ha", async () => {
-    const bars = await categoriaPerSlug("restauracio-bars-i-cafeteries");
-    await moviment("automatic-1", "none", null);
+    const bars = await categoryBySlug("restauracio-bars-i-cafeteries");
+    await transaction("automatic-1", "none", null);
 
-    const canviats = await assignaCategoria(merchantId, ledgerId, bars.id, false);
+    const canviats = await assignCategory(merchantId, ledgerId, bars.id, false);
     expect(canviats).toBe(0);
 
     const [t] = await db.select().from(transactions);
@@ -197,8 +201,8 @@ describe("assignar la categoria d'un comerç", () => {
   });
 
   test("no accepta una categoria d'un altre espai", async () => {
-    const forana = await categoriaPerSlug("habitatge", altreLedgerId);
-    await expect(assignaCategoria(merchantId, ledgerId, forana.id)).rejects.toThrow(AppError);
+    const forana = await categoryBySlug("habitatge", altreLedgerId);
+    await expect(assignCategory(merchantId, ledgerId, forana.id)).rejects.toThrow(AppError);
   });
 
   test("no accepta un comerç d'un altre espai", async () => {
@@ -216,19 +220,19 @@ describe("assignar la categoria d'un comerç", () => {
       })
       .returning();
 
-    const bars = await categoriaPerSlug("restauracio-bars-i-cafeteries");
-    await expect(assignaCategoria(foraster?.id ?? 0, ledgerId, bars.id)).rejects.toThrow();
+    const bars = await categoryBySlug("restauracio-bars-i-cafeteries");
+    await expect(assignCategory(foraster?.id ?? 0, ledgerId, bars.id)).rejects.toThrow();
   });
 });
 
 describe("obtenir o crear un comerç", () => {
   test("no en crea cap amb el nom buit", async () => {
-    expect(await obteOCreaComerc(ledgerId, "   ")).toBeNull();
+    expect(await getOrCreateMerchant(ledgerId, "   ")).toBeNull();
   });
 
   test("el mateix nom a dos espais son dos comerços diferents", async () => {
-    const a = await obteOCreaComerc(ledgerId, "MERCADONA");
-    const b = await obteOCreaComerc(altreLedgerId, "MERCADONA");
+    const a = await getOrCreateMerchant(ledgerId, "MERCADONA");
+    const b = await getOrCreateMerchant(altreLedgerId, "MERCADONA");
 
     expect(a?.id).not.toBe(b?.id);
     expect(a?.ledgerId).toBe(ledgerId);
@@ -236,57 +240,57 @@ describe("obtenir o crear un comerç", () => {
   });
 
   test("compta les vegades i recorda l'ultima data", async () => {
-    await obteOCreaComerc(ledgerId, "NOU", "Nou", "2026-01-10");
-    const segon = await obteOCreaComerc(ledgerId, "NOU", "Nou", "2026-03-20");
+    await getOrCreateMerchant(ledgerId, "NOU", "Nou", "2026-01-10");
+    const segon = await getOrCreateMerchant(ledgerId, "NOU", "Nou", "2026-03-20");
 
     expect(segon?.transactionCount).toBe(2);
     expect(segon?.lastSeenAt).toBe("2026-03-20");
 
     // Una data anterior no fa recular l'ultima vista.
-    const tercer = await obteOCreaComerc(ledgerId, "NOU", "Nou", "2026-02-01");
+    const tercer = await getOrCreateMerchant(ledgerId, "NOU", "Nou", "2026-02-01");
     expect(tercer?.lastSeenAt).toBe("2026-03-20");
   });
 });
 
 describe("la llista", () => {
   test("nomes ensenya els comerços d'aquest espai", async () => {
-    await obteOCreaComerc(altreLedgerId, "FORASTER");
-    const pagina = await llistaComercos(ledgerId, {
-      cerca: "",
+    await getOrCreateMerchant(altreLedgerId, "FORASTER");
+    const page = await listMerchants(ledgerId, {
+      search: "",
       nomesSenseClassificar: false,
       nomesSenseConfirmar: false,
       limit: 50,
       offset: 0,
     });
-    expect(pagina.items.every((m) => m.normalizedName !== "FORASTER")).toBe(true);
+    expect(page.items.every((m) => m.normalizedName !== "FORASTER")).toBe(true);
   });
 
   test("la cerca mira el nom normalitzat i el que es veu", async () => {
-    const pagina = await llistaComercos(ledgerId, {
-      cerca: "pepe",
+    const page = await listMerchants(ledgerId, {
+      search: "pepe",
       nomesSenseClassificar: false,
       nomesSenseConfirmar: false,
       limit: 50,
       offset: 0,
     });
-    expect(pagina.total).toBe(1);
-    expect(pagina.items[0]?.displayName).toBe("Bar Pepe");
+    expect(page.total).toBe(1);
+    expect(page.items[0]?.displayName).toBe("Bar Pepe");
   });
 
   test("es poden demanar nomes els que no tenen categoria", async () => {
-    const bars = await categoriaPerSlug("restauracio-bars-i-cafeteries");
-    await obteOCreaComerc(ledgerId, "SENSE");
-    await assignaCategoria(merchantId, ledgerId, bars.id);
+    const bars = await categoryBySlug("restauracio-bars-i-cafeteries");
+    await getOrCreateMerchant(ledgerId, "SENSE");
+    await assignCategory(merchantId, ledgerId, bars.id);
 
-    const pagina = await llistaComercos(ledgerId, {
-      cerca: "",
+    const page = await listMerchants(ledgerId, {
+      search: "",
       nomesSenseClassificar: true,
       nomesSenseConfirmar: false,
       limit: 50,
       offset: 0,
     });
-    expect(pagina.items.every((m) => m.defaultCategoryId === null)).toBe(true);
-    expect(pagina.items.some((m) => m.normalizedName === "SENSE")).toBe(true);
+    expect(page.items.every((m) => m.defaultCategoryId === null)).toBe(true);
+    expect(page.items.some((m) => m.normalizedName === "SENSE")).toBe(true);
   });
 });
 
@@ -330,8 +334,8 @@ describe("reassignar la normalitzacio", () => {
       raw: {},
     });
 
-    const resultat = await reassignaNormalitzacio(ledgerId);
-    expect(resultat.canviats).toBeGreaterThanOrEqual(1);
+    const result = await reassignNormalization(ledgerId);
+    expect(result.canviats).toBeGreaterThanOrEqual(1);
 
     const [t] = await db
       .select()
@@ -355,7 +359,7 @@ describe("reassignar la normalitzacio", () => {
   });
 
   test("no toca la categoria que ha posat una persona", async () => {
-    const restaurants = await categoriaPerSlug("restauracio-restaurants");
+    const restaurants = await categoryBySlug("restauracio-restaurants");
     const [cubell] = await db
       .insert(merchants)
       .values({
@@ -394,7 +398,7 @@ describe("reassignar la normalitzacio", () => {
       raw: {},
     });
 
-    await reassignaNormalitzacio(ledgerId);
+    await reassignNormalization(ledgerId);
 
     const [t] = await db
       .select()

@@ -5,22 +5,22 @@
 import { html } from "hono/html";
 
 import type { Html } from "../../lib/html.ts";
-import type { GrupCategories } from "../../services/categories.ts";
-import type { SerieVista } from "../../services/recurring-list.ts";
-import { BarraFiltres, FormAlta, Taula } from "./recurring.fragment.ts";
+import type { CategoryGroup } from "../../services/categories.ts";
+import type { SeriesView } from "../../services/recurring-list.ts";
+import { FilterBar, CreateForm, Table } from "./recurring.fragment.ts";
 import type { RecurringFilters } from "./recurring.schema.ts";
 
 export interface RecurringPageProps {
   codi: string;
-  propostes: SerieVista[];
-  actives: SerieVista[];
+  proposals: SeriesView[];
+  active: SeriesView[];
   filters: RecurringFilters;
   potEditar: boolean;
-  grups: GrupCategories[];
+  groups: CategoryGroup[];
 }
 
 export function RecurringPage(props: RecurringPageProps): Html {
-  const { codi, propostes, actives, filters, potEditar, grups } = props;
+  const { codi, proposals, active, filters, potEditar, groups } = props;
 
   return html`
     <header class="capçalera">
@@ -37,32 +37,34 @@ export function RecurringPage(props: RecurringPageProps): Html {
       potEditar
         ? html`<section class="superficie targeta">
           <h2>Afegeix un recurrent</h2>
-          ${FormAlta({ codi, grups })}
+          ${CreateForm({ codi, groups })}
         </section>`
         : ""
     }
 
     <section class="superficie targeta">
       <h2>Propostes</h2>
-      ${Taula({
+      ${Table({
         codi,
-        series: propostes,
+        series: proposals,
         potEditar,
         idContenidor: "taula-recurrents-propostes",
         sonPropostes: true,
-        buit: "No hi ha cap proposta nova. Quan hi hagi tres aparicions regulars d'un mateix concepte categoritzat, apareixeran aqui.",
+        empty:
+          "No hi ha cap proposta nova. Quan hi hagi tres aparicions regulars d'un mateix concepte categoritzat, apareixeran aqui.",
       })}
     </section>
 
     <section class="superficie targeta">
       <h2>Confirmats</h2>
-      ${BarraFiltres({ codi, filters })}
-      ${Taula({
+      ${FilterBar({ codi, filters })}
+      ${Table({
         codi,
-        series: actives,
+        series: active,
         potEditar,
         idContenidor: "taula-recurrents-actives",
-        buit: "Encara no hi ha cap rebut confirmat. Confirma una proposta de dalt o afegeix-ne un a ma.",
+        empty:
+          "Encara no hi ha cap rebut confirmat. Confirma una proposta de dalt o afegeix-ne un a ma.",
       })}
     </section>
   ` as Html;

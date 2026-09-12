@@ -17,29 +17,29 @@ import {
   users,
 } from "../src/db/schema/index.ts";
 import { hashPassword } from "../src/lib/auth.ts";
-import { BarraFiltres } from "../src/routes/transactions/transactions.fragment.ts";
+import { FilterBar } from "../src/routes/transactions/transactions.fragment.ts";
 import {
   transactionFiltersSchema,
   transactionFiltersToQuery,
 } from "../src/routes/transactions/transactions.schema.ts";
 import { seedCategories } from "../src/services/seed.ts";
-import { llistaMoviments, targetesDisponibles } from "../src/services/transactions.ts";
+import { listTransactions, cardsAvailable } from "../src/services/transactions.ts";
 import { app } from "../src/server.ts";
-import { CONTRASENYA, entra } from "./ajuda.ts";
+import { PASSWORD, signIn } from "./ajuda.ts";
 
 let ledgerId = 0;
 let accountId = 0;
 
-const baseFiltre = {
+const baseFilter = {
   accountId: null as number | null,
-  dataDes: null as string | null,
-  dataFins: null as string | null,
+  dateFrom: null as string | null,
+  dateTo: null as string | null,
   categoryIds: [] as number[],
   merchantId: null as number | null,
-  cerca: "",
-  etiqueta: null as string | null,
+  search: "",
+  tag: null as string | null,
   tipusOperacio: [] as ("targeta" | "transferencia" | "bizum" | "rebut" | "altres")[],
-  targetes: [] as string[],
+  cards: [] as string[],
   nomesRevisio: false,
   nomesSenseClassificar: false,
   incloTraspassos: true,
@@ -57,7 +57,7 @@ beforeEach(async () => {
   await db.delete(users);
   await db.delete(ledgers);
 
-  const [espai] = await db
+  const [workspace] = await db
     .insert(ledgers)
     .values({
       code: "personal",
@@ -71,10 +71,10 @@ beforeEach(async () => {
       alertRecipients: [],
     })
     .returning();
-  ledgerId = espai?.id ?? 0;
+  ledgerId = workspace?.id ?? 0;
   await seedCategories(ledgerId);
 
-  const [connexio] = await db
+  const [connection] = await db
     .insert(bankConnections)
     .values({
       name: "P",
@@ -85,10 +85,10 @@ beforeEach(async () => {
       lastError: "",
     })
     .returning();
-  const [compte] = await db
+  const [account] = await db
     .insert(accounts)
     .values({
-      connectionId: connexio?.id ?? 0,
+      connectionId: connection?.id ?? 0,
       ledgerId,
       ebAccountUid: "uid-tipus",
       name: "Compte",
@@ -101,7 +101,7 @@ beforeEach(async () => {
       raw: {},
     })
     .returning();
-  accountId = compte?.id ?? 0;
+  accountId = account?.id ?? 0;
 
   const base = {
     accountId,
@@ -164,52 +164,52 @@ beforeEach(async () => {
 
 describe("filtre per tipus d'operacio", () => {
   test("nomes transferencies", async () => {
-    const pagina = await llistaMoviments(ledgerId, {
-      ...baseFiltre,
+    const page = await listTransactions(ledgerId, {
+      ...baseFilter,
       tipusOperacio: ["transferencia"],
     });
-    expect(pagina.items).toHaveLength(1);
-    expect(pagina.items[0]?.description).toBe("Maria Lopez");
-    expect(pagina.items[0]?.tipusOperacio).toBe("transferencia");
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.description).toBe("Maria Lopez");
+    expect(page.items[0]?.tipusOperacio).toBe("transferencia");
   });
 
   test("targeta o bizum (OR)", async () => {
-    const pagina = await llistaMoviments(ledgerId, {
-      ...baseFiltre,
+    const page = await listTransactions(ledgerId, {
+      ...baseFilter,
       tipusOperacio: ["targeta", "bizum"],
     });
-    const descs = pagina.items.map((i) => i.description).toSorted();
+    const descs = page.items.map((i) => i.description).toSorted();
     expect(descs).toEqual(["Joan", "Mercadona"]);
   });
 
   test("altres exclou targeta transferencia bizum i rebut", async () => {
-    const pagina = await llistaMoviments(ledgerId, {
-      ...baseFiltre,
+    const page = await listTransactions(ledgerId, {
+      ...baseFilter,
       tipusOperacio: ["altres"],
     });
-    expect(pagina.items).toHaveLength(1);
-    expect(pagina.items[0]?.description).toMatch(/Intereses|Liquidacion/i);
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.description).toMatch(/Intereses|Liquidacion/i);
   });
 });
 
 describe("filtre per targeta concreta", () => {
   test("nomes els moviments d'aquella targeta", async () => {
-    const pagina = await llistaMoviments(ledgerId, {
-      ...baseFiltre,
-      targetes: ["1234"],
+    const page = await listTransactions(ledgerId, {
+      ...baseFilter,
+      cards: ["1234"],
     });
-    expect(pagina.items).toHaveLength(1);
-    expect(pagina.items[0]?.description).toBe("Mercadona");
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.description).toBe("Mercadona");
   });
 
   test("cap targeta seleccionada no filtra res", async () => {
-    const pagina = await llistaMoviments(ledgerId, { ...baseFiltre, targetes: [] });
-    expect(pagina.items).toHaveLength(5);
+    const page = await listTransactions(ledgerId, { ...baseFilter, cards: [] });
+    expect(page.items).toHaveLength(5);
   });
 
   test("targetesDisponibles retorna els darrers 4 digits usats al compte", async () => {
-    const targetes = await targetesDisponibles(ledgerId, accountId);
-    expect(targetes).toEqual(["1234"]);
+    const cards = await cardsAvailable(ledgerId, accountId);
+    expect(cards).toEqual(["1234"]);
   });
 
   test("targetesDisponibles no revela la targeta d'un moviment emmascarat", async () => {
@@ -218,24 +218,24 @@ describe("filtre per targeta concreta", () => {
       .set({ displayDescription: "Despesa personal" })
       .where(eq(transactions.dedupKey, "card"));
 
-    const targetes = await targetesDisponibles(ledgerId, accountId);
-    expect(targetes).toEqual([]);
+    const cards = await cardsAvailable(ledgerId, accountId);
+    expect(cards).toEqual([]);
   });
 });
 
 describe("schema de filtres tipus", () => {
   test("accepta un sol valor o una llista", () => {
-    expect(transactionFiltersSchema.parse({ tipus: "transferencia" }).tipus).toEqual([
+    expect(transactionFiltersSchema.parse({ type: "transferencia" }).type).toEqual([
       "transferencia",
     ]);
     expect(
-      transactionFiltersSchema.parse({ tipus: ["targeta", "bizum", "targeta"] }).tipus,
+      transactionFiltersSchema.parse({ type: ["targeta", "bizum", "targeta"] }).type,
     ).toEqual(["targeta", "bizum"]);
   });
 
   test("serialitza tipus repetits a la query", () => {
     const q = transactionFiltersToQuery(
-      transactionFiltersSchema.parse({ tipus: ["targeta", "rebut"], pagina: 1 }),
+      transactionFiltersSchema.parse({ type: ["targeta", "rebut"], pagina: 1 }),
     );
     expect(q).toContain("tipus=targeta");
     expect(q).toContain("tipus=rebut");
@@ -243,17 +243,18 @@ describe("schema de filtres tipus", () => {
   });
 
   test("targeta accepta nomes 4 digits", () => {
-    expect(
-      transactionFiltersSchema.parse({ targeta: ["1234", "abcd", "12345"] }).targeta,
-    ).toEqual(["1234"]);
-    expect(
-      transactionFiltersSchema.parse({ targeta: ["1234", "5678", "1234"] }).targeta,
-    ).toEqual(["1234", "5678"]);
+    expect(transactionFiltersSchema.parse({ card: ["1234", "abcd", "12345"] }).card).toEqual([
+      "1234",
+    ]);
+    expect(transactionFiltersSchema.parse({ card: ["1234", "5678", "1234"] }).card).toEqual([
+      "1234",
+      "5678",
+    ]);
   });
 
   test("serialitza targeta repetides a la query", () => {
     const q = transactionFiltersToQuery(
-      transactionFiltersSchema.parse({ targeta: ["1234", "5678"] }),
+      transactionFiltersSchema.parse({ card: ["1234", "5678"] }),
     );
     expect(q).toContain("targeta=1234");
     expect(q).toContain("targeta=5678");
@@ -261,11 +262,11 @@ describe("schema de filtres tipus", () => {
 
   test("la barra mostra els checkboxes de tipus", async () => {
     const html = String(
-      await BarraFiltres({
+      await FilterBar({
         codi: "personal",
-        filters: transactionFiltersSchema.parse({ tipus: "transferencia" }),
-        comptes: [],
-        grups: [],
+        filters: transactionFiltersSchema.parse({ type: "transferencia" }),
+        accountList: [],
+        groups: [],
       }),
     );
     expect(html).toContain('name="tipus"');
@@ -276,11 +277,11 @@ describe("schema de filtres tipus", () => {
 
   test("la barra mostra els checkboxes de targeta quan n'hi ha", async () => {
     const html = String(
-      await BarraFiltres({
+      await FilterBar({
         codi: "personal",
-        filters: transactionFiltersSchema.parse({ targeta: "1234" }),
-        comptes: [],
-        grups: [],
+        filters: transactionFiltersSchema.parse({ card: "1234" }),
+        accountList: [],
+        groups: [],
         targetesConegudes: ["1234"],
       }),
     );
@@ -291,11 +292,11 @@ describe("schema de filtres tipus", () => {
 
   test("sense targetes conegudes no hi ha fieldset", async () => {
     const html = String(
-      await BarraFiltres({
+      await FilterBar({
         codi: "personal",
         filters: transactionFiltersSchema.parse({}),
-        comptes: [],
-        grups: [],
+        accountList: [],
+        groups: [],
       }),
     );
     expect(html).not.toContain('name="targeta"');
@@ -304,62 +305,62 @@ describe("schema de filtres tipus", () => {
 
 describe("ruta de moviments amb filtre tipus", () => {
   test("la pagina i el fragment no tornen el mateix, i el push guarda tipus", async () => {
-    const [usuari] = await db
+    const [user] = await db
       .insert(users)
       .values({
         email: "filtre-tipus@exemple.cat",
         fullName: "Filtre",
-        passwordHash: await hashPassword(CONTRASENYA),
+        passwordHash: await hashPassword(PASSWORD),
         isActive: true,
         isAdmin: false,
       })
       .returning();
     await db.insert(userLedgerPermissions).values({
-      userId: usuari?.id ?? 0,
+      userId: user?.id ?? 0,
       ledgerId,
       role: "editor",
     });
-    const { cookie } = await entra("filtre-tipus@exemple.cat");
+    const { cookie } = await signIn("filtre-tipus@exemple.cat");
 
-    const pagina = await app.request("/e/personal/moviments?tipus=transferencia", {
+    const page = await app.request("/e/personal/moviments?tipus=transferencia", {
       headers: { Cookie: cookie },
     });
     const frag = await app.request("/e/personal/moviments/fragment/taula?tipus=transferencia", {
       headers: { Cookie: cookie },
     });
-    expect(pagina.status).toBe(200);
+    expect(page.status).toBe(200);
     expect(frag.status).toBe(200);
 
-    const htmlPagina = await pagina.text();
+    const pageHtml = await page.text();
     const htmlFrag = await frag.text();
-    expect(htmlPagina.toLowerCase()).toContain("<!doctype html");
+    expect(pageHtml.toLowerCase()).toContain("<!doctype html");
     expect(htmlFrag.toLowerCase()).not.toContain("<!doctype html");
-    expect(htmlPagina).toContain("filtre-tipus");
-    expect(htmlPagina).toContain('name="tipus"');
+    expect(pageHtml).toContain("filtre-tipus");
+    expect(pageHtml).toContain('name="tipus"');
     expect(htmlFrag).toContain("Maria Lopez");
     expect(htmlFrag).toContain("transferència");
     expect(htmlFrag).not.toContain("Mercadona");
     expect(frag.headers.get("HX-Push-Url")).toContain("tipus=transferencia");
-    expect(htmlPagina).not.toBe(htmlFrag);
+    expect(pageHtml).not.toBe(htmlFrag);
   });
 
   test("el fragment refresca el fieldset de targetes amb un swap OOB", async () => {
-    const [usuari] = await db
+    const [user] = await db
       .insert(users)
       .values({
         email: "filtre-targeta@exemple.cat",
         fullName: "Filtre targeta",
-        passwordHash: await hashPassword(CONTRASENYA),
+        passwordHash: await hashPassword(PASSWORD),
         isActive: true,
         isAdmin: false,
       })
       .returning();
     await db.insert(userLedgerPermissions).values({
-      userId: usuari?.id ?? 0,
+      userId: user?.id ?? 0,
       ledgerId,
       role: "editor",
     });
-    const { cookie } = await entra("filtre-targeta@exemple.cat");
+    const { cookie } = await signIn("filtre-targeta@exemple.cat");
 
     const frag = await app.request("/e/personal/moviments/fragment/taula?targeta=1234", {
       headers: { Cookie: cookie },

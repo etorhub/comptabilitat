@@ -6,16 +6,16 @@ import { html } from "hono/html";
 
 import type { Alert } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
-import { BarraFiltres, LlistaAvisos } from "./alerts.fragment.ts";
+import { FilterBar, AlertsList } from "./alerts.fragment.ts";
 import type { AlertFilters } from "./alerts.schema.ts";
 
 export interface AlertsPageProps {
   codi: string;
-  avisos: Alert[];
+  alertList: Alert[];
   filters: AlertFilters;
 }
 
-export function AlertsPage({ codi, avisos, filters }: AlertsPageProps): Html {
+export function AlertsPage({ codi, alertList, filters }: AlertsPageProps): Html {
   return html`
     <header class="capçalera">
       <h1>Avisos</h1>
@@ -26,6 +26,6 @@ export function AlertsPage({ codi, avisos, filters }: AlertsPageProps): Html {
       </p>
     </header>
 
-    ${BarraFiltres({ codi, filters })} ${LlistaAvisos({ codi, avisos, filters })}
+    ${FilterBar({ codi, filters })} ${AlertsList({ codi, alertList, filters })}
   ` as Html;
 }

@@ -19,14 +19,14 @@ import {
   currentWorkspace,
   requireWorkspaceAdmin,
 } from "../../middleware/workspace.ts";
-import { FormEspai, type MembreVista } from "./workspaces.fragment.ts";
+import { WorkspaceForm, type MemberView } from "./workspaces.fragment.ts";
 import { WorkspacePage } from "./workspaces.page.ts";
 import { workspaceUpdateSchema } from "./workspaces.schema.ts";
 
 export const workspacesRoutes = new Hono();
 
-async function membres(ledgerId: number): Promise<MembreVista[]> {
-  const files = await db
+async function members(ledgerId: number): Promise<MemberView[]> {
+  const rows = await db
     .select({
       userId: users.id,
       email: users.email,
@@ -37,11 +37,11 @@ async function membres(ledgerId: number): Promise<MembreVista[]> {
     .innerJoin(users, eq(users.id, userLedgerPermissions.userId))
     .where(eq(userLedgerPermissions.ledgerId, ledgerId))
     .orderBy(asc(users.email));
-  return files;
+  return rows;
 }
 
 workspacesRoutes.get("/", async (c) => {
-  const espai = currentWorkspace(c);
+  const workspace = currentWorkspace(c);
 
   return page(
     c,
@@ -49,8 +49,8 @@ workspacesRoutes.get("/", async (c) => {
       c,
       "Espai",
       WorkspacePage({
-        espai,
-        membres: await membres(espai.id),
+        workspace,
+        members: await members(workspace.id),
         potConfigurar: roleAtLeast(currentRole(c), "admin"),
       }),
     ),
@@ -58,14 +58,14 @@ workspacesRoutes.get("/", async (c) => {
 });
 
 workspacesRoutes.post("/", requireWorkspaceAdmin, async (c) => {
-  const espai = currentWorkspace(c);
+  const workspace = currentWorkspace(c);
   const parsed = workspaceUpdateSchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success) {
     return fragment(
       c,
       await withOob(
-        FormEspai({ espai, errors: zodErrors(parsed.error) }),
+        WorkspaceForm({ workspace, errors: zodErrors(parsed.error) }),
         toast("Revisa el formulari"),
       ),
       422,
@@ -81,13 +81,13 @@ workspacesRoutes.post("/", requireWorkspaceAdmin, async (c) => {
       overdraftThreshold: parsed.data.overdraft_threshold,
       alertRecipients: parsed.data.alert_recipients,
     })
-    .where(eq(ledgers.id, espai.id))
+    .where(eq(ledgers.id, workspace.id))
     .returning();
 
   return fragment(
     c,
     await withOob(
-      FormEspai({ espai: actualitzat ?? espai, fet: true }),
+      WorkspaceForm({ workspace: actualitzat ?? workspace, fet: true }),
       toast("Configuracio desada", "success"),
     ),
   );

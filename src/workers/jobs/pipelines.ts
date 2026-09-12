@@ -11,31 +11,31 @@
  */
 
 import { config } from "../../lib/config.ts";
-import { executaPas } from "../../services/job-runs.ts";
-import { feinaAnalisi } from "./analyze.ts";
-import { feinaClassificacio } from "./classify.ts";
-import { feinaModelLocal } from "./llm.ts";
-import { feinaManteniment } from "./maintenance.ts";
-import { feinaAvisos } from "./notify.ts";
-import { feinaSincronitzacio } from "./sync.ts";
+import { runStep } from "../../services/job-runs.ts";
+import { analysisJob } from "./analyze.ts";
+import { classificationJob } from "./classify.ts";
+import { localModelJob } from "./llm.ts";
+import { maintenanceJob } from "./maintenance.ts";
+import { alertsJob } from "./notify.ts";
+import { syncJob } from "./sync.ts";
 
 /** Importar, classificar i analitzar, en aquest ordre. */
-export async function passadaDiaria(): Promise<string> {
-  const trossos: string[] = [];
-  trossos.push(await executaPas("sync", () => feinaSincronitzacio()));
-  trossos.push(await executaPas("classify", feinaClassificacio));
-  trossos.push(await executaPas("analyze", feinaAnalisi));
-  return trossos.join("\n");
+export async function dailyPass(): Promise<string> {
+  const parts: string[] = [];
+  parts.push(await runStep("sync", () => syncJob()));
+  parts.push(await runStep("classify", classificationJob));
+  parts.push(await runStep("analyze", analysisJob));
+  return parts.join("\n");
 }
 
 /**
  * El model local mira els comerços nous i despres es torna a classificar,
  * ja sense model, per escampar el que hagi proposat.
  */
-export async function passadaNocturna(): Promise<string> {
-  const model = await executaPas("llm", () => feinaModelLocal());
-  const classificacio = await executaPas("classify", feinaClassificacio);
-  return `${model}\n${classificacio}`;
+export async function nightlyPass(): Promise<string> {
+  const model = await runStep("llm", () => localModelJob());
+  const classification = await runStep("classify", classificationJob);
+  return `${model}\n${classification}`;
 }
 
 /**
@@ -45,15 +45,13 @@ export async function passadaNocturna(): Promise<string> {
  * Els avisos urgents no hi van: `feinaAvisos` ja cobreix els critics, i
  * tornar-los a enviar els duplicaria.
  */
-export async function passadaTotes(
-  ambModelLocal: boolean = config.ollamaEnabled,
-): Promise<string> {
-  const trossos: string[] = [];
-  trossos.push(await executaPas("passada-diaria", passadaDiaria));
+export async function passAll(ambModelLocal: boolean = config.ollamaEnabled): Promise<string> {
+  const parts: string[] = [];
+  parts.push(await runStep("passada-diaria", dailyPass));
   if (ambModelLocal) {
-    trossos.push(await executaPas("passada-nocturna", passadaNocturna));
+    parts.push(await runStep("passada-nocturna", nightlyPass));
   }
-  trossos.push(await executaPas("notify", feinaAvisos));
-  trossos.push(await executaPas("maintenance", feinaManteniment));
-  return trossos.join("\n");
+  parts.push(await runStep("notify", alertsJob));
+  parts.push(await runStep("maintenance", maintenanceJob));
+  return parts.join("\n");
 }

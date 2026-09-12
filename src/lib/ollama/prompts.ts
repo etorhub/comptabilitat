@@ -30,7 +30,7 @@ export const RESPONSE_SCHEMA = {
 } as const;
 
 /** El que sap el sistema d'un comerç abans de preguntar al model. */
-export interface ContextComerc {
+export interface MerchantContext {
   normalizedName: string;
   sampleDescriptions: string[];
   typicalAmount: string;
@@ -40,15 +40,15 @@ export interface ContextComerc {
 }
 
 /** Una categoria fulla tal com la veu el model: el slug i el nom complet. */
-export interface CategoriaCatalog {
+export interface CategoryCatalog {
   slug: string;
   name: string;
 }
 
 /** Munta la pregunta amb la llista de categories permeses. */
-export function construeixPrompt(
-  context: ContextComerc,
-  categories: readonly CategoriaCatalog[],
+export function buildPrompt(
+  context: MerchantContext,
+  categories: readonly CategoryCatalog[],
 ): string {
   const catalog = categories.map((c) => `- ${c.slug}: ${c.name}`).join("\n");
   const samples = context.sampleDescriptions

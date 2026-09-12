@@ -22,7 +22,7 @@ import { money, toMoneyString, type MoneyString } from "../lib/money.ts";
 import { PROTECTED_SLUGS, slugify } from "./slugs.ts";
 
 /** Una categoria amb el que se n'ensenya a la pantalla. */
-export interface CategoriaVista {
+export interface CategoryView {
   id: number;
   parentId: number | null;
   slug: string;
@@ -39,12 +39,12 @@ export interface CategoriaVista {
   isProtected: boolean;
 }
 
-export interface NodeCategoria extends CategoriaVista {
-  filles: CategoriaVista[];
+export interface NodeCategory extends CategoryView {
+  filles: CategoryView[];
 }
 
 /** Les categories de l'espai, en l'ordre en que s'han de mostrar. */
-export async function llistaCategories(ledgerId: number): Promise<Category[]> {
+export async function listCategories(ledgerId: number): Promise<Category[]> {
   return db
     .select()
     .from(categories)
@@ -56,8 +56,8 @@ export async function llistaCategories(ledgerId: number): Promise<Category[]> {
  * Nombre de moviments i suma per categoria, amb les filles **acumulades al
  * pare**, com feia `_rollup_stats`.
  */
-async function estadistiques(ledgerId: number): Promise<Map<number, [number, MoneyString]>> {
-  const files = await db
+async function rollupStats(ledgerId: number): Promise<Map<number, [number, MoneyString]>> {
+  const rows = await db
     .select({
       categoryId: transactions.categoryId,
       n: count(transactions.id),
@@ -68,54 +68,54 @@ async function estadistiques(ledgerId: number): Promise<Map<number, [number, Mon
     .groupBy(transactions.categoryId);
 
   const propies = new Map<number, [number, MoneyString]>();
-  for (const fila of files) {
-    if (fila.categoryId === null) continue;
-    propies.set(fila.categoryId, [fila.n, fila.total ?? "0.00"]);
+  for (const row of rows) {
+    if (row.categoryId === null) continue;
+    propies.set(row.categoryId, [row.n, row.total ?? "0.00"]);
   }
   return propies;
 }
 
 function acumula(
-  totes: Category[],
+  all: Category[],
   propies: Map<number, [number, MoneyString]>,
 ): Map<number, [number, MoneyString]> {
   const acumulades = new Map<number, [number, MoneyString]>();
-  for (const categoria of totes) {
-    acumulades.set(categoria.id, propies.get(categoria.id) ?? [0, "0.00"]);
+  for (const category of all) {
+    acumulades.set(category.id, propies.get(category.id) ?? [0, "0.00"]);
   }
-  for (const categoria of totes) {
-    if (categoria.parentId === null) continue;
-    const pare = acumulades.get(categoria.parentId);
-    const filla = acumulades.get(categoria.id);
-    if (!pare || !filla) continue;
-    acumulades.set(categoria.parentId, [
-      pare[0] + filla[0],
-      toMoneyString(money(pare[1]).plus(money(filla[1]))),
+  for (const category of all) {
+    if (category.parentId === null) continue;
+    const parent = acumulades.get(category.parentId);
+    const filla = acumulades.get(category.id);
+    if (!parent || !filla) continue;
+    acumulades.set(category.parentId, [
+      parent[0] + filla[0],
+      toMoneyString(money(parent[1]).plus(money(filla[1]))),
     ]);
   }
   return acumulades;
 }
 
 /** L'arbre sencer, agrupat per tipus, amb estadistiques si es demanen. */
-export async function arbreCategories(
+export async function categoryTree(
   ledgerId: number,
   ambEstadistiques = true,
-): Promise<Record<CategoryKind, NodeCategoria[]>> {
-  const totes = await llistaCategories(ledgerId);
+): Promise<Record<CategoryKind, NodeCategory[]>> {
+  const all = await listCategories(ledgerId);
   const stats = ambEstadistiques
-    ? acumula(totes, await estadistiques(ledgerId))
+    ? acumula(all, await rollupStats(ledgerId))
     : new Map<number, [number, MoneyString]>();
 
-  const perId = new Map(totes.map((c) => [c.id, c]));
-  const vista = (c: Category): CategoriaVista => {
+  const perId = new Map(all.map((c) => [c.id, c]));
+  const view = (c: Category): CategoryView => {
     const [n, total] = stats.get(c.id) ?? [0, "0.00"];
-    const pare = c.parentId === null ? undefined : perId.get(c.parentId);
+    const parent = c.parentId === null ? undefined : perId.get(c.parentId);
     return {
       id: c.id,
       parentId: c.parentId,
       slug: c.slug,
       name: c.name,
-      fullName: pare ? `${pare.name} › ${c.name}` : c.name,
+      fullName: parent ? `${parent.name} › ${c.name}` : c.name,
       kind: c.kind,
       color: c.color,
       icon: c.icon,
@@ -126,30 +126,30 @@ export async function arbreCategories(
     };
   };
 
-  const arbre: Record<CategoryKind, NodeCategoria[]> = {
+  const tree: Record<CategoryKind, NodeCategory[]> = {
     expense: [],
     income: [],
     transfer: [],
   };
-  for (const categoria of totes) {
-    if (categoria.parentId !== null) continue;
-    arbre[categoria.kind].push({
-      ...vista(categoria),
-      filles: totes.filter((c) => c.parentId === categoria.id).map(vista),
+  for (const category of all) {
+    if (category.parentId !== null) continue;
+    tree[category.kind].push({
+      ...view(category),
+      filles: all.filter((c) => c.parentId === category.id).map(view),
     });
   }
-  return arbre;
+  return tree;
 }
 
 /** Una categoria d'aquest espai, o 404. */
-export async function categoriaDeLespai(id: number, ledgerId: number): Promise<Category> {
-  const [categoria] = await db
+export async function categoryInWorkspace(id: number, ledgerId: number): Promise<Category> {
+  const [category] = await db
     .select()
     .from(categories)
     .where(and(eq(categories.id, id), eq(categories.ledgerId, ledgerId)))
     .limit(1);
-  if (!categoria) throw new NotFoundError("Aquesta categoria no existeix");
-  return categoria;
+  if (!category) throw new NotFoundError("Aquesta categoria no existeix");
+  return category;
 }
 
 /** Un pendent unic dins de l'espai, afegint-hi `-2`, `-3`... si cal. */
@@ -168,7 +168,7 @@ async function pendentLliure(ledgerId: number, base: string): Promise<string> {
   }
 }
 
-export interface AltaCategoria {
+export interface CreateCategory {
   name: string;
   kind: CategoryKind;
   parentId: number | null;
@@ -176,17 +176,20 @@ export interface AltaCategoria {
   icon: string;
 }
 
-export async function creaCategoria(ledgerId: number, dades: AltaCategoria): Promise<Category> {
-  let pare: Category | null = null;
-  if (dades.parentId !== null) {
-    pare = await categoriaDeLespai(dades.parentId, ledgerId);
+export async function createCategory(
+  ledgerId: number,
+  data: CreateCategory,
+): Promise<Category> {
+  let parent: Category | null = null;
+  if (data.parentId !== null) {
+    parent = await categoryInWorkspace(data.parentId, ledgerId);
     // Nomes dos nivells: una categoria amb pare no en pot tenir de filles.
-    if (pare.parentId !== null) {
+    if (parent.parentId !== null) {
       throw new AppError("Nomes s'admeten dos nivells de categories", 422);
     }
   }
 
-  const base = pare ? `${pare.slug}-${slugify(dades.name)}` : slugify(dades.name);
+  const base = parent ? `${parent.slug}-${slugify(data.name)}` : slugify(data.name);
   const slug = await pendentLliure(ledgerId, base);
 
   const [creada] = await db
@@ -194,12 +197,12 @@ export async function creaCategoria(ledgerId: number, dades: AltaCategoria): Pro
     .values({
       ledgerId,
       slug,
-      name: dades.name,
+      name: data.name,
       // Una subcategoria hereta sempre el tipus del pare.
-      kind: pare ? pare.kind : dades.kind,
-      parentId: pare?.id ?? null,
-      color: dades.color,
-      icon: dades.icon,
+      kind: parent ? parent.kind : data.kind,
+      parentId: parent?.id ?? null,
+      color: data.color,
+      icon: data.icon,
       isSystem: false,
       position: 0,
     })
@@ -209,12 +212,12 @@ export async function creaCategoria(ledgerId: number, dades: AltaCategoria): Pro
   return creada;
 }
 
-export async function reanomenaCategoria(
+export async function renameCategory(
   id: number,
   ledgerId: number,
   name: string,
 ): Promise<Category> {
-  await categoriaDeLespai(id, ledgerId);
+  await categoryInWorkspace(id, ledgerId);
   const [actualitzada] = await db
     .update(categories)
     .set({ name })
@@ -225,20 +228,20 @@ export async function reanomenaCategoria(
 }
 
 /** Quants moviments hi ha en una categoria. */
-export async function movimentsDe(categoryId: number): Promise<number> {
-  const [fila] = await db
+export async function transactionsOf(categoryId: number): Promise<number> {
+  const [row] = await db
     .select({ n: count() })
     .from(transactions)
     .where(eq(transactions.categoryId, categoryId));
-  return fila?.n ?? 0;
+  return row?.n ?? 0;
 }
 
 async function tefilles(id: number, ledgerId: number): Promise<number> {
-  const [fila] = await db
+  const [row] = await db
     .select({ n: count() })
     .from(categories)
     .where(and(eq(categories.ledgerId, ledgerId), eq(categories.parentId, id)));
-  return fila?.n ?? 0;
+  return row?.n ?? 0;
 }
 
 /**
@@ -251,14 +254,14 @@ async function tefilles(id: number, ledgerId: number): Promise<number> {
  * clau forana de `rules.set_category_id` es CASCADE i esborrar primer se
  * n'enduria les regles que hi apuntaven.
  */
-export async function esborraCategoria(
+export async function deleteCategory(
   id: number,
   ledgerId: number,
   reassignTo: number | null,
 ): Promise<void> {
-  const categoria = await categoriaDeLespai(id, ledgerId);
+  const category = await categoryInWorkspace(id, ledgerId);
 
-  if (PROTECTED_SLUGS.includes(categoria.slug)) {
+  if (PROTECTED_SLUGS.includes(category.slug)) {
     throw new AppError("Aquesta categoria del sistema no es pot esborrar", 422);
   }
 
@@ -266,7 +269,7 @@ export async function esborraCategoria(
     throw new AppError("Primer cal esborrar o moure les subcategories", 422);
   }
 
-  const usats = await movimentsDe(id);
+  const usats = await transactionsOf(id);
   if (usats > 0 && reassignTo === null) {
     throw new ConflictError(
       `Hi ha ${usats} ${usats === 1 ? "moviment" : "moviments"} en aquesta categoria`,
@@ -318,37 +321,37 @@ export async function esborraCategoria(
  * Aixo es el que substitueix el `SelectorCategoria` de 372 linies: dos nivells
  * son exactament el que un `<optgroup>` sap fer.
  */
-export interface GrupCategories {
-  etiqueta: string;
-  opcions: { valor: number; text: string }[];
+export interface CategoryGroup {
+  tag: string;
+  options: { valor: number; text: string }[];
 }
 
-export async function opcionsCategories(
+export async function categoryOptions(
   ledgerId: number,
   excloure: readonly number[] = [],
-): Promise<GrupCategories[]> {
-  const totes = await llistaCategories(ledgerId);
+): Promise<CategoryGroup[]> {
+  const all = await listCategories(ledgerId);
   const fora = new Set(excloure);
-  const grups: GrupCategories[] = [];
+  const groups: CategoryGroup[] = [];
 
-  for (const pare of totes) {
-    if (pare.parentId !== null || fora.has(pare.id)) continue;
-    const filles = totes.filter((c) => c.parentId === pare.id && !fora.has(c.id));
-    const opcions = [
+  for (const parent of all) {
+    if (parent.parentId !== null || fora.has(parent.id)) continue;
+    const filles = all.filter((c) => c.parentId === parent.id && !fora.has(c.id));
+    const options = [
       // El pare tambe s'hi pot triar: hi ha moviments que no son de cap filla.
-      { valor: pare.id, text: pare.name },
+      { valor: parent.id, text: parent.name },
       ...filles.map((f) => ({ valor: f.id, text: `  ${f.name}` })),
     ];
-    grups.push({ etiqueta: pare.name, opcions });
+    groups.push({ tag: parent.name, options });
   }
-  return grups;
+  return groups;
 }
 
 /** Quantes categories hi ha a l'espai. Per saber si cal sembrar-hi el pla. */
-export async function comptaCategories(ledgerId: number): Promise<number> {
-  const [fila] = await db
+export async function countCategories(ledgerId: number): Promise<number> {
+  const [row] = await db
     .select({ n: count() })
     .from(categories)
     .where(eq(categories.ledgerId, ledgerId));
-  return fila?.n ?? 0;
+  return row?.n ?? 0;
 }

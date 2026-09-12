@@ -6,15 +6,15 @@ import { html } from "hono/html";
 
 import type { Ledger } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
-import { FormAlta, Llista, type UsuariVista } from "./users.fragment.ts";
+import { CreateForm, List, type UserView } from "./users.fragment.ts";
 
 export interface UsersPageProps {
-  usuaris: UsuariVista[];
-  espais: Ledger[];
+  userList: UserView[];
+  workspaces: Ledger[];
   jo: number;
 }
 
-export function UsersPage({ usuaris, espais, jo }: UsersPageProps): Html {
+export function UsersPage({ userList, workspaces, jo }: UsersPageProps): Html {
   return html`
     <header class="capçalera">
       <h1>Usuaris</h1>
@@ -24,6 +24,6 @@ export function UsersPage({ usuaris, espais, jo }: UsersPageProps): Html {
       </p>
     </header>
 
-    ${FormAlta({})} ${Llista({ usuaris, espais, jo })}
+    ${CreateForm({})} ${List({ userList, workspaces, jo })}
   ` as Html;
 }

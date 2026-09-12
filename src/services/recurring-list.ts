@@ -16,10 +16,10 @@ import {
 } from "../db/schema/index.ts";
 import { NotFoundError } from "../lib/http.ts";
 import { toMoneyString, type MoneyString } from "../lib/money.ts";
-import { parsejaConcepte } from "./concepte.ts";
-import { costMensual } from "./recurring.ts";
+import { parseDescription } from "./concepte.ts";
+import { monthlyCost } from "./recurring.ts";
 
-export interface SerieVista {
+export interface SeriesView {
   id: number;
   label: string;
   categoryId: number;
@@ -40,53 +40,53 @@ export interface SerieVista {
 }
 
 /** Moviment real enllaçat a una serie (ja emmascarat). */
-export interface AparicioVista {
+export interface OccurrenceView {
   transactionId: number;
   bookingDate: string;
   description: string;
   amount: MoneyString;
 }
 
-function aVista(
-  serie: typeof recurringSeries.$inferSelect,
+function toView(
+  series: typeof recurringSeries.$inferSelect,
   categoryName: string | null,
-): SerieVista {
+): SeriesView {
   return {
-    id: serie.id,
-    label: serie.label,
-    categoryId: serie.categoryId,
+    id: series.id,
+    label: series.label,
+    categoryId: series.categoryId,
     categoryName,
-    cadence: serie.cadence,
-    expectedAmount: serie.expectedAmount,
-    amountTolerance: serie.amountTolerance,
-    amountMode: serie.amountMode,
-    intervalDays: serie.intervalDays,
-    monthlyCost: toMoneyString(costMensual(serie.expectedAmount, serie.intervalDays)),
-    confidence: serie.confidence,
-    occurrencesCount: serie.occurrencesCount,
-    firstSeenDate: serie.firstSeenDate,
-    lastSeenDate: serie.lastSeenDate,
-    nextExpectedDate: serie.nextExpectedDate,
-    status: serie.status,
-    includeInForecast: serie.includeInForecast,
+    cadence: series.cadence,
+    expectedAmount: series.expectedAmount,
+    amountTolerance: series.amountTolerance,
+    amountMode: series.amountMode,
+    intervalDays: series.intervalDays,
+    monthlyCost: toMoneyString(monthlyCost(series.expectedAmount, series.intervalDays)),
+    confidence: series.confidence,
+    occurrencesCount: series.occurrencesCount,
+    firstSeenDate: series.firstSeenDate,
+    lastSeenDate: series.lastSeenDate,
+    nextExpectedDate: series.nextExpectedDate,
+    status: series.status,
+    includeInForecast: series.includeInForecast,
   };
 }
 
-export async function llistaSeries(
+export async function listSeries(
   ledgerId: number,
-  opcions: { estats?: SeriesStatus[]; inclouAcabades?: boolean } = {},
-): Promise<SerieVista[]> {
+  options: { estats?: SeriesStatus[]; inclouAcabades?: boolean } = {},
+): Promise<SeriesView[]> {
   const parts = [eq(recurringSeries.ledgerId, ledgerId)];
-  if (opcions.estats && opcions.estats.length > 0) {
-    parts.push(inArray(recurringSeries.status, opcions.estats));
-  } else if (!opcions.inclouAcabades) {
+  if (options.estats && options.estats.length > 0) {
+    parts.push(inArray(recurringSeries.status, options.estats));
+  } else if (!options.inclouAcabades) {
     parts.push(ne(recurringSeries.status, "ended"));
     parts.push(ne(recurringSeries.status, "dismissed"));
   }
 
-  const files = await db
+  const rows = await db
     .select({
-      serie: recurringSeries,
+      series: recurringSeries,
       categoryName: categories.name,
     })
     .from(recurringSeries)
@@ -94,44 +94,44 @@ export async function llistaSeries(
     .where(and(...parts))
     .orderBy(asc(recurringSeries.nextExpectedDate), asc(recurringSeries.label));
 
-  return files.map(({ serie, categoryName }) => aVista(serie, categoryName));
+  return rows.map(({ series, categoryName }) => toView(series, categoryName));
 }
 
-export async function serieDeLespai(id: number, ledgerId: number) {
-  const [serie] = await db
+export async function seriesInWorkspace(id: number, ledgerId: number) {
+  const [series] = await db
     .select()
     .from(recurringSeries)
     .where(and(eq(recurringSeries.id, id), eq(recurringSeries.ledgerId, ledgerId)))
     .limit(1);
-  if (!serie) throw new NotFoundError("Aquesta serie no existeix");
-  return serie;
+  if (!series) throw new NotFoundError("Aquesta serie no existeix");
+  return series;
 }
 
-export async function vistaSerie(id: number, ledgerId: number): Promise<SerieVista> {
-  const [fila] = await db
+export async function seriesView(id: number, ledgerId: number): Promise<SeriesView> {
+  const [row] = await db
     .select({
-      serie: recurringSeries,
+      series: recurringSeries,
       categoryName: categories.name,
     })
     .from(recurringSeries)
     .innerJoin(categories, eq(categories.id, recurringSeries.categoryId))
     .where(and(eq(recurringSeries.id, id), eq(recurringSeries.ledgerId, ledgerId)))
     .limit(1);
-  if (!fila) throw new NotFoundError("Aquesta serie no existeix");
-  return aVista(fila.serie, fila.categoryName);
+  if (!row) throw new NotFoundError("Aquesta serie no existeix");
+  return toView(row.series, row.categoryName);
 }
 
 /**
  * Moviments del banc enllaçats a la serie. Comprova l'espai i aplica
  * l'emmascarament del concepte (alias si n'hi ha).
  */
-export async function aparicionsSerie(
+export async function seriesOccurrences(
   serieId: number,
   ledgerId: number,
-): Promise<AparicioVista[]> {
-  await serieDeLespai(serieId, ledgerId);
+): Promise<OccurrenceView[]> {
+  await seriesInWorkspace(serieId, ledgerId);
 
-  const files = await db
+  const rows = await db
     .select({
       transactionId: transactions.id,
       bookingDate: transactions.bookingDate,
@@ -144,14 +144,14 @@ export async function aparicionsSerie(
     .where(and(eq(recurringOccurrences.seriesId, serieId), eq(transactions.ledgerId, ledgerId)))
     .orderBy(desc(transactions.bookingDate), desc(transactions.id));
 
-  return files.map((f) => {
+  return rows.map((f) => {
     const emmascarat = f.displayDescription !== null && f.displayDescription !== "";
     return {
       transactionId: f.transactionId,
       bookingDate: f.bookingDate,
       description: emmascarat
         ? (f.displayDescription ?? "")
-        : parsejaConcepte(f.description).titol,
+        : parseDescription(f.description).titol,
       amount: f.amount,
     };
   });

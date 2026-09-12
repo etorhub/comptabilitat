@@ -28,40 +28,40 @@ import {
   users,
 } from "../src/db/schema/index.ts";
 import { seedCategories } from "../src/services/seed.ts";
-import { detectaTraspassos } from "../src/services/transfers.ts";
+import { detectTransfers } from "../src/services/transfers.ts";
 
-const AVUI = new Date().toISOString().slice(0, 10);
+const Today = new Date().toISOString().slice(0, 10);
 
-function menysDies(dies: number): string {
-  const d = new Date(`${AVUI}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - dies);
+function fewerDays(days: number): string {
+  const d = new Date(`${Today}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - days);
   return d.toISOString().slice(0, 10);
 }
 
 let ledgerId = 0;
-let compteA = 0;
-let compteB = 0;
+let accountA = 0;
+let accountB = 0;
 
-interface OpcionsMoviment {
-  compte: number;
+interface TransactionOptions {
+  account: number;
   amount: string;
-  dia?: string;
+  day?: string;
   categorySource?: "none" | "user" | "rule" | "merchant" | "llm";
   categoryId?: number | null;
   isExcluded?: boolean;
-  clau?: string;
+  key?: string;
 }
 
-async function moviment(o: OpcionsMoviment): Promise<number> {
-  const dia = o.dia ?? menysDies(5);
-  const [fila] = await db
+async function transaction(o: TransactionOptions): Promise<number> {
+  const day = o.day ?? fewerDays(5);
+  const [row] = await db
     .insert(transactions)
     .values({
-      accountId: o.compte,
+      accountId: o.account,
       ledgerId,
-      dedupKey: o.clau ?? `k-${o.compte}-${o.amount}-${dia}-${Math.random()}`,
+      dedupKey: o.key ?? `k-${o.account}-${o.amount}-${day}-${Math.random()}`,
       source: "enablebanking",
-      bookingDate: dia,
+      bookingDate: day,
       amount: o.amount,
       currency: "EUR",
       status: "booked",
@@ -79,10 +79,10 @@ async function moviment(o: OpcionsMoviment): Promise<number> {
       raw: {},
     })
     .returning();
-  return fila?.id ?? 0;
+  return row?.id ?? 0;
 }
 
-async function llegeix(id: number) {
+async function read(id: number) {
   const [f] = await db.select().from(transactions).where(eq(transactions.id, id));
   if (!f) throw new Error("ha desaparegut");
   return f;
@@ -98,7 +98,7 @@ beforeEach(async () => {
   await db.delete(users);
   await db.delete(ledgers);
 
-  const [espai] = await db
+  const [workspace] = await db
     .insert(ledgers)
     .values({
       code: "personal",
@@ -112,10 +112,10 @@ beforeEach(async () => {
       alertRecipients: [],
     })
     .returning();
-  ledgerId = espai?.id ?? 0;
+  ledgerId = workspace?.id ?? 0;
   await seedCategories(ledgerId);
 
-  const [connexio] = await db
+  const [connection] = await db
     .insert(bankConnections)
     .values({
       name: "S",
@@ -127,11 +127,11 @@ beforeEach(async () => {
     })
     .returning();
 
-  const comptes = await db
+  const accountList = await db
     .insert(accounts)
     .values(
       ["uid-a", "uid-b"].map((uid) => ({
-        connectionId: connexio?.id ?? 0,
+        connectionId: connection?.id ?? 0,
         ledgerId,
         ebAccountUid: uid,
         name: uid,
@@ -145,73 +145,73 @@ beforeEach(async () => {
       })),
     )
     .returning();
-  compteA = comptes.find((c) => c.ebAccountUid === "uid-a")?.id ?? 0;
-  compteB = comptes.find((c) => c.ebAccountUid === "uid-b")?.id ?? 0;
+  accountA = accountList.find((c) => c.ebAccountUid === "uid-a")?.id ?? 0;
+  accountB = accountList.find((c) => c.ebAccountUid === "uid-b")?.id ?? 0;
 });
 
 describe("que s'aparella", () => {
   test("una sortida i una entrada iguals de comptes diferents", async () => {
-    const surt = await moviment({ compte: compteA, amount: "-400.00" });
-    const entra = await moviment({ compte: compteB, amount: "400.00" });
+    const surt = await transaction({ account: accountA, amount: "-400.00" });
+    const signIn = await transaction({ account: accountB, amount: "400.00" });
 
-    expect(await detectaTraspassos(ledgerId)).toBe(1);
+    expect(await detectTransfers(ledgerId)).toBe(1);
 
-    const a = await llegeix(surt);
-    const b = await llegeix(entra);
+    const a = await read(surt);
+    const b = await read(signIn);
     expect(a.transferGroupId).not.toBeNull();
     expect(a.transferGroupId).toBe(b.transferGroupId);
   });
 
   test("no s'aparella res del mateix compte", async () => {
-    await moviment({ compte: compteA, amount: "-400.00" });
-    await moviment({ compte: compteA, amount: "400.00" });
+    await transaction({ account: accountA, amount: "-400.00" });
+    await transaction({ account: accountA, amount: "400.00" });
 
-    expect(await detectaTraspassos(ledgerId)).toBe(0);
+    expect(await detectTransfers(ledgerId)).toBe(0);
   });
 
   test("ni amb mes de tres dies pel mig", async () => {
-    await moviment({ compte: compteA, amount: "-400.00", dia: menysDies(10) });
-    await moviment({ compte: compteB, amount: "400.00", dia: menysDies(1) });
+    await transaction({ account: accountA, amount: "-400.00", day: fewerDays(10) });
+    await transaction({ account: accountB, amount: "400.00", day: fewerDays(1) });
 
-    expect(await detectaTraspassos(ledgerId)).toBe(0);
+    expect(await detectTransfers(ledgerId)).toBe(0);
   });
 
   test("ni amb imports diferents", async () => {
-    await moviment({ compte: compteA, amount: "-400.00" });
-    await moviment({ compte: compteB, amount: "399.00" });
+    await transaction({ account: accountA, amount: "-400.00" });
+    await transaction({ account: accountB, amount: "399.00" });
 
-    expect(await detectaTraspassos(ledgerId)).toBe(0);
+    expect(await detectTransfers(ledgerId)).toBe(0);
   });
 
   test("el que ja te grup no es torna a mirar", async () => {
-    await moviment({ compte: compteA, amount: "-400.00" });
-    await moviment({ compte: compteB, amount: "400.00" });
-    await detectaTraspassos(ledgerId);
+    await transaction({ account: accountA, amount: "-400.00" });
+    await transaction({ account: accountB, amount: "400.00" });
+    await detectTransfers(ledgerId);
 
-    expect(await detectaTraspassos(ledgerId)).toBe(0);
+    expect(await detectTransfers(ledgerId)).toBe(0);
   });
 });
 
 describe("un moviment exclos", () => {
   test("no entra en cap parella", async () => {
-    const surt = await moviment({ compte: compteA, amount: "-400.00", isExcluded: true });
-    const entra = await moviment({ compte: compteB, amount: "400.00" });
+    const surt = await transaction({ account: accountA, amount: "-400.00", isExcluded: true });
+    const signIn = await transaction({ account: accountB, amount: "400.00" });
 
-    expect(await detectaTraspassos(ledgerId)).toBe(0);
+    expect(await detectTransfers(ledgerId)).toBe(0);
     // I, sobretot, l'altra cama continua comptant als informes.
-    expect((await llegeix(entra)).transferGroupId).toBeNull();
-    expect((await llegeix(surt)).transferGroupId).toBeNull();
+    expect((await read(signIn)).transferGroupId).toBeNull();
+    expect((await read(surt)).transferGroupId).toBeNull();
   });
 });
 
 describe("la categoria", () => {
   test("la posa el traspas si no l'ha triada ningu", async () => {
-    const surt = await moviment({ compte: compteA, amount: "-400.00" });
-    await moviment({ compte: compteB, amount: "400.00" });
+    const surt = await transaction({ account: accountA, amount: "-400.00" });
+    await transaction({ account: accountB, amount: "400.00" });
 
-    await detectaTraspassos(ledgerId);
+    await detectTransfers(ledgerId);
 
-    const a = await llegeix(surt);
+    const a = await read(surt);
     expect(a.categorySource).toBe("rule");
     expect(a.categoryId).not.toBeNull();
   });
@@ -225,17 +225,17 @@ describe("la categoria", () => {
       )
       .limit(1);
 
-    const surt = await moviment({
-      compte: compteA,
+    const surt = await transaction({
+      account: accountA,
       amount: "-400.00",
       categorySource: "user",
       categoryId: propia?.id ?? null,
     });
-    await moviment({ compte: compteB, amount: "400.00" });
+    await transaction({ account: accountB, amount: "400.00" });
 
-    await detectaTraspassos(ledgerId);
+    await detectTransfers(ledgerId);
 
-    const a = await llegeix(surt);
+    const a = await read(surt);
     expect(a.categoryId).toBe(propia?.id ?? 0);
     expect(a.categorySource).toBe("user");
     // Pero si que queda aparellat.
@@ -245,8 +245,8 @@ describe("la categoria", () => {
 
 describe("les dues cames, o cap", () => {
   test("si la segona escriptura peta, no en queda cap d'etiquetada", async () => {
-    const surt = await moviment({ compte: compteA, amount: "-400.00" });
-    const entra = await moviment({ compte: compteB, amount: "400.00" });
+    const surt = await transaction({ account: accountA, amount: "-400.00" });
+    const signIn = await transaction({ account: accountB, amount: "400.00" });
 
     // Un disparador que fa petar l'escriptura d'una de les dues cames. Es la
     // manera d'arribar de debo al cas que la transaccio ha de cobrir.
@@ -265,7 +265,7 @@ describe("les dues cames, o cap", () => {
     `);
 
     try {
-      await expect(detectaTraspassos(ledgerId)).rejects.toThrow();
+      await expect(detectTransfers(ledgerId)).rejects.toThrow();
     } finally {
       await db.execute(sql`drop trigger if exists peta_una_cama on transactions`);
       await db.execute(sql`drop function if exists peta_una_cama()`);
@@ -273,8 +273,8 @@ describe("les dues cames, o cap", () => {
 
     // Cap de les dues no ha quedat marcada: sense la transaccio, la sortida
     // hauria quedat amb grup i l'entrada sense.
-    expect((await llegeix(surt)).transferGroupId).toBeNull();
-    expect((await llegeix(entra)).transferGroupId).toBeNull();
+    expect((await read(surt)).transferGroupId).toBeNull();
+    expect((await read(signIn)).transferGroupId).toBeNull();
   });
 });
 

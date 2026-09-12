@@ -21,9 +21,9 @@ import { and, eq, gte, inArray, isNull, lt, lte, type SQL } from "drizzle-orm";
 
 import { transactions } from "../db/schema/index.ts";
 
-export interface OpcionsFiltre {
+export interface FilterOptions {
   /** Un espai o uns quants. */
-  espais: number | number[];
+  workspaces: number | number[];
   /** Des d'aquesta data, inclosa. */
   des?: string | null;
   /** Fins a aquesta data, inclosa. */
@@ -32,19 +32,21 @@ export interface OpcionsFiltre {
   nomesDespeses?: boolean;
 }
 
-export function movimentsComptables(opcions: OpcionsFiltre): SQL | undefined {
-  const espais = Array.isArray(opcions.espais) ? opcions.espais : [opcions.espais];
+export function countableTransactions(options: FilterOptions): SQL | undefined {
+  const workspaces = Array.isArray(options.workspaces)
+    ? options.workspaces
+    : [options.workspaces];
 
   const parts: (SQL | undefined)[] = [
-    inArray(transactions.ledgerId, espais),
+    inArray(transactions.ledgerId, workspaces),
     eq(transactions.status, "booked"),
     isNull(transactions.transferGroupId),
     eq(transactions.isExcluded, false),
   ];
 
-  if (opcions.des != null) parts.push(gte(transactions.bookingDate, opcions.des));
-  if (opcions.fins != null) parts.push(lte(transactions.bookingDate, opcions.fins));
-  if (opcions.nomesDespeses === true) parts.push(lt(transactions.amount, "0"));
+  if (options.des != null) parts.push(gte(transactions.bookingDate, options.des));
+  if (options.fins != null) parts.push(lte(transactions.bookingDate, options.fins));
+  if (options.nomesDespeses === true) parts.push(lt(transactions.amount, "0"));
 
   return and(...parts);
 }

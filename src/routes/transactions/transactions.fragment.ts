@@ -7,27 +7,27 @@
 
 import { html, raw } from "hono/html";
 
-import { Casella, Tria } from "../../components/form.ts";
+import { Checkbox, Select } from "../../components/form.ts";
 import type { CategorySource } from "../../db/schema/index.ts";
-import { Filador, Paginacio, TaulaDades } from "../../components/vista.ts";
+import { Spinner, Pagination, DataTable } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
-import { atributsOob } from "../../lib/oob.ts";
-import type { GrupCategories } from "../../services/categories.ts";
+import { oobAttributes } from "../../lib/oob.ts";
+import type { CategoryGroup } from "../../services/categories.ts";
 import type {
-  ItemRevisio,
-  MovimentVista,
-  PaginaMoviments,
+  ReviewItem,
+  TransactionView,
+  TransactionsPage,
 } from "../../services/transactions.ts";
 import {
-  ETIQUETES_TIPUS,
-  PER_PAGINA,
+  OPERATION_TYPE_LABELS,
+  PER_PAGE,
   transactionFiltersToQuery,
   type TransactionFilters,
 } from "./transactions.schema.ts";
 
 /** D'on ha sortit la categoria, en català. */
-const ORIGEN: Record<CategorySource, { text: string; titol: string }> = {
+const Origin: Record<CategorySource, { text: string; titol: string }> = {
   none: { text: "sense classificar", titol: "Encara no te categoria" },
   merchant: { text: "comerç", titol: "De la memoria de comerços d'aquest espai" },
   rule: { text: "regla", titol: "L'ha posat una regla" },
@@ -35,10 +35,10 @@ const ORIGEN: Record<CategorySource, { text: string; titol: string }> = {
   user: { text: "tu", titol: "Ho has decidit tu. No ho canviara res." },
 };
 
-const dataCurta = new Intl.DateTimeFormat("ca-ES", { day: "2-digit", month: "short" });
+const dateCurta = new Intl.DateTimeFormat("ca-ES", { day: "2-digit", month: "short" });
 
 /** Xip Mastercard amb els darrers 4 digits. Fora del boto d'alias. */
-function XipTargeta({ darrers4 }: { darrers4: string | null }): Html {
+function CardChip({ darrers4 }: { darrers4: string | null }): Html {
   if (!darrers4) return html`` as Html;
   return html`<span
     class="xip-targeta"
@@ -64,34 +64,34 @@ function XipTargeta({ darrers4 }: { darrers4: string | null }): Html {
   </span>` as Html;
 }
 
-export interface TaulaProps {
+export interface TableProps {
   codi: string;
-  pagina: PaginaMoviments;
-  grups: GrupCategories[];
+  page: TransactionsPage;
+  groups: CategoryGroup[];
   filters: TransactionFilters;
   potEditar: boolean;
   /** Etiquetes ja usades a l'espai, per al datalist d'alta. */
   etiquetesConegudes?: string[];
 }
 
-export function Taula({
+export function Table({
   codi,
-  pagina,
-  grups,
+  page,
+  groups,
   filters,
   potEditar,
   etiquetesConegudes = [],
-}: TaulaProps): Html {
+}: TableProps): Html {
   // `taula-carregant` no es decoracio: es el ganxo que fa que
   // l'`hx-indicator` de la barra de bloc enfosqueixi les files mentre la
   // peticio corre. El full d'estil el tenia i ningu no el posava.
   return html`<div id="taula-moviments" class="taula-carregant">
-    ${TaulaDades({
+    ${DataTable({
       // `taula-fitxes`: per sota de 40rem cada fila es dibuixa com una fitxa
       // en comptes d'una fila. El nom de cada columna surt de la
       // `data-etiqueta` de la cel·la, aqui sota.
-      classe: "taula-moviments taula-fitxes",
-      abans: potEditar ? BarraBloc({ codi, grups, filters }) : "",
+      cssClass: "taula-moviments taula-fitxes",
+      abans: potEditar ? BulkBar({ codi, groups, filters }) : "",
       columnes: html`${
         potEditar
           ? html`<th class="tria">
@@ -108,14 +108,14 @@ export function Taula({
         <th>Comerç</th>
         <th>Categoria</th>
         <th class="dreta">Import</th>` as Html,
-      files: pagina.items.map((moviment) =>
-        Fila({ codi, moviment, grups, potEditar, etiquetesConegudes }),
+      rows: page.items.map((transaction) =>
+        Row({ codi, transaction, groups, potEditar, etiquetesConegudes }),
       ),
-      buit: "Cap moviment encaixa amb aquests filtres.",
-      peu: Paginacio({
-        pagina,
-        passos: Passos({ codi, filters, total: pagina.total }),
-        resum: html` · suma ${formatMoney(pagina.totalImport)}` as Html,
+      empty: "Cap moviment encaixa amb aquests filtres.",
+      peu: Pagination({
+        page,
+        passos: Passos({ codi, filters, total: page.total }),
+        summary: html` · suma ${formatMoney(page.totalImport)}` as Html,
       }),
     })}
   </div>` as Html;
@@ -133,38 +133,38 @@ export function Taula({
  * la seleccio son les caselles del formulari i prou, de manera que el que
  * s'aplica es sempre el que es veu.
  */
-function BarraBloc({
+function BulkBar({
   codi,
-  grups,
+  groups,
   filters,
 }: {
   codi: string;
-  grups: GrupCategories[];
+  groups: CategoryGroup[];
   filters: TransactionFilters;
 }): Html {
   // Els filtres van a l'adreça: sense aixo, la resposta tornaria la primera
   // pagina sense filtrar i la barra d'adreces diria una altra cosa.
-  const consulta = transactionFiltersToQuery(filters);
+  const query = transactionFiltersToQuery(filters);
   return html`<div class="barra-bloc">
-    ${Tria({
-      nom: "category_id",
+    ${Select({
+      name: "category_id",
       id: "bloc-categoria",
-      etiqueta: "Posa'ls la categoria",
-      grups,
-      buit: "— tria una categoria —",
+      tag: "Posa'ls la categoria",
+      groups,
+      empty: "— tria una categoria —",
     })}
 
     <button
       type="button"
       class="boto"
-      hx-post="/e/${codi}/moviments/bloc${consulta}"
+      hx-post="/e/${codi}/moviments/bloc${query}"
       hx-target="#taula-moviments"
       hx-swap="outerHTML"
       hx-include="#bloc-categoria, #taula-moviments input[name='moviment']:checked"
       hx-indicator="#taula-moviments, this"
       hx-disabled-elt="this"
     >
-      ${Filador()} Aplica-la als triats
+      ${Spinner()} Aplica-la als triats
     </button>
 
     <label class="camp camp-linia camp-estret">
@@ -182,7 +182,7 @@ function BarraBloc({
     <button
       type="button"
       class="boto boto-discret"
-      hx-post="/e/${codi}/moviments/bloc/etiquetes${consulta}"
+      hx-post="/e/${codi}/moviments/bloc/etiquetes${query}"
       hx-target="#taula-moviments"
       hx-swap="outerHTML"
       hx-include="#bloc-etiqueta, #taula-moviments input[name='moviment']:checked"
@@ -193,10 +193,10 @@ function BarraBloc({
   </div>` as Html;
 }
 
-function DatalistEtiquetes(etiquetes: string[]): Html {
-  if (etiquetes.length === 0) return html`` as Html;
+function TagDatalist(tags: string[]): Html {
+  if (tags.length === 0) return html`` as Html;
   return html`<datalist id="etiquetes-espai">
-    ${etiquetes.map((t) => html`<option value="${t}"></option>`)}
+    ${tags.map((t) => html`<option value="${t}"></option>`)}
   </datalist>` as Html;
 }
 
@@ -209,8 +209,8 @@ function Passos({
   filters: TransactionFilters;
   total: number;
 }): Html {
-  const ultima = Math.max(0, Math.ceil(total / PER_PAGINA) - 1);
-  const enllac = (p: number) => {
+  const last = Math.max(0, Math.ceil(total / PER_PAGE) - 1);
+  const link = (p: number) => {
     const q = transactionFiltersToQuery({ ...filters, pagina: p });
     return `/e/${codi}/moviments/fragment/taula${q}`;
   };
@@ -220,7 +220,7 @@ function Passos({
       type="button"
       class="boto boto-discret"
       ${filters.pagina <= 0 ? raw("disabled") : ""}
-      hx-get="${enllac(filters.pagina - 1)}"
+      hx-get="${link(filters.pagina - 1)}"
       hx-target="#taula-moviments"
       hx-swap="outerHTML"
     >
@@ -229,8 +229,8 @@ function Passos({
     <button
       type="button"
       class="boto boto-discret"
-      ${filters.pagina >= ultima ? raw("disabled") : ""}
-      hx-get="${enllac(filters.pagina + 1)}"
+      ${filters.pagina >= last ? raw("disabled") : ""}
+      hx-get="${link(filters.pagina + 1)}"
       hx-target="#taula-moviments"
       hx-swap="outerHTML"
     >
@@ -239,17 +239,17 @@ function Passos({
   </span>` as Html;
 }
 
-export interface FilaProps {
+export interface RowProps {
   codi: string;
-  moviment: MovimentVista;
-  grups: GrupCategories[];
+  transaction: TransactionView;
+  groups: CategoryGroup[];
   potEditar: boolean;
   /** Mostra el desplegable encara que ja hi hagi categoria (edicio inline). */
   editantCategoria?: boolean;
   etiquetesConegudes?: string[];
 }
 
-const iconaLlapis = html`<svg
+const iconLlapis = html`<svg
   xmlns="http://www.w3.org/2000/svg"
   width="14"
   height="14"
@@ -265,23 +265,23 @@ const iconaLlapis = html`<svg
   <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
 </svg>`;
 
-function CelCategoria({
+function CategoryCell({
   codi,
-  moviment,
-  grups,
+  transaction,
+  groups,
   potEditar,
   editantCategoria = false,
-}: FilaProps): Html {
-  const base = `/e/${codi}/moviments/${moviment.id}`;
-  const origen = ORIGEN[moviment.categorySource];
-  const mostraSelect = potEditar && (editantCategoria || moviment.categoryId === null);
+}: RowProps): Html {
+  const base = `/e/${codi}/moviments/${transaction.id}`;
+  const origin = Origin[transaction.categorySource];
+  const mostraSelect = potEditar && (editantCategoria || transaction.categoryId === null);
 
   if (!potEditar) {
     return html`
-      ${moviment.categoryName ?? html`<span class="text-suau">—</span>`}
-      <span class="origen etiqueta etiqueta-suau" title="${origen.titol}">${origen.text}</span>
+      ${transaction.categoryName ?? html`<span class="text-suau">—</span>`}
+      <span class="origen etiqueta etiqueta-suau" title="${origin.titol}">${origin.text}</span>
       ${
-        moviment.needsReview
+        transaction.needsReview
           ? html`<span class="etiqueta" title="Cal que algu ho confirmi">per revisar</span>`
           : ""
       }
@@ -290,14 +290,14 @@ function CelCategoria({
 
   if (mostraSelect) {
     return html`
-      ${Tria({
-        nom: "category_id",
-        id: `categoria-${moviment.id}`,
-        etiqueta: `Categoria de ${moviment.description}`,
-        valor: moviment.categoryId,
-        grups,
-        buit: "— sense classificar —",
-        atributs: `hx-post="${base}/categoria" hx-target="#moviment-${moviment.id}" hx-swap="outerHTML" hx-trigger="change"`,
+      ${Select({
+        name: "category_id",
+        id: `categoria-${transaction.id}`,
+        tag: `Categoria de ${transaction.description}`,
+        valor: transaction.categoryId,
+        groups,
+        empty: "— sense classificar —",
+        attributes: `hx-post="${base}/categoria" hx-target="#moviment-${transaction.id}" hx-swap="outerHTML" hx-trigger="change"`,
       })}
       ${
         editantCategoria
@@ -305,7 +305,7 @@ function CelCategoria({
             type="button"
             class="boto boto-discret"
             hx-get="${base}/fragment/fila"
-            hx-target="#moviment-${moviment.id}"
+            hx-target="#moviment-${transaction.id}"
             hx-swap="outerHTML"
           >
             Cancel·la
@@ -313,7 +313,7 @@ function CelCategoria({
           : ""
       }
       ${
-        moviment.needsReview
+        transaction.needsReview
           ? html`<span class="etiqueta" title="Cal que algu ho confirmi">per revisar</span>`
           : ""
       }
@@ -322,41 +322,41 @@ function CelCategoria({
 
   return html`
     <span class="categoria-compacta">
-      <span>${moviment.categoryName}</span>
+      <span>${transaction.categoryName}</span>
       <button
         type="button"
         class="boto-icona"
         aria-label="Edita la categoria"
         title="Edita la categoria"
         hx-get="${base}/fragment/categoria"
-        hx-target="#moviment-${moviment.id}"
+        hx-target="#moviment-${transaction.id}"
         hx-swap="outerHTML"
       >
-        ${iconaLlapis}
+        ${iconLlapis}
       </button>
     </span>
     ${
-      moviment.needsReview
+      transaction.needsReview
         ? html`<span class="etiqueta" title="Cal que algu ho confirmi">per revisar</span>`
         : ""
     }
   ` as Html;
 }
 
-export function Fila({
+export function Row({
   codi,
-  moviment,
-  grups,
+  transaction,
+  groups,
   potEditar,
   editantCategoria = false,
   etiquetesConegudes = [],
-}: FilaProps): Html {
-  const base = `/e/${codi}/moviments/${moviment.id}`;
-  const negatiu = moviment.amount.startsWith("-");
+}: RowProps): Html {
+  const base = `/e/${codi}/moviments/${transaction.id}`;
+  const negatiu = transaction.amount.startsWith("-");
 
   return html`<tr
-    id="moviment-${moviment.id}"
-    class="${moviment.isExcluded ? "exclos" : ""}${editantCategoria ? " editant-categoria" : ""}"
+    id="moviment-${transaction.id}"
+    class="${transaction.isExcluded ? "exclos" : ""}${editantCategoria ? " editant-categoria" : ""}"
   >
     ${
       potEditar
@@ -364,19 +364,19 @@ export function Fila({
           <input
             type="checkbox"
             name="moviment"
-            value="${moviment.id}"
-            aria-label="Tria el moviment de ${moviment.description}"
+            value="${transaction.id}"
+            aria-label="Tria el moviment de ${transaction.description}"
           />
         </td>`
         : ""
     }
 
     <td class="data" data-etiqueta="Data">
-      <time datetime="${moviment.bookingDate}">
-        ${dataCurta.format(new Date(`${moviment.bookingDate}T00:00:00`))}
+      <time datetime="${transaction.bookingDate}">
+        ${dateCurta.format(new Date(`${transaction.bookingDate}T00:00:00`))}
       </time>
       ${
-        moviment.status === "pending"
+        transaction.status === "pending"
           ? html`<span class="etiqueta etiqueta-suau" title="Encara no es definitiu">pendent</span>`
           : ""
       }
@@ -389,57 +389,57 @@ export function Fila({
             ? html`<button
               type="button"
               class="concepte"
-              title="${moviment.descriptionHint ?? "Canvia com es veu aquest concepte"}"
+              title="${transaction.descriptionHint ?? "Canvia com es veu aquest concepte"}"
               hx-get="${base}/fragment/concepte"
-              hx-target="#moviment-${moviment.id}"
+              hx-target="#moviment-${transaction.id}"
               hx-swap="outerHTML"
             >
-              ${moviment.description}
+              ${transaction.description}
             </button>`
-            : html`<span>${moviment.description}</span>`
+            : html`<span>${transaction.description}</span>`
         }
-        ${XipTargeta({ darrers4: moviment.darrers4 })}
+        ${CardChip({ darrers4: transaction.darrers4 })}
         ${
-          moviment.transferGroupId
+          transaction.transferGroupId
             ? html`<span class="etiqueta etiqueta-suau" title="Traspas entre comptes propis"
               >traspas</span
             >`
-            : moviment.tipusOperacio === "transferencia"
+            : transaction.tipusOperacio === "transferencia"
               ? html`<span class="etiqueta etiqueta-suau" title="Transferencia bancaria"
                 >transferència</span
               >`
               : ""
         }
         ${
-          moviment.serieId !== null
+          transaction.serieId !== null
             ? html`<a
               class="etiqueta"
               href="/e/${codi}/recurrents"
-              title="${moviment.serieLabel ?? "Serie recurrent"}"
+              title="${transaction.serieLabel ?? "Serie recurrent"}"
               >recurrent</a
             >`
             : ""
         }
-        ${EtiquetesDelMoviment({
+        ${TransactionTags({
           codi,
-          moviment,
+          transaction,
           potEditar,
           etiquetesConegudes,
         })}
       </div>
-      ${moviment.notes ? html`<small class="text-suau nota">${moviment.notes}</small>` : ""}
+      ${transaction.notes ? html`<small class="text-suau nota">${transaction.notes}</small>` : ""}
     </td>
 
     <td class="cel-comerc" data-etiqueta="Comerç">
-      ${moviment.merchantName ?? html`<span class="text-suau">—</span>`}
+      ${transaction.merchantName ?? html`<span class="text-suau">—</span>`}
     </td>
 
     <td class="cel-categoria" data-etiqueta="Categoria">
-      ${CelCategoria({ codi, moviment, grups, potEditar, editantCategoria })}
+      ${CategoryCell({ codi, transaction, groups, potEditar, editantCategoria })}
     </td>
 
     <td class="dreta ${negatiu ? "negatiu" : "positiu"}" data-etiqueta="Import">
-      ${formatMoney(moviment.amount)}
+      ${formatMoney(transaction.amount)}
     </td>
   </tr>` as Html;
 }
@@ -450,18 +450,18 @@ export function Fila({
  * Cada formulari d'alta es propi de la fila i **no** comparteix camps amb la
  * barra de bloc: si no, HTMX enviaria tot i el darrer camp taparia el primer.
  */
-function EtiquetesDelMoviment({
+function TransactionTags({
   codi,
-  moviment,
+  transaction,
   potEditar,
 }: {
   codi: string;
-  moviment: MovimentVista;
+  transaction: TransactionView;
   potEditar: boolean;
   etiquetesConegudes: string[];
 }): Html {
-  const base = `/e/${codi}/moviments/${moviment.id}`;
-  const xapes = moviment.tags.map((t) => {
+  const base = `/e/${codi}/moviments/${transaction.id}`;
+  const xapes = transaction.tags.map((t) => {
     const href = `/e/${codi}/etiquetes/${encodeURIComponent(t)}`;
     if (!potEditar) {
       return html`<a class="etiqueta etiqueta-dada" href="${href}">${t}</a>`;
@@ -469,7 +469,7 @@ function EtiquetesDelMoviment({
     return html`<form
       class="xapa-etiqueta"
       hx-post="${base}/etiquetes/treure"
-      hx-target="#moviment-${moviment.id}"
+      hx-target="#moviment-${transaction.id}"
       hx-swap="outerHTML"
     >
       <a class="etiqueta etiqueta-dada" href="${href}">${t}</a>
@@ -489,21 +489,21 @@ function EtiquetesDelMoviment({
     ? html`<form
         class="alta-etiqueta"
         hx-post="${base}/etiquetes"
-        hx-target="#moviment-${moviment.id}"
+        hx-target="#moviment-${transaction.id}"
         hx-swap="outerHTML"
       >
-        <label class="visualment-ocult" for="nova-etiqueta-${moviment.id}">
+        <label class="visualment-ocult" for="nova-etiqueta-${transaction.id}">
           Afegeix una etiqueta
         </label>
         <input
           type="text"
           name="nova_etiqueta"
-          id="nova-etiqueta-${moviment.id}"
+          id="nova-etiqueta-${transaction.id}"
           list="etiquetes-espai"
           maxlength="40"
           autocomplete="off"
           placeholder="+"
-          aria-label="Afegeix una etiqueta a ${moviment.description}"
+          aria-label="Afegeix una etiqueta a ${transaction.description}"
         />
       </form>`
     : "";
@@ -516,17 +516,17 @@ function EtiquetesDelMoviment({
 /** La fila convertida en un camp per posar-hi un alias. */
 export function FilaConcepte({
   codi,
-  moviment,
+  transaction,
 }: {
   codi: string;
-  moviment: MovimentVista;
+  transaction: TransactionView;
 }): Html {
-  return html`<tr id="moviment-${moviment.id}" class="editant">
+  return html`<tr id="moviment-${transaction.id}" class="editant">
     <td colspan="7">
       <form
         class="linia"
-        hx-post="/e/${codi}/moviments/${moviment.id}/concepte"
-        hx-target="#moviment-${moviment.id}"
+        hx-post="/e/${codi}/moviments/${transaction.id}/concepte"
+        hx-target="#moviment-${transaction.id}"
         hx-swap="outerHTML"
       >
         <label class="camp camp-linia">
@@ -534,10 +534,10 @@ export function FilaConcepte({
           <input
             type="text"
             name="display_description"
-            value="${moviment.isMasked ? moviment.description : ""}"
+            value="${transaction.isMasked ? transaction.description : ""}"
             maxlength="200"
-            placeholder="${moviment.description}"
-            title="${moviment.descriptionHint ?? ""}"
+            placeholder="${transaction.description}"
+            title="${transaction.descriptionHint ?? ""}"
             autofocus
           />
           <small class="camp-ajuda">
@@ -550,8 +550,8 @@ export function FilaConcepte({
         <button
           type="button"
           class="boto boto-discret"
-          hx-get="/e/${codi}/moviments/${moviment.id}/fragment/fila"
-          hx-target="#moviment-${moviment.id}"
+          hx-get="/e/${codi}/moviments/${transaction.id}/fragment/fila"
+          hx-target="#moviment-${transaction.id}"
           hx-swap="outerHTML"
         >
           Cancel·la
@@ -563,48 +563,48 @@ export function FilaConcepte({
 
 /** Selector multiple de targetes (darrers 4 digits) fetes servir al compte. */
 export function FiltreTargetes({
-  targetes,
+  cards,
   seleccionades,
   oob = false,
 }: {
-  targetes: string[];
+  cards: string[];
   seleccionades: string[];
   oob?: boolean;
 }): Html {
-  if (targetes.length === 0) return html`` as Html;
+  if (cards.length === 0) return html`` as Html;
   return html`<fieldset
-    ${atributsOob("filtre-targetes", oob)}
+    ${oobAttributes("filtre-targetes", oob)}
     class="filtre-tipus filtre-targetes"
   >
     <legend class="camp-etiqueta">Targeta</legend>
-    ${targetes.map((t) =>
-      Casella({
-        nom: "targeta",
+    ${cards.map((t) =>
+      Checkbox({
+        name: "targeta",
         valor: t,
-        etiqueta: `*${t}`,
+        tag: `*${t}`,
         marcat: seleccionades.includes(t),
       }),
     )}
   </fieldset>` as Html;
 }
 
-export interface BarraFiltresProps {
+export interface FilterBarProps {
   codi: string;
   filters: TransactionFilters;
-  comptes: { valor: number; text: string }[];
-  grups: GrupCategories[];
+  accountList: { valor: number; text: string }[];
+  groups: CategoryGroup[];
   etiquetesConegudes?: string[];
   targetesConegudes?: string[];
 }
 
-export function BarraFiltres({
+export function FilterBar({
   codi,
   filters,
-  comptes,
-  grups,
+  accountList,
+  groups,
   etiquetesConegudes = [],
   targetesConegudes = [],
-}: BarraFiltresProps): Html {
+}: FilterBarProps): Html {
   return html`<form
     class="filtres superficie targeta"
     hx-get="/e/${codi}/moviments/fragment/taula"
@@ -634,23 +634,23 @@ export function BarraFiltres({
     </label>
 
     ${
-      comptes.length > 1
-        ? Tria({
-            nom: "compte",
-            etiqueta: "Compte",
+      accountList.length > 1
+        ? Select({
+            name: "compte",
+            tag: "Compte",
             valor: filters.compte,
-            opcions: comptes,
-            buit: "— tots —",
+            options: accountList,
+            empty: "— tots —",
           })
         : ""
     }
 
-    ${Tria({
-      nom: "categoria",
-      etiqueta: "Categoria",
+    ${Select({
+      name: "categoria",
+      tag: "Categoria",
       valor: filters.categoria,
-      grups,
-      buit: "— totes —",
+      groups,
+      empty: "— totes —",
     })}
 
     <label class="camp camp-linia camp-estret">
@@ -668,48 +668,48 @@ export function BarraFiltres({
 
     <fieldset class="filtre-tipus">
       <legend class="camp-etiqueta">Tipus</legend>
-      ${ETIQUETES_TIPUS.map(({ valor, text }) =>
-        Casella({ nom: "tipus", valor, etiqueta: text, marcat: filters.tipus.includes(valor) }),
+      ${OPERATION_TYPE_LABELS.map(({ valor, text }) =>
+        Checkbox({ name: "tipus", valor, tag: text, marcat: filters.type.includes(valor) }),
       )}
     </fieldset>
 
-    ${FiltreTargetes({ targetes: targetesConegudes, seleccionades: filters.targeta })}
+    ${FiltreTargetes({ cards: targetesConegudes, seleccionades: filters.card })}
 
-    ${Casella({
-      nom: "sense_classificar",
+    ${Checkbox({
+      name: "sense_classificar",
       valor: "1",
-      etiqueta: "Nomes sense classificar",
+      tag: "Nomes sense classificar",
       marcat: filters.sense_classificar,
     })}
 
-    ${Casella({
-      nom: "revisio",
+    ${Checkbox({
+      name: "revisio",
       valor: "1",
-      etiqueta: "Nomes per revisar",
+      tag: "Nomes per revisar",
       marcat: filters.revisio,
     })}
 
-    ${Casella({
-      nom: "traspassos",
+    ${Checkbox({
+      name: "traspassos",
       valor: "1",
-      etiqueta: "Inclou els traspassos",
+      tag: "Inclou els traspassos",
       marcat: filters.traspassos,
     })}
 
-    ${DatalistEtiquetes(etiquetesConegudes)}
+    ${TagDatalist(etiquetesConegudes)}
   </form>` as Html;
 }
 
 // --- Safata de revisio -------------------------------------------------------
 
-export interface CuaRevisioProps {
+export interface ReviewQueueProps {
   codi: string;
-  items: ItemRevisio[];
-  grups: GrupCategories[];
+  items: ReviewItem[];
+  groups: CategoryGroup[];
   total: number;
 }
 
-export function CuaRevisio({ codi, items, grups, total }: CuaRevisioProps): Html {
+export function ReviewQueue({ codi, items, groups, total }: ReviewQueueProps): Html {
   return html`<div id="cua-revisio">
     ${
       items.length === 0
@@ -722,41 +722,41 @@ export function CuaRevisio({ codi, items, grups, total }: CuaRevisioProps): Html
             en confirmi la categoria.
           </p>
           <ul class="revisio">
-            ${items.map((item) => TargetaRevisio({ codi, item, grups }))}
+            ${items.map((item) => ReviewCard({ codi, item, groups }))}
           </ul>
         `
     }
   </div>` as Html;
 }
 
-export function TargetaRevisio({
+export function ReviewCard({
   codi,
   item,
-  grups,
+  groups,
 }: {
   codi: string;
-  item: ItemRevisio;
-  grups: GrupCategories[];
+  item: ReviewItem;
+  groups: CategoryGroup[];
 }): Html {
-  const { moviment } = item;
-  const negatiu = moviment.amount.startsWith("-");
+  const { transaction } = item;
+  const negatiu = transaction.amount.startsWith("-");
 
-  return html`<li id="revisio-${moviment.id}" class="superficie targeta item-revisio">
+  return html`<li id="revisio-${transaction.id}" class="superficie targeta item-revisio">
     <div class="item-cap">
-      <time datetime="${moviment.bookingDate}" class="text-suau">
-        ${dataCurta.format(new Date(`${moviment.bookingDate}T00:00:00`))}
+      <time datetime="${transaction.bookingDate}" class="text-suau">
+        ${dateCurta.format(new Date(`${transaction.bookingDate}T00:00:00`))}
       </time>
-      <strong title="${moviment.descriptionHint ?? ""}">${moviment.description}</strong>
-      ${XipTargeta({ darrers4: moviment.darrers4 })}
+      <strong title="${transaction.descriptionHint ?? ""}">${transaction.description}</strong>
+      ${CardChip({ darrers4: transaction.darrers4 })}
       ${
-        !moviment.transferGroupId && moviment.tipusOperacio === "transferencia"
+        !transaction.transferGroupId && transaction.tipusOperacio === "transferencia"
           ? html`<span class="etiqueta etiqueta-suau">transferència</span>`
           : ""
       }
-      <span class="${negatiu ? "negatiu" : "positiu"}">${formatMoney(moviment.amount)}</span>
+      <span class="${negatiu ? "negatiu" : "positiu"}">${formatMoney(transaction.amount)}</span>
     </div>
 
-    ${moviment.merchantName ? html`<p class="text-suau">${moviment.merchantName}</p>` : ""}
+    ${transaction.merchantName ? html`<p class="text-suau">${transaction.merchantName}</p>` : ""}
 
     ${
       item.suggestedCategoryName
@@ -775,17 +775,17 @@ export function TargetaRevisio({
 
     <form
       class="linia"
-      hx-post="/e/${codi}/moviments/${moviment.id}/revisa"
-      hx-target="#revisio-${moviment.id}"
+      hx-post="/e/${codi}/moviments/${transaction.id}/revisa"
+      hx-target="#revisio-${transaction.id}"
       hx-swap="outerHTML"
     >
-      ${Tria({
-        nom: "category_id",
-        id: `revisio-categoria-${moviment.id}`,
-        etiqueta: "Categoria",
-        valor: item.suggestedCategoryId ?? moviment.categoryId,
-        grups,
-        buit: "— tria una categoria —",
+      ${Select({
+        name: "category_id",
+        id: `revisio-categoria-${transaction.id}`,
+        tag: "Categoria",
+        valor: item.suggestedCategoryId ?? transaction.categoryId,
+        groups,
+        empty: "— tria una categoria —",
       })}
       <button type="submit" class="boto">Confirma</button>
     </form>
@@ -793,6 +793,6 @@ export function TargetaRevisio({
 }
 
 /** Un cop confirmat, l'element se'n va de la cua. */
-export function RevisioFeta(id: number): Html {
+export function ReviewDone(id: number): Html {
   return html`<li id="revisio-${id}" hidden></li>` as Html;
 }

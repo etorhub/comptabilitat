@@ -5,19 +5,19 @@
 import { html } from "hono/html";
 
 import type { Html } from "../../lib/html.ts";
-import type { GrupCategories } from "../../services/categories.ts";
-import type { ResumEtiqueta } from "../../services/tags.ts";
-import type { PaginaMoviments } from "../../services/transactions.ts";
-import { CapçaleraDetall, LlistaEtiquetes, TaulaDetall } from "./tags.fragment.ts";
+import type { CategoryGroup } from "../../services/categories.ts";
+import type { TagSummary } from "../../services/tags.ts";
+import type { TransactionsPage } from "../../services/transactions.ts";
+import { CapAleraDetail, TagsList, DetailTable } from "./tags.fragment.ts";
 import type { TagDetailQuery } from "./tags.schema.ts";
 
 export function TagsPage({
   codi,
-  etiquetes,
+  tags,
   potEditar,
 }: {
   codi: string;
-  etiquetes: ResumEtiqueta[];
+  tags: TagSummary[];
   potEditar: boolean;
 }): Html {
   return html`
@@ -29,34 +29,34 @@ export function TagsPage({
       </p>
     </header>
 
-    ${LlistaEtiquetes({ codi, etiquetes, potEditar })}
+    ${TagsList({ codi, tags, potEditar })}
   ` as Html;
 }
 
 export function TagDetailPage({
   codi,
-  resum,
-  pagina,
-  grups,
+  summary,
+  page,
+  groups,
   potEditar,
   query,
   etiquetesConegudes,
 }: {
   codi: string;
-  resum: ResumEtiqueta;
-  pagina: PaginaMoviments;
-  grups: GrupCategories[];
+  summary: TagSummary;
+  page: TransactionsPage;
+  groups: CategoryGroup[];
   potEditar: boolean;
   query: TagDetailQuery;
   etiquetesConegudes: string[];
 }): Html {
   return html`
-    ${CapçaleraDetall({ codi, resum, potEditar })}
-    ${TaulaDetall({
+    ${CapAleraDetail({ codi, summary, potEditar })}
+    ${DetailTable({
       codi,
-      nom: resum.nom,
-      pagina,
-      grups,
+      name: summary.name,
+      page,
+      groups,
       potEditar,
       query,
       etiquetesConegudes,

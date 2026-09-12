@@ -4,7 +4,7 @@
 
 import { z } from "zod/v4";
 
-export const PER_PAGINA = 50;
+export const PER_PAGE = 50;
 
 export const tagDetailQuerySchema = z.object({
   pagina: z.coerce.number().int().min(0).default(0),
@@ -18,7 +18,7 @@ export function tagDetailToQuery(q: TagDetailQuery): string {
 }
 
 /** Nom d'etiqueta a l'adreça (despres de decodeURIComponent). */
-export function nomDeLaRuta(valor: string | undefined): string {
+export function nameFromRoute(valor: string | undefined): string {
   const brut = valor ?? "";
   let decodificat = brut;
   try {

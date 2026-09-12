@@ -39,7 +39,7 @@ const env = process.env;
  * variable trencaria el contenidor de Python mentre convisquin, aixi que el
  * netegem aqui.
  */
-function normalitzaUrl(url: string): string {
+function normalizeUrl(url: string): string {
   return url.replace(/^postgresql\+\w+:\/\//, "postgresql://");
 }
 
@@ -53,7 +53,7 @@ const rawConfig = {
   port: int(env.PORT, 8000),
 
   // --- Base de dades ---
-  databaseUrl: normalitzaUrl(
+  databaseUrl: normalizeUrl(
     env.DATABASE_URL ?? "postgresql://comptabilitat:comptabilitat@127.0.0.1:5432/comptabilitat",
   ),
 
@@ -127,26 +127,26 @@ export function smtpConfigured(): boolean {
  * sessio per defecte vol dir que qualsevol pot signar-se una galeta.
  */
 export function validateConfig(): void {
-  const problemes: string[] = [];
+  const problems: string[] = [];
 
   if (config.secretKey === "canvia-aquesta-clau-en-produccio") {
-    problemes.push("SECRET_KEY es la de per defecte");
+    problems.push("SECRET_KEY es la de per defecte");
   }
   if (config.secretKey.length < 32) {
-    problemes.push("SECRET_KEY hauria de tenir 32 carácters o mes");
+    problems.push("SECRET_KEY hauria de tenir 32 carácters o mes");
   }
   if (!config.cookieSecure) {
-    problemes.push("COOKIE_SECURE es fals: la galeta de sessio viatjara sense HTTPS");
+    problems.push("COOKIE_SECURE es fals: la galeta de sessio viatjara sense HTTPS");
   }
   if (!z.string().url().safeParse(config.publicBaseUrl).success) {
-    problemes.push(`PUBLIC_BASE_URL no es una URL valida: ${config.publicBaseUrl}`);
+    problems.push(`PUBLIC_BASE_URL no es una URL valida: ${config.publicBaseUrl}`);
   }
 
-  if (problemes.length === 0) return;
+  if (problems.length === 0) return;
 
-  const missatge = problemes.map((p) => `  - ${p}`).join("\n");
+  const message = problems.map((p) => `  - ${p}`).join("\n");
   if (config.environment === "production") {
-    throw new Error(`Configuracio insegura per a produccio:\n${missatge}`);
+    throw new Error(`Configuracio insegura per a produccio:\n${message}`);
   }
-  console.warn(`[config] avisos (no son fatals fora de produccio):\n${missatge}`);
+  console.warn(`[config] avisos (no son fatals fora de produccio):\n${message}`);
 }

@@ -5,20 +5,20 @@
 import { html, raw } from "hono/html";
 
 import type { Html } from "../../lib/html.ts";
-import type { GrupCategories } from "../../services/categories.ts";
-import type { ItemRevisio, PaginaMoviments } from "../../services/transactions.ts";
-import { BarraFiltres, CuaRevisio, Taula } from "./transactions.fragment.ts";
+import type { CategoryGroup } from "../../services/categories.ts";
+import type { ReviewItem, TransactionsPage } from "../../services/transactions.ts";
+import { FilterBar, ReviewQueue, Table } from "./transactions.fragment.ts";
 import {
-  teFiltresActius,
+  hasActiveFilters,
   transactionFiltersToQuery,
   type TransactionFilters,
 } from "./transactions.schema.ts";
 
 export interface TransactionsPageProps {
   codi: string;
-  pagina: PaginaMoviments;
-  grups: GrupCategories[];
-  comptes: { valor: number; text: string }[];
+  page: TransactionsPage;
+  groups: CategoryGroup[];
+  accountList: { valor: number; text: string }[];
   filters: TransactionFilters;
   potEditar: boolean;
   etiquetesConegudes?: string[];
@@ -28,17 +28,17 @@ export interface TransactionsPageProps {
 export function TransactionsPage(props: TransactionsPageProps): Html {
   const {
     codi,
-    pagina,
-    grups,
-    comptes,
+    page,
+    groups,
+    accountList,
     filters,
     potEditar,
     etiquetesConegudes = [],
     targetesConegudes = [],
   } = props;
   // El que et descarregues es el que estas veient: els mateixos filtres.
-  const consulta = transactionFiltersToQuery(filters);
-  const cercaOberta = teFiltresActius(filters);
+  const query = transactionFiltersToQuery(filters);
+  const searchOberta = hasActiveFilters(filters);
 
   return html`
     <div class="moviments-pagina">
@@ -46,32 +46,32 @@ export function TransactionsPage(props: TransactionsPageProps): Html {
         type="checkbox"
         id="cerca-oberta"
         class="toggle-cerca visualment-ocult"
-        ${cercaOberta ? raw("checked") : ""}
+        ${searchOberta ? raw("checked") : ""}
       />
       <header class="capçalera capçalera-fila">
         <h1>Moviments</h1>
         <div class="capçalera-accions">
-          <a class="boto boto-discret" href="/e/${codi}/moviments/moviments.csv${consulta}">
+          <a class="boto boto-discret" href="/e/${codi}/moviments/moviments.csv${query}">
             Descarrega en CSV
           </a>
           <label for="cerca-oberta" class="boto boto-discret">Cerca</label>
         </div>
       </header>
 
-      ${BarraFiltres({ codi, filters, comptes, grups, etiquetesConegudes, targetesConegudes })}
-      ${Taula({ codi, pagina, grups, filters, potEditar, etiquetesConegudes })}
+      ${FilterBar({ codi, filters, accountList, groups, etiquetesConegudes, targetesConegudes })}
+      ${Table({ codi, page, groups, filters, potEditar, etiquetesConegudes })}
     </div>
   ` as Html;
 }
 
 export interface ReviewPageProps {
   codi: string;
-  items: ItemRevisio[];
-  grups: GrupCategories[];
+  items: ReviewItem[];
+  groups: CategoryGroup[];
   total: number;
 }
 
-export function ReviewPage({ codi, items, grups, total }: ReviewPageProps): Html {
+export function ReviewPage({ codi, items, groups, total }: ReviewPageProps): Html {
   return html`
     <header class="capçalera">
       <h1>Per revisar</h1>
@@ -82,6 +82,6 @@ export function ReviewPage({ codi, items, grups, total }: ReviewPageProps): Html
       </p>
     </header>
 
-    ${CuaRevisio({ codi, items, grups, total })}
+    ${ReviewQueue({ codi, items, groups, total })}
   ` as Html;
 }

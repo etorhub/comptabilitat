@@ -18,7 +18,7 @@ import { callbackRoute, connectionsRoutes } from "./connections/connections.rout
 import { analyticsRoutes } from "./analytics/analytics.routes.ts";
 import { authRoutes } from "./auth/auth.routes.ts";
 import { categoriesRoutes } from "./categories/categories.routes.ts";
-import { informesExportRoutes, movimentsExportRoutes } from "./exports/exports.routes.ts";
+import { reportsExportRoutes, transactionsExportRoutes } from "./exports/exports.routes.ts";
 import { homeRoutes } from "./home/home.routes.ts";
 import { jobsRoutes } from "./jobs/jobs.routes.ts";
 import { recurringRoutes } from "./recurring/recurring.routes.ts";
@@ -30,7 +30,7 @@ import { requireAdmin, requireUser } from "../middleware/session.ts";
 import { workspaceMiddleware } from "../middleware/workspace.ts";
 
 /** Penja unes rutes darrere de la guarda d'administrador de la instal·lacio. */
-function ambAdmin(rutes: Hono): Hono {
+function withAdmin(rutes: Hono): Hono {
   const sub = new Hono();
   sub.use("*", requireAdmin);
   sub.route("/", rutes);
@@ -55,51 +55,51 @@ export function registerRoutes(app: Hono): void {
   // `use("*")` a dins **aplica la guarda a tota l'aplicacio**, no nomes a les
   // seves rutes, i deixaria fora del programa qui no fos administrador. La
   // guarda es penja del sub-programa i es munta ja sota `/usuaris`.
-  const usuaris = new Hono();
-  usuaris.use("*", requireUser);
-  usuaris.use("*", requireAdmin);
-  usuaris.route("/", usersRoutes);
-  app.route("/usuaris", usuaris);
+  const userList = new Hono();
+  userList.use("*", requireUser);
+  userList.use("*", requireAdmin);
+  userList.route("/", usersRoutes);
+  app.route("/usuaris", userList);
 
-  const connexions = new Hono();
-  connexions.use("*", requireUser);
-  connexions.use("*", requireAdmin);
-  connexions.route("/", connectionsRoutes);
-  app.route("/connexions", connexions);
+  const connections = new Hono();
+  connections.use("*", requireUser);
+  connections.use("*", requireAdmin);
+  connections.route("/", connectionsRoutes);
+  app.route("/connexions", connections);
 
-  const feines = new Hono();
-  feines.use("*", requireUser);
-  feines.use("*", requireAdmin);
-  feines.route("/", jobsRoutes);
-  app.route("/feines", feines);
+  const jobs = new Hono();
+  jobs.use("*", requireUser);
+  jobs.use("*", requireAdmin);
+  jobs.route("/", jobsRoutes);
+  app.route("/feines", jobs);
 
   // --- Dins d'un espai -----------------------------------------------------
   //
   // Tot el que penja d'aqui passa abans per `requireUser` i pel middleware
   // que resol l'espai i comprova l'acces. Cap ruta de dades no consulta la
   // taula `ledgers` pel seu compte.
-  const espai = new Hono();
-  espai.use("*", requireUser);
-  espai.use("*", workspaceMiddleware);
+  const workspace = new Hono();
+  workspace.use("*", requireUser);
+  workspace.use("*", workspaceMiddleware);
 
   // Configuracio de l'espai: nomes administradors de la instal·lacio.
   // La guarda va a cada sub-programa, no a `espai` sencer: un `use("*")`
   // aqui tancaria Panell, Moviments i la resta.
-  espai.route("/avisos", ambAdmin(alertsRoutes));
-  espai.route("/categories", ambAdmin(categoriesRoutes));
-  espai.route("/etiquetes", ambAdmin(tagsRoutes));
-  espai.route("/configuracio", ambAdmin(workspacesRoutes));
-  espai.route("/moviments", transactionsRoutes);
-  espai.route("/recurrents", recurringRoutes);
+  workspace.route("/avisos", withAdmin(alertsRoutes));
+  workspace.route("/categories", withAdmin(categoriesRoutes));
+  workspace.route("/etiquetes", withAdmin(tagsRoutes));
+  workspace.route("/configuracio", withAdmin(workspacesRoutes));
+  workspace.route("/moviments", transactionsRoutes);
+  workspace.route("/recurrents", recurringRoutes);
   // Les descarregues pengen de Moviments i d'Informes, que son d'on surten.
   // Cada programa nomes coneix les seves rutes: abans un de sol es muntava a
   // totes dues adreces i cada descarrega responia dues vegades, un cop a la
   // seva i un cop a una brossa (`/moviments/informe.xlsx`).
-  espai.route("/moviments", movimentsExportRoutes);
-  espai.route("/informes", informesExportRoutes);
+  workspace.route("/moviments", transactionsExportRoutes);
+  workspace.route("/informes", reportsExportRoutes);
 
   // Les analitiques porten l'arrel de l'espai, els informes i la previsio.
-  espai.route("/", analyticsRoutes);
+  workspace.route("/", analyticsRoutes);
 
-  app.route("/e/:codi", espai);
+  app.route("/e/:codi", workspace);
 }

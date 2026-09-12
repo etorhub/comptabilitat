@@ -10,19 +10,15 @@
 
 import { html, raw } from "hono/html";
 
-import { Tria } from "../../components/form.ts";
+import { Select } from "../../components/form.ts";
 import type { CategoryKind } from "../../db/schema/index.ts";
-import { TaulaDades } from "../../components/vista.ts";
+import { DataTable } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney } from "../../lib/money.ts";
-import { atributsOob } from "../../lib/oob.ts";
-import type {
-  CategoriaVista,
-  GrupCategories,
-  NodeCategoria,
-} from "../../services/categories.ts";
+import { oobAttributes } from "../../lib/oob.ts";
+import type { CategoryView, CategoryGroup, NodeCategory } from "../../services/categories.ts";
 
-const NOMS_KIND: Record<CategoryKind, string> = {
+const NAMES_KIND: Record<CategoryKind, string> = {
   expense: "Despeses",
   income: "Ingressos",
   transfer: "Traspassos",
@@ -30,62 +26,62 @@ const NOMS_KIND: Record<CategoryKind, string> = {
 
 const ORDRE_KIND: CategoryKind[] = ["expense", "income", "transfer"];
 
-export interface ArbreProps {
+export interface TreeProps {
   codi: string;
-  arbre: Record<CategoryKind, NodeCategoria[]>;
+  tree: Record<CategoryKind, NodeCategory[]>;
   potEditar: boolean;
   /** Torna'l fora de banda quan el canvi ve d'una altra part de la pagina. */
   oob?: boolean;
 }
 
-export function Arbre({ codi, arbre, potEditar, oob = false }: ArbreProps): Html {
-  return html`<div ${atributsOob("arbre-categories", oob)} class="arbre">
+export function Tree({ codi, tree, potEditar, oob = false }: TreeProps): Html {
+  return html`<div ${oobAttributes("arbre-categories", oob)} class="arbre">
     ${ORDRE_KIND.map((kind) => {
-      const nodes = arbre[kind];
+      const nodes = tree[kind];
       if (nodes.length === 0) return "";
       return html`<section class="superficie targeta">
-        <h2>${NOMS_KIND[kind]}</h2>
-        ${TaulaDades({
+        <h2>${NAMES_KIND[kind]}</h2>
+        ${DataTable({
           columnes: html`<th>Categoria</th>
             <th class="dreta">Moviments</th>
             <th class="dreta">Total</th>
             ${potEditar ? html`<th></th>` : ""}` as Html,
-          files: nodes.flatMap((pare) => [
-            Fila({ codi, categoria: pare, potEditar, filla: false }),
-            ...pare.filles.map((f) => Fila({ codi, categoria: f, potEditar, filla: true })),
+          rows: nodes.flatMap((parent) => [
+            Row({ codi, category: parent, potEditar, filla: false }),
+            ...parent.filles.map((f) => Row({ codi, category: f, potEditar, filla: true })),
           ]),
           // Inabastable: la seccio no es dibuixa si el grup es buit.
-          buit: "Aquest grup no te cap categoria.",
+          empty: "Aquest grup no te cap categoria.",
         })}
       </section>`;
     })}
   </div>` as Html;
 }
 
-export interface FilaProps {
+export interface RowProps {
   codi: string;
-  categoria: CategoriaVista;
+  category: CategoryView;
   potEditar: boolean;
   filla: boolean;
 }
 
 /** Una fila de la taula. Es el que es torna a dibuixar quan es canvia el nom. */
-export function Fila({ codi, categoria, potEditar, filla }: FilaProps): Html {
-  const base = `/e/${codi}/categories/${categoria.id}`;
+export function Row({ codi, category, potEditar, filla }: RowProps): Html {
+  const base = `/e/${codi}/categories/${category.id}`;
 
-  return html`<tr id="categoria-${categoria.id}" class="${filla ? "filla" : "pare"}">
+  return html`<tr id="categoria-${category.id}" class="${filla ? "filla" : "pare"}">
     <td>
-      <span class="punt" style="background:${categoria.color}" aria-hidden="true"></span>
+      <span class="punt" style="background:${category.color}" aria-hidden="true"></span>
       ${filla ? html`<span class="sagnat" aria-hidden="true">›</span>` : ""}
-      <span class="nom">${categoria.name}</span>
+      <span class="nom">${category.name}</span>
       ${
-        categoria.isSystem
+        category.isSystem
           ? html`<span class="etiqueta etiqueta-suau" title="Ve del pla inicial">sistema</span>`
           : ""
       }
     </td>
-    <td class="dreta">${String(categoria.transactionCount)}</td>
-    <td class="dreta">${formatMoney(categoria.totalAmount)}</td>
+    <td class="dreta">${String(category.transactionCount)}</td>
+    <td class="dreta">${formatMoney(category.totalAmount)}</td>
     ${
       potEditar
         ? html`<td class="accions">
@@ -93,13 +89,13 @@ export function Fila({ codi, categoria, potEditar, filla }: FilaProps): Html {
             type="button"
             class="boto boto-discret"
             hx-get="${base}/fragment/edicio"
-            hx-target="#categoria-${categoria.id}"
+            hx-target="#categoria-${category.id}"
             hx-swap="outerHTML"
           >
             Reanomena
           </button>
           ${
-            categoria.isProtected
+            category.isProtected
               ? html`<span
                 class="text-suau"
                 title="Hi ha logica que depen d'aquesta categoria"
@@ -109,9 +105,9 @@ export function Fila({ codi, categoria, potEditar, filla }: FilaProps): Html {
                 type="button"
                 class="boto boto-discret"
                 hx-delete="${base}"
-                hx-target="#categoria-${categoria.id}"
+                hx-target="#categoria-${category.id}"
                 hx-swap="outerHTML"
-                hx-confirm="Segur que vols esborrar «${categoria.name}»?"
+                hx-confirm="Segur que vols esborrar «${category.name}»?"
               >
                 Esborra
               </button>`
@@ -123,32 +119,26 @@ export function Fila({ codi, categoria, potEditar, filla }: FilaProps): Html {
 }
 
 /** La fila convertida en un camp de text, per reanomenar-la sense sortir. */
-export function FilaEdicio({
-  codi,
-  categoria,
-}: {
-  codi: string;
-  categoria: CategoriaVista;
-}): Html {
-  const base = `/e/${codi}/categories/${categoria.id}`;
-  return html`<tr id="categoria-${categoria.id}" class="editant">
+export function EditRow({ codi, category }: { codi: string; category: CategoryView }): Html {
+  const base = `/e/${codi}/categories/${category.id}`;
+  return html`<tr id="categoria-${category.id}" class="editant">
     <td colspan="4">
       <form
         class="linia"
         hx-patch="${base}"
-        hx-target="#categoria-${categoria.id}"
+        hx-target="#categoria-${category.id}"
         hx-swap="outerHTML"
       >
         <label class="camp camp-linia">
           <span class="camp-etiqueta">Nom</span>
-          <input type="text" name="name" value="${categoria.name}" maxlength="120" autofocus />
+          <input type="text" name="name" value="${category.name}" maxlength="120" autofocus />
         </label>
         <button type="submit" class="boto">Desa</button>
         <button
           type="button"
           class="boto boto-discret"
           hx-get="${base}/fragment/fila"
-          hx-target="#categoria-${categoria.id}"
+          hx-target="#categoria-${category.id}"
           hx-swap="outerHTML"
         >
           Cancel·la
@@ -159,15 +149,15 @@ export function FilaEdicio({
 }
 
 /** Una categoria esborrada desapareix de la taula. */
-export function FilaEsborrada(id: number): Html {
+export function DeletedRow(id: number): Html {
   return html`<tr id="categoria-${id}" hidden></tr>` as Html;
 }
 
-export interface FormReassignacioProps {
+export interface ReassignmentFormProps {
   codi: string;
-  categoria: CategoriaVista;
-  moviments: number;
-  grups: GrupCategories[];
+  category: CategoryView;
+  transactionList: number;
+  groups: CategoryGroup[];
 }
 
 /**
@@ -175,36 +165,36 @@ export interface FormReassignacioProps {
  * falta. Va dins de la mateixa fila, de manera que surt al costat de la
  * categoria que s'estava esborrant.
  */
-export function FormReassignacio({
+export function ReassignmentForm({
   codi,
-  categoria,
-  moviments,
-  grups,
-}: FormReassignacioProps): Html {
-  return html`<tr id="categoria-${categoria.id}" class="reassignant">
+  category,
+  transactionList,
+  groups,
+}: ReassignmentFormProps): Html {
+  return html`<tr id="categoria-${category.id}" class="reassignant">
     <td colspan="4">
       <form
         class="linia"
-        hx-delete="/e/${codi}/categories/${categoria.id}"
-        hx-target="#categoria-${categoria.id}"
+        hx-delete="/e/${codi}/categories/${category.id}"
+        hx-target="#categoria-${category.id}"
         hx-swap="outerHTML"
       >
         <p class="reassignant-text">
-          «${categoria.name}» te
-          ${String(moviments)} ${moviments === 1 ? "moviment" : "moviments"}. On han d'anar?
+          «${category.name}» te
+          ${String(transactionList)} ${transactionList === 1 ? "moviment" : "moviments"}. On han d'anar?
         </p>
-        ${Tria({
-          nom: "reassign_to",
-          etiqueta: "Mou-los a",
-          grups,
-          buit: "— tria una categoria —",
+        ${Select({
+          name: "reassign_to",
+          tag: "Mou-los a",
+          groups,
+          empty: "— tria una categoria —",
         })}
         <button type="submit" class="boto boto-perill">Esborra-la i mou-los</button>
         <button
           type="button"
           class="boto boto-discret"
-          hx-get="/e/${codi}/categories/${categoria.id}/fragment/fila"
-          hx-target="#categoria-${categoria.id}"
+          hx-get="/e/${codi}/categories/${category.id}/fragment/fila"
+          hx-target="#categoria-${category.id}"
           hx-swap="outerHTML"
         >
           Cancel·la
@@ -214,14 +204,14 @@ export function FormReassignacio({
   </tr>` as Html;
 }
 
-export interface FormAltaProps {
+export interface CreateFormProps {
   codi: string;
-  grups: GrupCategories[];
+  groups: CategoryGroup[];
   errors?: Record<string, string[]> | undefined;
   valors?: { name?: string; kind?: string; parent_id?: string } | undefined;
 }
 
-export function FormAlta({ codi, grups, errors, valors }: FormAltaProps): Html {
+export function CreateForm({ codi, groups, errors, valors }: CreateFormProps): Html {
   return html`<form
     id="form-categoria"
     class="superficie targeta form-linia"
@@ -244,24 +234,24 @@ export function FormAlta({ codi, grups, errors, valors }: FormAltaProps): Html {
       ${errors?.name ? html`<p id="name-error" class="camp-error">${errors.name[0]}</p>` : ""}
     </label>
 
-    ${Tria({
-      nom: "kind",
-      etiqueta: "Tipus",
+    ${Select({
+      name: "kind",
+      tag: "Tipus",
       valor: valors?.kind ?? "expense",
-      opcions: [
+      options: [
         { valor: "expense", text: "Despesa" },
         { valor: "income", text: "Ingres" },
         { valor: "transfer", text: "Traspas" },
       ],
       errors,
-      ajuda: "Si tries un pare, s'hereta el seu i aixo no compta.",
+      help: "Si tries un pare, s'hereta el seu i aixo no compta.",
     })}
-    ${Tria({
-      nom: "parent_id",
-      etiqueta: "Dins de",
+    ${Select({
+      name: "parent_id",
+      tag: "Dins de",
       valor: valors?.parent_id ?? "",
-      grups,
-      buit: "— cap: sera una categoria principal —",
+      groups,
+      empty: "— cap: sera una categoria principal —",
       errors,
     })}
 

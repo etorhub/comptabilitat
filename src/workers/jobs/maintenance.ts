@@ -9,25 +9,25 @@
  */
 
 import { purgeExpiredSessions } from "../../lib/auth.ts";
-import { tancaFeinesPenjades } from "../../services/job-runs.ts";
-import { reassignaNormalitzacio } from "../../services/merchants.ts";
-import { tancaImportacionsPenjades } from "../../services/sync.ts";
+import { closeStuckJobs } from "../../services/job-runs.ts";
+import { reassignNormalization } from "../../services/merchants.ts";
+import { closeStuckImports } from "../../services/sync.ts";
 
-export async function feinaManteniment(): Promise<string> {
+export async function maintenanceJob(): Promise<string> {
   // L'aplicacio de Python no esborrava mai les sessions caducades i la taula
   // creixia sense parar.
   const esborrades = await purgeExpiredSessions();
 
   // I una importacio que es va quedar a mitges deixa la pagina de connexions
   // sondejant cada dos segons per sempre.
-  const penjades = await tancaImportacionsPenjades();
-  const feinesPenjades = await tancaFeinesPenjades();
-  const reassignacio = await reassignaNormalitzacio();
+  const stuck = await closeStuckImports();
+  const jobsStuck = await closeStuckJobs();
+  const reassignment = await reassignNormalization();
 
   return (
     `${esborrades} sessions caducades esborrades; ` +
-    `${penjades} importacions penjades tancades; ` +
-    `${feinesPenjades} feines penjades tancades; ` +
-    `normalitzacio: ${reassignacio.canviats} de ${reassignacio.revisats} moviments reassignats`
+    `${stuck} importacions penjades tancades; ` +
+    `${jobsStuck} feines penjades tancades; ` +
+    `normalitzacio: ${reassignment.canviats} de ${reassignment.revisats} moviments reassignats`
   );
 }

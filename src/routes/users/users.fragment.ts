@@ -4,44 +4,44 @@
 
 import { html, raw } from "hono/html";
 
-import { Camp, Casella, ErrorGeneral, type FieldErrors } from "../../components/form.ts";
+import { Field, Checkbox, FormError, type FieldErrors } from "../../components/form.ts";
 import {
   LEDGER_ROLES,
   type Ledger,
   type LedgerRole,
   type User,
 } from "../../db/schema/index.ts";
-import { TaulaDades } from "../../components/vista.ts";
+import { DataTable } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
-import { atributsOob } from "../../lib/oob.ts";
+import { oobAttributes } from "../../lib/oob.ts";
 
-const NOMS_ROL: Record<LedgerRole, string> = {
+const NAMES_ROL: Record<LedgerRole, string> = {
   viewer: "Pot mirar",
   editor: "Pot classificar",
   admin: "Pot configurar",
 };
 
-export interface UsuariVista extends User {
+export interface UserView extends User {
   /** Espais on te acces, amb el rol. */
   accessos: { ledgerId: number; code: string; name: string; role: LedgerRole }[];
 }
 
-export interface LlistaProps {
-  usuaris: UsuariVista[];
-  espais: Ledger[];
+export interface ListProps {
+  userList: UserView[];
+  workspaces: Ledger[];
   jo: number;
   oob?: boolean;
 }
 
-export function Llista({ usuaris, espais, jo, oob = false }: LlistaProps): Html {
-  return html`<div ${atributsOob("llista-usuaris", oob)}>
-    ${usuaris.map((usuari) => Targeta({ usuari, espais, jo }))}
+export function List({ userList, workspaces, jo, oob = false }: ListProps): Html {
+  return html`<div ${oobAttributes("llista-usuaris", oob)}>
+    ${userList.map((user) => Card({ user, workspaces, jo }))}
   </div>` as Html;
 }
 
-export interface TargetaProps {
-  usuari: UsuariVista;
-  espais: Ledger[];
+export interface CardProps {
+  user: UserView;
+  workspaces: Ledger[];
   jo: number;
   /** Errors del formulari de nom / administrador. */
   editErrors?: FieldErrors | undefined;
@@ -49,27 +49,21 @@ export interface TargetaProps {
   passwordErrors?: FieldErrors | undefined;
 }
 
-export function Targeta({
-  usuari,
-  espais,
-  jo,
-  editErrors,
-  passwordErrors,
-}: TargetaProps): Html {
-  const base = `/usuaris/${usuari.id}`;
-  const soc = usuari.id === jo;
-  const idPrefix = `u${usuari.id}`;
+export function Card({ user, workspaces, jo, editErrors, passwordErrors }: CardProps): Html {
+  const base = `/usuaris/${user.id}`;
+  const soc = user.id === jo;
+  const idPrefix = `u${user.id}`;
 
-  return html`<section id="usuari-${usuari.id}" class="superficie targeta">
+  return html`<section id="usuari-${user.id}" class="superficie targeta">
     <div class="item-cap">
-      <strong>${usuari.fullName || usuari.email}</strong>
-      <span class="text-suau">${usuari.email}</span>
+      <strong>${user.fullName || user.email}</strong>
+      <span class="text-suau">${user.email}</span>
       ${
-        usuari.isAdmin
+        user.isAdmin
           ? html`<span class="etiqueta" title="Gestiona bancs i usuaris">administrador</span>`
           : ""
       }
-      ${usuari.isActive ? "" : html`<span class="etiqueta etiqueta-suau">desactivat</span>`}
+      ${user.isActive ? "" : html`<span class="etiqueta etiqueta-suau">desactivat</span>`}
     </div>
 
     <p class="text-suau nota">
@@ -79,54 +73,54 @@ export function Targeta({
 
     <form
       hx-post="${base}"
-      hx-target="#usuari-${usuari.id}"
+      hx-target="#usuari-${user.id}"
       hx-swap="outerHTML"
       class="form-edicio"
     >
-      ${ErrorGeneral(editErrors)}
+      ${FormError(editErrors)}
       <div class="form-linia">
-        ${Camp({
-          nom: "full_name",
+        ${Field({
+          name: "full_name",
           id: `${idPrefix}-full_name`,
-          etiqueta: "Nom",
-          valor: usuari.fullName,
+          tag: "Nom",
+          valor: user.fullName,
           errors: editErrors,
           autocomplete: "off",
         })}
       </div>
-      ${Casella({
-        nom: "is_admin",
-        etiqueta: "Administrador de la instal·lacio (bancs i usuaris)",
-        marcat: usuari.isAdmin,
-        atributs: soc ? 'title="No et pots treure a tu mateix l\'admin"' : "",
+      ${Checkbox({
+        name: "is_admin",
+        tag: "Administrador de la instal·lacio (bancs i usuaris)",
+        marcat: user.isAdmin,
+        attributes: soc ? 'title="No et pots treure a tu mateix l\'admin"' : "",
       })}
       <div class="form-accions">
         <button type="submit" class="boto boto-discret">Desa</button>
       </div>
     </form>
 
-    ${TaulaDades({
+    ${DataTable({
       columnes: html`<th>Espai</th>
         <th>Acces</th>` as Html,
-      buit: "Encara no hi ha cap espai actiu.",
-      files: espais.map((espai) => {
-        const acces = usuari.accessos.find((a) => a.ledgerId === espai.id);
+      empty: "Encara no hi ha cap espai actiu.",
+      rows: workspaces.map((workspace) => {
+        const access = user.accessos.find((a) => a.ledgerId === workspace.id);
         return html`<tr>
-              <td>${espai.name}</td>
+              <td>${workspace.name}</td>
               <td>
                 <form
                   hx-post="${base}/acces"
-                  hx-target="#usuari-${usuari.id}"
+                  hx-target="#usuari-${user.id}"
                   hx-swap="outerHTML"
                   hx-trigger="change"
                 >
-                  <input type="hidden" name="ledger_id" value="${espai.id}" />
-                  <select name="role" aria-label="Acces de ${usuari.email} a ${espai.name}">
-                    <option value="" ${acces ? "" : raw("selected")}>— cap acces —</option>
+                  <input type="hidden" name="ledger_id" value="${workspace.id}" />
+                  <select name="role" aria-label="Acces de ${user.email} a ${workspace.name}">
+                    <option value="" ${access ? "" : raw("selected")}>— cap acces —</option>
                     ${LEDGER_ROLES.map(
                       (rol) =>
-                        html`<option value="${rol}" ${acces?.role === rol ? raw("selected") : ""}>
-                          ${NOMS_ROL[rol]}
+                        html`<option value="${rol}" ${access?.role === rol ? raw("selected") : ""}>
+                          ${NAMES_ROL[rol]}
                         </option>`,
                     )}
                   </select>
@@ -138,22 +132,22 @@ export function Targeta({
 
     <form
       hx-post="${base}/contrasenya"
-      hx-target="#usuari-${usuari.id}"
+      hx-target="#usuari-${user.id}"
       hx-swap="outerHTML"
       class="form-edicio"
     >
       <h3 class="menu-titol">Reinicia la contrasenya</h3>
-      ${ErrorGeneral(passwordErrors)}
+      ${FormError(passwordErrors)}
       <div class="form-linia">
-        ${Camp({
-          nom: "password",
+        ${Field({
+          name: "password",
           id: `${idPrefix}-password`,
-          etiqueta: "Contrasenya nova",
-          tipus: "password",
+          tag: "Contrasenya nova",
+          type: "password",
           errors: passwordErrors,
           requerit: true,
           autocomplete: "new-password",
-          ajuda: "Com a minim 10 carácters. Li tanca totes les sessions obertes.",
+          help: "Com a minim 10 carácters. Li tanca totes les sessions obertes.",
         })}
       </div>
       <div class="form-accions">
@@ -162,25 +156,25 @@ export function Targeta({
     </form>
 
     <div class="form-accions">
-      <form hx-post="${base}/estat" hx-target="#usuari-${usuari.id}" hx-swap="outerHTML">
+      <form hx-post="${base}/estat" hx-target="#usuari-${user.id}" hx-swap="outerHTML">
         <button
           type="submit"
           class="boto boto-discret"
           ${soc ? raw("disabled title='No et pots desactivar tu mateix'") : ""}
         >
-          ${usuari.isActive ? "Desactiva'l" : "Activa'l"}
+          ${user.isActive ? "Desactiva'l" : "Activa'l"}
         </button>
       </form>
     </div>
   </section>` as Html;
 }
 
-export interface FormAltaProps {
+export interface CreateFormProps {
   errors?: FieldErrors | undefined;
   valors?: { email?: string; full_name?: string } | undefined;
 }
 
-export function FormAlta({ errors, valors }: FormAltaProps): Html {
+export function CreateForm({ errors, valors }: CreateFormProps): Html {
   return html`<form
     id="form-usuari"
     class="superficie targeta"
@@ -189,39 +183,39 @@ export function FormAlta({ errors, valors }: FormAltaProps): Html {
     hx-swap="outerHTML"
   >
     <h2>Afegeix un usuari</h2>
-    ${ErrorGeneral(errors)}
+    ${FormError(errors)}
 
     <div class="form-linia">
-      ${Camp({
-        nom: "email",
-        etiqueta: "Correu",
-        tipus: "email",
+      ${Field({
+        name: "email",
+        tag: "Correu",
+        type: "email",
         valor: valors?.email ?? "",
         errors,
         requerit: true,
         autocomplete: "off",
       })}
-      ${Camp({
-        nom: "full_name",
-        etiqueta: "Nom",
+      ${Field({
+        name: "full_name",
+        tag: "Nom",
         valor: valors?.full_name ?? "",
         errors,
         autocomplete: "off",
       })}
-      ${Camp({
-        nom: "password",
-        etiqueta: "Contrasenya",
-        tipus: "password",
+      ${Field({
+        name: "password",
+        tag: "Contrasenya",
+        type: "password",
         errors,
         requerit: true,
         autocomplete: "new-password",
-        ajuda: "Com a minim 10 carácters.",
+        help: "Com a minim 10 carácters.",
       })}
     </div>
 
-    ${Casella({
-      nom: "is_admin",
-      etiqueta: "Administrador de la instal·lacio (bancs i usuaris)",
+    ${Checkbox({
+      name: "is_admin",
+      tag: "Administrador de la instal·lacio (bancs i usuaris)",
     })}
 
     <div class="form-accions">

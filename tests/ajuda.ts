@@ -21,9 +21,9 @@ import { attributeOf } from "../htmx-contract/index.ts";
 import { app } from "../src/server.ts";
 
 /** La contrasenya que fan servir totes les proves. */
-export const CONTRASENYA = "provaprovaprova";
+export const PASSWORD = "provaprovaprova";
 
-export interface Sessio {
+export interface Session {
   /** La galeta de sessio, a punt per posar a `Cookie`. */
   cookie: string;
   /** El testimoni per a qualsevol peticio que no sigui `GET`. */
@@ -31,7 +31,7 @@ export interface Sessio {
 }
 
 /** La primera galeta d'un `set-cookie`, sense els seus atributs. */
-function galeta(res: Response): string {
+function firstCookie(res: Response): string {
   return (res.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
 }
 
@@ -42,20 +42,19 @@ function galeta(res: Response): string {
  * d'entrada encara no te sessio i duu un `_csrf` derivat d'una galeta llavor
  * d'un sol us; el testimoni de debo no existeix fins que la sessio existeix.
  */
-export async function entra(email: string, contrasenya = CONTRASENYA): Promise<Sessio> {
-  const formulari = await app.request("/entrada");
-  const llavor = galeta(formulari);
-  const camp =
-    (await attributeOf(await formulari.text(), 'input[name="_csrf"]', "value")) ?? "";
+export async function signIn(email: string, contrasenya = PASSWORD): Promise<Session> {
+  const form = await app.request("/entrada");
+  const seed = firstCookie(form);
+  const field = (await attributeOf(await form.text(), 'input[name="_csrf"]', "value")) ?? "";
 
-  const entrada = await app.request("/entrada", {
+  const login = await app.request("/entrada", {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: llavor },
-    body: new URLSearchParams({ _csrf: camp, email, password: contrasenya }).toString(),
+    headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seed },
+    body: new URLSearchParams({ _csrf: field, email, password: contrasenya }).toString(),
   });
-  const cookie = galeta(entrada);
+  const cookie = firstCookie(login);
 
-  return { cookie, csrf: await csrfDeLaSessio(cookie) };
+  return { cookie, csrf: await csrfForSession(cookie) };
 }
 
 /**
@@ -64,12 +63,12 @@ export async function entra(email: string, contrasenya = CONTRASENYA): Promise<S
  * Surt de l'`hx-headers` del `<body>`, que es on la disposicio el publica un
  * sol cop perque totes les peticions d'HTMX l'heretin.
  */
-export async function csrfDeLaSessio(cookie: string): Promise<string> {
-  const pagina = await app.request("/contrasenya", { headers: { Cookie: cookie } });
-  const capceleres = await attributeOf(await pagina.text(), "body", "hx-headers");
-  if (capceleres === null) return "";
+export async function csrfForSession(cookie: string): Promise<string> {
+  const page = await app.request("/contrasenya", { headers: { Cookie: cookie } });
+  const headers = await attributeOf(await page.text(), "body", "hx-headers");
+  if (headers === null) return "";
   try {
-    const llegit: unknown = JSON.parse(capceleres);
+    const llegit: unknown = JSON.parse(headers);
     if (typeof llegit !== "object" || llegit === null) return "";
     const valor = (llegit as Record<string, unknown>)["X-CSRF-Token"];
     return typeof valor === "string" ? valor : "";
@@ -79,14 +78,14 @@ export async function csrfDeLaSessio(cookie: string): Promise<string> {
 }
 
 /** Una peticio autenticada, amb el testimoni ja posat si cal. */
-export async function comA(
-  sessio: Sessio,
+export async function requestAs(
+  session: Session,
   url: string,
   init: RequestInit = {},
 ): Promise<Response> {
   const metode = (init.method ?? "GET").toUpperCase();
-  const capceleres = new Headers(init.headers);
-  capceleres.set("Cookie", sessio.cookie);
-  if (metode !== "GET" && metode !== "HEAD") capceleres.set("X-CSRF-Token", sessio.csrf);
-  return app.request(url, { ...init, headers: capceleres });
+  const headers = new Headers(init.headers);
+  headers.set("Cookie", session.cookie);
+  if (metode !== "GET" && metode !== "HEAD") headers.set("X-CSRF-Token", session.csrf);
+  return app.request(url, { ...init, headers: headers });
 }

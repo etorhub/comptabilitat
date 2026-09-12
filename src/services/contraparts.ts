@@ -6,23 +6,23 @@
  */
 
 import { db, type Transactor } from "../db/client.ts";
-import { obteOCreaComerc } from "./merchants.ts";
+import { getOrCreateMerchant } from "./merchants.ts";
 import { normalizeDescription } from "./normalization.ts";
 
-export interface DadesContrapart {
+export interface CounterpartyData {
   description: string;
   counterparty: string;
   bookingDate: string | null;
 }
 
-export interface Contrapart {
+export interface Counterparty {
   merchantId: number | null;
   /** El que s'ha d'escriure a `transactions.normalized_description`. */
   normalizedKey: string;
   displayName: string;
 }
 
-const CONTRAPART_BUIDA: Contrapart = {
+const COUNTERPARTY_EMPTY: Counterparty = {
   merchantId: null,
   normalizedKey: "",
   displayName: "",
@@ -34,25 +34,25 @@ const CONTRAPART_BUIDA: Contrapart = {
  * @param incrementaComptador es passa tal qual a `obteOCreaComerc`: fals per
  *   a reassignacions en lot que després recompten.
  */
-export async function resolContrapart(
+export async function resolveCounterparty(
   ledgerId: number,
-  dades: DadesContrapart,
-  connexio: Transactor = db,
+  data: CounterpartyData,
+  connection: Transactor = db,
   incrementaComptador = true,
-): Promise<Contrapart> {
-  const [normalitzat, mostrar] = normalizeDescription(dades.description, dades.counterparty);
-  if (!normalitzat) return CONTRAPART_BUIDA;
+): Promise<Counterparty> {
+  const [normalitzat, mostrar] = normalizeDescription(data.description, data.counterparty);
+  if (!normalitzat) return COUNTERPARTY_EMPTY;
 
-  const comerc = await obteOCreaComerc(
+  const merchant = await getOrCreateMerchant(
     ledgerId,
     normalitzat,
     mostrar,
-    dades.bookingDate,
-    connexio,
+    data.bookingDate,
+    connection,
     incrementaComptador,
   );
   return {
-    merchantId: comerc?.id ?? null,
+    merchantId: merchant?.id ?? null,
     normalizedKey: normalitzat,
     displayName: mostrar,
   };
