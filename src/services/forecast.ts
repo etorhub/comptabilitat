@@ -1,9 +1,9 @@
 /**
- * Projeccio del saldo a partir dels rebuts previstos confirmats.
+ * Projection of the balance from the confirmed expected direct debits.
  *
- * Al saldo d'avui s'hi sumen els schedules actius amb `include_in_forecast`.
- * No hi ha «despesa variable» residual: el que no es un rebut previst es mira
- * als informes, no a la previsio.
+ * The active schedules with `include_in_forecast` are added to today's
+ * balance. There is no residual «variable expense»: what is not an expected
+ * direct debit is looked at in the reports, not in the forecast.
  */
 
 import { and, eq } from "drizzle-orm";
@@ -28,7 +28,7 @@ export interface ForecastPoint {
   esperat: MoneyString;
   optimista: MoneyString;
   pessimista: MoneyString;
-  /** Recta de minims quadrats sobre `esperat`: la tendencia de conjunt. */
+  /** Least-squares line over `esperat`: the overall trend. */
   tendencia: MoneyString;
 }
 
@@ -39,9 +39,9 @@ export interface Forecast {
   openingBalance: MoneyString;
   llindar: MoneyString;
   horizonDays: number;
-  /** Sempre zero: es conserva al tipus per no trencar la UI dels grafics. */
+  /** Always zero: kept in the type so as not to break the charts' UI. */
   dailySpend: MoneyString;
-  /** Saldo real reconstruit cap enrere (mateixa amplada que l'horitzo). */
+  /** Real balance rebuilt backwards (same width as the horizon). */
   historic: BalancePoint[];
   points: ForecastPoint[];
   events: EventExpected[];
@@ -49,7 +49,7 @@ export interface Forecast {
   firstOverdraftAmount: MoneyString | null;
 }
 
-/** Rebuts previstos confirmats d'aqui a l'horitzo. */
+/** Confirmed expected direct debits from here to the horizon. */
 export async function eventsExpected(
   ledgerId: number,
   horitzo: string,
@@ -101,7 +101,7 @@ export async function buildForecast(
   const [{ total: balance }, events, historic] = await Promise.all([
     workspaceBalance(workspace.id),
     eventsExpected(workspace.id, horitzo, inici),
-    // Mateixa amplada a esquerra i dreta del grafic.
+    // Same width to the left and to the right of the chart.
     balanceSeries([workspace.id], addDays(inici, -days), inici),
   ]);
 
@@ -122,7 +122,7 @@ export async function buildForecast(
     corrent = corrent.plus(byDay.get(day) ?? new Decimal(0));
     const esperat = corrent.toDecimalPlaces(2);
 
-    // Sense despesa residual, les bandes coincideixen amb l'esperat.
+    // With no residual expense, the bands coincide with the expected value.
     pointsWithoutTrend.push({
       day,
       esperat: toMoneyString(esperat),

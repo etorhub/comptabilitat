@@ -1,25 +1,25 @@
 /**
- * Neteja dels conceptes bancaris per obtenir el nom del comerç.
+ * Cleaning of bank concepts to get the merchant's name.
  *
- * Els conceptes del Santander arriben amb molt de soroll: tipus d'operacio,
- * digits de la targeta, dates, poblacio i referencies internes. Aixo ho
- * redueix a un nom estable que serveix de clau de la memoria de comerços
+ * Santander's concepts arrive with a lot of noise: operation type, card
+ * digits, dates, town and internal references. This reduces them to a stable
+ * name that serves as the key of the merchant memory
  * (`normalizeDescription`).
  *
- * Traduccio de `backend/app/services/normalization.py`. La majoria de casos
- * han de donar el mateix resultat que el Python (vegeu
- * `tests/fixtures/normalitzacio.json`), pero **no es dona per bona** la
- * decisio antiga de tractar `COMISION` / `CAJERO` a qualsevol lloc del
- * concepte com a cubell especial, ni de reciclar el prefix cru quan no
- * queda cap token. Aquells moviments s'han de reassignar amb
- * `reassignaNormalitzacio`.
+ * A translation of `backend/app/services/normalization.py`. Most cases have
+ * to give the same result as the Python (see
+ * `tests/fixtures/normalitzacio.json`), but the old decision to treat
+ * `COMISION` / `CAJERO` anywhere in the concept as a special bucket, or to
+ * recycle the raw prefix when no token is left, is **not taken as correct**.
+ * Those transactions have to be reassigned with `reassignNormalization`.
  *
- * **`normalizeDescription` no es toca mai a la lleugera**: `tests/normalitzacio.test.ts`
- * la compara amb la sortida gravada del Python, i canviar-la reagruparia tots
- * els `merchants.normalized_name` que ja hi ha.
+ * **`normalizeDescription` is never changed lightly**: the recorded Python
+ * output is compared against it in `tests/unitat/normalitzacio.test.ts`, and
+ * changing it would regroup every `merchants.normalized_name` that already
+ * exists.
  */
 
-/** Detecta el tipus abans de treure cap prefix (sobre el text cru del banc). */
+/** Detects the type before removing any prefix (over the bank's raw text). */
 export type OperationType = "targeta" | "transferencia" | "bizum" | "rebut" | "altres";
 
 export const OPERATION_TYPES = [
@@ -31,10 +31,11 @@ export const OPERATION_TYPES = [
 ] as const satisfies readonly OperationType[];
 
 /**
- * El tipus d'operacio decideix on va la contrapart (`services/contraparts.ts`):
- * nomes `transferencia` fa actor. Un Bizum, encara que tambe sigui un
- * traspas entre persones, continua sent comerç: el titular ho ha decidit
- * expressament (moltes compres per Bizum son a un negoci, no a una persona).
+ * The operation type decides where the counterparty goes
+ * (`services/contraparts.ts`): only `transferencia` makes an actor. A Bizum,
+ * even though it is also a transfer between people, stays a merchant: the
+ * account holder decided so expressly (many Bizum purchases are to a
+ * business, not to a person).
  */
 export function detectOperationType(text: string): OperationType {
   const t = text.trim();
@@ -52,13 +53,13 @@ export function detectOperationType(text: string): OperationType {
   return "altres";
 }
 
-/** Prefixos que descriuen el tipus d'operacio i no el comerç. */
+/** Prefixes that describe the operation type and not the merchant. */
 const PREFIX_PATTERNS: RegExp[] = [
   /^COMPRA\s+(?:CON\s+)?TARJ(?:ETA)?\.?\s*(?:DE\s+CREDITO|DE\s+DEBITO)?\s*/,
   /^PAGO\s+(?:MOVIL|CON\s+MOVIL|TARJETA|EN)\s*(?:EN\s+)?/,
   /^COMPRA\s+EN\s+/,
-  // `\b\s*` (no `\s+`) perque un concepte que nomes diu «COMPRA» no
-  // s'ha de quedar com a nom de comerç.
+  // `\b\s*` (not `\s+`) because a concept that only says «COMPRA» must not
+  // be left as the merchant name.
   /^COMPRA\b\s*/,
   /^ADEUDO\s+(?:POR\s+)?DOMICILIACION(?:\s+DE)?\s*/,
   /^ADEUDO\b\s*/,
@@ -81,36 +82,36 @@ const PREFIX_PATTERNS: RegExp[] = [
   /^CARGO\b(?:\s+(?:DE\s+)?)?/,
 ];
 
-/** Soroll que pot apareixer a qualsevol posicio del concepte. */
+/** Noise that can appear at any position in the concept. */
 const NOISE_PATTERNS: [RegExp, string][] = [
-  // Linia de comissio que el Santander afegeix a les compres (no es el concepte).
+  // Commission line Santander adds to purchases (it is not the concept).
   [/\bCOMISION\s+\d+[.,]\d{2}\b/gi, " "],
-  // Targeta completa al final: «TARJETA 5489010385484017»
+  // Full card at the end: «TARJETA 5489010385484017»
   [/\bTARJETA\s+\d{10,19}\b/gi, " "],
-  // Numeros de targeta emmascarats: 5402XXXXXXXX1234, 1234******5678
+  // Masked card numbers: 5402XXXXXXXX1234, 1234******5678
   [/\b\d{2,6}[X*]{3,}\d{2,6}\b/gi, " "],
   [/\b[X*]{4,}\d{2,6}\b/gi, " "],
-  // Dates i hores
+  // Dates and times
   [/\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b/g, " "],
   [/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, " "],
-  // Referencies llargues i identificadors
+  // Long references and identifiers
   [/\b[A-Z]{0,3}\d{8,}\b/g, " "],
-  // Codis mixtos (lletra+digit) tipus «P45ED4AF0B» de Spotify / passarel·les.
+  // Mixed codes (letter+digit) like «P45ED4AF0B» from Spotify / payment gateways.
   [/\b(?=[A-Z0-9]*\d)(?=[A-Z0-9]*[A-Z])[A-Z0-9]{8,}\b/g, " "],
   [/\bREF\.?\s*[:-]?\s*\w*/gi, " "],
   [/\bMANDATO\s*[:-]?\s*\w+/gi, " "],
   [/\bCONCEPTO\s*[:-]?/gi, " "],
-  // NIF/CIF espanyols
+  // Spanish NIF/CIF
   [/\b[A-Z]\d{7}[A-Z0-9]\b/g, " "],
   [/\b\d{8}[A-Z]\b/g, " "],
   // IBAN
   [/\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b/g, " "],
-  // Restes de puntuacio i separadors
+  // Leftover punctuation and separators
   [/[·|;]+/g, " "],
   [/\s*[-_]{2,}\s*/g, " "],
 ];
 
-/** A partir d'aquestes paraules, la resta del concepte es referencia interna. */
+/** From these words on, the rest of the concept is an internal reference. */
 const TRUNCATE_PATTERNS: RegExp[] = [
   /\bCONCEPTO\b/i,
   /\bREF\.?\b/i,
@@ -119,11 +120,11 @@ const TRUNCATE_PATTERNS: RegExp[] = [
 ];
 
 /**
- * Operacions que no tenen comerç: nom fix i reconeixible.
+ * Operations that have no merchant: a fixed, recognizable name.
  *
- * Nomes a l'**inici** del concepte. Una compra amb «COMISION 0,00» al final
- * (Santander) no es una comissio bancaria; «CAJERO» al mig d'una compra
- * tampoc es un reintegrament.
+ * Only at the **start** of the concept. A purchase with «COMISION 0,00» at
+ * the end (Santander) is not a bank fee; «CAJERO» in the middle of a purchase
+ * is not a withdrawal either.
  */
 const SPECIAL_PATTERNS: [RegExp, string][] = [
   [/^(?:REINTEGRO|DISPOSICION\s+DE\s+EFECTIVO)\b/, "REINTEGRO EFECTIU"],
@@ -131,10 +132,10 @@ const SPECIAL_PATTERNS: [RegExp, string][] = [
   [/^TRASPASO\b/, "TRASPAS ENTRE COMPTES"],
 ];
 
-/** Preposicions que queden penjades al davant despres de treure el prefix. */
+/** Prepositions left dangling at the front after removing the prefix. */
 const LEADING_STOPWORDS = new Set(["EN", "A", "DE", "DEL", "LA", "EL", "POR", "PARA", "FAVOR"]);
 
-/** Els mesos surten a nomines i rebuts i no identifiquen res. */
+/** Months show up in payslips and direct debits and identify nothing. */
 const MONTHS = new Set([
   "ENERO",
   "FEBRERO",
@@ -160,7 +161,7 @@ const MONTHS = new Set([
   "DESEMBRE",
 ]);
 
-/** Sigles societaries que es deixen en majuscules encara que siguin llargues. */
+/** Company suffixes left in capitals even when they are long. */
 const COMPANY_SUFFIXES = new Set([
   "SA",
   "SL",
@@ -175,7 +176,7 @@ const COMPANY_SUFFIXES = new Set([
   "LTD",
 ]);
 
-/** Enllaços que dins d'un nom van en minuscula. */
+/** Linking words that go in lower case inside a name. */
 const CONNECTORS = new Set([
   "DE",
   "DEL",
@@ -192,7 +193,7 @@ const CONNECTORS = new Set([
   "EN",
 ]);
 
-/** Paraules curtes que son paraules de debò, no sigles: «Bar», no «BAR». */
+/** Short words that are real words, not acronyms: «Bar», not «BAR». */
 const SHORT_WORDS = new Set([
   "BAR",
   "CAL",
@@ -207,7 +208,7 @@ const SHORT_WORDS = new Set([
   "CASA",
 ]);
 
-/** Paraules finals que solen ser la poblacio o dades del terminal. */
+/** Trailing words that are usually the town or terminal data. */
 const TRAILING_NOISE = new Set([
   "ES",
   "ESP",
@@ -224,25 +225,25 @@ export function stripAccents(text: string): string {
   return text.normalize("NFKD").replace(/\p{Diacritic}/gu, "");
 }
 
-/** Equivalent de `str.isdigit()` de Python per als casos que ens arriben. */
+/** Equivalent of Python's `str.isdigit()` for the cases that reach us. */
 const esNumero = (token: string): boolean => /^\d+$/.test(token);
 
 /**
- * Equivalent de `str.isupper()` de Python: cert si tots els carácters amb
- * caixa son majuscules **i n'hi ha com a minim un**. «4B» es cert; «123», no.
+ * Equivalent of Python's `str.isupper()`: true if every cased character is
+ * upper case **and there is at least one**. «4B» is true; «123» is not.
  */
 function esMajuscules(word: string): boolean {
   if (!/[a-zA-Z]/.test(word)) return false;
   return word === word.toUpperCase();
 }
 
-/** Equivalent de `str.capitalize()`: la primera lletra amunt, la resta avall. */
+/** Equivalent of `str.capitalize()`: first letter up, the rest down. */
 function capitalitza(word: string): string {
   if (word.length === 0) return word;
   return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
 }
 
-/** Treu els carácters indicats dels dos extrems, com el `strip(" .")`. */
+/** Strips the given characters from both ends, like `strip(" .")`. */
 function retallaExtrems(text: string, chars: string): string {
   let inici = 0;
   let fi = text.length;
@@ -252,7 +253,7 @@ function retallaExtrems(text: string, chars: string): string {
 }
 
 /**
- * Converteix la clau en majuscules en un nom llegible.
+ * Turns the upper-case key into a readable name.
  */
 export function displayName(normalized: string): string {
   const words: string[] = [];
@@ -260,13 +261,13 @@ export function displayName(normalized: string): string {
 
   for (const [position, word] of parts.entries()) {
     if (position > 0 && CONNECTORS.has(word)) {
-      // «Comunitat de Propietaris», no «Comunitat DE Propietaris».
+      // «Comunitat de Propietaris», not «Comunitat DE Propietaris».
       words.push(word.toLowerCase());
     } else if (
       COMPANY_SUFFIXES.has(word) ||
       (word.length <= 3 && esMajuscules(word) && !esNumero(word) && !SHORT_WORDS.has(word))
     ) {
-      // Sigles i codis curts com SA, SL o 4B es deixen tal qual.
+      // Acronyms and short codes like SA, SL or 4B are left as they are.
       words.push(word);
     } else {
       words.push(capitalitza(word));
@@ -277,19 +278,19 @@ export function displayName(normalized: string): string {
 }
 
 /**
- * Retorna `[clau normalitzada, nom per mostrar]`.
+ * Returns `[normalized key, display name]`.
  *
- * La clau es en majuscules i sense accents, apta per agrupar. El nom per
- * mostrar es el mateix text amb una capitalitzacio llegible.
+ * The key is upper case and without accents, fit for grouping. The display
+ * name is the same text with a readable capitalization.
  */
 export function normalizeDescription(description: string, counterparty = ""): [string, string] {
-  // Si el banc ja dona la contrapart, es molt mes fiable que el concepte lliure.
+  // If the bank already gives the counterparty, it is far more reliable than the free concept.
   const source = counterparty.trim() || description.trim();
   if (!source) return ["", ""];
 
   let text = stripAccents(source).toUpperCase();
 
-  // Les operacions sense comerç es resolen abans de res (nomes a l'inici).
+  // Operations with no merchant are resolved first of all (only at the start).
   if (!counterparty.trim()) {
     for (const [pattern, label] of SPECIAL_PATTERNS) {
       if (pattern.test(text)) {
@@ -303,7 +304,7 @@ export function normalizeDescription(description: string, counterparty = ""): [s
     const replaced = text.replace(pattern, "");
     if (replaced !== text) {
       text = replaced;
-      // Amb un prefix conegut, el que va despres d'una coma sol ser la poblacio.
+      // With a known prefix, what comes after a comma is usually the town.
       text = text.split(",")[0] ?? "";
       haTretPrefix = true;
       break;
@@ -333,13 +334,13 @@ export function normalizeDescription(description: string, counterparty = ""): [s
     else break;
   }
 
-  // Els noms molt llargs es retallen: la cua sol ser referencia interna.
+  // Very long names are trimmed: the tail is usually an internal reference.
   const normalized = retallaExtrems(tokens.slice(0, 6).join(" ").slice(0, 200), " .");
   if (!normalized) {
-    // Si nomes hi havia el prefix d'operacio, no el reciclem com a nom de
-    // comerç: totes les «PAGO MOVIL EN» buides acabarien al mateix lloc.
+    // If there was only the operation prefix, we do not recycle it as a
+    // merchant name: every empty «PAGO MOVIL EN» would end up in the same place.
     if (haTretPrefix) return ["", ""];
-    // Sense prefix: millor alguna clau que deixar el moviment sense nom.
+    // With no prefix: better some key than leaving the transaction nameless.
     const fallback = stripAccents(source)
       .toUpperCase()
       .split(/\s+/)

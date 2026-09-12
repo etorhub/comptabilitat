@@ -1,8 +1,8 @@
 /**
- * Categories: arbre, estadistiques i esborrat amb reassignacio.
+ * Categories: tree, statistics and deletion with reassignment.
  *
- * Traduccio de `backend/app/api/routes/categories.py`, amb la logica treta de
- * la ruta i posada aqui.
+ * A translation of `backend/app/api/routes/categories.py`, with the logic
+ * taken out of the route and put here.
  */
 
 import { and, count, eq, isNotNull, sum } from "drizzle-orm";
@@ -21,13 +21,13 @@ import { AppError, ConflictError, NotFoundError } from "../lib/http.ts";
 import { money, toMoneyString, type MoneyString } from "../lib/money.ts";
 import { PROTECTED_SLUGS, slugify } from "./slugs.ts";
 
-/** Una categoria amb el que se n'ensenya a la pantalla. */
+/** A category with what is shown of it on screen. */
 export interface CategoryView {
   id: number;
   parentId: number | null;
   slug: string;
   name: string;
-  /** «Pare › Filla», com el `full_name` del Python. */
+  /** «Parent › Child», like the Python's `full_name`. */
   fullName: string;
   kind: CategoryKind;
   color: string;
@@ -35,7 +35,7 @@ export interface CategoryView {
   isSystem: boolean;
   transactionCount: number;
   totalAmount: MoneyString;
-  /** Es una de les que no es poden esborrar mai. */
+  /** One of those that can never be deleted. */
   isProtected: boolean;
 }
 
@@ -43,7 +43,7 @@ export interface NodeCategory extends CategoryView {
   filles: CategoryView[];
 }
 
-/** Les categories de l'espai, en l'ordre en que s'han de mostrar. */
+/** The workspace's categories, in the order they should be shown. */
 export async function listCategories(ledgerId: number): Promise<Category[]> {
   return db
     .select()
@@ -53,8 +53,8 @@ export async function listCategories(ledgerId: number): Promise<Category[]> {
 }
 
 /**
- * Nombre de moviments i suma per categoria, amb les filles **acumulades al
- * pare**, com feia `_rollup_stats`.
+ * Transaction count and sum per category, with the children **rolled up into
+ * the parent**, as `_rollup_stats` did.
  */
 async function rollupStats(ledgerId: number): Promise<Map<number, [number, MoneyString]>> {
   const rows = await db
@@ -96,7 +96,7 @@ function acumula(
   return acumulades;
 }
 
-/** L'arbre sencer, agrupat per tipus, amb estadistiques si es demanen. */
+/** The whole tree, grouped by type, with statistics if they are asked for. */
 export async function categoryTree(
   ledgerId: number,
   ambEstadistiques = true,
@@ -141,7 +141,7 @@ export async function categoryTree(
   return tree;
 }
 
-/** Una categoria d'aquest espai, o 404. */
+/** A category of this workspace, or 404. */
 export async function categoryInWorkspace(id: number, ledgerId: number): Promise<Category> {
   const [category] = await db
     .select()
@@ -152,7 +152,7 @@ export async function categoryInWorkspace(id: number, ledgerId: number): Promise
   return category;
 }
 
-/** Un pendent unic dins de l'espai, afegint-hi `-2`, `-3`... si cal. */
+/** A slug unique within the workspace, adding `-2`, `-3`... if needed. */
 async function pendentLliure(ledgerId: number, base: string): Promise<string> {
   let candidat = base;
   let sufix = 2;
@@ -183,7 +183,7 @@ export async function createCategory(
   let parent: Category | null = null;
   if (data.parentId !== null) {
     parent = await categoryInWorkspace(data.parentId, ledgerId);
-    // Nomes dos nivells: una categoria amb pare no en pot tenir de filles.
+    // Two levels only: a category with a parent cannot have children.
     if (parent.parentId !== null) {
       throw new AppError("Nomes s'admeten dos nivells de categories", 422);
     }
@@ -198,7 +198,7 @@ export async function createCategory(
       ledgerId,
       slug,
       name: data.name,
-      // Una subcategoria hereta sempre el tipus del pare.
+      // A subcategory always inherits the parent's type.
       kind: parent ? parent.kind : data.kind,
       parentId: parent?.id ?? null,
       color: data.color,
@@ -227,7 +227,7 @@ export async function renameCategory(
   return actualitzada;
 }
 
-/** Quants moviments hi ha en una categoria. */
+/** How many transactions there are in a category. */
 export async function transactionsOf(categoryId: number): Promise<number> {
   const [row] = await db
     .select({ n: count() })
@@ -245,14 +245,14 @@ async function tefilles(id: number, ledgerId: number): Promise<number> {
 }
 
 /**
- * Esborra una categoria.
+ * Deletes a category.
  *
- * Si te moviments i no es diu on han d'anar, es un **409**: la interficie el
- * fa servir per demanar a qui sigui que triï una categoria de desti.
+ * If it has transactions and no destination is given, it is a **409**: the
+ * interface uses it to ask whoever it is to pick a destination category.
  *
- * Compte amb l'ordre: cal reassignar-ho tot **abans** d'esborrar, perque la
- * clau forana de `rules.set_category_id` es CASCADE i esborrar primer se
- * n'enduria les regles que hi apuntaven.
+ * Mind the order: everything has to be reassigned **before** deleting,
+ * because the foreign key of `rules.set_category_id` is CASCADE and deleting
+ * first would take away the rules that pointed at it.
  */
 export async function deleteCategory(
   id: number,
@@ -282,7 +282,7 @@ export async function deleteCategory(
       if (reassignTo === id) {
         throw new AppError("No es pot reassignar a la mateixa categoria", 422);
       }
-      // Que sigui d'aquest espai: si no, es podrien moure moviments a un altre.
+      // It must belong to this workspace: otherwise transactions could be moved to another one.
       const [desti] = await tx
         .select({ id: categories.id })
         .from(categories)
@@ -302,9 +302,9 @@ export async function deleteCategory(
         .update(rules)
         .set({ setCategoryId: reassignTo })
         .where(and(eq(rules.ledgerId, ledgerId), eq(rules.setCategoryId, id)));
-      // Les series recurrents d'aquesta categoria s'esborren en cascada
-      // (`fk_recurring_series_category_id_categories`). Si la de desti te
-      // el mateix patro, `detectaRecurrents` les torna a proposar.
+      // The recurring series of this category are deleted in cascade
+      // (`fk_recurring_series_category_id_categories`). If the destination one
+      // has the same pattern, `detectRecurring` proposes them again.
       await tx
         .update(llmSuggestions)
         .set({ suggestedCategoryId: reassignTo })
@@ -316,10 +316,10 @@ export async function deleteCategory(
 }
 
 /**
- * Les categories com a opcions per a un `<select>` amb `<optgroup>`.
+ * The categories as options for a `<select>` with `<optgroup>`.
  *
- * Aixo es el que substitueix el `SelectorCategoria` de 372 linies: dos nivells
- * son exactament el que un `<optgroup>` sap fer.
+ * This is what replaces the 372-line `SelectorCategoria`: two levels are
+ * exactly what an `<optgroup>` knows how to do.
  */
 export interface CategoryGroup {
   tag: string;
@@ -338,7 +338,7 @@ export async function categoryOptions(
     if (parent.parentId !== null || fora.has(parent.id)) continue;
     const filles = all.filter((c) => c.parentId === parent.id && !fora.has(c.id));
     const options = [
-      // El pare tambe s'hi pot triar: hi ha moviments que no son de cap filla.
+      // The parent can be chosen too: some transactions belong to no child.
       { value: parent.id, text: parent.name },
       ...filles.map((f) => ({ value: f.id, text: `  ${f.name}` })),
     ];
@@ -347,7 +347,7 @@ export async function categoryOptions(
   return groups;
 }
 
-/** Quantes categories hi ha a l'espai. Per saber si cal sembrar-hi el pla. */
+/** How many categories the workspace has. To know whether to seed the plan. */
 export async function countCategories(ledgerId: number): Promise<number> {
   const [row] = await db
     .select({ n: count() })

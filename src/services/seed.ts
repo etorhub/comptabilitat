@@ -1,10 +1,10 @@
 /**
- * Dades inicials: espais i pla de categories, en català.
+ * Initial data: workspaces and category plan, in Catalan.
  *
- * Traduccio de `backend/app/services/seed.py`. Els arbres s'han generat a
- * partir d'aquell fitxer per no transcriure vuitanta categories a ma, i els
- * pendents que en surten han de coincidir amb els que ja hi ha desats: la
- * prova de `tests/seed.test.ts` ho comprova.
+ * A translation of `backend/app/services/seed.py`. The trees were generated
+ * from that file so as not to transcribe eighty categories by hand, and the
+ * slugs that come out of them have to match the ones already stored: the
+ * `tests/seed.test.ts` test checks it.
  */
 
 import { and, eq } from "drizzle-orm";
@@ -14,7 +14,7 @@ import { categories, ledgers, type Ledger } from "../db/schema/index.ts";
 import type { CategoryKind } from "../db/schema/index.ts";
 import { slugify } from "./slugs.ts";
 
-/** [nom del pare, color, [fills]] */
+/** [parent name, color, [children]] */
 export type Tree = readonly (readonly [string, string, readonly string[]])[];
 
 export const EXPENSE_TREE: Tree = [
@@ -89,8 +89,8 @@ export const DEFAULT_LEDGERS: readonly (readonly [string, string, string, string
 ];
 
 /**
- * Crea el pla de categories d'un espai. Es idempotent pel pendent: tornar-ho
- * a cridar no duplica res.
+ * Creates a workspace's category plan. It is idempotent by slug: calling it
+ * again duplicates nothing.
  */
 export async function seedCategories(ledgerId: number): Promise<number> {
   const trees: readonly (readonly [CategoryKind, Tree])[] = [
@@ -167,7 +167,7 @@ export async function seedCategories(ledgerId: number): Promise<number> {
   return creades;
 }
 
-/** Crea els tres espais inicials amb el seu pla, si no hi son. */
+/** Creates the three initial workspaces with their plan, if they are missing. */
 export async function seedLedgers(): Promise<Ledger[]> {
   const created: Ledger[] = [];
 

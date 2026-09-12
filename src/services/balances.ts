@@ -1,11 +1,11 @@
 /**
- * Saldos.
+ * Balances.
  *
- * El banc nomes dona el saldo d'avui. La corba historica, doncs, no es
- * consulta: es **reconstrueix cap enrere** restant els moviments de cada dia
- * al saldo conegut.
+ * The bank only gives today's balance. The historical curve, therefore, is
+ * not queried: it is **rebuilt backwards** by subtracting each day's
+ * transactions from the known balance.
  *
- * Traduccio de `backend/app/services/balances.py`.
+ * A translation of `backend/app/services/balances.py`.
  */
 
 import { and, asc, eq, gt, inArray, lte, max, sum } from "drizzle-orm";
@@ -15,7 +15,7 @@ import { accounts, balances, transactions } from "../db/schema/index.ts";
 import { Decimal, money, toMoneyString, type MoneyString } from "../lib/money.ts";
 import { addDays } from "../lib/time.ts";
 
-/** Ordre de preferencia: comptable tancat, disponible, i despres qualsevol. */
+/** Order of preference: closing booked, available, and then any. */
 const BALANCE_TYPE_PRIORITY = ["CLBD", "CLAV", "ITAV", "XPCD", "OTHR"];
 
 export interface BalanceKnown {
@@ -25,7 +25,7 @@ export interface BalanceKnown {
   balanceType: string;
 }
 
-/** Ultim saldo conegut d'un compte, preferint el saldo comptable. */
+/** An account's last known balance, preferring the booked balance. */
 export async function lastBalance(accountId: number): Promise<BalanceKnown | null> {
   const [last] = await db
     .select({ date: max(balances.referenceDate) })
@@ -57,11 +57,11 @@ export async function lastBalance(accountId: number): Promise<BalanceKnown | nul
 
 export interface WorkspaceBalance {
   total: MoneyString;
-  /** La data del saldo mes recent que s'ha fet servir. */
+  /** The date of the most recent balance used. */
   date: string | null;
 }
 
-/** Suma dels ultims saldos coneguts dels comptes actius d'un espai. */
+/** Sum of the last known balances of a workspace's active accounts. */
 export async function workspaceBalance(ledgerId: number): Promise<WorkspaceBalance> {
   const accountList = await db
     .select({ id: accounts.id })
@@ -87,7 +87,7 @@ export interface BalancePoint {
 }
 
 /**
- * Evolucio diaria del saldo, reconstruida cap enrere des del saldo d'avui.
+ * Daily evolution of the balance, rebuilt backwards from today's balance.
  */
 export async function balanceSeries(
   ledgerIds: number[],

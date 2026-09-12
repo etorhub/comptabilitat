@@ -1,11 +1,11 @@
 /**
- * Posar categoria a un moviment perque ho ha dit una persona.
+ * Setting a transaction's category because a person said so.
  *
- * Es la decisio que **no toca res mes**: ni una regla, ni la memoria d'un
- * comerç, ni el model local la tornaran a canviar. Aixo es tot el que vol dir
- * `category_source = "user"`, i per aixo els quatre camps que ho deixen dit
- * van junts en un sol lloc: estaven escrits a ma quatre vegades dins del
- * mateix fitxer de rutes, i canviar la politica volia dir trobar-les totes.
+ * It is the decision that **nothing else touches**: no rule, no merchant
+ * memory and no local model will change it again. That is all
+ * `category_source = "user"` means, and that is why the four fields that say
+ * it go together in one place: they were written by hand four times inside
+ * the same route file, and changing the policy meant finding them all.
  */
 
 import { and, eq, inArray, isNull } from "drizzle-orm";
@@ -15,7 +15,7 @@ import { llmSuggestions, merchants, transactions } from "../db/schema/index.ts";
 import { NotFoundError } from "../lib/http.ts";
 import { rememberMerchantChoice } from "./merchants.ts";
 
-/** El que vol dir «ho ha decidit una persona». */
+/** What «a person decided it» means. */
 export const HUMAN_DECISION = {
   categorySource: "user",
   categoryConfidence: 1,
@@ -23,20 +23,20 @@ export const HUMAN_DECISION = {
 } as const;
 
 export interface CategorizeOptions {
-  /** Recorda-ho per a tot el comerç d'aquest espai. */
+  /** Remember it for every transaction of this merchant in this workspace. */
   rememberMerchant?: boolean;
 }
 
 export interface CategorizeResult {
-  /** Quants moviments del mateix comerç han heretat la decisio. */
+  /** How many transactions of the same merchant inherited the decision. */
   recordats: number;
 }
 
 /**
- * Posa la categoria a un moviment, amb el que se'n derivi.
+ * Sets the category on a transaction, with whatever follows from it.
  *
- * Tot va dins d'una transaccio: si la memoria del comerç s'escriu i el
- * moviment no —o al reves— l'espai queda dient dues coses diferents.
+ * Everything goes inside a transaction: if the merchant memory is written and
+ * transaction is not —or the other way round— the workspace says two different things.
  */
 export async function categorizeTransaction(
   transactionId: number,
@@ -60,10 +60,10 @@ export async function categorizeTransaction(
 }
 
 /**
- * El mateix, per a uns quants moviments alhora.
+ * The same, for several transactions at once.
  *
- * **Tot o res**: si algun identificador no es de l'espai, no se n'aplica cap.
- * Una peticio a mitges deixaria qui la fa sense saber que ha canviat.
+ * **All or nothing**: if any id is not from the workspace, none is applied.
+ * A half-done request would leave whoever made it not knowing what changed.
  */
 export async function categorizeBulk(
   movimentIds: number[],
@@ -107,10 +107,10 @@ export async function categorizeBulk(
 }
 
 /**
- * Confirmar un moviment des de la safata de revisio.
+ * Confirming a transaction from the review tray.
  *
- * Es el mateix que canviar-li la categoria, i a mes **tanca la proposta del
- * model** dient si l'encertava: es l'unica manera de saber si val la pena.
+ * It is the same as changing its category, and on top of that it **closes the
+ * model's proposal** saying whether it got it right: the only way to know if it is worth it.
  */
 export async function confirmFromReview(
   transactionId: number,
@@ -123,7 +123,7 @@ export async function confirmFromReview(
   return result;
 }
 
-/** Diu si la proposta del model per a aquest comerç era bona. */
+/** Says whether the model's proposal for this merchant was good. */
 async function closeModelProposal(
   merchantId: number | null,
   categoryId: number,

@@ -1,15 +1,15 @@
 /**
- * Moviments: consulta, vista i emmascarament.
+ * Transactions: query, view and masking.
  *
- * **L'emmascarament es una funcio de privadesa i s'aplica aqui, no a la
- * plantilla.** Quan un moviment te `display_description`, aquell text
- * substitueix el concepte del banc, i el comerç i la contrapart no es mostren
- * ni es poden cercar.
+ * **Masking is a privacy feature and is applied here, not in the template.**
+ * When a transaction has `display_description`, that text replaces the bank's
+ * concept, and the merchant and the counterparty are neither shown nor
+ * searchable.
  *
- * En una arquitectura de fragments aixo es un risc real: qualsevol plantilla
- * nova que dibuixes una fila crua se'l saltaria sense que ningu se n'adones.
- * Per aixo tot passa per `vistaMoviment()` i **de `routes/` no s'importa mai
- * el tipus de la fila sencera**.
+ * In a fragment architecture this is a real risk: any new template that drew
+ * a raw row would skip it without anyone noticing. That is why everything
+ * goes through `transactionView()` and **the type of the whole row is never
+ * imported from `routes/`**.
  */
 
 import {
@@ -48,10 +48,10 @@ import { NotFoundError } from "../lib/http.ts";
 import type { MoneyString } from "../lib/money.ts";
 
 /**
- * Un moviment tal com es pot ensenyar.
+ * A transaction as it can be shown.
  *
- * No hi ha ni `raw`, ni `dedupKey`, ni `entryReference`, ni el concepte del
- * banc quan esta emmascarat. Es l'unic tipus que les plantilles accepten.
+ * There is no `raw`, no `dedupKey`, no `entryReference`, and no bank concept
+ * when it is masked. It is the only type the templates accept.
  */
 export interface TransactionView {
   id: number;
@@ -63,20 +63,20 @@ export interface TransactionView {
   currency: string;
   status: TransactionStatus;
   /**
-   * El text que es pot ensenyar: l'alias si n'hi ha; si no, el concepte del
-   * banc ja parsejat (sense targeta ni comissio).
+   * The text that can be shown: the alias if there is one; otherwise the
+   * bank's concept already parsed (without card or commission).
    */
   description: string;
   /**
-   * Text bancari sense PAN/targeta/comissio, per al `title` del boto.
-   * Null quan hi ha alias (la dada del banc no s'ensenya).
+   * Bank text without PAN/card/commission, for the button's `title`.
+   * Null when there is an alias (the bank's data is not shown).
    */
   descriptionHint: string | null;
-  /** Darrers 4 digits de la targeta, o null. Mai amb alias. */
+  /** Last 4 digits of the card, or null. Never with an alias. */
   darrers4: string | null;
   /**
-   * Tipus d'operacio deduit del concepte. Null quan hi ha alias (no ensenyem
-   * metadades del banc).
+   * Operation type deduced from the concept. Null when there is an alias (we
+   * do not show the bank's metadata).
    */
   operationType: OperationType | null;
   counterparty: string;
@@ -91,16 +91,16 @@ export interface TransactionView {
   notes: string;
   tags: string[];
   isExcluded: boolean;
-  /** Cert si algu n'ha amagat el concepte del banc. */
+  /** True if someone has hidden the bank's concept. */
   isMasked: boolean;
-  /** Serie recurrent enllaçada via `recurring_occurrences`, si n'hi ha. */
+  /** Recurring series linked via `recurring_occurrences`, if any. */
   seriesId: number | null;
   seriesLabel: string | null;
 }
 
 /**
- * Columnes explicites. Mai `select()` a seques sobre `transactions`: la fila
- * sencera duu `raw`, que es la resposta del banc amb noms i IBAN.
+ * Explicit columns. Never a bare `select()` over `transactions`: the whole
+ * row carries `raw`, which is the bank's response with names and IBAN.
  */
 const Fields = {
   id: transactions.id,
@@ -131,9 +131,9 @@ const Fields = {
 } as const;
 
 /**
- * La fila tal com surt de la consulta. Les columnes que venen d'un `left
- * join` poden ser nul·les, de manera que s'escriu a ma en lloc de deduir-la
- * de `CAMPS`: deduir-la amagaria justament aquesta nul·litat.
+ * The row as it comes out of the query. Columns coming from a `left join`
+ * can be null, so it is written by hand instead of being derived from
+ * `CAMPS`: deriving it would hide exactly that nullability.
  */
 interface RawRow {
   id: number;
@@ -164,11 +164,11 @@ interface RawRow {
 }
 
 /**
- * Converteix una fila en el que es pot ensenyar, aplicant l'emmascarament.
+ * Turns a row into what can be shown, applying the masking.
  *
- * **Es l'unica porta.** Si un moviment esta emmascarat, aqui es on el
- * concepte del banc, la contrapart i el comerç desapareixen. Si no, el
- * concepte es parseja nomes per mostrar (sense tocar la BD).
+ * **It is the only door.** If a transaction is masked, this is where the
+ * bank's concept, the counterparty and the merchant disappear. If it is not,
+ * the concept is parsed for display only (without touching the DB).
  */
 export function transactionView(row: RawRow): TransactionView {
   const emmascarat = row.displayDescription !== null && row.displayDescription !== "";
@@ -246,11 +246,11 @@ export interface TransactionsFilters {
   categoryIds: number[];
   merchantId: number | null;
   search: string;
-  /** Filtre per etiqueta (insensible a majuscules). Null = sense filtre. */
+  /** Tag filter (case-insensitive). Null = no filter. */
   tag: string | null;
-  /** Tipus d'operacio (OR). Buit = tots. */
+  /** Operation type (OR). Empty = all. */
   operationType: OperationType[];
-  /** Darrers 4 digits de targeta (OR). Buit = totes. */
+  /** Last 4 digits of the card (OR). Empty = all. */
   cards: string[];
   onlyReview: boolean;
   onlyUnclassified: boolean;
@@ -259,7 +259,7 @@ export interface TransactionsFilters {
   offset: number;
 }
 
-/** Predicat SQL alineat amb `detectaTipusOperacio` (sobre el concepte cru). */
+/** SQL predicate aligned with `detectOperationType` (over the raw concept). */
 function typePredicate(type: OperationType): SQL {
   const description = transactions.description;
   switch (type) {
@@ -285,9 +285,9 @@ function typePredicate(type: OperationType): SQL {
         OR ${description} ILIKE 'ADEUDO%'
       )`;
     case "altres": {
-      // `or()` es tipa com a opcional perque accepta zero arguments; aqui n'hi
-      // van quatre de fixos, aixi que no pot ser indefinit. Es comprova en
-      // lloc d'afirmar-ho amb un `!`.
+      // `or()` is typed as optional because it accepts zero arguments; here it
+      // gets four fixed ones, so it cannot be undefined. It is checked instead
+      // of being asserted with a `!`.
       const algun = or(
         typePredicate("targeta"),
         typePredicate("transferencia"),
@@ -302,12 +302,12 @@ function typePredicate(type: OperationType): SQL {
 
 function typeClause(type: OperationType[]): SQL | undefined {
   if (type.length === 0) return undefined;
-  // Si hi ha tots els tipus, no cal filtrar.
+  // If every type is selected, there is nothing to filter.
   if (type.length === 5) return undefined;
   return or(...type.map(typePredicate));
 }
 
-/** El concepte conte aquests 4 digits com a bloc (no enganxats a mes digits). */
+/** The concept contains these 4 digits as a block (not glued to more digits). */
 function cardPredicate(v: string): SQL {
   return sql`${transactions.description} ~ ('(^|[^0-9])' || ${v} || '($|[^0-9])')`;
 }
@@ -318,9 +318,9 @@ function cardClause(cards: string[]): SQL | undefined {
 }
 
 /**
- * Darrers 4 digits de cada targeta feta servir en un compte (o tot el
- * ledger si no se'n dona cap). Es dedueix del concepte, igual que
- * `darrers4` a `vistaMoviment()`: no hi ha cap columna a la BD.
+ * Last 4 digits of every card used in an account (or in the whole ledger if
+ * none is given). It is deduced from the concept, just like `darrers4` in
+ * `transactionView()`: there is no column in the DB.
  */
 export async function cardsAvailable(
   ledgerId: number,
@@ -330,8 +330,8 @@ export async function cardsAvailable(
     eq(transactions.ledgerId, ledgerId),
     accountId !== null ? eq(transactions.accountId, accountId) : undefined,
     typePredicate("targeta"),
-    // Un moviment emmascarat no es pot cercar pel concepte bancari
-    // (vistaMoviment): tampoc ha de revelar-hi la targeta.
+    // A masked transaction cannot be searched by the bank's concept
+    // (transactionView): it must not reveal the card there either.
     or(isNull(transactions.displayDescription), eq(transactions.displayDescription, "")),
   );
   const rows = await db
@@ -348,11 +348,11 @@ export async function cardsAvailable(
 }
 
 /**
- * Cerca sobre el text **visible**.
+ * Search over the **visible** text.
  *
- * Un moviment emmascarat no es pot trobar pel concepte del banc ni per la
- * contrapart: nomes per l'alias que hi ha posat una persona i per les notes.
- * Si no fos aixi, es podria endevinar el que s'ha amagat provant paraules.
+ * A masked transaction cannot be found by the bank's concept or by the
+ * counterparty: only by the alias a person has set and by the notes.
+ * Otherwise what has been hidden could be guessed by trying words.
  */
 function searchClause(patro: string): SQL | undefined {
   return or(
@@ -386,8 +386,8 @@ function condicions(ledgerId: number, f: TransactionsFilters): SQL | undefined {
   parts.push(cardClause(f.cards));
   if (f.onlyReview) parts.push(eq(transactions.needsReview, true));
   if (f.onlyUnclassified) parts.push(isNull(transactions.categoryId));
-  // Els traspassos entre comptes propis no son ni ingres ni despesa: per
-  // defecte no surten.
+  // Transfers between the owner's own accounts are neither income nor
+  // expense: by default they are not listed.
   if (!f.includeTransfers) parts.push(isNull(transactions.transferGroupId));
 
   return and(...parts);
@@ -396,7 +396,7 @@ function condicions(ledgerId: number, f: TransactionsFilters): SQL | undefined {
 export interface TransactionsPage {
   items: TransactionView[];
   total: number;
-  /** Suma dels moviments que encaixen amb els filtres, no nomes de la pagina. */
+  /** Sum of the transactions matching the filters, not just of the page. */
   totalAmount: MoneyString;
   limit: number;
   offset: number;
@@ -435,7 +435,7 @@ export async function listTransactions(
   };
 }
 
-/** Un moviment d'aquest espai, ja llest per ensenyar, o 404. */
+/** A transaction of this workspace, ready to show, or 404. */
 export async function transactionInWorkspace(
   id: number,
   ledgerId: number,
@@ -455,7 +455,7 @@ export async function transactionInWorkspace(
   return transactionView(row);
 }
 
-/** La fila crua, nomes per als serveis. No arriba mai a cap plantilla. */
+/** The raw row, for the services only. It never reaches any template. */
 export async function transactionRow(id: number, ledgerId: number) {
   const [row] = await db
     .select({
@@ -477,9 +477,9 @@ export async function transactionRow(id: number, ledgerId: number) {
   return row;
 }
 
-// --- Safata de revisio -------------------------------------------------------
+// --- Review tray -------------------------------------------------------------
 
-/** Un moviment per revisar, amb la proposta del model local si n'hi ha. */
+/** A transaction to review, with the local model's proposal if there is one. */
 export interface ReviewItem {
   transaction: TransactionView;
   suggestedCategoryId: number | null;
@@ -489,11 +489,11 @@ export interface ReviewItem {
 }
 
 /**
- * La cua de revisio.
+ * The review queue.
  *
- * El model local **no confirma res pel seu compte**: quan proposa una
- * categoria, el moviment queda marcat per revisar amb la seva confiança i la
- * seva justificacio, i qui decideix es una persona.
+ * The local model **confirms nothing on its own**: when it proposes a
+ * category, the transaction is marked for review with its confidence and its
+ * justification, and a person is the one who decides.
  */
 export async function reviewQueue(
   ledgerId: number,
@@ -521,7 +521,7 @@ export async function reviewQueue(
     ...new Set(rows.map((f) => f.merchantId).filter((x): x is number => x !== null)),
   ];
 
-  // La proposta mes recent de cada comerç.
+  // The most recent proposal of each merchant.
   const proposals = new Map<
     number,
     {
@@ -559,8 +559,8 @@ export async function reviewQueue(
 
   const items = rows.map((row) => {
     const transaction = transactionView(row);
-    // Si el moviment esta emmascarat, la proposta tambe s'amaga: parla del
-    // comerç, que es justament el que no s'ha de veure.
+    // If the transaction is masked, the proposal is hidden too: it talks about
+    // the merchant, which is exactly what must not be seen.
     const proposal = transaction.isMasked
       ? undefined
       : row.merchantId !== null

@@ -1,5 +1,5 @@
 /**
- * Consulta de les series recurrents, per a la pantalla.
+ * Query of the recurring series, for the screen.
  */
 
 import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
@@ -39,7 +39,7 @@ export interface SeriesView {
   includeInForecast: boolean;
 }
 
-/** Moviment real enllaçat a una serie (ja emmascarat). */
+/** A real transaction linked to a series (already masked). */
 export interface OccurrenceView {
   transactionId: number;
   bookingDate: string;
@@ -122,8 +122,8 @@ export async function seriesView(id: number, ledgerId: number): Promise<SeriesVi
 }
 
 /**
- * Moviments del banc enllaçats a la serie. Comprova l'espai i aplica
- * l'emmascarament del concepte (alias si n'hi ha).
+ * The bank transactions linked to the series. It checks the workspace and
+ * applies the concept masking (the alias if there is one).
  */
 export async function seriesOccurrences(
   seriesId: number,

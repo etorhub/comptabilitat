@@ -1,12 +1,12 @@
 /**
- * Orquestracio d'una importacio.
+ * Orchestration of an import.
  *
- * Aqui nomes hi ha qui mana a qui i el registre del que ha passat: cada intent
- * queda a `sync_runs`, amb quants moviments s'han inserit i actualitzat i quin
- * error hi ha hagut. Aixo es el que permet veure si el limit de crides del
- * banc s'esta atansant.
+ * Here there is only who commands whom and the record of what happened: every
+ * attempt is left in `sync_runs`, with how many transactions were inserted and
+ * updated and what error there was. That is what lets you see whether the
+ * bank's call limit is getting close.
  *
- * El consentiment es a `consent.ts` i la feina de debo, a `import.ts`.
+ * The consent is in `consent.ts` and the real work in `import.ts`.
  */
 
 import { and, eq, gte, lt } from "drizzle-orm";
@@ -32,7 +32,7 @@ import {
   saveBalances,
 } from "./import.ts";
 
-/** Passades aquestes hores, una importacio «en marxa» no ho esta pas. */
+/** Past these hours, an «in progress» import is nothing of the sort. */
 const HORES_FINS_A_DONAR_PER_MORTA = 2;
 
 export interface SyncResult {
@@ -52,13 +52,13 @@ export async function sincronitzaConnection(
 }
 
 /**
- * Obre la fila de `sync_runs` i prou.
+ * Opens the `sync_runs` row and nothing else.
  *
- * Va a part perque qui llança la importacio en segon pla pugui tenir la fila
- * **abans** de contestar. Si no, no hi ha manera de dibuixar l'estat sense
- * endevinar quan hi sera: aixo abans es resolia amb una espera de 150 ms i una
- * creuada de dits, i si la inserció trigava mes, el fragment sortia sense el
- * `hx-trigger` i el sondeig no arrencava mai.
+ * It is separate so that whoever launches the import in the background can
+ * have the row **before** answering. Otherwise there is no way to draw the
+ * state without guessing when it will be there: this used to be solved with a
+ * 150 ms wait and crossed fingers, and if the insert took longer, the fragment
+ * came out without the `hx-trigger` and the poll never started.
  */
 export async function openImport(
   connection: BankConnection,
@@ -81,7 +81,7 @@ export async function openImport(
   return run;
 }
 
-/** La importacio de debo, sobre una fila de `sync_runs` que ja existeix. */
+/** The real import, over a `sync_runs` row that already exists. */
 export async function runTheImport(
   connection: BankConnection,
   run: SyncRun | undefined,
@@ -153,7 +153,7 @@ export async function runTheImport(
     const message = error instanceof Error ? error.message : String(error);
 
     if (error instanceof SessionExpiredError) {
-      // El consentiment ha caducat: cal tornar a autoritzar amb SCA.
+      // The consent has expired: it has to be authorized again with SCA.
       await db
         .update(bankConnections)
         .set({ status: "expired", lastError: message })
@@ -192,16 +192,16 @@ export async function runTheImport(
 }
 
 /**
- * Tanca les importacions que van quedar penjades.
+ * Closes the imports that were left hanging.
  *
- * La importacio corre en segon pla dins del proces del servidor. Si el
- * contenidor es reinicia enmig, la fila de `sync_runs` es queda en `running`
- * per sempre —no hi ha ningu que la pugui acabar— i la pagina de connexions es
- * queda **sondejant cada dos segons, per sempre i per a tothom qui la miri**,
- * perque el fragment nomes s'atura quan l'estat es terminal.
+ * The import runs in the background inside the server process. If the
+ * container restarts halfway, the `sync_runs` row stays `running` forever
+ * —there is nobody who can finish it— and the connections page is left
+ * **polling every two seconds, forever and for everyone who looks at it**,
+ * because the fragment only stops when the state is terminal.
  *
- * Tambe serveix de porta: mentre n'hi hagi una de viva, no se'n comença cap
- * altra de la mateixa connexio.
+ * It also serves as a gate: while there is a live one, no other import of the
+ * same connection is started.
  */
 export async function closeStuckImports(): Promise<number> {
   const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
@@ -222,7 +222,7 @@ export async function closeStuckImports(): Promise<number> {
   return tancades.length;
 }
 
-/** Si ja n'hi ha una de viva per a aquesta connexio, no se'n comença cap altra. */
+/** If there is already a live one for this connection, no other is started. */
 export async function alreadySyncing(connectionId: number): Promise<boolean> {
   const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
   const [viva] = await db
@@ -240,11 +240,11 @@ export async function alreadySyncing(connectionId: number): Promise<boolean> {
 }
 
 /**
- * Tanca ara mateix les importacions obertes d'aquest proces.
+ * Closes this process's open imports right now.
  *
- * La crida l'aturada endreçada del servidor: si s'atura mentre n'hi ha una en
- * marxa, val mes deixar-la marcada com a fallida que no pas en `running`, on
- * es quedaria fent sondejar la pagina fins que passes el manteniment.
+ * It is called by the server's orderly shutdown: if it stops while one is
+ * going, better to leave it marked as failed than as `running`, where it
+ * would keep the page polling until maintenance went by.
  */
 export async function closeOpenImports(): Promise<number> {
   const tancades = await db

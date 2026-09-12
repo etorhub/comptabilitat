@@ -1,8 +1,8 @@
 /**
- * Resol la contrapart d'un moviment com a comerç (payee).
+ * Resolves a transaction's counterparty as a merchant (payee).
  *
- * Es l'unica porta que escriu `transactions.merchant_id`. Serveix per a la
- * memoria de categoria en importar; no es un recurs de la interficie.
+ * It is the only door that writes `transactions.merchant_id`. It serves the
+ * category memory when importing; it is not an interface resource.
  */
 
 import { db, type Transactor } from "../db/client.ts";
@@ -17,7 +17,7 @@ export interface CounterpartyData {
 
 export interface Counterparty {
   merchantId: number | null;
-  /** El que s'ha d'escriure a `transactions.normalized_description`. */
+  /** What has to be written to `transactions.normalized_description`. */
   normalizedKey: string;
   displayName: string;
 }
@@ -29,10 +29,10 @@ const COUNTERPARTY_EMPTY: Counterparty = {
 };
 
 /**
- * Obté (o crea) el comerç de la contrapart.
+ * Gets (or creates) the counterparty's merchant.
  *
- * @param incrementaComptador es passa tal qual a `obteOCreaComerc`: fals per
- *   a reassignacions en lot que després recompten.
+ * @param incrementaComptador passed straight to `getOrCreateMerchant`: false
+ *   for batch reassignments that recount afterwards.
  */
 export async function resolveCounterparty(
   ledgerId: number,

@@ -1,13 +1,13 @@
 /**
- * Deteccio de rebuts previstos (schedules).
+ * Detection of expected direct debits (schedules).
  *
- * El detector mira l'historic categoritzat i **nomes proposa** series
- * (`status: suggested`). La persona les confirma o les descarta a
- * `/recurrents`. La previsio nomes mira les `active` amb
+ * The detector looks at the categorized history and **only proposes** series
+ * (`status: suggested`). The person confirms or dismisses them at
+ * `/recurrents`. The forecast only looks at the `active` ones with
  * `include_in_forecast`.
  *
- * Agrupa per categoria + comerç + sentit. Calen ≥3 aparicions a intervals
- * regulars (o ja una serie activa/suggested existent que es refresca).
+ * It groups by category + merchant + direction. It needs ≥3 occurrences at
+ * regular intervals (or an already existing active/suggested series refreshed).
  */
 
 import { and, asc, eq, isNotNull } from "drizzle-orm";
@@ -43,7 +43,7 @@ const MIN_OCCURRENCES = 3;
 const MISSING_GRACE_DAYS = 7;
 const HISTORY_MONTHS = 18;
 const MIN_REGULARITY = 0.6;
-/** Finestres per a `amount_mode: average`. */
+/** Windows for `amount_mode: average`. */
 const AVERAGE_MONTHS = 6;
 
 export interface RecurringStats {
@@ -117,12 +117,12 @@ function toleranciaDimport(importEsperat: Decimal): Decimal {
 }
 
 /**
- * Proposa o refresca series a partir de l'historic categoritzat.
+ * Proposes or refreshes series from the categorized history.
  *
- * - Nova serie → `suggested`, fora de la previsio fins que es confirmi.
- * - `suggested` existent → refresca cadencia/import/dates.
- * - `active` → refresca dates i aparicions; l'import nomes si `average`.
- * - `dismissed` / `ended` → no es toca.
+ * - New series → `suggested`, out of the forecast until it is confirmed.
+ * - Existing `suggested` → refreshes cadence/amount/dates.
+ * - `active` → refreshes dates and occurrences; the amount only if `average`.
+ * - `dismissed` / `ended` → not touched.
  */
 export async function detectRecurring(ledgerId: number): Promise<RecurringStats> {
   const stats: RecurringStats = {
@@ -196,7 +196,7 @@ async function evaluateGroup(
     if (days > 0) intervals.push(days);
   }
 
-  // Serie activa: refresca amb la cadencia que ja te (no cal re-detectar).
+  // Active series: refreshed with the cadence it already has (no need to re-detect).
   if (existent?.status === "active") {
     const intervalArrodonit = existent.intervalDays;
     const lastDate = dates[dates.length - 1] as string;
@@ -251,13 +251,13 @@ async function evaluateGroup(
       if (creat) stats.alertList += 1;
     }
 
-    // Si l'import detectat divergeix molt amb average, no cal avis: ja es refresca.
+    // If the detected amount diverges a lot with average, no warning is needed: it is already refreshed.
     void importDetectat;
     await linkOccurrences(existent.id, items);
     return;
   }
 
-  // Suggested nova o existent: cal patro minim.
+  // New or existing suggested: a minimum pattern is required.
   if (items.length < MIN_OCCURRENCES) return;
   if (intervals.length === 0) return;
 
@@ -309,7 +309,7 @@ async function evaluateGroup(
     return;
   }
 
-  // suggested existent
+  // existing suggested
   await db
     .update(recurringSeries)
     .set({
@@ -361,7 +361,7 @@ async function linkOccurrences(seriesId: number, items: TransactionSeries[]): Pr
 }
 
 /**
- * Confirma una proposta: passa a activa i entra a la previsio.
+ * Confirms a proposal: it becomes active and enters the forecast.
  */
 export async function confirmSeries(
   seriesId: number,
@@ -381,7 +381,7 @@ export async function confirmSeries(
     .where(eq(recurringSeries.id, seriesId));
 }
 
-/** Descarta una serie: el detector ja no la tornarà a crear (mateixa signatura). */
+/** Dismisses a series: the detector will not create it again (same signature). */
 export async function dismissSeries(
   seriesId: number,
   connection: Transactor = db,
@@ -397,7 +397,7 @@ export interface ManualSeriesData {
   categoryId: number;
   merchantId?: number | null;
   cadence: Cadence;
-  /** Amb signe: positiu = ingrés, negatiu = despesa. */
+  /** Signed: positive = income, negative = expense. */
   expectedAmount: MoneyString;
   nextExpectedDate: string;
 }
@@ -421,8 +421,8 @@ function signaturaManual(
 }
 
 /**
- * Crea una serie activa a ma (o reviu una de descartada amb la mateixa
- * signatura). Si ja n'hi ha una d'activa o suggerida, 409.
+ * Creates an active series by hand (or revives a dismissed one with the same
+ * signature). If there is already an active or suggested one, 409.
  */
 export async function createSeriesManual(
   ledgerId: number,
@@ -507,7 +507,7 @@ export async function createSeriesManual(
   return creada.id;
 }
 
-/** Canvia l'import esperat i el deixa fix perquè el detector no l'escrigui. */
+/** Changes the expected amount and pins it so the detector does not write it. */
 export async function updateSeriesAmount(
   seriesId: number,
   expectedAmount: MoneyString,
@@ -529,11 +529,11 @@ export async function updateSeriesAmount(
 }
 
 /**
- * Avisa dels rebuts actius que no han arribat quan tocava.
+ * Warns about active direct debits that have not arrived when they should.
  *
- * Passat mes d'un periode sencer sense saber-ne res, la serie es dona per
- * acabada. Les confirmades amb `amount_mode: exact` **no** s'acaben soles
- * (la persona les vol a la previsio); nomes avisen.
+ * After more than a whole period with no sign of it, the series is taken as
+ * ended. Confirmed ones with `amount_mode: exact` do **not** end on their own
+ * (the person wants them in the forecast); they only warn.
  */
 export async function checkMissingBills(ledgerId: number): Promise<number> {
   const today = todayLocal();
@@ -565,7 +565,7 @@ export async function checkMissingBills(ledgerId: number): Promise<number> {
     if (daysLate < MISSING_GRACE_DAYS) continue;
 
     if (daysLate > series.intervalDays + MISSING_GRACE_DAYS) {
-      // Exactes confirmades es queden actives; les de mitjana poden acabar-se.
+      // Confirmed exact ones stay active; average ones can end.
       if (series.amountMode === "exact") continue;
 
       await db
@@ -590,7 +590,7 @@ export async function checkMissingBills(ledgerId: number): Promise<number> {
   return created;
 }
 
-/** Cost mensual d'una serie: l'import repartit segons el seu interval. */
+/** Monthly cost of a series: the amount spread over its interval. */
 export function monthlyCost(expectedAmount: string, intervalDays: number): Decimal {
   return money(expectedAmount)
     .times(30)

@@ -1,9 +1,9 @@
 /**
- * Historial i execució de les feines del planificador.
+ * History and execution of the scheduler's jobs.
  *
- * Totes les vies (cron, UI, CLI) passen per `executaFeina`, que deixa una
- * fila a `job_runs`. Les passades compostes creen fills amb `executaPas`
- * gràcies a un `AsyncLocalStorage`.
+ * Every route (cron, UI, CLI) goes through `runJob`, which leaves a row in
+ * `job_runs`. Composite passes create children with `runStep` thanks to an
+ * `AsyncLocalStorage`.
  */
 
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -24,14 +24,14 @@ const ERROR_MAX = 2000;
 const HORES_FINS_A_DONAR_PER_MORTA = 2;
 
 interface RunContext {
-  /** Identificador de la fila pare (la passada o la feina de primer nivell). */
+  /** Id of the parent row (the pass or the top-level job). */
   parentId: number;
   trigger: JobTrigger;
 }
 
 const context = new AsyncLocalStorage<RunContext>();
 
-/** Heurística: el resum de sync marca errors per connexió sense llançar. */
+/** Heuristic: the sync summary marks errors per connection without throwing. */
 function semblaParcial(summary: string): boolean {
   return /\(\d+ errors?\)/.test(summary);
 }
@@ -92,8 +92,8 @@ async function runAndClose(run: JobRun, fn: () => Promise<string>): Promise<stri
 }
 
 /**
- * Executa una feina de primer nivell (o un pas fill si ja hi ha context) i
- * deixa el resultat a `job_runs`. Espera que acabi.
+ * Runs a top-level job (or a child step if there is already a context) and
+ * leaves the result in `job_runs`. It waits for it to finish.
  */
 export async function runJob(
   jobName: string,
@@ -102,7 +102,7 @@ export async function runJob(
 ): Promise<string> {
   const store = context.getStore();
   if (store !== undefined) {
-    // Crida niuada accidental: tracta-la com a pas del pare actual.
+    // Accidental nested call: treat it as a step of the current parent.
     return runStep(jobName, fn);
   }
 
@@ -111,9 +111,9 @@ export async function runJob(
 }
 
 /**
- * Com `executaFeina`, pero torna quan la fila `running` ja existeix i deixa
- * la feina en segon pla. Per a la UI: cal poder redibuixar l'historial abans
- * que acabi (i sense esperar una sincronitzacio llarga).
+ * Like `runJob`, but returns once the `running` row exists and leaves the job
+ * in the background. For the UI: the history has to be redrawable before it
+ * finishes (and without waiting for a long synchronization).
  */
 export async function startJob(
   jobName: string,
@@ -140,10 +140,10 @@ export async function startJob(
 }
 
 /**
- * Pas d'una passada: crea un fill amb el `parent_id` del context actual.
- * Dins del pas el context apunta a la fila nova, així una passada niuada
- * (p.ex. `totes` → `passada-diaria` → `sync`) encadena els avisos correctament.
- * Fora de context (no hauria de passar) només executa la funció.
+ * A step of a pass: creates a child with the current context's `parent_id`.
+ * Inside the step the context points at the new row, so a nested pass
+ * (e.g. `totes` → `passada-diaria` → `sync`) chains the notices correctly.
+ * Outside a context (which should not happen) it just runs the function.
  */
 export async function runStep(jobName: string, fn: () => Promise<string>): Promise<string> {
   const store = context.getStore();
@@ -155,7 +155,7 @@ export async function runStep(jobName: string, fn: () => Promise<string>): Promi
   return context.run({ parentId: run.id, trigger: store.trigger }, () => runAndClose(run, fn));
 }
 
-/** Hi ha una execució de primer nivell amb aquest nom encara corrent? */
+/** Is there a top-level run with this name still going? */
 export async function jobRunning(jobName: string): Promise<boolean> {
   const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
   const [viva] = await db
@@ -173,7 +173,7 @@ export async function jobRunning(jobName: string): Promise<boolean> {
   return viva !== undefined;
 }
 
-/** Conjunt de noms de feines (pare o fill) que ara mateix estan `running`. */
+/** Set of job names (parent or child) that are `running` right now. */
 export async function runningJobNames(): Promise<Set<string>> {
   const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
   const rows = await db
@@ -204,7 +204,7 @@ export interface HistoryFilters {
   origin?: JobTrigger;
   from?: Date;
   finsA?: Date;
-  /** Pàgina 0-indexada. */
+  /** 0-indexed page. */
   page: number;
   limit: number;
 }
@@ -214,7 +214,7 @@ export interface HistoryPage {
   total: number;
   page: number;
   limit: number;
-  /** Fills indexats pel `parent_id`, només dels items de la pàgina. */
+  /** Children indexed by `parent_id`, only for the items on the page. */
   children: Map<number, JobRun[]>;
 }
 
@@ -229,9 +229,9 @@ function filterKeys(filters: HistoryFilters) {
 }
 
 /**
- * Historial de primer nivell amb els fills carregats per a l'expansió.
- * Si es filtra per una feina que pot ser pas (`sync`, …), també es mostren
- * les files fills que hi encaixen (sense amagar-les sota el filtre de pare).
+ * Top-level history with the children loaded for the expansion.
+ * If it is filtered by a job that can be a step (`sync`, …), the matching
+ * child rows are shown too (without hiding them under the parent filter).
  */
 export async function readHistory(filters: HistoryFilters): Promise<HistoryPage> {
   const onlyChildren =
@@ -293,13 +293,13 @@ export async function readChildren(parentId: number): Promise<JobRun[]> {
     .orderBy(asc(jobRuns.startedAt));
 }
 
-/** Darrera execució de primer nivell per a cada `job_name` demanat. */
+/** Last top-level run for each `job_name` asked for. */
 export async function lastRunPerJob(names: string[]): Promise<Map<string, JobRun>> {
   const mapa = new Map<string, JobRun>();
   if (names.length === 0) return mapa;
 
-  // Una consulta per nom: la taula és petita i evitem DISTINCT ON específic
-  // de Postgres amb sintaxi fràgil a Drizzle.
+  // One query per name: the table is small and it saves us a Postgres-specific
+  // DISTINCT ON with fragile syntax in Drizzle.
   await Promise.all(
     names.map(async (name) => {
       const [row] = await db
@@ -360,12 +360,12 @@ export async function summaryHealth(): Promise<HealthSummary> {
   };
 }
 
-/** Importacions bancàries solapades amb una execució de sync. */
+/** Bank imports overlapping with a sync run. */
 export async function syncRunsForRun(run: JobRun): Promise<SyncRun[]> {
   if (run.jobName !== "sync") return [];
   const inici = run.startedAt;
   const fi = run.finishedAt ?? new Date();
-  // Una mica de marge: la feina comença abans d'obrir el primer sync_run.
+  // A little margin: the job starts before opening the first sync_run.
   const from = new Date(inici.getTime() - 5_000);
   const fins = new Date(fi.getTime() + 5_000);
   return db
@@ -375,7 +375,7 @@ export async function syncRunsForRun(run: JobRun): Promise<SyncRun[]> {
     .orderBy(asc(syncRuns.startedAt));
 }
 
-/** Marca com a fallides les feines `running` de més de 2 h. */
+/** Marks `running` jobs older than 2 h as failed. */
 export async function closeStuckJobs(): Promise<number> {
   const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
 

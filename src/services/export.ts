@@ -1,13 +1,13 @@
 /**
- * Generacio de CSV, XLSX i PDF.
+ * Generation of CSV, XLSX and PDF.
  *
- * Aquest fitxer nomes dibuixa: no toca la base de dades. Les dades li arriben
- * ja emmascarades (`MovimentVista`), de manera que **un moviment amagat surt
- * amagat tambe als fitxers exportats**. Aixo importa: un full de calcul es
- * exactament el lloc on el concepte del banc tornaria a apareixer si
- * l'emmascarament nomes fos cosa de la pantalla.
+ * This file only draws: it does not touch the database. The data reaches it
+ * already masked (`TransactionView`), so **a hidden transaction comes out
+ * hidden in the exported files too**. This matters: a spreadsheet is exactly
+ * the place where the bank's concept would reappear if the masking were only
+ * a screen matter.
  *
- * Traduccio de `backend/app/services/export.py`.
+ * A translation of `backend/app/services/export.py`.
  */
 
 import ExcelJS from "exceljs";
@@ -31,7 +31,7 @@ const COLUMNES: [string, number][] = [
   ["Notes", 30],
 ];
 
-/** Una fila, ja emmascarada: `MovimentVista` no duu el concepte del banc. */
+/** A row, already masked: `TransactionView` does not carry the bank's concept. */
 function row(m: TransactionView): (string | number)[] {
   return [
     m.bookingDate,
@@ -58,8 +58,8 @@ function escapaCsv(value: string): string {
 }
 
 /**
- * CSV amb punt i coma i BOM, que es el que espera l'Excel en espanyol; els
- * decimals amb coma, pel mateix motiu.
+ * CSV with semicolons and a BOM, which is what Spanish Excel expects; the
+ * decimals with a comma, for the same reason.
  */
 export function movimentsACsv(transactionList: TransactionView[]): Uint8Array<ArrayBuffer> {
   const linies: string[] = [COLUMNES.map(([name]) => escapaCsv(name)).join(";")];
@@ -68,7 +68,7 @@ export function movimentsACsv(transactionList: TransactionView[]): Uint8Array<Ar
     linies.push(
       row(transaction)
         .map((value, i) => {
-          // La columna de l'import va amb coma decimal.
+          // The amount column goes with a decimal comma.
           if (i === 6) return money(String(value)).toFixed(2).replace(".", ",");
           return escapaCsv(String(value));
         })
@@ -134,11 +134,11 @@ export async function resumAXlsx(
 // --- PDF -------------------------------------------------------------------
 
 /**
- * Informe en PDF.
+ * PDF report.
  *
- * Es fa amb `pdfkit`: no demana cap binari del sistema ni cap navegador sense
- * cap, cosa que importa perque aixo ha de funcionar en un NAS. Les taules
- * s'hi dibuixen a ma, que es el preu de no dependre de res mes.
+ * It is done with `pdfkit`: it asks for no system binary and no headless
+ * browser, which matters because this has to work on a NAS. The tables are
+ * drawn by hand, which is the price of depending on nothing else.
  */
 export interface DadesInforme {
   workspaceName: string;
@@ -175,7 +175,7 @@ export function informeAPdf(data: DadesInforme): Promise<Uint8Array<ArrayBuffer>
     doc.fontSize(10).fillColor("#64748b").text(`Informe del ${data.des} al ${data.fins}`);
     doc.moveDown(1.2);
 
-    // Resum
+    // Summary
     doc.fontSize(11).fillColor("#0f172a");
     const summary: [string, string][] = [
       ["Ingressos", formatMoney(data.income)],

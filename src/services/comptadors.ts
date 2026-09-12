@@ -1,14 +1,14 @@
 /**
- * Els comptadors de la barra lateral.
+ * The sidebar counters.
  *
- * Viuen en un servei propi perque son **objectius fora de banda**: qui els
- * canvia els ha de tornar a dibuixar, i qui els canvia no es sempre el mateix
- * recurs que els ensenya. Categoritzar un moviment mou el de «per revisar»;
- * descartar un avis mou el d'avisos.
+ * They live in a service of their own because they are **out-of-band
+ * targets**: whoever changes them has to redraw them, and whoever changes
+ * them is not always the same resource that shows them. Categorizing a
+ * transaction moves the «to review» one; dismissing an alert moves the alerts one.
  *
- * Aixo substitueix l'`invalidaEspai()` de l'aplicacio anterior, que despres de
- * qualsevol mutacio tornava a demanar la llista, el panell i els dos
- * comptadors. Ara es diu exactament que canvia.
+ * This replaces the previous application's `invalidaEspai()`, which after any
+ * mutation asked again for the list, the dashboard and both counters. Now it
+ * says exactly what changes.
  */
 
 import { and, count, eq } from "drizzle-orm";
@@ -16,7 +16,7 @@ import { and, count, eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { alerts, transactions } from "../db/schema/index.ts";
 
-/** Moviments que esperen que algu els confirmi la categoria. */
+/** Transactions waiting for somebody to confirm their category. */
 export async function countToReview(ledgerId: number): Promise<number> {
   const [row] = await db
     .select({ n: count() })
@@ -25,7 +25,7 @@ export async function countToReview(ledgerId: number): Promise<number> {
   return row?.n ?? 0;
 }
 
-/** Avisos que ningu no ha mirat encara. */
+/** Alerts nobody has looked at yet. */
 export async function countNewAlerts(ledgerId: number): Promise<number> {
   const [row] = await db
     .select({ n: count() })
@@ -39,7 +39,7 @@ export interface Counters {
   newAlerts: number;
 }
 
-/** Els dos alhora, per dibuixar una pagina sencera. */
+/** Both at once, for drawing a whole page. */
 export async function counters(ledgerId: number): Promise<Counters> {
   const [perRevisar, newAlerts] = await Promise.all([
     countToReview(ledgerId),

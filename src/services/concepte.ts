@@ -1,35 +1,35 @@
 /**
- * Parseig del concepte del banc **nomes per mostrar**.
+ * Parsing of the bank concept **for display only**.
  *
- * No toca la base de dades ni la normalitzacio del comerç. Treu del text el
- * que no es el concepte (targeta, comissio, cues de lloc) i n'extreu els
- * darrers 4 digits de la targeta, si n'hi ha, per al xip de la UI.
+ * It touches neither the database nor the merchant normalization. It removes
+ * from the text what is not the concept (card, commission, place tails) and
+ * extracts the card's last 4 digits, if any, for the UI chip.
  */
 
 import { stripAccents } from "./normalization.ts";
 
 /**
- * `TipusOperacio` i `detectaTipusOperacio` viuen a `normalization.ts` des que
- * decideixen on va la contrapart (`services/contraparts.ts`), no nomes com
- * s'ensenya. Es reexporten aqui perque aquest era el seu lloc original i no
- * calgui remenar tots els imports.
+ * `OperationType` and `detectOperationType` live in `normalization.ts` now
+ * that they decide where the counterparty goes (`services/contraparts.ts`),
+ * not just how it is shown. They are re-exported here because this was their
+ * original place and so that all the imports need not be touched.
  */
 export { detectOperationType, OPERATION_TYPES } from "./normalization.ts";
 export type { OperationType } from "./normalization.ts";
 import { detectOperationType, type OperationType } from "./normalization.ts";
 
 export interface ParsedDescription {
-  /** Text net per a la columna Concepte. */
+  /** Clean text for the Concept column. */
   title: string;
-  /** Darrers 4 digits de la targeta, o null si no n'hi ha. */
+  /** Last 4 digits of the card, or null if there are none. */
   darrers4: string | null;
-  /** Text bancari sense PAN/targeta/comissio: per al `title` del boto. */
+  /** Bank text without PAN/card/commission: for the button's `title`. */
   cleanedOriginal: string;
-  /** Tipus d'operacio per a l'etiqueta i el filtre. */
+  /** Operation type for the label and the filter. */
   type: OperationType;
 }
 
-/** Prefixos d'operacio que no formen part del concepte llegible. */
+/** Operation prefixes that are not part of the readable concept. */
 const PREFIXOS: RegExp[] = [
   /^COMPRA\s+INTERNET\s+(?:EN\s+)?/i,
   /^COMPRA\s+WWW\.?/i,
@@ -42,7 +42,7 @@ const PREFIXOS: RegExp[] = [
   /^ADEUDO\s+(?:POR\s+)?DOMICILIACION(?:\s+DE)?\s*/i,
   /^ADEUDO\s+/i,
   /^RECIBO\s+(?:DE\s+)?/i,
-  // IMMEDIATA/URGENTE abans de la direccio; alternatives llargues abans de DE/A.
+  // IMMEDIATA/URGENTE before the direction; long alternatives before DE/A.
   /^TRANSFERENCIA\s+(?:(?:IMMEDIATA|URGENTE|ORDINARIA)\s+)*(?:RECIBIDA\s+DE|A\s+FAVOR\s+DE|EMITIDA\s+A|RECIBIDA|DE|A)\s*/i,
   /^TRANSF\.?\s+(?:DE|A)\s*/i,
   /^BIZUM\s+(?:RECIBIDO\s+DE|ENVIADO\s+A|DE|A)\s*/i,
@@ -61,10 +61,10 @@ const PREFIXOS: RegExp[] = [
 ];
 
 /**
- * Extreu els darrers 4 digits i treu del text qualsevol mencio de targeta.
+ * Extracts the last 4 digits and removes any mention of a card from the text.
  *
- * Accepta `TARJ. :*484017`, `TARJETA 5489010385484017` i PANs nus de 13–19
- * digits etiquetats. Mai deixa un bloc de 13–19 digits al titol.
+ * Accepts `TARJ. :*484017`, `TARJETA 5489010385484017` and bare labelled PANs
+ * of 13–19 digits. It never leaves a block of 13–19 digits in the title.
  */
 function removeCard(text: string): { text: string; darrers4: string | null } {
   let darrers4: string | null = null;
@@ -75,7 +75,7 @@ function removeCard(text: string): { text: string; darrers4: string | null } {
     if (nets.length >= 4) darrers4 = nets.slice(-4);
   };
 
-  // TARJ. / TARJETA + digits (amb o sense * i :).
+  // TARJ. / TARJETA + digits (with or without * and :).
   cleaned = cleaned.replace(
     /\bTARJ(?:ETA)?\.?\s*:?\s*\*?(\d{4,19})\b/gi,
     (_m, digits: string) => {
@@ -84,7 +84,7 @@ function removeCard(text: string): { text: string; darrers4: string | null } {
     },
   );
 
-  // PAN emmascarat amb X o *: 5402XXXXXXXX1234, 1234******5678
+  // PAN masked with X or *: 5402XXXXXXXX1234, 1234******5678
   cleaned = cleaned.replace(/\b\d{2,6}[X*]{3,}(\d{2,6})\b/gi, (_m, cua: string) => {
     marcar(cua);
     return " ";
@@ -94,13 +94,13 @@ function removeCard(text: string): { text: string; darrers4: string | null } {
     return " ";
   });
 
-  // PAN sencer etiquetat residual (per si queda sense la paraula TARJETA).
+  // Residual labelled full PAN (in case it is left without the word TARJETA).
   cleaned = cleaned.replace(/\b(\d{13,19})\b/g, (_m, digits: string) => {
     marcar(digits);
     return " ";
   });
 
-  // Formes emmascarades residual: *484017 o ****4017
+  // Residual masked forms: *484017 or ****4017
   cleaned = cleaned.replace(/\*{1,}\d{2,6}\b/g, (m) => {
     const digits = m.replace(/\D/g, "");
     if (digits.length >= 4 && !darrers4) darrers4 = digits.slice(-4);
@@ -115,8 +115,8 @@ function stripFee(text: string): string {
 }
 
 /**
- * Part humana d'un `concepto:`: trossos separats per `/`, descartant cadastre
- * i quotes (`Q.IBI 95,25`).
+ * Human part of a `concepto:`: pieces separated by `/`, discarding the land
+ * registry reference and instalments (`Q.IBI 95,25`).
  */
 function descriptionParts(despres: string): string {
   const parts = despres
@@ -126,27 +126,27 @@ function descriptionParts(despres: string): string {
   const humans: string[] = [];
 
   for (const part of parts) {
-    // Cadastre i referencies internes.
+    // Land registry and internal references.
     if (/^RCAD\s*:/i.test(part)) continue;
-    // Quotes: «Q.IBI 95,25», «Q.TM 6,51».
+    // Instalments: «Q.IBI 95,25», «Q.TM 6,51».
     if (/^Q\.\s*[A-Z]+\s+\d/i.test(part)) continue;
-    // Cues numeriques curtes: «0066», «07746», «P0202».
+    // Short numeric tails: «0066», «07746», «P0202».
     if (/^[P]?\d{3,6}$/i.test(part)) continue;
-    // Cadastre nu: nomes alfanumeric llarg, sense + / - (que marquen un concepte).
+    // Bare land registry reference: long alphanumeric only, without + / - (which mark a concept).
     if (!/[+/-]/.test(part) && !/\s/.test(part)) {
       const alnum = part.replace(/[^A-Z0-9]/gi, "");
       if (alnum.length >= 10 && alnum === part.replace(/[^A-Z0-9]/gi, "")) {
         continue;
       }
     }
-    // Despres de la coma en un tros «Torre dels Pardals,0066, P0202 …»
-    // ens quedem amb el que hi ha abans de la primera coma amb digits.
+    // After the comma in a piece «Torre dels Pardals,0066, P0202 …» we keep
+    // what comes before the first comma with digits.
     let cleaned = part;
     const commaWithRef = /,\s*(?:\d|[PQ]\d)/i.exec(cleaned);
     if (commaWithRef && commaWithRef.index !== undefined) {
       cleaned = cleaned.slice(0, commaWithRef.index).trim();
     }
-    // Treu cues «Q.IBI …» encara dins del mateix tros.
+    // Removes «Q.IBI …» tails still inside the same piece.
     cleaned = cleaned.replace(/\s+Q\.\s*[A-Z]+\s+\d+[.,]\d{2}.*$/i, "").trim();
     if (!cleaned) continue;
     if (!/[+/-]/.test(cleaned) && !/\s/.test(cleaned)) {
@@ -171,22 +171,22 @@ function removePrefix(text: string): string {
 }
 
 /**
- * Cua de lloc: «, LLANÑA ES», «, LUXEMBOURG», «, CALELLA PALAFES».
+ * Place tail: «, LLANÑA ES», «, LUXEMBOURG», «, CALELLA PALAFES».
  *
- * Nomes talla despres d'una coma si el que queda sembla poblacio/pais
- * (poques paraules, sense digitos de negoci).
+ * It only cuts after a comma if what is left looks like a town/country (few
+ * words, without business digits).
  */
 function stripTrailingSlot(text: string): string {
-  // Ultima coma + cua en majuscules / pais (ignora comes finals).
+  // Last comma + upper-case tail / country (ignores trailing commas).
   const match = /^(.*?),\s*([A-ZÀ-ÜÑ][A-ZÀ-ÜÑa-zà-üñ' .-]{0,40})\s*,?\s*$/u.exec(text.trim());
   if (!match) return text.trim().replace(/,+\s*$/, "");
   const cap = (match[1] ?? "").trim();
   const cua = (match[2] ?? "").trim();
   if (!cap) return text.trim();
-  // La cua no ha de semblar un nom de comerç llarg: max 3 paraules.
+  // The tail must not look like a long merchant name: 3 words max.
   const paraules = cua.split(/\s+/).filter(Boolean);
   if (paraules.length === 0 || paraules.length > 3) return text.trim();
-  // Si la cua te digits de negoci (codis d'Amazon, etc.), no es lloc.
+  // If the tail has business digits (Amazon codes, etc.), it is not a place.
   if (/\d/.test(cua)) return text.trim();
   return cap;
 }
@@ -194,7 +194,7 @@ function stripTrailingSlot(text: string): string {
 function stripWebNoise(text: string): string {
   let cleaned = text.trim();
   cleaned = cleaned.replace(/^WWW\./i, "");
-  // Sufix de referencia Amazon: *QE6I19905
+  // Amazon reference suffix: *QE6I19905
   cleaned = cleaned.replace(/\*[A-Z0-9]{5,}\b/gi, "");
   return cleaned.trim();
 }
@@ -236,8 +236,8 @@ const SUFIXOS_EMPRESA = new Set([
 ]);
 
 /**
- * Title-case per a la UI. A diferencia de `displayName` (clau de comerç),
- * «APP» es «App»: aqui no volem sigles de tres lletres.
+ * Title-case for the UI. Unlike `displayName` (the merchant key), «APP» is
+ * «App»: here we do not want three-letter acronyms.
  */
 function titolLlegible(majuscules: string): string {
   return majuscules
@@ -252,17 +252,17 @@ function titolLlegible(majuscules: string): string {
 }
 
 /**
- * Capitalitza nomes si el text ve tot en majuscules (tipic de les compres).
- * Els noms de transferencia amb accents o minuscules es deixen tal qual.
+ * Capitalizes only if the text comes in all capitals (typical of purchases).
+ * Transfer names with accents or lower case are left as they are.
  */
 function presenta(text: string): string {
   const cleaned = text.trim();
   if (!cleaned) return cleaned;
-  // Conserva el casing del banc si ja porta minuscules.
+  // Keeps the bank's casing if it already has lower case.
   if (/[a-zà-üñ]/.test(cleaned)) {
     return cleaned;
   }
-  // Titol compost (concepte de rebut amb ·): cada tros a part.
+  // Compound title (direct debit concept with ·): each piece separately.
   if (cleaned.includes(" · ")) {
     return cleaned
       .split(" · ")
@@ -276,7 +276,7 @@ function presenta(text: string): string {
       })
       .join(" · ");
   }
-  // Conserva + / - en codis tipus IBI+TM2026-3T.
+  // Keeps + / - in codes like IBI+TM2026-3T.
   if (/[+/-]/.test(cleaned) && !/\s/.test(cleaned)) {
     return cleaned;
   }
@@ -289,10 +289,10 @@ function presenta(text: string): string {
 }
 
 /**
- * Parseja un concepte bancari per a la UI.
+ * Parses a bank concept for the UI.
  *
- * Si no reconeix el patro, torna el text original **sense** PAN, targeta ni
- * comissio. Millor un concepte una mica brut que un numero de targeta.
+ * If it does not recognize the pattern, it returns the original text
+ * **without** PAN, card or commission. Better a slightly dirty concept than a card number.
  */
 export function parseDescription(text: string): ParsedDescription {
   const raw = text.trim();
@@ -305,7 +305,7 @@ export function parseDescription(text: string): ParsedDescription {
   const withoutFee = stripFee(senseTargeta);
   const cleanedOriginal = collapseSpaces(withoutFee);
 
-  // «concepto:» — el titol es el que ve despres.
+  // «concepto:» — the title is what comes after.
   const matchDescription = /(?:^|[,;]\s*)concepto\s*:\s*(.*)$/i.exec(cleanedOriginal);
   if (matchDescription) {
     const despres = (matchDescription[1] ?? "").trim();
@@ -321,15 +321,15 @@ export function parseDescription(text: string): ParsedDescription {
 
   let body = cleanedOriginal;
   body = removePrefix(body);
-  // «EN MERCADONA» despres de treure COMPRA TARJ.
+  // «EN MERCADONA» after removing COMPRA TARJ.
   body = body.replace(/^(?:EN|A|DE|DEL|LA|EL|POR)\s+/i, "");
   body = stripTrailingSlot(body);
-  // Pot haver-hi mes d'una cua («, LUXEMBOURG» despres de treure el prefix).
+  // There can be more than one tail («, LUXEMBOURG» after removing the prefix).
   body = stripTrailingSlot(body);
   body = stripWebNoise(body);
   body = collapseSpaces(body);
 
-  // Seguretat: cap bloc de 13–19 digits ha de sobreviure.
+  // Safety: no block of 13–19 digits may survive.
   body = body.replace(/\b\d{13,19}\b/g, " ");
   body = collapseSpaces(body);
 

@@ -1,20 +1,20 @@
 /**
- * Que compta com a moviment de debo.
+ * What counts as a real transaction.
  *
- * Un moviment nomes suma als informes, a la previsio i a la deteccio de
- * recurrents si compleix **totes** aquestes condicions:
+ * A transaction only adds to the reports, the forecast and the recurring
+ * detection if it meets **all** of these conditions:
  *
- *   - es de l'espai que es mira;
- *   - esta consolidat (`booked`), no pendent;
- *   - no forma part d'un traspas entre comptes propis, que nomes canvia els
- *     diners de lloc;
- *   - i ningu no l'ha exclos a ma.
+ *   - it belongs to the workspace being looked at;
+ *   - it is booked (`booked`), not pending;
+ *   - it is not part of a transfer between the owner's own accounts, which
+ *     only moves the money around;
+ *   - and nobody has excluded it by hand.
  *
- * **Aixo viu en un sol lloc a proposit.** N'hi havia cinc copies escrites a
- * ma i no deien totes el mateix: la dels traspassos es descuidava
- * `is_excluded`, i per aixo un moviment exclos podia entrar en una parella i
- * treure l'altra cama dels informes sense que ningu ho hagues demanat. Si
- * algun dia cal canviar que compta, es canvia aqui.
+ * **This lives in a single place on purpose.** There were five copies written
+ * by hand and they did not all say the same: the transfers one forgot
+ * `is_excluded`, and that is why an excluded transaction could enter a pair
+ * and take the other leg out of the reports without anyone asking. If one day
+ * what counts has to change, it changes here.
  */
 
 import { and, eq, gte, inArray, isNull, lt, lte, type SQL } from "drizzle-orm";
@@ -22,13 +22,13 @@ import { and, eq, gte, inArray, isNull, lt, lte, type SQL } from "drizzle-orm";
 import { transactions } from "../db/schema/index.ts";
 
 export interface FilterOptions {
-  /** Un espai o uns quants. */
+  /** One workspace or several. */
   workspaces: number | number[];
-  /** Des d'aquesta data, inclosa. */
+  /** From this date, inclusive. */
   des?: string | null;
-  /** Fins a aquesta data, inclosa. */
+  /** Up to this date, inclusive. */
   fins?: string | null;
-  /** Nomes els que treuen diners. */
+  /** Only the ones that take money out. */
   onlyExpenses?: boolean;
 }
 

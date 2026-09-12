@@ -1,11 +1,12 @@
 /**
- * Classificacio dels comerços desconeguts amb el model local.
+ * Classification of unknown merchants with the local model.
  *
- * **El model proposa; no decideix.** El comerç no es dona per confirmat i el
- * moviment queda marcat per revisar fins que ho valida una persona. Cada
- * proposta queda registrada a `llm_suggestions`, tant si s'aplica com si no.
+ * **The model proposes; it does not decide.** The merchant is not taken as
+ * confirmed and the transaction stays marked for review until a person
+ * validates it. Every proposal is recorded in `llm_suggestions`, whether it
+ * is applied or not.
  *
- * Traduccio de `backend/app/services/llm_classification.py`.
+ * A translation of `backend/app/services/llm_classification.py`.
  */
 
 import { and, avg, desc, eq, inArray, isNull, ne } from "drizzle-orm";
@@ -33,7 +34,7 @@ export interface LlmStats {
   classificats: number;
   pocaConfianca: number;
   errors: number;
-  /** Si te text, no s'ha arribat a preguntar res i explica per que. */
+  /** If it has text, nothing was asked and it explains why. */
   omitted: string;
 }
 
@@ -50,8 +51,8 @@ export function summaryLlm(s: LlmStats): string {
 }
 
 /**
- * Categories **fulla** d'un espai amb el nom complet, que es el que veu el
- * model. Les de traspas no hi son: un traspas no es cap despesa.
+ * **Leaf** categories of a workspace with the full name, which is what the
+ * model sees. The transfer ones are not there: a transfer is not an expense.
  */
 export async function categoryCatalog(ledgerId: number): Promise<CategoryCatalog[]> {
   const rows = await db
@@ -82,7 +83,7 @@ export async function categoryCatalog(ledgerId: number): Promise<CategoryCatalog
   return catalog;
 }
 
-/** Comerços d'un espai sense categoria i que l'usuari no ha confirmat mai. */
+/** Merchants of a workspace with no category that the user has never confirmed. */
 export async function merchantsToClassify(
   ledgerId: number,
   limit: number,
@@ -146,11 +147,11 @@ async function saveSuggestion(
 }
 
 /**
- * Fa que el model proposi categoria per als comerços desconeguts d'un espai.
+ * Makes the model propose a category for a workspace's unknown merchants.
  *
- * Es limita a `limit` comerços per passada, els mes freqüents primer: en un
- * NAS sense targeta grafica cada pregunta costa segons, i els comerços amb
- * mes moviments son els que mes revisio estalvien.
+ * It is limited to `limit` merchants per pass, the most frequent first: on a
+ * NAS with no graphics card each question costs seconds, and the merchants
+ * with the most transactions are the ones that save the most review.
  */
 export async function classifyMerchants(
   ledgerId: number,
@@ -211,8 +212,8 @@ export async function classifyMerchants(
       continue;
     }
 
-    // Les dues juntes: si nomes passa la primera, el comerç diu que el model
-    // li ha posat una categoria i els seus moviments no la tenen.
+    // The two together: if only the first goes through, the merchant says the
+    // model gave it a category and its transactions do not have it.
     await db.transaction(async (tx) => {
       await tx
         .update(merchants)
@@ -223,7 +224,7 @@ export async function classifyMerchants(
         })
         .where(eq(merchants.id, merchant.id));
 
-      // Es proposa, pero cal que una persona ho validi: `needsReview` a cert.
+      // It is proposed, but a person has to validate it: `needsReview` true.
       await tx
         .update(transactions)
         .set({

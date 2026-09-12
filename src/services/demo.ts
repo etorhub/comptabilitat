@@ -1,15 +1,15 @@
 /**
- * Dades d'exemple.
+ * Sample data.
  *
- * Divuit mesos de moviments amb la mateixa pinta que els del Santander, per
- * poder-ho provar sense credencials del banc. Es determinista: el mateix
- * llavor dona sempre el mateix resultat.
+ * Eighteen months of transactions looking just like Santander's, so that it
+ * can be tried without bank credentials. It is deterministic: the same seed
+ * always gives the same result.
  *
- * Traduccio de `backend/app/services/demo.py`. Les taules de dades s'han
- * generat a partir d'aquell fitxer.
+ * A translation of `backend/app/services/demo.py`. The data tables were
+ * generated from that file.
  *
- * **No fa res si ja hi ha comptes**: no es pot carregar dades de debò per
- * error.
+ * **It does nothing if there are already accounts**: real data cannot be
+ * loaded over by mistake.
  */
 
 import { and, eq } from "drizzle-orm";
@@ -40,7 +40,7 @@ import { confirmSeries, detectRecurring } from "./recurring.ts";
 import { seedLedgers } from "./seed.ts";
 import { detectTransfers } from "./transfers.ts";
 
-/** [concepte, import minim, import maxim, pendent de la categoria] */
+/** [concept, minimum amount, maximum amount, category slug] */
 const Expenses: readonly (readonly [string, number, number, string])[] = [
   [
     "COMPRA TARJ. 5402XXXXXXXX1234 EN MERCADONA, BARCELONA",
@@ -66,7 +66,7 @@ const Expenses: readonly (readonly [string, number, number, string])[] = [
   ],
 ];
 
-/** [concepte, import, cada quants dies, espai, pendent de la categoria] */
+/** [concept, amount, every how many days, workspace, category slug] */
 const Recurring: readonly (readonly [string, string, number, string, string])[] = [
   [
     "ADEUDO POR DOMICILIACION DE ENDESA ENERGIA XXI SLU",
@@ -107,14 +107,14 @@ const Recurring: readonly (readonly [string, string, number, string, string])[] 
 ];
 
 /**
- * [concepte, import, cada quants dies o `null` si es excepcional, espai,
- * pendent de la categoria]
+ * [concept, amount, every how many days or `null` if one-off, workspace,
+ * category slug]
  *
- * Transferencies a una persona, no a un comerç: es el cas que demostra per
- * que la recurrencia no pot penjar de qui rep els diners. La Maria fa el
- * lloguer cada mes (recurrent, categoria d'habitatge) i tambe li vam pagar un
- * sopar un dissabte (excepcional, categoria de restauracio): mateix actor,
- * cadascuna a la seva categoria, i nomes la primera genera una serie.
+ * Transfers to a person, not to a merchant: this is the case that shows why
+ * recurrence cannot hang off whoever receives the money. Maria pays the rent
+ * every month (recurring, housing category) and we also paid her for a dinner
+ * one Saturday (one-off, restaurant category): same actor, each in its own
+ * category, and only the first one generates a series.
  */
 const TRANSFERENCIES_PERSONALS: readonly (readonly [
   string,
@@ -154,11 +154,11 @@ const Users: readonly (readonly [string, string, boolean, Record<string, LedgerR
 ];
 
 /**
- * Generador determinista.
+ * Deterministic generator.
  *
- * El Python feia `random.seed(20260825)`. Aqui es fa servir un generador
- * propi perque el de JavaScript no accepta llavor: el que importa es que
- * repetir-ho doni el mateix, no que doni el mateix que el Python.
+ * The Python did `random.seed(20260825)`. Here a generator of our own is used
+ * because JavaScript's does not accept a seed: what matters is that repeating
+ * it gives the same thing, not that it gives the same thing as the Python.
  */
 function generador(seed: number): () => number {
   let state = seed >>> 0;
@@ -191,7 +191,7 @@ export async function fillForTests(
   const workspaces = await db.select().from(ledgers);
   const byCode = new Map(workspaces.map((e) => [e.code, e]));
 
-  // --- Usuaris ---
+  // --- Users ---
   for (const [correu, name, esAdmin, accessos] of Users) {
     const adreça = correu === "demo@exemple.cat" ? email : correu;
     const [ja] = await db.select().from(users).where(eq(users.email, adreça)).limit(1);
@@ -219,7 +219,7 @@ export async function fillForTests(
     }
   }
 
-  // --- Connexio i comptes ---
+  // --- Connection and accounts ---
   const [connection] = await db
     .insert(bankConnections)
     .values({
@@ -260,7 +260,7 @@ export async function fillForTests(
     if (account) accountList.set(workspace.code, { id: account.id, ledgerId: workspace.id });
   }
 
-  // --- Moviments ---
+  // --- Transactions ---
   let total = 0;
 
   const add = async (
@@ -315,12 +315,12 @@ export async function fillForTests(
   for (let month = Months; month >= 0; month -= 1) {
     const base = addDays(today, -month * 30);
 
-    // La nomina, cada mes.
+    // The salary, every month.
     if (personal) {
       await add(personal, addDays(base, 1), new Decimal("2150.00"), NOMINA);
     }
 
-    // Despeses del dia a dia.
+    // Day-to-day expenses.
     for (const account of accountList.values()) {
       const quantes = 8 + Math.floor(atzar() * 10);
       for (let i = 0; i < quantes; i += 1) {
@@ -332,7 +332,7 @@ export async function fillForTests(
       }
     }
 
-    // Rebuts recurrents.
+    // Recurring direct debits.
     for (const [description, quantitat, days, codiEspai] of Recurring) {
       const account = accountList.get(codiEspai);
       if (!account) continue;
@@ -340,8 +340,8 @@ export async function fillForTests(
       await add(account, addDays(base, 3), new Decimal(quantitat), description);
     }
 
-    // Transferencies a una persona amb periodicitat declarada (el lloguer).
-    // Les excepcionals (`dies === null`) es generen a banda, un cop.
+    // Transfers to a person with a declared periodicity (the rent). The
+    // one-off ones (`dies === null`) are generated separately, once.
     for (const [description, quantitat, days, codiEspai] of TRANSFERENCIES_PERSONALS) {
       if (days === null) continue;
       const account = accountList.get(codiEspai);
@@ -351,7 +351,7 @@ export async function fillForTests(
     }
   }
 
-  // Les transferencies excepcionals a una persona: un sol cop, no cada mes.
+  // The one-off transfers to a person: once only, not every month.
   for (const [description, quantitat, days, codiEspai] of TRANSFERENCIES_PERSONALS) {
     if (days !== null) continue;
     const account = accountList.get(codiEspai);
@@ -359,25 +359,27 @@ export async function fillForTests(
     await add(account, addDays(today, -10), new Decimal(quantitat), description);
   }
 
-  // Diners que passen d'un espai a un altre. **No s'han d'aparellar**: per a
-  // qui mira Calella, aquests diners hi han entrat de debò, i d'on venen no es
-  // cosa seva. Es veuen dues vegades i per separat, com diu `docs/espais.md`.
   const calella = accountList.get("calella");
+
+  // Money moving from one workspace to another. **They must not be paired**:
+  // to whoever looks at Calella, that money really did come in, and where it
+  // comes from is not their business. They are seen twice and separately, as
+  // `docs/espais.md` says.
   if (personal && calella) {
     const day = addDays(today, -20);
     await add(personal, day, new Decimal("-400.00"), "TRASPASO A CALELLA");
     await add(calella, day, new Decimal("400.00"), "TRANSFERENCIA RECIBIDA DE TU");
   }
 
-  // Els dos moviments d'abans no s'aparellen, pero si que tenen categoria:
-  // son un traspas entre comptes propis a banda i banda. Es classifiquen
-  // directament, com faria qui revisa la safata.
+  // The two transactions above are not paired, but they do have a category:
+  // they are a transfer between the owner's own accounts on either side. They
+  // are classified directly, as whoever reviews the tray would do.
   const TRANSFERS_ENTRE_WORKSPACES: [string, string, string][] = [
     ["personal", "TRASPASO A CALELLA", "traspassos-traspas-entre-comptes-propis"],
     ["calella", "TRANSFERENCIA RECIBIDA DE TU", "traspassos-traspas-entre-comptes-propis"],
   ];
 
-  // --- Saldos ---
+  // --- Balances ---
   for (const [code, account] of accountList) {
     await db.insert(balances).values({
       accountId: account.id,
@@ -389,12 +391,12 @@ export async function fillForTests(
     });
   }
 
-  // --- Classificacio, com si algu ja hi hagues passat ---
+  // --- Classification, as if someone had already been through it ---
   //
-  // Sense aixo, la demostracio arrenca amb tots els moviments a la safata de
-  // revisio i no s'hi veu res: ni informes, ni repartiment per categoria. El
-  // que es fa aqui es el que faria una persona el primer dia, confirmant la
-  // categoria de cada comerç.
+  // Without this, the demonstration starts with every transaction in the
+  // review tray and nothing can be seen: no reports, no breakdown by
+  // category. What is done here is what a person would do on the first day,
+  // confirming each merchant's category.
   const perSlug = new Map<string, number>();
   for (const category of await db.select().from(categories)) {
     perSlug.set(`${category.ledgerId}:${category.slug}`, category.id);
@@ -430,9 +432,9 @@ export async function fillForTests(
     }
   }
 
-  // Les transferencies a una persona no tenen comerç amb categoria per
-  // defecte: com faria de debò qui revisa la safata, es classifiquen
-  // moviment a moviment.
+  // Transfers to a person have no merchant with a default category: as
+  // whoever reviews the tray would really do, they are classified transaction
+  // by transaction.
   const directClassification: [string, string, string][] = [
     ...TRANSFERS_ENTRE_WORKSPACES,
     ...TRANSFERENCIES_PERSONALS.map(
@@ -464,13 +466,13 @@ export async function fillForTests(
       );
   }
 
-  // --- I ara, el mateix que faria la feina programada ---
+  // --- And now, the same thing the scheduled job would do ---
   let transfers = 0;
   for (const workspace of workspaces) {
     transfers += await detectTransfers(workspace.id);
     await classifyPending(workspace.id);
     await detectRecurring(workspace.id);
-    // A la demo confirmem les propostes: la previsio ha de funcionar de seguida.
+    // In the demo we confirm the proposals: the forecast has to work right away.
     const proposals = await db
       .select({
         id: recurringSeries.id,

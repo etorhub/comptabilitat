@@ -1,15 +1,15 @@
 /**
- * Aparellament de traspassos entre comptes propis.
+ * Pairing of transfers between the owner's own accounts.
  *
- * Moure diners entre dos comptes **del mateix espai** no es ni ingres ni
- * despesa: nomes canvia de lloc. Quan una sortida i una entrada iguals
- * s'aparellen, queden fora dels informes.
+ * Moving money between two accounts **of the same workspace** is neither
+ * income nor expense: it only changes place. When an equal debit and credit
+ * are paired, they stay out of the reports.
  *
- * El que arriba **d'un altre espai**, en canvi, si que compta: per a qui mira
- * Calella, uns diners que hi entren son una entrada de debò, i d'on venen no
- * es cosa seva. Per aixo tot aixo passa dins d'un sol espai.
+ * What arrives **from another workspace**, on the other hand, does count: to
+ * whoever looks at Calella, money coming in is a real credit, and where it
+ * comes from is not their business. That is why all of this happens inside a
+ * single workspace.
  *
- * Traduccio de `backend/app/services/transfers.py`.
  */
 
 import { asc, eq } from "drizzle-orm";
@@ -21,7 +21,7 @@ import { money } from "../lib/money.ts";
 import { addDays, daysBetween, todayLocal } from "../lib/time.ts";
 import { transferCategory } from "./classification.ts";
 
-/** Marge de dies entre la sortida d'un compte i l'entrada a l'altre. */
+/** Margin in days between the debit of one account and the credit of the other. */
 const MATCH_WINDOW_DAYS = 3;
 
 interface Candidat {
@@ -32,7 +32,7 @@ interface Candidat {
   categorySource: string;
 }
 
-/** Aparella sortides i entrades equivalents entre comptes del mateix espai. */
+/** Pairs equivalent debits and credits between accounts of the same workspace. */
 export async function detectTransfers(ledgerId: number, lookbackDays = 120): Promise<number> {
   const des = addDays(todayLocal(), -lookbackDays);
 
@@ -45,9 +45,9 @@ export async function detectTransfers(ledgerId: number, lookbackDays = 120): Pro
       categorySource: transactions.categorySource,
     })
     .from(transactions)
-    // El mateix filtre que fan servir els informes. L'`is_excluded` d'aqui no
-    // es un detall: aparellar un moviment exclos escriuria el grup **a l'altra
-    // cama** i la trauria dels informes sense que ningu ho hagues demanat.
+    // The same filter the reports use. The `is_excluded` here is not a detail:
+    // pairing an excluded transaction would write the group **on the other
+    // leg** and take it out of the reports without anyone asking.
     .where(countableTransactions({ workspaces: ledgerId, des }))
     .orderBy(asc(transactions.bookingDate), asc(transactions.id));
 
@@ -67,19 +67,19 @@ export async function detectTransfers(ledgerId: number, lookbackDays = 120): Pro
 
     const group = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
 
-    // **Les dues cames, o cap.** Si nomes se n'etiqueta una, els informes
-    // deixen fora la sortida i continuen comptant l'entrada: el mes surt
-    // malament per l'import sencer i sembla correcte. I ja no es repara sol,
-    // perque la cama orfe te `transfer_group_id` i aquesta consulta nomes mira
-    // les que el tenen buit.
+    // **Both legs, or neither.** If only one is labelled, the reports leave
+    // the debit out and go on counting the credit: the month comes out wrong
+    // by the whole amount and looks right. And it no longer repairs itself,
+    // because the orphan leg has a `transfer_group_id` and this query only
+    // looks at those with an empty one.
     await db.transaction(async (tx) => {
       for (const item of [output, counterparty]) {
-        // Tipat amb la taula: aixi una errada al nom d'un camp no compila, en
-        // lloc d'escriure's en silenci.
+        // Typed with the table: that way a mistake in a field name does not
+        // compile, instead of being written silently.
         const canvis: Partial<typeof transactions.$inferInsert> = { transferGroupId: group };
 
-        // La categoria d'un traspas no la tria ningu cada vegada, pero si una
-        // persona n'hi ha posat una, es respecta.
+        // Nobody picks the category of a transfer every time, but if a person
+        // has set one, it is respected.
         if (category !== null && item.categorySource !== "user") {
           canvis.categoryId = category.id;
           canvis.categorySource = "rule";

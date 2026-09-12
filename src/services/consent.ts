@@ -1,12 +1,12 @@
 /**
- * El cicle de vida del consentiment del banc.
+ * The life cycle of the bank's consent.
  *
- * Sota PSD2, per llegir un compte cal que la persona hi doni permis al banc, i
- * aquell permis **caduca cada 90 dies**: no hi ha manera d'evitar-ho, l'unic
- * que es pot fer es avisar a temps i tornar a demanar-lo.
+ * Under PSD2, reading an account requires the person to give the bank
+ * permission, and that permission **expires every 90 days**: there is no way
+ * around it, all that can be done is to warn in time and ask for it again.
  *
- * Aixo no te res a veure amb importar moviments —vegeu `import.ts`—, i es
- * l'unica part que es crida des d'una ruta i no des d'una feina programada.
+ * This has nothing to do with importing transactions —see `import.ts`—, and
+ * it is the only part called from a route and not from a scheduled job.
  */
 
 import { eq } from "drizzle-orm";
@@ -19,7 +19,7 @@ import { parseAccount } from "../lib/enablebanking/parsing.ts";
 import { daysBetween, todayLocal } from "../lib/time.ts";
 import { createAlert } from "./alerts.ts";
 
-// --- Autoritzacio ------------------------------------------------------------
+// --- Authorization -----------------------------------------------------------
 
 function randomState(): string {
   const bytes = new Uint8Array(24);
@@ -28,11 +28,11 @@ function randomState(): string {
 }
 
 /**
- * Comença l'autoritzacio i torna la URL del banc.
+ * Starts the authorization and returns the bank's URL.
  *
- * Si es passa una connexio, es una renovacio del consentiment: es conserva la
- * connexio (i per tant els seus comptes, l'espai que tinguin assignat i tot
- * l'historic) i nomes se'n renova la sessio.
+ * If a connection is passed, this is a consent renewal: the connection is kept
+ * (and therefore its accounts, the workspace they are assigned to and all the
+ * history) and only its session is renewed.
  */
 export async function beginAuthorization(options: {
   aspspName?: string;
@@ -99,10 +99,10 @@ export async function beginAuthorization(options: {
 }
 
 /**
- * Tanca l'autoritzacio amb el codi que torna el banc.
+ * Closes the authorization with the code the bank returns.
  *
- * Els comptes s'insereixen o s'actualitzen per `eb_account_uid`, de manera que
- * renovar el consentiment **conserva l'espai assignat i l'historic**.
+ * The accounts are inserted or updated by `eb_account_uid`, so renewing the
+ * consent **keeps the assigned workspace and the history**.
  */
 export async function finishAuthorization(
   code: string,
@@ -125,7 +125,7 @@ export async function finishAuthorization(
     .update(bankConnections)
     .set({
       ebSessionId: session.session_id ?? null,
-      // L'estat es d'un sol us.
+      // The state is single-use.
       ebAuthState: null,
       status: "active",
       validUntil,
@@ -145,7 +145,7 @@ export async function finishAuthorization(
       .limit(1);
 
     if (ja) {
-      // No es toca `ledgerId`: l'espai assignat es conserva.
+      // `ledgerId` is not touched: the assigned workspace is kept.
       await db
         .update(accounts)
         .set({
@@ -183,10 +183,10 @@ export async function finishAuthorization(
 }
 
 /**
- * Avisa dels consentiments a punt de caducar i marca els que ja ho han fet.
+ * Warns about consents about to expire and marks the ones that already have.
  *
- * Sota PSD2 caduquen cada 90 dies i no hi ha manera d'evitar-ho: l'unic que es
- * pot fer es avisar a temps, 7, 3 i 1 dia abans.
+ * Under PSD2 they expire every 90 days and there is no way around it: all
+ * that can be done is to warn in time, 7, 3 and 1 day before.
  */
 export async function checkConsents(): Promise<number> {
   const today = todayLocal();

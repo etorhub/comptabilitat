@@ -1,13 +1,13 @@
 /**
- * Memoria de comerços.
+ * Merchant memory.
  *
- * Dins d'un espai, un comerç es classifica **una sola vegada**. Entre espais
- * no es comparteix res: el mateix Mercadona es un comerç diferent a Personal i
- * a Calella, perque cadascun te els seus usuaris i el seu pla de categories, i
- * perque el nom d'un comerç sovint es el nom d'una persona.
+ * Within a workspace, a merchant is classified **once only**. Nothing is
+ * shared between workspaces: the same Mercadona is a different merchant in
+ * Personal and in Calella, because each has its own users and its own
+ * category plan, and because a merchant's name is often a person's name.
  *
- * Traduccio de `backend/app/services/merchants.py` i de la part de
- * `classification.remember_merchant_choice`.
+ * A translation of `backend/app/services/merchants.py` and of the
+ * `classification.remember_merchant_choice` part.
  */
 
 import {
@@ -30,14 +30,14 @@ import { AppError, NotFoundError } from "../lib/http.ts";
 import { classifyTransaction } from "./classification.ts";
 import { resolveCounterparty } from "./contraparts.ts";
 
-/** Cubells especials que abans engolien compres amb «COMISION» al final. */
+/** Special buckets that used to swallow purchases with «COMISION» at the end. */
 const CUBELLS_ESPECIALS = new Set([
   "COMISSIO BANCARIA",
   "REINTEGRO EFECTIU",
   "TRASPAS ENTRE COMPTES",
 ]);
 
-/** Filtres de la llista de comerços. */
+/** Filters of the merchant list. */
 export interface MerchantsFilters {
   search: string;
   onlyUnclassified: boolean;
@@ -51,7 +51,7 @@ export interface MerchantView {
   normalizedName: string;
   displayName: string;
   defaultCategoryId: number | null;
-  /** El nom de la categoria, per no fer una consulta per fila. */
+  /** The category's name, so as not to do one query per row. */
   categoryName: string | null;
   isConfirmed: boolean;
   transactionCount: number;
@@ -80,10 +80,10 @@ function condicions(ledgerId: number, filters: MerchantsFilters): SQL | undefine
 }
 
 /**
- * Els comerços de l'espai, els que mes surten primer.
+ * The workspace's merchants, the most frequent first.
  *
- * Es demanen columnes explicites i s'hi ajunta el nom de la categoria: aixi la
- * plantilla no ha de fer cap consulta ni rep mai la fila sencera.
+ * Explicit columns are asked for and the category's name is joined in: that
+ * way the template has to do no query and never receives the whole row.
  */
 export async function listMerchants(
   ledgerId: number,
@@ -119,7 +119,7 @@ export async function listMerchants(
   };
 }
 
-/** Un comerç d'aquest espai, o 404. */
+/** A merchant of this workspace, or 404. */
 export async function merchantInWorkspace(id: number, ledgerId: number): Promise<Merchant> {
   const [merchant] = await db
     .select()
@@ -130,7 +130,7 @@ export async function merchantInWorkspace(id: number, ledgerId: number): Promise
   return merchant;
 }
 
-/** Torna la vista d'un comerç, per redibuixar-ne la fila. */
+/** Returns a merchant's view, for redrawing its row. */
 export async function merchantView(id: number, ledgerId: number): Promise<MerchantView> {
   const [row] = await db
     .select({
@@ -152,19 +152,19 @@ export async function merchantView(id: number, ledgerId: number): Promise<Mercha
 }
 
 /**
- * Desa la decisio d'una persona sobre un comerç i la propaga dins del seu espai.
+ * Saves a person's decision about a merchant and propagates it within their workspace.
  *
- * Els moviments que ja tenen categoria posada **per una persona**
- * (`category_source = 'user'`) no es toquen mai: aquella decisio mana per
- * sobre de tot. Retorna quants moviments s'han canviat.
+ * Transactions that already have a category set **by a person**
+ * (`category_source = 'user'`) are never touched: that decision outranks
+ * everything. Returns how many transactions were changed.
  *
- * Les dues escriptures van juntes. Si nomes passes la primera, el comerç diu
- * «confirmat, categoria X» i els seus moviments continuen amb la d'abans; i
- * aixo no s'adoba sol, perque `classificaPendents` nomes recull els moviments
- * sense categoria o marcats per revisar, i aquests no en son cap dels dos.
+ * The two writes go together. If you only do the first, the merchant says
+ * «confirmed, category X» and its transactions keep the previous one; and
+ * that does not fix itself, because `classifyPending` only picks up
+ * transactions with no category or marked for review, and these are neither.
  *
- * `connexio.transaction()` val tant per a la piscina com per a una transaccio
- * que ja estigui oberta: dins d'una altra, Postgres hi posa un punt de
+ * `connexio.transaction()` works both for the pool and for a transaction that
+ * is already open: inside another one, Postgres just puts a savepoint there.
  * seguretat i prou.
  */
 export async function rememberMerchantChoice(
@@ -196,7 +196,7 @@ export async function rememberMerchantChoice(
       .where(
         and(
           eq(transactions.merchantId, merchant.id),
-          // La decisio d'una persona no la sobreescriu res.
+          // Nothing overwrites a person's decision.
           ne(transactions.categorySource, "user"),
         ),
       )
@@ -207,10 +207,10 @@ export async function rememberMerchantChoice(
 }
 
 /**
- * Assigna la categoria per defecte d'un comerç.
+ * Assigns a merchant's default category.
  *
- * La categoria ha de ser d'aquest espai: si no, s'hi podrien enganxar
- * moviments a la comptabilitat d'un altre.
+ * The category must belong to this workspace: otherwise transactions could be
+ * stuck into another one's books.
  */
 export async function assignCategory(
   id: number,
@@ -233,12 +233,12 @@ export async function assignCategory(
 }
 
 /**
- * El comerç d'aquest espai amb aquest nom normalitzat, creant-lo si cal.
+ * The merchant of this workspace with this normalized name, creating it if needed.
  *
- * La fa servir la sincronitzacio, un cop per moviment nou.
+ * It is used by the synchronization, once per new transaction.
  *
- * @param incrementaComptador si es fals, nomes obté o crea sense tocar
- *   `transaction_count` (per a reassignacions en lot que després recompten).
+ * @param incrementaComptador if false, it only gets or creates without
+ *   touching `transaction_count` (for batch reassignments that recount after).
  */
 export async function getOrCreateMerchant(
   ledgerId: number,
@@ -302,7 +302,7 @@ export async function getOrCreateMerchant(
   return actualitzat ?? merchant;
 }
 
-/** Recompta `transaction_count` a partir dels moviments reals. */
+/** Recounts `transaction_count` from the real transactions. */
 export async function countMerchants(
   merchantIds: number[],
   connection: Transactor = db,
@@ -331,10 +331,10 @@ export interface ReassignmentResult {
 }
 
 /**
- * Torna a normalitzar els moviments i corregeix comerços mal assignats.
+ * Renormalizes the transactions and corrects wrongly assigned merchants.
  *
- * Una passada de manteniment després de canviar la normalitzacio (comissio
- * accidental, prefix buit). No toca mai `category_source = 'user'`.
+ * A maintenance pass after changing the normalization (accidental commission,
+ * empty prefix). It never touches `category_source = 'user'`.
  */
 export async function reassignNormalization(
   ledgerId?: number,
@@ -401,7 +401,7 @@ export async function reassignNormalization(
     if (transaction.categorySource === "user") continue;
     if (transaction.ledgerId === null) continue;
 
-    // Si venia d'un cubell especial (o la clau ha canviat), torna a classificar.
+    // If it came from a special bucket (or the key changed), classify it again.
     const cameFromBucket =
       transaction.categorySource === "merchant" &&
       CUBELLS_ESPECIALS.has(transaction.normalizedDescription);
@@ -415,7 +415,7 @@ export async function reassignNormalization(
         id: transaction.id,
         ledgerId: transaction.ledgerId,
         merchantId: newMerchantId,
-        // Forcem que es torni a decidir: treiem la categoria del cubell.
+        // We force a fresh decision: the bucket's category is removed.
         categorySource: "none",
       },
       connection,

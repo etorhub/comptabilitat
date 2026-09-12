@@ -1,11 +1,12 @@
 /**
- * Enviament dels avisos per correu.
+ * Sending the alerts by email.
  *
- * Cada espai te els seus destinataris: l'avis d'un descobert a Calella nomes
- * va a qui li pertoca. Els avisos que no son de cap espai (connexions,
- * sincronitzacions) van als destinataris generals de la configuracio.
+ * Each workspace has its own recipients: the alert about an overdraft in
+ * Calella only goes to whoever it concerns. Alerts belonging to no workspace
+ * (connections, synchronizations) go to the general recipients in the
+ * configuration.
  *
- * Traduccio de `backend/app/workers/jobs/notify.py`.
+ * A translation of `backend/app/workers/jobs/notify.py`.
  */
 
 import { and, asc, eq, isNull, ne } from "drizzle-orm";
@@ -16,7 +17,7 @@ import { config } from "../lib/config.ts";
 import { sendMail, renderSummary, type SummaryEntry } from "../lib/email.ts";
 import { todayLocal } from "../lib/time.ts";
 
-/** Data i hora locals, com les escrivia el `strftime("%d/%m/%Y %H:%M")`. */
+/** Local date and time, as `strftime("%d/%m/%Y %H:%M")` wrote them. */
 const marcaLocal = new Intl.DateTimeFormat("ca-ES", {
   day: "2-digit",
   month: "2-digit",
@@ -28,7 +29,7 @@ const marcaLocal = new Intl.DateTimeFormat("ca-ES", {
 });
 
 function formataMarca(moment: Date): string {
-  // L'`Intl` catala hi posa «, » entre la data i l'hora; el Python no.
+  // The Catalan `Intl` puts «, » between the date and the time; the Python does not.
   return marcaLocal.format(moment).replace(", ", " ");
 }
 
@@ -37,17 +38,17 @@ function dateCurta(isoDate: string): string {
   return `${day}/${month}/${any}`;
 }
 
-/** A qui van els avisos d'aquest espai. */
+/** Who this workspace's alerts go to. */
 export function recipientsOf(recipientsEspai: readonly string[] | null): string[] {
   if (recipientsEspai !== null && recipientsEspai.length > 0) return [...recipientsEspai];
   return [...config.alertRecipients];
 }
 
 /**
- * Envia els avisos encara no notificats.
+ * Sends the alerts that have not been notified yet.
  *
- * Amb `nomesUrgents` nomes surten els critics, perque es pugui cridar cada
- * hora sense omplir la bustia; la resta van al resum diari.
+ * With `nomesUrgents` only the critical ones come out, so that it can be
+ * called every hour without filling the inbox; the rest go in the daily digest.
  */
 export async function notifyPending(nomesUrgents = false): Promise<string> {
   const condicions = [isNull(alerts.notifiedAt), ne(alerts.status, "dismissed")];
@@ -57,8 +58,8 @@ export async function notifyPending(nomesUrgents = false): Promise<string> {
     .select()
     .from(alerts)
     .where(and(...condicions))
-    // Mateix ordre que el Python: `severity` es text, aixi que alfabeticament
-    // «critical» < «info» < «warning» i els urgents surten primer.
+    // Same order as the Python: `severity` is text, so alphabetically
+    // «critical» < «info» < «warning» and the urgent ones come first.
     .orderBy(asc(alerts.severity), asc(alerts.createdAt));
 
   if (pending.length === 0) return "Cap avis pendent d'enviar";

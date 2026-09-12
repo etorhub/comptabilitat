@@ -1,14 +1,14 @@
 /**
- * Baixar els moviments del banc i desar-los.
+ * Downloading the bank's transactions and saving them.
  *
- * Les dues coses que fan que importar dues vegades no faci malbe res:
+ * The two things that make importing twice harmless:
  *
- *   1. **La clau de deduplicacio** (`dedupKey`), que reconeix el que ja hi ha.
- *   2. **La reconciliacio dels pendents**: quan un apunt pendent es consolida,
- *      es reaprofita la mateixa fila en lloc de fer-ne una de nova, de manera
- *      que la categoria que hi hagi posat una persona es conserva.
+ *   1. **The deduplication key** (`dedupKey`), which recognizes what is
+ *      already there.
+ *   2. **Reconciling the pending entries**: when a pending entry is booked,
+ *      the same row is reused instead of making a new one, so that the
+ *      category a person has set is kept.
  *
- * Qui ho orquestra i qui en porta el registre es `sync.ts`.
  */
 
 import { and, eq, gte, inArray } from "drizzle-orm";
@@ -27,9 +27,9 @@ import { addDays, daysBetween, todayLocal } from "../lib/time.ts";
 import { classifyTransaction } from "./classification.ts";
 import { resolveCounterparty } from "./contraparts.ts";
 
-/** Marge per aparellar un pendent amb el seu apunt definitiu. */
+/** Margin for matching a pending entry with its final booked one. */
 const PENDING_MATCH_DAYS = 5;
-/** Finestres alternatives (en mesos) quan el banc rebutja el periode demanat. */
+/** Alternative windows (in months) when the bank rejects the period asked for. */
 const FALLBACK_WINDOWS_MONTHS = [24, 12, 6, 3, 1];
 
 export interface AccountResult {
@@ -40,18 +40,18 @@ export interface AccountResult {
   error: string;
 }
 
-/** La data d'inici d'una finestra de tants mesos enrere. */
+/** The start date of a window that many months back. */
 export function startDateMonthsAgo(months: number): string {
   return addDays(todayLocal(), -Math.round(months * 30.4));
 }
 
-// --- Importacio --------------------------------------------------------------
+// --- Import -------------------------------------------------------------------
 
 /**
- * Baixa els moviments, escurçant la finestra si el banc la rebutja.
+ * Downloads the transactions, shortening the window if the bank rejects it.
  *
- * El Santander no accepta sempre 24 mesos; quan diu que no, es prova amb 12,
- * 6, 3 i 1, i queda escrit al registre quina ha entrat.
+ * Santander does not always accept 24 months; when it says no, 12, 6, 3 and 1
+ * are tried, and which one got through is written in the log.
  */
 export async function removeTransactions(
   client: EnableBankingClient,
@@ -69,8 +69,8 @@ export async function removeTransactions(
   for (const candidata of finestres) {
     try {
       const items: TransactionAnalyzed[] = [];
-      // Es recorre a ma per poder llegir el valor de retorn del generador,
-      // que diu si la llista s'ha quedat curta.
+      // It is iterated by hand so that the generator's return value can be
+      // read, which says whether the list came up short.
       const pages = client.iterTransactions(account.ebAccountUid, { dateFrom: candidata });
       let step = await pages.next();
       while (step.done !== true) {
@@ -94,7 +94,7 @@ export async function removeTransactions(
   throw lastError ?? new DateRangeError("Cap finestra de dates acceptada");
 }
 
-/** Camps que el banc pot canviar d'un moviment que ja teniem. */
+/** Fields the bank can change on a transaction we already had. */
 function calActualitzar(
   actual: {
     status: string;
@@ -117,16 +117,16 @@ function calActualitzar(
 }
 
 /**
- * Desa els moviments d'un compte.
+ * Saves an account's transactions.
  *
- * Aqui hi ha la reconciliacio dels pendents: un apunt pendent que es
- * consolida **reaprofita la fila que ja hi havia**, de manera que la
- * categoria que hi hagi posat una persona no es perd.
+ * Here is the reconciliation of the pending entries: a pending entry that is
+ * booked **reuses the row that was already there**, so that the category a
+ * person has set is not lost.
  */
 export async function saveTransactions(
   account: Account,
   items: TransactionAnalyzed[],
-  /** Si el banc no ho ha donat tot, no es pot deduir res del que hi falta. */
+  /** If the bank did not give everything, nothing can be deduced from what is missing. */
   llistaIncompleta = false,
 ): Promise<AccountResult> {
   const result: AccountResult = {
@@ -187,7 +187,7 @@ export async function saveTransactions(
       continue;
     }
 
-    // Un apunt pendent que es consolida no ha de duplicar-se.
+    // A pending entry that is booked must not be duplicated.
     if (item.status === "booked") {
       const matched = pending.find(
         (p) =>
@@ -255,7 +255,7 @@ export async function saveTransactions(
 
     if (!creat) continue;
 
-    // Nom normalitzat, comerç i categoria.
+    // Normalized name, merchant and category.
     let merchantId: number | null = null;
     let normalitzat = "";
 
@@ -294,10 +294,10 @@ export async function saveTransactions(
     result.inserits += 1;
   }
 
-  // Els pendents que el banc ja no reporta han desaparegut. Aixo nomes es pot
-  // deduir si el banc ho ha donat **tot**: amb una llista escapçada, «no hi
-  // es» vol dir «no ha arribat», i esborrariem moviments vius amb les seves
-  // notes, les etiquetes i la categoria que hi hagues posat algu.
+  // The pending entries the bank no longer reports have disappeared. This can
+  // only be deduced if the bank gave **everything**: with a truncated list,
+  // «it is not there» means «it did not arrive», and we would delete live
+  // transactions along with their notes, tags and whatever category was set.
   const caducats = llistaIncompleta
     ? []
     : pending.filter((p) => !views.has(p.dedupKey) && p.bookingDate >= inicíFinestra);
@@ -311,7 +311,7 @@ export async function saveTransactions(
     result.esborrats = caducats.length;
   }
 
-  // Fins on hem arribat.
+  // How far we got.
   const definitius = items.filter((i) => i.status === "booked").map((i) => i.bookingDate);
   const canvis: Partial<typeof accounts.$inferInsert> = {};
 

@@ -1,16 +1,16 @@
 /**
- * Assignacio de categoria als moviments d'un espai.
+ * Assigning a category to a workspace's transactions.
  *
- * L'ordre de resolucio es sempre el mateix, del mes barat i explicit al mes
- * car:
+ * The resolution order is always the same, from the cheapest and most
+ * explicit to the most expensive:
  *
- *   1. **la decisio d'una persona, que no es toca mai**;
- *   2. la memoria de comerços de l'espai;
- *   3. el que queda, pendent de revisar.
+ *   1. **a person's decision, which is never touched**;
+ *   2. the workspace's merchant memory;
+ *   3. whatever is left, pending review.
  *
- * Tot passa dins d'un sol espai: res del que es decideix aqui afecta els
- * altres. Traduccio de `backend/app/services/classification.py` (sense el
- * pas de regles, que s'ha tret del producte).
+ * Everything happens inside a single workspace: nothing decided here affects
+ * the others. A translation of `backend/app/services/classification.py`
+ * (without the rules step, which was dropped from the product).
  */
 
 import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
@@ -33,7 +33,7 @@ export function summaryStats(s: ClassificationStats): string {
   return `${s.byMerchant} per comerç, ${s.pending} pendents de revisar`;
 }
 
-/** El moviment tal com el necessita la classificacio. */
+/** The transaction as the classification needs it. */
 interface ClassifiableTransaction {
   id: number;
   ledgerId: number | null;
@@ -42,10 +42,10 @@ interface ClassifiableTransaction {
 }
 
 /**
- * Classifica un moviment. **No toca mai el que ha decidit una persona.**
+ * Classifies a transaction. **It never touches what a person decided.**
  *
- * Retorna d'on ha sortit la categoria. Escriu directament a la base de dades,
- * de manera que es pot cridar dins d'una transaccio.
+ * Returns where the category came from. It writes straight to the database,
+ * so it can be called inside a transaction.
  */
 export async function classifyTransaction(
   transaction: ClassifiableTransaction,
@@ -53,7 +53,7 @@ export async function classifyTransaction(
 ): Promise<CategorySource> {
   if (transaction.categorySource === "user") return "user";
 
-  // Un compte encara sense espai assignat no te categories.
+  // An account with no workspace assigned yet has no categories.
   if (transaction.ledgerId === null) return "none";
 
   if (transaction.merchantId !== null) {
@@ -69,8 +69,8 @@ export async function classifyTransaction(
         .set({
           categoryId: merchant.defaultCategoryId,
           categorySource: "merchant",
-          // Si el comerç l'ha confirmat una persona, ens en refiem del tot;
-          // si no, es una suposicio i algu l'ha de mirar.
+          // If a person confirmed the merchant, we trust it completely; if
+          // not, it is a guess and somebody has to look at it.
           categoryConfidence: merchant.isConfirmed ? 1 : 0.8,
           needsReview: !merchant.isConfirmed,
         })
@@ -86,7 +86,7 @@ export async function classifyTransaction(
   return "none";
 }
 
-/** Els camps que la classificacio necessita d'un moviment. */
+/** The fields the classification needs from a transaction. */
 const FIELDS_CLASSIFICATION = {
   id: transactions.id,
   ledgerId: transactions.ledgerId,
@@ -95,10 +95,10 @@ const FIELDS_CLASSIFICATION = {
 } as const;
 
 /**
- * Classifica els moviments d'un espai que encara no tenen categoria.
+ * Classifies a workspace's transactions that still have no category.
  *
- * Nomes mira els que venen de `none` o de `merchant`: els que ha posat una
- * persona no es toquen.
+ * It only looks at those coming from `none` or `merchant`: the ones a person
+ * set are not touched.
  */
 export async function classifyPending(
   ledgerId: number,
@@ -132,7 +132,7 @@ export async function classifyPending(
   return stats;
 }
 
-/** Una categoria de l'espai pel seu pendent estable. */
+/** A category of the workspace by its stable slug. */
 export async function categoryBySlug(
   ledgerId: number,
   slug: string,
@@ -151,8 +151,8 @@ export async function uncategorizedCategory(ledgerId: number, connection: Transa
 }
 
 /**
- * La categoria dels traspassos interns. Si algu l'ha canviat de tipus, no
- * serveix: val mes no aparellar res que aparellar-ho malament.
+ * The category of the internal transfers. If somebody changed its type, it is
+ * no use: better to pair nothing than to pair it wrong.
  */
 export async function transferCategory(ledgerId: number, connection: Transactor = db) {
   const category = await categoryBySlug(ledgerId, SLUG_INTERNAL_TRANSFER, connection);

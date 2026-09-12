@@ -1,12 +1,12 @@
 /**
- * Creacio d'avisos.
+ * Alert creation.
  *
- * Un avis nomes es crea si no n'hi ha cap amb la mateixa clau de
- * deduplicacio, **encara que el que hi ha estigui descartat**: si algu l'ha
- * descartat, no ha de tornar. La clau inclou el periode, de manera que la
- * mateixa condicio no avisa cada dia.
+ * An alert is only created if there is none with the same deduplication key,
+ * **even if the existing one is dismissed**: if someone dismissed it, it must
+ * not come back. The key includes the period, so the same condition does not
+ * warn every day.
  *
- * Traduccio de `backend/app/services/alerts.py`.
+ * A translation of `backend/app/services/alerts.py`.
  */
 
 import { eq } from "drizzle-orm";
@@ -24,7 +24,7 @@ export interface AlertNew {
   payload?: Record<string, unknown>;
 }
 
-/** Crea l'avis, o retorna `null` si ja n'hi havia un d'igual. */
+/** Creates the alert, or returns `null` if there was already an equal one. */
 export async function createAlert(
   alert: AlertNew,
   connection: Transactor = db,

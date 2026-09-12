@@ -1,14 +1,14 @@
 /**
- * Agregats per als panells i els informes.
+ * Aggregates for the dashboards and the reports.
  *
- * La invariant de tot aquest fitxer: **els traspassos entre comptes propis i
- * els moviments exclosos no compten mai** com a ingres ni com a despesa,
- * nomes mouen diners de lloc. I nomes es conten els moviments definitius
- * (`booked`), no els pendents.
+ * The invariant of this whole file: **transfers between the owner's own
+ * accounts and excluded transactions never count** as income or as expense,
+ * they only move money around. And only booked transactions (`booked`) are
+ * counted, not the pending ones.
  *
- * Traduccio de `backend/app/services/reports.py`. El Python feia servir
- * `to_char` de PostgreSQL per agrupar per mes; aqui es fa amb `substring`,
- * que fa el mateix sobre una columna `date` i no lliga tant amb el motor.
+ * A translation of `backend/app/services/reports.py`. The Python used
+ * PostgreSQL's `to_char` to group by month; here it is done with `substring`,
+ * which does the same over a `date` column and ties us less to the engine.
  */
 
 import { and, count, eq, inArray, isNull, sql, sum, type SQL } from "drizzle-orm";
@@ -19,7 +19,7 @@ import { Decimal, money, toMoneyString, type MoneyString } from "../lib/money.ts
 import { todayLocal } from "../lib/time.ts";
 import { countableTransactions } from "./filtres.ts";
 
-/** Vegeu `services/filtres.ts`: la definicio viu en un sol lloc. */
+/** See `services/filtres.ts`: the definition lives in one place. */
 function baseFilter(
   ledgerIds: number[],
   dateFrom: string | null,
@@ -28,7 +28,7 @@ function baseFilter(
   return countableTransactions({ workspaces: ledgerIds, des: dateFrom, fins: dateTo });
 }
 
-/** Primer dia del mes i primer dia del mes següent. */
+/** First day of the month and first day of the next month. */
 export function monthBounds(referencia?: string): [string, string] {
   const base = referencia ?? todayLocal();
   const any = Number(base.slice(0, 4));
@@ -41,7 +41,7 @@ export function monthBounds(referencia?: string): [string, string] {
 
 export interface IncomeAndExpenses {
   income: MoneyString;
-  /** En positiu, tot i que a la base de dades son negatius. */
+  /** Positive, even though in the database they are negative. */
   expenses: MoneyString;
   cleaned: MoneyString;
 }
@@ -76,22 +76,22 @@ export async function incomeAndExpenses(
 export interface MonthlyPoint {
   periode: string;
   income: MoneyString;
-  /** Total de despeses (= fixes + variables). */
+  /** Total expenses (= fixed + variable). */
   expenses: MoneyString;
-  /** Despeses lligades a una aparicio de serie recurrent. */
+  /** Expenses linked to an occurrence of a recurring series. */
   despesesFixes: MoneyString;
-  /** Despeses que no son d'una serie recurrent. */
+  /** Expenses that are not from a recurring series. */
   despesesVariables: MoneyString;
   cleaned: MoneyString;
 }
 
-/** El moviment te almenys una aparicio a `recurring_occurrences`. */
+/** The transaction has at least one occurrence in `recurring_occurrences`. */
 const isFixedExpense = sql`exists (
   select 1 from recurring_occurrences
   where recurring_occurrences.transaction_id = ${transactions.id}
 )`;
 
-/** Ingressos, despeses (fixes / variables) i resultat de cada mes. */
+/** Income, expenses (fixed / variable) and result for each month. */
 export async function monthlySeries(
   ledgerIds: number[],
   dateFrom: string,
@@ -133,16 +133,16 @@ export interface CategoryPart {
   categoryName: string;
   color: string;
   amount: MoneyString;
-  /** Part del total, de 0 a 1. */
+  /** Share of the total, from 0 to 1. */
   share: number;
   transactions: number;
 }
 
 /**
- * Repartiment per categoria, **agrupant per la categoria pare**.
+ * Breakdown by category, **grouping by the parent category**.
  *
- * Els moviments d'una subcategoria compten sota el seu pare; els que no en
- * tenen o no estan classificats, es queden com estan.
+ * The transactions of a subcategory count under their parent; those that have
+ * no parent or are not classified stay as they are.
  */
 export async function categoryBreakdown(
   ledgerIds: number[],
@@ -200,11 +200,11 @@ export interface MerchantPart {
 }
 
 /**
- * Els comerços on mes s'ha gastat.
+ * The merchants where the most was spent.
  *
- * **Els moviments emmascarats no hi surten**: el nom del comerç es
- * precisament el que s'ha volgut amagar, i un rang com aquest el tornaria a
- * ensenyar.
+ * **Masked transactions do not appear here**: the merchant's name is
+ * precisely what was meant to be hidden, and a ranking like this would show
+ * it again.
  */
 export async function merchantBreakdown(
   ledgerIds: number[],
