@@ -1,5 +1,5 @@
 /**
- * Fragments de les connexions bancaries.
+ * Bank connection fragments.
  */
 
 import { html, raw } from "hono/html";
@@ -160,8 +160,8 @@ export function AccountRow({
         value: account.ledgerId,
         options: workspaces.map((e) => ({ value: e.id, text: e.name })),
         empty: "— sense assignar —",
-        // Es la peticio mes llarga de l'aplicacio —centenars de moviments
-        // reclassificats— i fins ara no es veia que estigues passant res.
+        // This is the longest request in the application —hundreds of
+        // reclassified transactions— and until now nothing showed it happening.
         attributes: `hx-post="/connexions/comptes/${account.id}/espai" hx-target="#compte-${account.id}" hx-swap="outerHTML" hx-trigger="change" hx-disabled-elt="this" hx-confirm="Moure un compte d'espai n'esborra les classificacions i les torna a calcular. Vols continuar?"`,
       })}
       ${
@@ -176,14 +176,14 @@ export function AccountRow({
 }
 
 /**
- * L'estat d'una importacio en curs.
+ * The state of an import in progress.
  *
- * **Aquest es un dels dos sondejos de l'aplicacio** (amb el d'en curs a
- * `/feines`), i s'atura de dues maneres: quan la feina acaba, el fragment que
- * es torna ja no duu disparador; i si no acaba mai, el compte d'intents
- * s'exhaureix i es diu. Aquesta segona xarxa hi es perque la primera no
- * serveix de res quan el proces mor enmig i la fila es queda en `running` per
- * sempre. Vegeu `lib/sondeig.ts`.
+ * **This is one of the application's two polls** (the other being the one for
+ * jobs in progress at `/feines`), and it stops in two ways: when the job
+ * finishes, the fragment that comes back no longer carries a trigger; and if
+ * it never finishes, the attempt counter runs out and says so. That second
+ * net is there because the first is no use when the process dies halfway and
+ * the row stays `running` forever. See `lib/sondeig.ts`.
  */
 export function SyncState({
   connectionId,

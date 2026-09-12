@@ -1,5 +1,5 @@
 /**
- * Pagina d'usuaris.
+ * Users page.
  */
 
 import { html } from "hono/html";

@@ -1,5 +1,5 @@
 /**
- * Panell, informes i previsio.
+ * Dashboard, reports and forecast.
  */
 
 import { html } from "hono/html";
@@ -38,7 +38,7 @@ export interface DashboardPageProps {
   perRevisar: number;
   senseClassificar: number;
   activeAlerts: number;
-  /** L'enllaç d'avisos nomes te sentit per a administradors de la instal·lacio. */
+  /** The alerts link only makes sense for installation administrators. */
   canSeeAlerts: boolean;
   monthly: MonthlyPoint[];
   categories: CategoryPart[];

@@ -1,7 +1,7 @@
 /**
- * Rutes del panell, els informes i la previsio.
+ * Dashboard, report and forecast routes.
  *
- * Tot es de nomes llegir: qualsevol membre de l'espai hi pot entrar.
+ * Everything is read-only: any member of the workspace can get in.
  */
 
 import { and, count, eq, inArray } from "drizzle-orm";
@@ -41,7 +41,7 @@ import {
 
 export const analyticsRoutes = new Hono();
 
-/** Avisos que encara no s'han descartat. */
+/** Alerts that have not been dismissed yet. */
 async function activeAlerts(ledgerId: number): Promise<number> {
   const [row] = await db
     .select({ n: count() })
@@ -50,7 +50,7 @@ async function activeAlerts(ledgerId: number): Promise<number> {
   return row?.n ?? 0;
 }
 
-// --- Panell ----------------------------------------------------------------
+// --- Dashboard -------------------------------------------------------------
 
 analyticsRoutes.get("/", async (c) => {
   const workspace = currentWorkspace(c);
@@ -104,7 +104,7 @@ analyticsRoutes.get("/", async (c) => {
   );
 });
 
-// --- Informes --------------------------------------------------------------
+// --- Reports ---------------------------------------------------------------
 
 async function reportData(ledgerId: number, query: Record<string, string>) {
   const filters = reportFiltersSchema.parse(query);
@@ -143,7 +143,7 @@ analyticsRoutes.get("/informes/fragment/contingut", async (c) => {
   return fragment(c, ReportsContent(data));
 });
 
-// --- Previsio --------------------------------------------------------------
+// --- Forecast --------------------------------------------------------------
 
 analyticsRoutes.get("/previsio", async (c) => {
   const workspace = currentWorkspace(c);

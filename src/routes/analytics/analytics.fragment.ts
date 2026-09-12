@@ -1,11 +1,11 @@
 /**
- * Fragments de les analitiques.
+ * Analytics fragments.
  *
- * Els grafics son **illes**: el servidor escriu les dades dins d'un
- * `<script type="application/json">` i `public/grafics.js` les dibuixa. No hi
- * ha cap estat de client ni cap empaquetador; si el JavaScript no arriba, es
- * veu un buit i la resta de la pagina (les taules, les xifres) continua
- * funcionant.
+ * The charts are **islands**: the server writes the data inside a
+ * `<script type="application/json">` and `public/grafics.js` draws it. There
+ * is no client state and no bundler; if the JavaScript does not arrive, a gap
+ * is shown and the rest of the page (the tables, the figures) keeps
+ * working.
  */
 
 import { html } from "hono/html";
@@ -20,11 +20,11 @@ import type { Forecast } from "../../services/forecast.ts";
 import type { MonthlyPoint, CategoryPart, MerchantPart } from "../../services/reports.ts";
 
 /**
- * L'embolcall d'un grafic.
+ * A chart's wrapper.
  *
- * `role="img"` amb una descripcio: un grafic sense text alternatiu no diu res
- * a qui fa servir un lector de pantalla. La taula que sol anar-hi al costat es
- * la versio llegible de les mateixes dades.
+ * `role="img"` with a description: a chart with no alternative text says
+ * nothing to someone using a screen reader. The table that usually sits next
+ * to it is the readable version of the same data.
  */
 function Chart({
   type,
@@ -57,14 +57,14 @@ function Chart({
 }
 
 /**
- * Els imports es converteixen a `number` aqui, no als serveis.
+ * Amounts are converted to `number` here, not in the services.
  *
- * `PuntMensual`, `TrosCategoria`, `PuntSaldo`, `TrosComerc` i `PuntPrevisio`
- * son `MoneyString`: la mateixa fila serveix per a `formatMoney()` a les
- * taules (`TaulaCategories`, `TaulaEsdeveniments`, la pagina de previsio) i
- * per al grafic. Canviar el tipus del servei per fer content el grafic hauria
- * trencat aquelles taules —`formatMoney()` no accepta `number`. El grafic es
- * l'unic que necessita `number`, aixi que es ell qui el demana, amb
+ * `MonthlyPoint`, `CategoryPart`, `BalancePoint`, `MerchantPart` and
+ * `ForecastPoint` are `MoneyString`: the same row serves both `formatMoney()`
+ * in the tables (`CategoriesTable`, `EventsTable`, the forecast page) and the
+ * chart. Changing the service's type to keep the chart happy would have
+ * broken those tables —`formatMoney()` does not accept `number`. The chart is
+ * the only thing that needs `number`, so it is the one that asks for it, with
  * `toChartNumber()`.
  */
 export function MonthlyChart(data: MonthlyPoint[]): Html {
@@ -148,7 +148,7 @@ export function ForecastChart(forecast: Forecast): Html {
   });
 }
 
-// --- Xifres ----------------------------------------------------------------
+// --- Figures ---------------------------------------------------------------
 
 export interface StatProps {
   tag: string;
@@ -168,13 +168,13 @@ export function Stat({ tag, value, detail, to = "", href }: StatProps): Html {
     : (html`<div class="xifra">${body}</div>` as Html);
 }
 
-// --- Taules llegibles ------------------------------------------------------
+// --- Readable tables -------------------------------------------------------
 
 /**
- * La mateixa informacio del grafic, en text.
+ * The same information as the chart, in text.
  *
- * No es un extra: es el que fa que la pagina serveixi sense JavaScript i el
- * que pot llegir un lector de pantalla.
+ * It is not an extra: it is what makes the page work without JavaScript and
+ * what a screen reader can read.
  */
 export function CategoriesTable(data: CategoryPart[]): Html {
   return DataTable({
@@ -218,14 +218,15 @@ export function EventsTable(forecast: Forecast): Html {
 }
 
 /**
- * El saldo de la capçalera del panell.
+ * The balance in the dashboard header.
  *
- * **No es cap objectiu fora de banda**, tot i que `AGENTS.md` ho deia:
- * sincronitzar es fa des de `/connexions`, una pagina d'administracio sense
- * cap espai concret, i el saldo viu al panell d'un espai (`/e/:codi`) —dues
- * pagines que no coincideixen mai al DOM del navegador. No hi ha cap mutacio
- * al panell mateix que l'hagi de refrescar sense recarregar. Es veu al dia
- * perque **cada cop que es carrega el panell es torna a calcular**.
+ * **It is not an out-of-band target**, even though `AGENTS.md` used to say
+ * so: synchronizing is done from `/connexions`, an administration page with
+ * no particular workspace, and the balance lives in a workspace's dashboard
+ * (`/e/:codi`) —two pages that never coexist in the browser's DOM. There is
+ * no mutation in the dashboard itself that has to refresh it without a
+ * reload. It stays up to date because **it is recomputed every time the
+ * dashboard is loaded**.
  */
 export function HeaderBalance({
   balance,

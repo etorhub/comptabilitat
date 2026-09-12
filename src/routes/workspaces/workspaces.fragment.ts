@@ -1,5 +1,5 @@
 /**
- * Fragments de la configuracio de l'espai.
+ * Fragments of the workspace configuration.
  */
 
 import { html, raw } from "hono/html";
@@ -96,6 +96,6 @@ export function MembersTable({ members }: { members: MemberView[] }): Html {
   </section>` as Html;
 }
 
-/** Els rols, per si algun dia es poden canviar des d'aqui. */
+/** The roles, in case one day they can be changed from here. */
 export const AVAILABLE_ROLES = LEDGER_ROLES;
 export { raw };

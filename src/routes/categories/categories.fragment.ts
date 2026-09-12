@@ -1,11 +1,11 @@
 /**
- * Fragments de les categories.
+ * Category fragments.
  *
- * Aqui hi ha el cas d'error mes interessant de tota l'aplicacio: esborrar una
- * categoria que te moviments contesta **409**, i la resposta d'aquell 409 no es
- * nomes un avis sino el formulari per triar on han d'anar a parar. Es el mateix
- * que feia l'aplicacio de React amb quatre variables d'estat encadenades,
- * pero decidit al servidor.
+ * Here is the most interesting error case in the whole application: deleting
+ * a category that has transactions answers **409**, and the body of that 409
+ * is not just a toast but the form for choosing where they should go. It is
+ * the same thing the React application did with four chained state variables,
+ * but decided on the server.
  */
 
 import { html, raw } from "hono/html";
@@ -30,7 +30,7 @@ export interface TreeProps {
   code: string;
   tree: Record<CategoryKind, NodeCategory[]>;
   canEdit: boolean;
-  /** Torna'l fora de banda quan el canvi ve d'una altra part de la pagina. */
+  /** Return it out of band when the change comes from elsewhere on the page. */
   oob?: boolean;
 }
 
@@ -50,7 +50,7 @@ export function Tree({ code, tree, canEdit, oob = false }: TreeProps): Html {
             Row({ code, category: parent, canEdit, filla: false }),
             ...parent.filles.map((f) => Row({ code, category: f, canEdit, filla: true })),
           ]),
-          // Inabastable: la seccio no es dibuixa si el grup es buit.
+          // Unreachable: the section is not drawn if the group is empty.
           empty: "Aquest grup no te cap categoria.",
         })}
       </section>`;
@@ -65,7 +65,7 @@ export interface RowProps {
   filla: boolean;
 }
 
-/** Una fila de la taula. Es el que es torna a dibuixar quan es canvia el nom. */
+/** A row of the table. This is what is redrawn when the name changes. */
 export function Row({ code, category, canEdit, filla }: RowProps): Html {
   const base = `/e/${code}/categories/${category.id}`;
 
@@ -118,7 +118,7 @@ export function Row({ code, category, canEdit, filla }: RowProps): Html {
   </tr>` as Html;
 }
 
-/** La fila convertida en un camp de text, per reanomenar-la sense sortir. */
+/** The row turned into a text field, for renaming it without leaving. */
 export function EditRow({ code, category }: { code: string; category: CategoryView }): Html {
   const base = `/e/${code}/categories/${category.id}`;
   return html`<tr id="categoria-${category.id}" class="editant">
@@ -148,7 +148,7 @@ export function EditRow({ code, category }: { code: string; category: CategoryVi
   </tr>` as Html;
 }
 
-/** Una categoria esborrada desapareix de la taula. */
+/** A deleted category disappears from the table. */
 export function DeletedRow(id: number): Html {
   return html`<tr id="categoria-${id}" hidden></tr>` as Html;
 }
@@ -161,9 +161,9 @@ export interface ReassignmentFormProps {
 }
 
 /**
- * La resposta del 409: no un carreró sense sortida, sino la pregunta que
- * falta. Va dins de la mateixa fila, de manera que surt al costat de la
- * categoria que s'estava esborrant.
+ * The body of the 409: not a dead end, but the question that is missing. It
+ * goes inside the same row, so it appears next to the category that was being
+ * deleted.
  */
 export function ReassignmentForm({
   code,

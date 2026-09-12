@@ -1,5 +1,5 @@
 /**
- * Pagina de recurrents (schedules).
+ * Recurring series (schedules) page.
  */
 
 import { html } from "hono/html";

@@ -1,9 +1,10 @@
 /**
- * Rutes dels usuaris. Nomes per a administradors de la instal·lacio.
+ * User routes. Installation administrators only.
  *
- * Aqui es concedeix l'acces als espais. Val la pena recordar-ho perque es la
- * garantia que sosté tot: **ser administrador de la instal·lacio no dona
- * acces a cap espai**; s'ha de donar espai per espai, i es fa des d'aqui.
+ * This is where workspace access is granted. It is worth remembering because
+ * it is the guarantee everything else rests on: **being an installation
+ * administrator grants access to no workspace**; it has to be given workspace
+ * by workspace, and that is done from here.
  */
 
 import { and, asc, eq } from "drizzle-orm";
@@ -37,7 +38,7 @@ import {
 
 export const usersRoutes = new Hono();
 
-/** Tots els usuaris amb els espais on tenen acces. */
+/** All the users with the workspaces they can access. */
 async function listUsers(): Promise<UserView[]> {
   const all = await db.select().from(users).orderBy(asc(users.email));
 
@@ -70,7 +71,7 @@ async function userView(id: number): Promise<UserView> {
 const activeWorkspaces = () =>
   db.select().from(ledgers).where(eq(ledgers.isActive, true)).orderBy(asc(ledgers.position));
 
-// --- Pagina ----------------------------------------------------------------
+// --- Page ------------------------------------------------------------------
 
 usersRoutes.get("/", async (c) => {
   const jo = currentUser(c);
@@ -93,7 +94,7 @@ usersRoutes.get("/", async (c) => {
   );
 });
 
-// --- Mutacions -------------------------------------------------------------
+// --- Mutations -------------------------------------------------------------
 
 usersRoutes.post("/", async (c) => {
   const body = await c.req.parseBody();
@@ -157,10 +158,10 @@ usersRoutes.post("/", async (c) => {
 });
 
 /**
- * Desa el nom i si es administrador de la instal·lacio.
+ * Saves the name and whether they are an installation administrator.
  *
- * No et pots treure a tu mateix l'admin: quedaries sense ningu que pugui
- * gestionar usuaris ni bancs.
+ * You cannot remove admin from yourself: you would be left with nobody able
+ * to manage users or banks.
  */
 usersRoutes.post("/:id", async (c) => {
   const id = idFromRoute(c.req.param("id"), "Aquest usuari no existeix");
@@ -209,11 +210,11 @@ usersRoutes.post("/:id", async (c) => {
 });
 
 /**
- * Reinicia la contrasenya d'un usuari (la posa l'administrador).
+ * Resets a user's password (the administrator sets it).
  *
- * Li tanca les sessions: si no, continuaria dins amb la contrasenya vella fins
- * que caduquessin. Si et reinicies la teva, es conserva la sessio actual per
- * no invalidar el CSRF ja dibuixat a la pagina.
+ * It closes their sessions: otherwise they would stay signed in with the old
+ * password until those expired. If you reset your own, the current session is
+ * kept so as not to invalidate the CSRF already drawn on the page.
  */
 usersRoutes.post("/:id/contrasenya", async (c) => {
   const id = idFromRoute(c.req.param("id"), "Aquest usuari no existeix");
@@ -265,10 +266,10 @@ usersRoutes.post("/:id/contrasenya", async (c) => {
 });
 
 /**
- * Dona o treu l'acces d'un usuari a un espai.
+ * Grants or removes a user's access to a workspace.
  *
- * `role` buit vol dir treure'l. Treure l'acces no esborra res: nomes deixa de
- * veure l'espai.
+ * An empty `role` means removing it. Removing access deletes nothing: they
+ * simply stop seeing the workspace.
  */
 usersRoutes.post("/:id/acces", async (c) => {
   const id = idFromRoute(c.req.param("id"), "Aquest usuari no existeix");
@@ -324,10 +325,10 @@ usersRoutes.post("/:id/acces", async (c) => {
 });
 
 /**
- * Activa o desactiva un usuari.
+ * Activates or deactivates a user.
  *
- * Desactivar-lo li tanca totes les sessions: si no, continuaria dins fins que
- * caduquessin soles, que poden ser dues setmanes.
+ * Deactivating them closes all their sessions: otherwise they would stay
+ * signed in until those expired on their own, which can be two weeks.
  */
 usersRoutes.post("/:id/estat", async (c) => {
   const id = idFromRoute(c.req.param("id"), "Aquest usuari no existeix");

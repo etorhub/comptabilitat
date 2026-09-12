@@ -1,5 +1,5 @@
 /**
- * Pagines del recurs d'etiquetes.
+ * Pages of the tags resource.
  */
 
 import { html } from "hono/html";

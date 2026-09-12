@@ -1,8 +1,8 @@
 /**
- * Fragments dels moviments.
+ * Transaction fragments.
  *
- * Cap plantilla d'aqui no toca mai una fila crua: nomes reben `MovimentVista`,
- * que ja ha passat per l'emmascarament. Vegeu `services/transactions.ts`.
+ * No template here ever touches a raw row: they only receive `TransactionView`,
+ * which has already been through the masking. See `services/transactions.ts`.
  */
 
 import { html, raw } from "hono/html";
@@ -26,7 +26,7 @@ import {
   type TransactionFilters,
 } from "./transactions.schema.ts";
 
-/** D'on ha sortit la categoria, en català. */
+/** Where the category came from, in Catalan. */
 const Origin: Record<CategorySource, { text: string; title: string }> = {
   none: { text: "sense classificar", title: "Encara no te categoria" },
   merchant: { text: "comerç", title: "De la memoria de comerços d'aquest espai" },
@@ -37,7 +37,7 @@ const Origin: Record<CategorySource, { text: string; title: string }> = {
 
 const dateCurta = new Intl.DateTimeFormat("ca-ES", { day: "2-digit", month: "short" });
 
-/** Xip Mastercard amb els darrers 4 digits. Fora del boto d'alias. */
+/** Mastercard chip with the last 4 digits. Outside the alias button. */
 function CardChip({ darrers4 }: { darrers4: string | null }): Html {
   if (!darrers4) return html`` as Html;
   return html`<span
@@ -70,7 +70,7 @@ export interface TableProps {
   groups: CategoryGroup[];
   filters: TransactionFilters;
   canEdit: boolean;
-  /** Etiquetes ja usades a l'espai, per al datalist d'alta. */
+  /** Tags already used in the workspace, for the datalist of the add form. */
   knownTags?: string[];
 }
 
@@ -82,14 +82,14 @@ export function Table({
   canEdit,
   knownTags = [],
 }: TableProps): Html {
-  // `taula-carregant` no es decoracio: es el ganxo que fa que
-  // l'`hx-indicator` de la barra de bloc enfosqueixi les files mentre la
-  // peticio corre. El full d'estil el tenia i ningu no el posava.
+  // `taula-carregant` is not decoration: it is the hook that makes the bulk
+  // bar's `hx-indicator` dim the rows while the request is in flight. The
+  // stylesheet had it and nobody was setting it.
   return html`<div id="taula-moviments" class="taula-carregant">
     ${DataTable({
-      // `taula-fitxes`: per sota de 40rem cada fila es dibuixa com una fitxa
-      // en comptes d'una fila. El nom de cada columna surt de la
-      // `data-etiqueta` de la cel·la, aqui sota.
+      // `taula-fitxes`: below 40rem each row is drawn as a card instead of a
+      // row. The name of each column comes from the cell's `data-etiqueta`,
+      // below.
       cssClass: "taula-moviments taula-fitxes",
       abans: canEdit ? BulkBar({ code, groups, filters }) : "",
       columnes: html`${
@@ -122,16 +122,16 @@ export function Table({
 }
 
 /**
- * La barra de la seleccio en bloc.
+ * The bulk selection bar.
  *
- * Nomes es veu quan hi ha alguna casella marcada (`:has` al CSS). La casella
- * «tria'ls tots» viu al capçal de la taula, sempre visible.
+ * Only visible when some checkbox is ticked (`:has` in the CSS). The «select
+ * all» checkbox lives in the table header, always visible.
  *
- * A l'aplicacio de React la seleccio era una llista a la memoria del
- * navegador, i sobrevivia als canvis de filtre i de pagina: es podien marcar
- * files, paginar i aplicar la categoria a moviments que ja no es veien. Aqui
- * la seleccio son les caselles del formulari i prou, de manera que el que
- * s'aplica es sempre el que es veu.
+ * In the React application the selection was a list in the browser's memory,
+ * and it survived filter and page changes: you could tick rows, paginate and
+ * apply the category to transactions that were no longer visible. Here the
+ * selection is the form's checkboxes and nothing else, so what gets applied
+ * is always what is on screen.
  */
 function BulkBar({
   code,
@@ -142,8 +142,8 @@ function BulkBar({
   groups: CategoryGroup[];
   filters: TransactionFilters;
 }): Html {
-  // Els filtres van a l'adreça: sense aixo, la resposta tornaria la primera
-  // pagina sense filtrar i la barra d'adreces diria una altra cosa.
+  // The filters go in the URL: without this, the response would return the
+  // first unfiltered page and the address bar would say something else.
   const query = transactionFiltersToQuery(filters);
   return html`<div class="barra-bloc">
     ${Select({
@@ -244,7 +244,7 @@ export interface RowProps {
   transaction: TransactionView;
   groups: CategoryGroup[];
   canEdit: boolean;
-  /** Mostra el desplegable encara que ja hi hagi categoria (edicio inline). */
+  /** Show the dropdown even when there is already a category (inline edit). */
   editantCategoria?: boolean;
   knownTags?: string[];
 }
@@ -445,10 +445,11 @@ export function Row({
 }
 
 /**
- * Xapes d'etiquetes en linia amb el concepte.
+ * Inline tag chips next to the concept.
  *
- * Cada formulari d'alta es propi de la fila i **no** comparteix camps amb la
- * barra de bloc: si no, HTMX enviaria tot i el darrer camp taparia el primer.
+ * Each add form belongs to its own row and does **not** share fields with the
+ * bulk bar: otherwise HTMX would send everything and the last field would
+ * shadow the first.
  */
 function TransactionTags({
   code,
@@ -513,7 +514,7 @@ function TransactionTags({
   return html`<span class="etiquetes-moviment">${xapes}${alta}</span>` as Html;
 }
 
-/** La fila convertida en un camp per posar-hi un alias. */
+/** The row turned into a field for typing an alias. */
 export function FilaConcepte({
   code,
   transaction,
@@ -561,7 +562,7 @@ export function FilaConcepte({
   </tr>` as Html;
 }
 
-/** Selector multiple de targetes (darrers 4 digits) fetes servir al compte. */
+/** Multiple selector of cards (last 4 digits) used on the account. */
 export function FiltreTargetes({
   cards,
   seleccionades,
@@ -700,7 +701,7 @@ export function FilterBar({
   </form>` as Html;
 }
 
-// --- Safata de revisio -------------------------------------------------------
+// --- Review tray -------------------------------------------------------------
 
 export interface ReviewQueueProps {
   code: string;
@@ -792,7 +793,7 @@ export function ReviewCard({
   </li>` as Html;
 }
 
-/** Un cop confirmat, l'element se'n va de la cua. */
+/** Once confirmed, the item leaves the queue. */
 export function ReviewDone(id: number): Html {
   return html`<li id="revisio-${id}" hidden></li>` as Html;
 }

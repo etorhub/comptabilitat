@@ -1,5 +1,5 @@
 /**
- * Pagines d'entrada i de canvi de contrasenya.
+ * Sign-in and password change pages.
  */
 
 import { html } from "hono/html";

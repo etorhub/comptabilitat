@@ -1,20 +1,20 @@
 /**
- * Descarregues: CSV, XLSX (informes) i PDF.
+ * Downloads: CSV, XLSX (reports) and PDF.
  *
- * Son enllaços normals (`<a href>`), no peticions d'HTMX: el navegador ja sap
- * descarregar un fitxer, i la galeta de sessio hi viatja igual. A l'aplicacio
- * de React aixo era un `window.open`.
+ * They are ordinary links (`<a href>`), not HTMX requests: the browser
+ * already knows how to download a file, and the session cookie travels with
+ * it all the same. In the React application this was a `window.open`.
  *
- * El que et descarregues es el que estas veient: els filtres son els mateixos
- * i, sobretot, **les dades passen per `vistaMoviment()`**, de manera que un
- * moviment emmascarat surt emmascarat tambe al full de calcul.
+ * What you download is what you are looking at: the filters are the same and,
+ * above all, **the data goes through `transactionView()`**, so a masked
+ * transaction comes out masked in the spreadsheet too.
  *
- * Dos programes i no un: `/moviments.csv` nomes te sentit sota `/moviments`,
- * i `/informe.xlsx`/`/informe.pdf` nomes sota `/informes`. Un sol
- * `exportsRoutes` muntat a totes dues adreces —com hi havia abans— feia que
- * cada descarrega respongues a **dues** adreces, una d'elles brossa
- * (`/moviments/informe.xlsx`, `/informes/moviments.csv`), contra la regla que
- * una adreça nomes retorna una cosa.
+ * Two programs and not one: `/moviments.csv` only makes sense under
+ * `/moviments`, and `/informe.xlsx`/`/informe.pdf` only under `/informes`. A
+ * single `exportsRoutes` mounted at both URLs —as there used to be— made each
+ * download answer at **two** URLs, one of them junk
+ * (`/moviments/informe.xlsx`, `/informes/moviments.csv`), against the rule
+ * that a URL returns one thing only.
  */
 
 import { Hono } from "hono";
@@ -30,7 +30,7 @@ import { exportFiltersSchema, MAX_ROWS, summarySchema } from "./exports.schema.t
 export const transactionsExportRoutes = new Hono();
 export const reportsExportRoutes = new Hono();
 
-/** Nom de fitxer amb l'espai i el dia, com feia el Python. */
+/** File name with the workspace and the day, as the Python did. */
 function fileName(code: string, extensio: string): string {
   const day = todayLocal().replace(/-/g, "");
   return `moviments-${code}-${day}.${extensio}`;
@@ -39,7 +39,7 @@ function fileName(code: string, extensio: string): string {
 function capçaleres(name: string, type: string): Record<string, string> {
   return {
     "Content-Type": type,
-    // El nom va entre cometes perque pot dur guions i punts.
+    // The name goes in quotes because it can carry hyphens and dots.
     "Content-Disposition": `attachment; filename="${name}"`,
   };
 }
@@ -109,7 +109,7 @@ reportsExportRoutes.get("/informe.pdf", async (c) => {
   const workspace = currentWorkspace(c);
   const filters = exportFiltersSchema.parse(c.req.query());
   const today = todayLocal();
-  // Per defecte, el mes que corre.
+  // By default, the current month.
   const des = filters.des ?? `${today.slice(0, 7)}-01`;
   const fins = filters.fins ?? today;
 

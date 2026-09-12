@@ -1,5 +1,5 @@
 /**
- * Esquemes de les feines manuals i del seu historial.
+ * Schemas for the manual jobs and their history.
  */
 
 import { z } from "zod/v4";
@@ -25,7 +25,7 @@ export const jobSchema = z.object({
   job: z.enum(JOBS),
 });
 
-/** Etiquetes curtes per a la UI. */
+/** Short labels for the UI. */
 export const JOB_LABELS: Record<JobId, string> = {
   "passada-diaria": "Passada diaria",
   "passada-nocturna": "Passada nocturna",
@@ -52,7 +52,7 @@ export const STATUS_LABELS: Record<(typeof JOB_STATUSES)[number], string> = {
   failed: "Ha fallat",
 };
 
-/** Passades que contenen cada feina individual (per deshabilitar el boto). */
+/** Passes that contain each individual job (to disable the button). */
 export const PASSES_CONTAINING: Partial<Record<JobId, readonly JobId[]>> = {
   sync: ["passada-diaria", "totes"],
   classify: ["passada-diaria", "passada-nocturna", "totes"],
@@ -100,7 +100,7 @@ export function historyFiltersToQuery(filters: HistoryFilters): string {
   return q ? `?${q}` : "";
 }
 
-/** Converteix les dates de calendari dels filtres a instants. */
+/** Converts the filters' calendar dates to instants. */
 export function filtersToService(filters: HistoryFilters) {
   return {
     job: filters.feina,

@@ -1,9 +1,9 @@
 /**
- * Esquemes de les series recurrents (schedules).
+ * Schemas of the recurring series (schedules).
  *
- * El detector nomes proposa; des d'aqui es confirmen, descarten, creen a ma
- * o s'edita l'import. La previsio nomes mira les actives amb
- * `include_in_forecast`.
+ * The detector only proposes; from here they are confirmed, dismissed,
+ * created by hand, or their amount edited. The forecast only looks at the
+ * active ones with `include_in_forecast`.
  */
 
 import { z } from "zod/v4";
@@ -42,7 +42,7 @@ export const createSeriesSchema = z.object({
   label: z.string().trim().min(1, "Cal un nom").max(200),
   category_id: z.coerce.number().int().positive("Cal una categoria"),
   cadence: cadenceSchema,
-  /** Valor absolut; el sentit el marca `sentit`. */
+  /** Absolute value; the direction is given by `sentit`. */
   amount: z
     .string()
     .trim()

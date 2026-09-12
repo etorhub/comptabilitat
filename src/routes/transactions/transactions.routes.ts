@@ -1,8 +1,8 @@
 /**
- * Rutes dels moviments.
+ * Transaction routes.
  *
- * Cap resposta d'aqui no dibuixa mai una fila crua: tot passa per
- * `vistaMoviment()`, que es on s'aplica l'emmascarament.
+ * No response here ever draws a raw row: everything goes through
+ * `transactionView()`, which is where the masking is applied.
  */
 
 import { and, eq, ne } from "drizzle-orm";
@@ -92,7 +92,7 @@ async function data(ledgerId: number, query: Record<string, string | string[]>) 
   return { filters, page: paged, groups, accountList, knownTags, knownCards };
 }
 
-/** Query string amb `tipus` i `targeta` repetits (checkboxes multiples). */
+/** Query string with `tipus` and `targeta` repeated (multiple checkboxes). */
 function requestQuery(c: {
   req: { query: () => Record<string, string>; queries: (k: string) => string[] | undefined };
 }) {
@@ -104,7 +104,7 @@ function requestQuery(c: {
   return q;
 }
 
-/** La categoria ha de ser d'aquest espai. */
+/** The category must belong to this workspace. */
 async function validCategory(categoryId: number | null, ledgerId: number): Promise<boolean> {
   if (categoryId === null) return true;
   const [category] = await db
@@ -115,7 +115,7 @@ async function validCategory(categoryId: number | null, ledgerId: number): Promi
   return category !== undefined;
 }
 
-// --- Pagina ----------------------------------------------------------------
+// --- Page ------------------------------------------------------------------
 
 transactionsRoutes.get("/", async (c) => {
   const workspace = currentWorkspace(c);
@@ -181,7 +181,7 @@ transactionsRoutes.get("/fragment/taula", async (c) => {
   );
 });
 
-/** Una fila sola, per cancel·lar una edicio. */
+/** A single row, for cancelling an edit. */
 transactionsRoutes.get("/:id/fragment/fila", async (c) => {
   const workspace = currentWorkspace(c);
   const transaction = await transactionInWorkspace(
@@ -208,7 +208,7 @@ transactionsRoutes.get("/:id/fragment/fila", async (c) => {
   );
 });
 
-/** La fila amb el desplegable de categoria obert per editar-la. */
+/** The row with the category dropdown open for editing. */
 transactionsRoutes.get("/:id/fragment/categoria", requireEditor, async (c) => {
   const workspace = currentWorkspace(c);
   const transaction = await transactionInWorkspace(
@@ -233,7 +233,7 @@ transactionsRoutes.get("/:id/fragment/categoria", requireEditor, async (c) => {
   );
 });
 
-/** La fila convertida en el camp de l'alias. */
+/** The row turned into the alias field. */
 transactionsRoutes.get("/:id/fragment/concepte", requireEditor, async (c) => {
   const workspace = currentWorkspace(c);
   const transaction = await transactionInWorkspace(
@@ -243,9 +243,9 @@ transactionsRoutes.get("/:id/fragment/concepte", requireEditor, async (c) => {
   return fragment(c, FilaConcepte({ code: workspace.code, transaction }));
 });
 
-// --- Mutacions -------------------------------------------------------------
+// --- Mutations -------------------------------------------------------------
 
-/** Torna la fila actualitzada, el comptador de revisio i un avis. */
+/** Returns the updated row, the review counter and a toast. */
 async function rowResponse(
   c: Parameters<typeof fragment>[0],
   workspaceId: number,
@@ -271,11 +271,11 @@ async function rowResponse(
 }
 
 /**
- * Canvi de categoria d'un moviment.
+ * Category change of a transaction.
  *
- * Es una decisio d'una persona: queda amb `category_source = 'user'` i cap
- * comerç no la tornara a tocar. Per defecte tambe es recorda per a tot el
- * comerç d'aquest espai.
+ * This is a person's decision: it is stored with `category_source = 'user'`
+ * and no merchant will touch it again. By default it is also remembered for
+ * every transaction of that merchant in this workspace.
  */
 transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
   const workspace = currentWorkspace(c);
@@ -305,10 +305,11 @@ transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
 });
 
 /**
- * L'alias que amaga el concepte del banc.
+ * The alias that hides the bank's concept.
  *
- * Si el moviment es una pota d'un traspas, l'alias es posa tambe a l'altra:
- * si no, el mateix moviment sortiria amagat en un compte i sencer a l'altre.
+ * If the transaction is one leg of a transfer, the alias is set on the other
+ * one too: otherwise the same transaction would show masked in one account
+ * and in full in the other.
  */
 transactionsRoutes.post("/:id/concepte", requireEditor, async (c) => {
   const workspace = currentWorkspace(c);
@@ -351,12 +352,12 @@ transactionsRoutes.post("/:id/concepte", requireEditor, async (c) => {
 });
 
 /**
- * Classificacio en bloc.
+ * Bulk classification.
  *
- * Els identificadors venen de les caselles del formulari, de manera que el que
- * s'aplica es sempre el que hi ha a la pantalla. Aixo arregla el que passava a
- * l'aplicacio de React, on la seleccio vivia a la memoria del navegador i
- * sobrevivia als canvis de filtre i de pagina.
+ * The ids come from the form's checkboxes, so what gets applied is always
+ * what is on screen. This fixes what happened in the React application,
+ * where the selection lived in the browser's memory and survived filter and
+ * page changes.
  */
 transactionsRoutes.post("/bloc", requireEditor, async (c) => {
   const workspace = currentWorkspace(c);
@@ -370,9 +371,9 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
     return toastOnly(c, "La categoria no es d'aquest espai", 422);
   }
 
-  // El servei ho fa tot o res i llança un 404 si algun identificador no es
-  // d'aquest espai: una peticio a mitges deixaria l'usuari sense saber que ha
-  // canviat.
+  // The service does all of it or none, and throws a 404 if any id does not
+  // belong to this workspace: a half-done request would leave the user not
+  // knowing what changed.
   const { aplicats } = await categorizeBulk(
     parsed.data.transaction,
     workspace.id,
@@ -383,9 +384,9 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
   const { page: paged, filters, groups, knownTags } = await data(workspace.id, requestQuery(c));
   const perRevisar = await countToReview(workspace.id);
 
-  // Els filtres venen a l'adreça del `hx-post`, de manera que la taula torna
-  // amb la mateixa vista que hi havia; i es torna a empenyer l'adreça perque
-  // la barra d'adreces i el que es veu no diguin coses diferents.
+  // The filters arrive in the URL of the `hx-post`, so the table comes back
+  // with the same view it had; and the URL is pushed again so that the
+  // address bar and what is on screen do not say different things.
   pushUrl(c, `/e/${workspace.code}/moviments${transactionFiltersToQuery(filters)}`);
 
   return fragment(
@@ -409,10 +410,10 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
 });
 
 /**
- * Etiqueta en bloc els moviments triats.
+ * Bulk-tags the selected transactions.
  *
- * Mateixa garantia que la categoria en bloc: tot o res, i nomes ids de
- * l'espai.
+ * Same guarantee as the bulk category: all or nothing, and only ids from the
+ * workspace.
  */
 transactionsRoutes.post("/bloc/etiquetes", requireEditor, async (c) => {
   const workspace = currentWorkspace(c);
@@ -458,11 +459,11 @@ transactionsRoutes.post("/bloc/etiquetes", requireEditor, async (c) => {
   );
 });
 
-/** Afegeix una etiqueta a un moviment des de la fila. */
+/** Adds a tag to a transaction from the row. */
 transactionsRoutes.post("/:id/etiquetes", requireEditor, async (c) => {
   const workspace = currentWorkspace(c);
   const id = idFromRoute(c.req.param("id"), "Aquest moviment no existeix");
-  // Assegura que el moviment es de l'espai abans de validar el cos.
+  // Make sure the transaction belongs to the workspace before validating the body.
   await transactionInWorkspace(id, workspace.id);
   const parsed = tagAddRowSchema.safeParse(await c.req.parseBody());
 
@@ -486,7 +487,7 @@ transactionsRoutes.post("/:id/etiquetes", requireEditor, async (c) => {
   return rowResponse(c, workspace.id, workspace.code, id);
 });
 
-/** Treu una etiqueta d'un moviment. */
+/** Removes a tag from a transaction. */
 transactionsRoutes.post("/:id/etiquetes/treure", requireEditor, async (c) => {
   const workspace = currentWorkspace(c);
   const id = idFromRoute(c.req.param("id"), "Aquest moviment no existeix");
@@ -500,7 +501,7 @@ transactionsRoutes.post("/:id/etiquetes/treure", requireEditor, async (c) => {
   return rowResponse(c, workspace.id, workspace.code, id);
 });
 
-// --- Safata de revisio -------------------------------------------------------
+// --- Review tray -------------------------------------------------------------
 
 transactionsRoutes.get("/revisio", async (c) => {
   const workspace = currentWorkspace(c);
@@ -520,11 +521,11 @@ transactionsRoutes.get("/revisio", async (c) => {
 });
 
 /**
- * Confirmar la categoria d'un moviment de la cua.
+ * Confirm the category of a transaction in the queue.
  *
- * Es exactament el mateix que canviar-la des de la llista —queda com a
- * decisio d'una persona i es recorda per al comerç—, pero la resposta treu
- * l'element de la cua en lloc de redibuixar-ne la fila.
+ * Exactly the same as changing it from the list —it is stored as a person's
+ * decision and remembered for the merchant— but the response removes the
+ * item from the queue instead of redrawing its row.
  */
 transactionsRoutes.post("/:id/revisa", requireEditor, async (c) => {
   const workspace = currentWorkspace(c);
@@ -540,8 +541,8 @@ transactionsRoutes.post("/:id/revisa", requireEditor, async (c) => {
 
   const row = await transactionRow(id, workspace.id);
 
-  // El mateix que canviar-la des de la llista, i a mes tanca la proposta del
-  // model dient si l'encertava.
+  // The same as changing it from the list, and on top of that it closes the
+  // model's proposal saying whether it got it right.
   await confirmFromReview(id, row, parsed.data.category_id, {
     rememberMerchant: parsed.data.recorda_comerc,
   });

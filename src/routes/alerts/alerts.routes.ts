@@ -1,17 +1,17 @@
 /**
- * Rutes dels avisos.
+ * Alert routes.
  *
- * Es el primer recurs d'espai que es migra i, per tant, el que estrena tres
- * coses: el middleware que comprova l'acces a l'espai, la separacio entre
- * pagina i fragment, i els intercanvis fora de banda.
+ * This is the first workspace resource to be migrated and therefore the one
+ * that introduces three things: the middleware that checks workspace access,
+ * the split between page and fragment, and out-of-band swaps.
  *
- * NOTA SOBRE PERMISOS. A l'aplicacio de Python, marcar un avis com a llegit i
- * descartar-lo els podia fer **qualsevol membre de l'espai, fins i tot un
- * `viewer`** (`backend/app/api/routes/alerts.py:39,47`), a diferencia de la
- * resta d'endpoints que canvien alguna cosa, que demanen `editor`. Sembla un
- * descuit mes que una decisio. Es conserva tal com era, perque endurir-ho es
- * un canvi de comportament que no toca fer de tapadillo; queda anotat aqui i
- * a `AGENTS.md` per decidir-ho a part.
+ * NOTE ON PERMISSIONS. In the Python application, marking an alert as read
+ * and dismissing it could be done by **any member of the workspace, even a
+ * `viewer`** (`backend/app/api/routes/alerts.py:39,47`), unlike the rest of
+ * the endpoints that change something, which require `editor`. It looks like
+ * an oversight rather than a decision. It is kept as it was, because
+ * tightening it is a behavior change that should not be slipped in; it is
+ * noted here and in `AGENTS.md` to be decided separately.
  */
 
 import { and, desc, eq, inArray } from "drizzle-orm";
@@ -38,7 +38,7 @@ import { alertFiltersSchema, alertFiltersToQuery } from "./alerts.schema.ts";
 
 export const alertsRoutes = new Hono();
 
-/** Els avisos de l'espai, els mes nous primer. */
+/** The workspace's alerts, newest first. */
 async function readAlerts(ledgerId: number, descartats: boolean, limit: number) {
   const statuses = descartats
     ? (["new", "read", "dismissed"] as const)
@@ -53,10 +53,10 @@ async function readAlerts(ledgerId: number, descartats: boolean, limit: number) 
 }
 
 /**
- * Un avis d'aquest espai, o 404.
+ * An alert of this workspace, or 404.
  *
- * Comprovar-ho aqui es el que impedeix descartar l'avis d'un altre espai
- * endevinant-ne l'identificador.
+ * Checking it here is what stops someone dismissing another workspace's
+ * alert by guessing its id.
  */
 async function alertInWorkspace(id: number, ledgerId: number) {
   const [alert] = await db
@@ -68,7 +68,7 @@ async function alertInWorkspace(id: number, ledgerId: number) {
   return alert;
 }
 
-// --- Pagina ----------------------------------------------------------------
+// --- Page ------------------------------------------------------------------
 
 alertsRoutes.get("/", async (c) => {
   const workspace = currentWorkspace(c);
@@ -88,13 +88,13 @@ alertsRoutes.get("/fragment/llista", async (c) => {
   const filters = alertFiltersSchema.parse(c.req.query());
   const alertList = await readAlerts(workspace.id, filters.descartats, filters.limit);
 
-  // L'adreça que ha de quedar a la barra i a l'historial es la de la pagina.
+  // The URL that should stay in the address bar and the history is the page's.
   pushUrl(c, `/e/${workspace.code}/avisos${alertFiltersToQuery(filters)}`);
 
   return fragment(c, AlertsList({ code: workspace.code, alertList, filters }));
 });
 
-// --- Mutacions -------------------------------------------------------------
+// --- Mutations -------------------------------------------------------------
 
 alertsRoutes.post("/:id/llegit", async (c) => {
   const workspace = currentWorkspace(c);
@@ -102,7 +102,7 @@ alertsRoutes.post("/:id/llegit", async (c) => {
 
   const alert = await alertInWorkspace(id, workspace.id);
 
-  // Nomes te sentit sobre un avis nou; si ja estava llegit, no toquem res.
+  // Only makes sense on a new alert; if it was already read, we touch nothing.
   const actualitzat =
     alert.status === "new"
       ? ((
@@ -112,8 +112,8 @@ alertsRoutes.post("/:id/llegit", async (c) => {
 
   return fragment(
     c,
-    // El tros que ha canviat, el comptador de la barra lateral fora de banda,
-    // i el `#toast` net per esborrar l'error que hi pogues haver.
+    // The piece that changed, the sidebar counter out of band, and a clean
+    // `#toast` to wipe any error that might be there.
     await withOob(
       AlertCard({
         code: workspace.code,
@@ -133,8 +133,8 @@ alertsRoutes.post("/:id/descarta", async (c) => {
   await alertInWorkspace(id, workspace.id);
   await db.update(alerts).set({ status: "dismissed" }).where(eq(alerts.id, id));
 
-  // La llista sencera i no nomes la targeta: descartar l'ultim avis pendent
-  // ha de deixar veure que no en queda cap.
+  // The whole list and not just the card: dismissing the last pending alert
+  // has to show that none are left.
   const filters = alertFiltersSchema.parse(c.req.query());
   const alertList = await readAlerts(workspace.id, filters.descartats, filters.limit);
 

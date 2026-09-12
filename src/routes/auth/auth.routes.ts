@@ -1,5 +1,5 @@
 /**
- * Entrada, sortida i canvi de contrasenya.
+ * Sign in, sign out and password change.
  */
 
 import { eq } from "drizzle-orm";
@@ -39,14 +39,14 @@ const cookieBase = {
   path: "/",
 } as const;
 
-/** Adreça de la primera pagina util: el primer espai on l'usuari tingui acces. */
+/** URL of the first useful page: the first workspace the user can access. */
 async function firstPage(userId: number): Promise<string> {
   const workspaces = await myWorkspaces(userId);
   const first = workspaces[0];
   return first ? `/e/${first.code}` : "/sense-espais";
 }
 
-// --- Entrada ---------------------------------------------------------------
+// --- Sign in ---------------------------------------------------------------
 
 authRoutes.get("/entrada", async (c) => {
   const user = c.get("user");
@@ -54,8 +54,8 @@ authRoutes.get("/entrada", async (c) => {
     return c.redirect(await firstPage(user.id), 303);
   }
 
-  // Llavor d'un sol us perque el formulari pugui dur testimoni CSRF sense
-  // que encara hi hagi sessio.
+  // Single-use seed so that the form can carry a CSRF token while there is
+  // still no session.
   let seed = getCookie(c, CSRF_SEED_COOKIE);
   if (seed === undefined) {
     seed = newCsrfSeed();
@@ -98,7 +98,7 @@ authRoutes.post("/entrada", async (c) => {
     c.req.header("X-Real-IP") ??
     "desconeguda";
 
-  // Limit d'intents. L'aplicacio anterior no en tenia cap.
+  // Attempt limit. The previous application had none.
   if (loginBlocked(email, ip)) {
     return fragment(
       c,
@@ -115,15 +115,15 @@ authRoutes.post("/entrada", async (c) => {
   const trobat = await db.select().from(users).where(eq(users.email, email)).limit(1);
   const user = trobat[0];
 
-  // Es comprova sempre una contrasenya, existeixi l'usuari o no: si no, el
-  // temps de resposta diria quins correus estan donats d'alta.
+  // A password is always checked, whether the user exists or not: otherwise
+  // the response time would tell which emails are registered.
   const correcta = user
     ? await verifyPassword(password, user.passwordHash)
     : (await burnPasswordTime(password), false);
 
   if (!user || !correcta || !user.isActive) {
     recordFailedLogin(email, ip);
-    // El mateix missatge en els tres casos, per no dir quin dels tres es.
+    // The same message in all three cases, so as not to say which of the three it is.
     return fragment(
       c,
       LoginPage({
@@ -151,7 +151,7 @@ authRoutes.post("/entrada", async (c) => {
   return c.redirect(desti !== "/" ? desti : await firstPage(user.id), 303);
 });
 
-// --- Sortida ---------------------------------------------------------------
+// --- Sign out --------------------------------------------------------------
 
 authRoutes.post("/sortida", async (c) => {
   const token = getCookie(c, config.sessionCookieName);
@@ -160,7 +160,7 @@ authRoutes.post("/sortida", async (c) => {
   return redirect(c, "/entrada");
 });
 
-// --- Contrasenya -----------------------------------------------------------
+// --- Password --------------------------------------------------------------
 
 authRoutes.get("/contrasenya", requireUser, async (c) => {
   const user = currentUser(c);
@@ -202,10 +202,10 @@ authRoutes.post("/contrasenya", requireUser, async (c) => {
     .where(eq(users.id, user.id));
 
   /**
-   * Tanca la resta de sessions i conserva la d'aqui, que es el que diu
-   * `docs/operacio.md`. Fer-les caure totes tambe invalidaria el testimoni
-   * CSRF que ja hi ha dibuixat en aquesta pagina —en deriva—, i la peticio
-   * següent d'HTMX fallaria sense que s'entengues per que.
+   * Closes the other sessions and keeps this one, which is what
+   * `docs/operacio.md` says. Dropping them all would also invalidate the CSRF
+   * token already drawn on this page —it derives from it—, and the next HTMX
+   * request would fail for no visible reason.
    */
   const tokenHash = c.get("sessionTokenHash");
   if (tokenHash !== null) {

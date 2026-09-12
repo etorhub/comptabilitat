@@ -1,5 +1,5 @@
 /**
- * Pagina de connexions bancaries.
+ * Bank connections page.
  */
 
 import { html } from "hono/html";

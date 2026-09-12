@@ -1,5 +1,5 @@
 /**
- * Pagina d'avisos.
+ * Alerts page.
  */
 
 import { html } from "hono/html";

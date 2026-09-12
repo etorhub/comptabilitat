@@ -1,7 +1,7 @@
 /**
- * Esquemes de les analitiques.
+ * Analytics schemas.
  *
- * Aqui no s'escriu res: nomes es validen els paràmetres de les vistes.
+ * Nothing is written here: only the view parameters are validated.
  */
 
 import { z } from "zod/v4";

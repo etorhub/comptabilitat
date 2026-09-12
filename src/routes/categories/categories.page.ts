@@ -1,5 +1,5 @@
 /**
- * Pagina de categories.
+ * Categories page.
  */
 
 import { html } from "hono/html";

@@ -1,20 +1,21 @@
 /**
- * Connexions bancaries. Nomes per a administradors de la instal·lacio.
+ * Bank connections. Installation administrators only.
  *
- * DECISIO SOBRE LA SINCRONITZACIO. A l'aplicacio de Python, prémer
- * «Sincronitza» feia la importacio sencera **dins de la peticio HTTP**, sense
- * cap limit de temps (`routes/connections.py:127`). Amb el
- * `proxy_read_timeout 300s` de l'nginx que hi ha al davant, una primera
- * importacio de 24 mesos d'historic es un 502 esperant a passar.
+ * DECISION ABOUT SYNCHRONIZATION. In the Python application, pressing
+ * «Sincronitza» ran the whole import **inside the HTTP request**, with no
+ * time limit at all (`routes/connections.py:127`). With the
+ * `proxy_read_timeout 300s` of the nginx sitting in front, a first import of
+ * 24 months of history is a 502 waiting to happen.
  *
- * Aqui la feina arrenca en segon pla i la ruta contesta de seguida amb la fila
- * de `sync_runs` en estat «running». El fragment que torna sondeja una ruta
- * d'estat i, quan la feina acaba, el fragment nou ja no duu disparador: el
- * sondeig s'atura sol. Si la feina no acaba mai, l'atura el compte d'intents.
- * **Es un dels dos sondejos de l'aplicacio** (amb el d'en curs a `/feines`).
+ * Here the job starts in the background and the route answers straight away
+ * with the `sync_runs` row in the «running» state. The fragment it returns
+ * polls a status route and, when the job finishes, the new fragment no longer
+ * carries a trigger: the poll stops by itself. If the job never finishes, the
+ * attempt counter stops it. **It is one of the application's two polls** (the
+ * other being the one for jobs in progress at `/feines`).
  *
- * No hi ha cua ni intermediari perque no calen: aixo es una instal·lacio d'una
- * sola maquina i el banc nomes deixa unes quantes crides al dia.
+ * There is no queue and no broker because neither is needed: this is a
+ * single-machine installation and the bank only allows a few calls a day.
  */
 
 import { desc, eq } from "drizzle-orm";
@@ -60,7 +61,7 @@ import {
 
 export const connectionsRoutes = new Hono();
 
-/** L'IBAN nomes surt emmascarat. */
+/** The IBAN is only ever shown masked. */
 function ibanEmmascarat(iban: string): string {
   if (iban.length <= 8) return iban ? "····" : "";
   return `${iban.slice(0, 4)}····${iban.slice(-4)}`;
@@ -114,7 +115,7 @@ async function listConnections(): Promise<ConnectionView[]> {
 const activeWorkspaces = () =>
   db.select().from(ledgers).where(eq(ledgers.isActive, true)).orderBy(ledgers.position);
 
-// --- Pagina ----------------------------------------------------------------
+// --- Page ------------------------------------------------------------------
 
 connectionsRoutes.get("/", async (c) => {
   const user = currentUser(c);
@@ -141,14 +142,14 @@ connectionsRoutes.get("/", async (c) => {
   );
 });
 
-// --- Autoritzacio ----------------------------------------------------------
+// --- Authorization ---------------------------------------------------------
 
 /**
- * Comença l'autoritzacio.
+ * Starts the authorization.
  *
- * Es un formulari normal, no HTMX: la resposta es una redireccio **cap al
- * banc**, i un `hx-post` acabaria enganxant la pagina del banc dins d'un
- * `<div>`. `redirect()` ja se'n cuida si arribes per HTMX.
+ * This is an ordinary form, not HTMX: the response is a redirect **to the
+ * bank**, and an `hx-post` would end up pasting the bank's page inside a
+ * `<div>`. `redirect()` already takes care of it if you arrive over HTMX.
  */
 connectionsRoutes.post("/autoritza", async (c) => {
   const user = currentUser(c);
@@ -167,12 +168,12 @@ connectionsRoutes.post("/autoritza", async (c) => {
 });
 
 /**
- * El retorn del banc.
+ * The return from the bank.
  *
- * **Aquesta ruta no va autenticada i esta exempta de CSRF**, perque qui hi
- * arriba ve del banc i no duu cap testimoni nostre. El que la protegeix es
- * l'`eb_auth_state` d'un sol us que va generar la connexio. Vegeu
- * `middleware/csrf.ts`.
+ * **This route is unauthenticated and exempt from CSRF**, because whoever
+ * arrives here comes from the bank and carries no token of ours. What
+ * protects it is the single-use `eb_auth_state` that created the connection.
+ * See `middleware/csrf.ts`.
  */
 export const callbackRoute = new Hono();
 
@@ -194,7 +195,7 @@ callbackRoute.get("/api/auth/callback", async (c) => {
   }
 });
 
-// --- Sincronitzacio --------------------------------------------------------
+// --- Synchronization -------------------------------------------------------
 
 async function lastRun(connectionId: number): Promise<SyncRun | null> {
   const [run] = await db
@@ -221,16 +222,16 @@ connectionsRoutes.post("/:id/sincronitza", async (c) => {
     return toastOnly(c, "Aquesta connexio no esta activa", 422);
   }
 
-  // Sota PSD2 el banc limita les consultes sense l'usuari present, i dues
-  // importacions alhora de la mateixa connexio se les gasten per duplicat.
-  // Si ja n'hi ha una de viva, s'ensenya aquella.
+  // Under PSD2 the bank limits queries made without the user present, and two
+  // imports of the same connection at once spend them twice over. If one is
+  // already alive, that is the one shown.
   if (await alreadySyncing(id)) {
     return fragment(c, SyncState({ connectionId: id, run: await lastRun(id) }));
   }
 
-  // La fila es crea **abans** de contestar, de manera que el fragment ja pot
-  // dur el sondeig; la feina de debo va en segon pla, perque la primera
-  // importacio pot trigar mes del que aguanta cap intermediari.
+  // The row is created **before** answering, so the fragment can already carry
+  // the poll; the real work goes in the background, because the first import
+  // can take longer than any proxy will wait.
   const run = await openImport(connection, "manual");
 
   void runTheImport(connection, run, {
@@ -242,22 +243,22 @@ connectionsRoutes.post("/:id/sincronitza", async (c) => {
   return fragment(c, SyncState({ connectionId: id, run: run ?? null }));
 });
 
-/** L'estat d'una importacio. El fragment s'atura sol quan la feina acaba. */
+/** The state of an import. The fragment stops by itself when the job ends. */
 connectionsRoutes.get("/:id/fragment/sync", async (c) => {
   const id = idFromRoute(c.req.param("id"), "Aquesta connexio no existeix");
-  // El compte d'intents ve a l'adreça: el sondeig te limit i el porta el
-  // servidor, no el client. Vegeu `lib/sondeig.ts`.
+  // The attempt counter comes in the URL: the poll has a limit and the server
+  // holds it, not the client. See `lib/sondeig.ts`.
   const attempt = attemptFromQuery(c.req.query(ATTEMPT_PARAM));
   return fragment(c, SyncState({ connectionId: id, run: await lastRun(id), attempt }));
 });
 
-// --- Comptes ---------------------------------------------------------------
+// --- Accounts --------------------------------------------------------------
 
 /**
- * Assigna un compte a un espai.
+ * Assigns an account to a workspace.
  *
- * La feina la fa `mouCompteDEspai()`: es prou delicada —toca l'historial
- * sencer del compte— per no viure dins d'un gestor de ruta.
+ * The work is done by `moveAccountToWorkspace()`: it is delicate enough —it
+ * touches the account's whole history— not to live inside a route handler.
  */
 connectionsRoutes.post("/comptes/:id/espai", async (c) => {
   const id = idFromRoute(c.req.param("id"), "Aquesta connexio no existeix");
@@ -282,7 +283,7 @@ connectionsRoutes.post("/comptes/:id/espai", async (c) => {
   );
 });
 
-/** Que ha passat, dit en una linia. */
+/** What happened, said in one line. */
 function moveMessage(newWorkspace: number | null, summary: TransactionSummary): string {
   if (newWorkspace === null) return "El compte ja no pertany a cap espai";
 

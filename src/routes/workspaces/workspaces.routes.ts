@@ -1,9 +1,9 @@
 /**
- * Configuracio de l'espai.
+ * Workspace configuration.
  *
- * Nomes els administradors de la instal·lacio hi arriben (guarda a
- * `routes/index.ts`). Dins, nomes els administradors **d'aquest espai** el
- * poden canviar; la resta d'admins de la instal·lacio amb acces el veuen.
+ * Only installation administrators get here (guard in `routes/index.ts`).
+ * Inside, only the administrators **of this workspace** can change it; the
+ * rest of the installation admins with access can see it.
  */
 
 import { asc, eq } from "drizzle-orm";

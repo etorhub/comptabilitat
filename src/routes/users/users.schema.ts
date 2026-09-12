@@ -1,5 +1,5 @@
 /**
- * Esquemes dels usuaris.
+ * User schemas.
  */
 
 import { z } from "zod/v4";
@@ -21,9 +21,9 @@ export const userCreateSchema = z.object({
 });
 
 /**
- * Nom i rol d'instal·lacio. L'estat actiu/desactivat es gestiona a
- * `POST /:id/estat`, no aqui: una casella que no ve al cos voldria dir
- * «desmarca't» i esborraria tothom a cada desa.
+ * Name and installation role. The active/inactive state is handled at
+ * `POST /:id/estat`, not here: a checkbox missing from the body would mean
+ * «untick me» and would deactivate everyone on every save.
  */
 export const userUpdateSchema = z.object({
   full_name: z.string().trim().max(255).default(""),
@@ -39,7 +39,7 @@ export const passwordResetSchema = z.object({
     .min(MIN_PASSWORD, `La contrasenya ha de tenir ${MIN_PASSWORD} carácters o mes`),
 });
 
-/** Concessio d'acces a un espai. `role` buit vol dir treure'l. */
+/** Granting access to a workspace. An empty `role` means removing it. */
 export const grantSchema = z.object({
   ledger_id: z.coerce.number().int().positive(),
   role: z.union([ledgerRoleSchema, z.literal("")]),

@@ -1,9 +1,10 @@
 /**
- * Rutes de les categories.
+ * Category routes.
  *
- * El cas que val la pena mirar es el `DELETE`: quan la categoria te moviments
- * i no s'ha dit on han d'anar, contesta **409** amb el formulari per triar-ho.
- * L'error no es un carreró sense sortida, es la pregunta que falta.
+ * The case worth looking at is the `DELETE`: when the category has
+ * transactions and no destination has been given, it answers **409** with the
+ * form for choosing one. The error is not a dead end, it is the question that
+ * is missing.
  */
 
 import { Hono } from "hono";
@@ -47,7 +48,7 @@ import {
 
 export const categoriesRoutes = new Hono();
 
-/** La vista d'una categoria, tal com la vol la fila de la taula. */
+/** The view of a category, as the table row wants it. */
 async function viewOf(id: number, ledgerId: number) {
   const tree = await categoryTree(ledgerId);
   for (const nodes of Object.values(tree)) {
@@ -62,7 +63,7 @@ async function viewOf(id: number, ledgerId: number) {
   return null;
 }
 
-// --- Pagina ----------------------------------------------------------------
+// --- Page ------------------------------------------------------------------
 
 categoriesRoutes.get("/", async (c) => {
   const workspace = currentWorkspace(c);
@@ -84,7 +85,7 @@ categoriesRoutes.get("/", async (c) => {
 
 // --- Fragments -------------------------------------------------------------
 
-/** Una fila sola: serveix per cancel·lar una edicio o una reassignacio. */
+/** A single row: used to cancel an edit or a reassignment. */
 categoriesRoutes.get("/:id/fragment/fila", async (c) => {
   const workspace = currentWorkspace(c);
   const id = idFromRoute(c.req.param("id"), "Aquesta categoria no existeix");
@@ -107,7 +108,7 @@ categoriesRoutes.get("/:id/fragment/fila", async (c) => {
   );
 });
 
-/** La fila convertida en camp de text. */
+/** The row turned into a text field. */
 categoriesRoutes.get("/:id/fragment/edicio", requireEditor, async (c) => {
   const workspace = currentWorkspace(c);
   const id = idFromRoute(c.req.param("id"), "Aquesta categoria no existeix");
@@ -119,7 +120,7 @@ categoriesRoutes.get("/:id/fragment/edicio", requireEditor, async (c) => {
   return fragment(c, EditRow({ code: workspace.code, category: found.view }));
 });
 
-// --- Mutacions -------------------------------------------------------------
+// --- Mutations -------------------------------------------------------------
 
 categoriesRoutes.post("/", requireEditor, async (c) => {
   const workspace = currentWorkspace(c);
@@ -156,8 +157,8 @@ categoriesRoutes.post("/", requireEditor, async (c) => {
     icon: parsed.data.icon,
   });
 
-  // L'arbre sencer canvia (hi ha una fila nova, i potser un grup nou), aixi
-  // que es torna sencer, fora de banda, amb el formulari net.
+  // The whole tree changes (there is a new row, and maybe a new group), so it
+  // is returned whole, out of band, with a clean form.
   const [tree, grupsNous] = await Promise.all([
     categoryTree(workspace.id),
     categoryOptions(workspace.id),
@@ -212,11 +213,11 @@ categoriesRoutes.patch("/:id", requireEditor, async (c) => {
 });
 
 /**
- * Esborrat.
+ * Deletion.
  *
- * Si te moviments i no s'ha dit on van, `esborraCategoria` llança un 409 i
- * aqui el convertim en el formulari de reassignacio. La resta d'errors
- * (protegida, te filles) van al `#toast` com sempre.
+ * If it has transactions and no destination has been given, `deleteCategory`
+ * throws a 409 and here we turn it into the reassignment form. The rest of
+ * the errors (protected, has children) go to the `#toast` as always.
  */
 categoriesRoutes.delete("/:id", requireEditor, async (c) => {
   const workspace = currentWorkspace(c);
@@ -234,8 +235,8 @@ categoriesRoutes.delete("/:id", requireEditor, async (c) => {
       const found = await viewOf(id, workspace.id);
       if (!found) return fragment(c, DeletedRow(id));
 
-      // Totes menys ella mateixa i les seves filles: moure-hi els moviments
-      // no serviria de res si desapareix igualment.
+      // All but itself and its children: moving the transactions there would
+      // be pointless if it disappears anyway.
       const excloure = [id, ...found.fillesIds];
       const groups = await categoryOptions(workspace.id, excloure);
 
@@ -256,8 +257,8 @@ categoriesRoutes.delete("/:id", requireEditor, async (c) => {
     throw error;
   }
 
-  // Esborrar-ne una canvia els totals acumulats dels pares, aixi que l'arbre
-  // torna sencer.
+  // Deleting one changes the parents' accumulated totals, so the tree comes
+  // back whole.
   const tree = await categoryTree(workspace.id);
   return fragment(
     c,

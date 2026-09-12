@@ -1,5 +1,5 @@
 /**
- * Esquemes dels moviments.
+ * Transaction schemas.
  */
 
 import { z } from "zod/v4";
@@ -68,7 +68,7 @@ export const transactionFiltersSchema = z.object({
 
 export type TransactionFilters = z.infer<typeof transactionFiltersSchema>;
 
-/** Etiquetes catalanes per a la barra de filtres. */
+/** Catalan labels for the filter bar. */
 export const OPERATION_TYPE_LABELS: { value: OperationType; text: string }[] = [
   { value: "targeta", text: "Targeta" },
   { value: "transferencia", text: "Transferència" },
@@ -77,7 +77,7 @@ export const OPERATION_TYPE_LABELS: { value: OperationType; text: string }[] = [
   { value: "altres", text: "Altres" },
 ];
 
-/** Hi ha cap filtre de cerca actiu (la pagina no compta). */
+/** Whether any search filter is active (the page number does not count). */
 export function hasActiveFilters(f: TransactionFilters): boolean {
   return Boolean(
     f.cerca ||
@@ -112,19 +112,19 @@ export function transactionFiltersToQuery(f: TransactionFilters): string {
   return q ? `?${q}` : "";
 }
 
-/** Canvi de categoria d'un moviment des de la fila. */
+/** Category change of a transaction from the row. */
 export const categorizeSchema = z.object({
   category_id: z
     .union([z.literal(""), z.coerce.number().int().positive()])
     .transform((v) => (v === "" ? null : v)),
-  /** Si tambe s'ha de recordar per a tot el comerç. */
+  /** Whether it should also be remembered for the whole merchant. */
   recorda_comerc: z
     .union([z.literal("0"), z.literal("false")])
     .optional()
     .transform((v) => v === undefined),
 });
 
-/** Classificacio en bloc: les caselles marcades de la taula. */
+/** Bulk classification: the ticked checkboxes of the table. */
 export const bulkCategorizeSchema = z.object({
   transaction: z.union([z.string(), z.array(z.string())]).transform((v, ctx) => {
     const bruts = Array.isArray(v) ? v : [v];
@@ -145,7 +145,7 @@ export const bulkCategorizeSchema = z.object({
     .transform((v) => v === undefined),
 });
 
-/** Alta o baixa d'una etiqueta des de la fila. */
+/** Adding or removing a tag from the row. */
 export const tagMutationSchema = z.object({
   tag: z
     .string({ error: "Cal un nom d'etiqueta" })
@@ -156,7 +156,7 @@ export const tagMutationSchema = z.object({
     .transform((v) => v.replace(/\s+/g, " ")),
 });
 
-/** Alta d'etiqueta des del formulari de fila (camp amb nom propi). */
+/** Adding a tag from the row form (field with its own name). */
 export const tagAddRowSchema = z.object({
   nova_etiqueta: z
     .string({ error: "Cal un nom d'etiqueta" })
@@ -167,7 +167,7 @@ export const tagAddRowSchema = z.object({
     .transform((v) => v.replace(/\s+/g, " ")),
 });
 
-/** Etiqueta en bloc: caselles + camp de la barra. */
+/** Bulk tag: checkboxes + the bar's field. */
 export const bulkTagSchema = z.object({
   transaction: z.union([z.string(), z.array(z.string())]).transform((v, ctx) => {
     const bruts = Array.isArray(v) ? v : [v];
@@ -188,7 +188,7 @@ export const bulkTagSchema = z.object({
     .transform((v) => v.replace(/\s+/g, " ")),
 });
 
-/** L'alias que amaga el concepte del banc. Buidar-lo el torna a ensenyar. */
+/** The alias that hides the bank's concept. Clearing it shows it again. */
 export const maskSchema = z.object({
   display_description: z
     .string()

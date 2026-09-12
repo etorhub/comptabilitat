@@ -1,5 +1,5 @@
 /**
- * Fragments del recurs d'etiquetes.
+ * Fragments of the tags resource.
  */
 
 import { html, raw } from "hono/html";

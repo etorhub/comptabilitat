@@ -1,14 +1,14 @@
 /**
- * Esquemes de validacio de l'entrada i del canvi de contrasenya.
+ * Validation schemas for sign-in and password change.
  *
- * `users` no te cap formulari de creacio aqui (aixo es de `routes/users`),
- * de manera que no en derivem l'esquema d'inserció amb `drizzle-zod`: el que
- * es valida son les dades del formulari, que no coincideixen amb la fila.
+ * `users` has no creation form here (that belongs to `routes/users`), so we
+ * do not derive the insert schema from it with `drizzle-zod`: what is
+ * validated is the form data, which does not match the row.
  */
 
 import { z } from "zod/v4";
 
-/** Mínim de la contrasenya. El mateix que tenia el Python. */
+/** Password minimum. The same as the Python had. */
 export const MIN_PASSWORD = 10;
 
 export const loginSchema = z.object({
@@ -20,9 +20,9 @@ export const loginSchema = z.object({
     .toLowerCase(),
   password: z.string().min(1, "Cal la contrasenya"),
   /**
-   * On volia anar abans que li demanessim que entres. Nomes s'accepta un
-   * cami intern: si no, aixo seria una redireccio oberta i serviria per
-   * portar algu a un altre lloc des d'un enllaç que sembla nostre.
+   * Where they wanted to go before we asked them to sign in. Only an internal
+   * path is accepted: otherwise this would be an open redirect and would serve
+   * to take someone somewhere else from a link that looks like ours.
    */
   desti: z
     .string()

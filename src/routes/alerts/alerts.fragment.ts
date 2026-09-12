@@ -1,9 +1,9 @@
 /**
- * Fragments dels avisos.
+ * Alert fragments.
  *
- * `LlistaAvisos` es el que torna tant la pagina sencera (a dins) com la ruta
- * de fragment i les mutacions. Aixi no hi ha dues maneres de dibuixar una
- * llista d'avisos que puguin acabar diferint.
+ * `AlertsList` is what both the whole page (inside it) and the fragment route
+ * and the mutations return. That way there are not two ways of drawing a list
+ * of alerts that could end up differing.
  */
 
 import { html } from "hono/html";
@@ -53,12 +53,12 @@ interface AlertCardProps {
   code: string;
   alert: Alert;
   /**
-   * Els filtres de la llista on viu la targeta.
+   * The filters of the list the card lives in.
    *
-   * Descartar-ne un torna la llista sencera, i sense aixo tornaria la llista
-   * *per defecte*: qui estigues mirant els descartats els veuria desapareixer
-   * tots de cop. Van a l'adreça i no a un `hx-include` perque el boto no es
-   * dins de cap formulari.
+   * Dismissing one returns the whole list, and without this it would return
+   * the *default* list: whoever was looking at the dismissed ones would see
+   * them all disappear at once. They go in the URL and not in an `hx-include`
+   * because the button is not inside any form.
    */
   filters?: AlertFilters;
 }
@@ -116,11 +116,11 @@ export function AlertCard({ code, alert, filters }: AlertCardProps): Html {
 }
 
 /**
- * Un avis descartat desapareix de la llista.
+ * A dismissed alert disappears from the list.
  *
- * Es torna un node buit amb el mateix identificador perque l'intercanvi
- * `outerHTML` tingui on anar; si tornessim una cadena buida, HTMX no sabria
- * que treure.
+ * An empty node with the same id is returned so that the `outerHTML` swap has
+ * somewhere to go; if we returned an empty string, HTMX would not know what
+ * to remove.
  */
 export function DismissedAlert(id: number): Html {
   return html`<li id="avis-${id}" class="avis-fora" hidden></li>` as Html;
@@ -132,10 +132,10 @@ export interface FilterBarProps {
 }
 
 /**
- * El filtre viu a la cadena de consulta de la **pagina**, no en cap estat de
- * client: la ruta de fragment llegeix els mateixos paràmetres i el servidor
- * torna `HX-Push-Url` amb l'adreça canonica, de manera que l'enllaç es pot
- * compartir i el boto d'enrere funciona.
+ * The filter lives in the **page's** query string, not in any client state:
+ * the fragment route reads the same parameters and the server returns
+ * `HX-Push-Url` with the canonical URL, so the link can be shared and the
+ * back button works.
  */
 export function FilterBar({ code, filters }: FilterBarProps): Html {
   return html`<form

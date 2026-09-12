@@ -1,5 +1,5 @@
 /**
- * Rutes de les series recurrents (schedules).
+ * Routes of the recurring series (schedules).
  */
 
 import { eq } from "drizzle-orm";
@@ -238,7 +238,7 @@ recurringRoutes.post("/:id/import", requireEditor, async (c) => {
     );
   }
 
-  // Conserva el sentit de la serie; el formulari envia el valor absolut.
+  // Keeps the series' direction; the form sends the absolute value.
   const signe = money(series.expectedAmount).isNegative() ? -1 : 1;
   const fresh = money(parsed.data.amount).abs().times(signe);
 

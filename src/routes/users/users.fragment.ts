@@ -1,5 +1,5 @@
 /**
- * Fragments dels usuaris.
+ * User fragments.
  */
 
 import { html, raw } from "hono/html";
@@ -22,7 +22,7 @@ const NAMES_ROL: Record<LedgerRole, string> = {
 };
 
 export interface UserView extends User {
-  /** Espais on te acces, amb el rol. */
+  /** Workspaces they can access, with the role. */
   accessos: { ledgerId: number; code: string; name: string; role: LedgerRole }[];
 }
 
@@ -43,9 +43,9 @@ export interface CardProps {
   user: UserView;
   workspaces: Ledger[];
   jo: number;
-  /** Errors del formulari de nom / administrador. */
+  /** Errors of the name / administrator form. */
   editErrors?: FieldErrors | undefined;
-  /** Errors del formulari de reiniciar la contrasenya. */
+  /** Errors of the password reset form. */
   passwordErrors?: FieldErrors | undefined;
 }
 

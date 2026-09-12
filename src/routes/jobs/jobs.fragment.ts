@@ -1,10 +1,10 @@
 /**
- * Fragments de la pagina de feines.
+ * Fragments of the jobs page.
  *
- * `LlistaHistorial` i `EnCurs` es tornen tant des de la pagina com des de les
- * rutes de fragment i les mutacions. El sondeig d'`EnCurs` es la mateixa
- * excepcio documentada a AGENTS.md que el de connexions: s'atura sol quan
- * ja no hi ha cap feina `running`.
+ * `HistoryList` and `Running` are returned both from the page and from the
+ * fragment routes and the mutations. The poll in `Running` is the same
+ * exception documented in AGENTS.md as the connections one: it stops by
+ * itself when there is no `running` job left.
  */
 
 import { html, raw } from "hono/html";
@@ -154,7 +154,7 @@ function buttonBlocked(id: JobId, enCurs: Set<string>): boolean {
   for (const pass of PASSES_CONTAINING[id] ?? []) {
     if (enCurs.has(pass)) return true;
   }
-  // Si corre un pas que aquesta passada inclouria, no la tornis a engegar.
+  // If a step this pass would include is running, do not start it again.
   if (id === "passada-diaria" || id === "totes") {
     for (const step of ["sync", "classify", "analyze"] as const) {
       if (enCurs.has(step)) return true;
@@ -250,13 +250,13 @@ export function JobsList({
 }
 
 /**
- * Feines de primer nivell encara corrent.
+ * Top-level jobs still running.
  *
- * **Sondeig, amb limit.** Mentre n'hi hagi, el fragment demana l'intent
- * seguent; quan la feina acaba, el fragment nou ja no duu disparador i HTMX
- * s'atura. I si no acaba mai —un proces mort enmig deixa la fila en `running`
- * per sempre— el compte d'intents s'acaba i es diu, en lloc de preguntar-ho
- * indefinidament. Vegeu `lib/sondeig.ts`.
+ * **A poll, with a limit.** While there are any, the fragment asks for the
+ * next attempt; when the job finishes, the new fragment no longer carries a
+ * trigger and HTMX stops. And if it never finishes —a process that dies
+ * halfway leaves the row `running` forever— the attempt count runs out and
+ * says so, instead of asking indefinitely. See `lib/sondeig.ts`.
  */
 export function Running({
   runs,
@@ -534,7 +534,7 @@ export function RunDetail({
   </article>` as Html;
 }
 
-/** Construeix les entrades de l'agenda a partir de la configuracio. */
+/** Builds the schedule entries from the configuration. */
 export function scheduleEntries(darreres: Map<string, JobRun>): ScheduleEntry[] {
   const items: ScheduleEntry[] = [
     {

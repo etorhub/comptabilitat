@@ -1,5 +1,5 @@
 /**
- * Pagina de feines del planificador i del seu historial.
+ * Page of scheduler jobs and their history.
  */
 
 import { html } from "hono/html";

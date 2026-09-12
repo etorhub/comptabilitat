@@ -1,10 +1,10 @@
 /**
- * Rutes del recurs d'etiquetes.
+ * Routes of the tags resource.
  *
- * GET /etiquetes → pagina amb sumes.
- * GET /etiquetes/:nom → detall amb moviments.
- * GET /etiquetes/:nom/fragment/taula → fragment de paginacio.
- * POST /etiquetes/:nom/esborra → treu l'etiqueta de tot l'espai.
+ * GET /etiquetes → page with totals.
+ * GET /etiquetes/:nom → detail with transactions.
+ * GET /etiquetes/:nom/fragment/taula → pagination fragment.
+ * POST /etiquetes/:nom/esborra → removes the tag from the whole workspace.
  */
 
 import { Hono } from "hono";
@@ -69,7 +69,7 @@ async function detailData(ledgerId: number, name: string, query: Record<string, 
   return { filters, summary, page: paged, groups, knownTags };
 }
 
-// --- Pagina ----------------------------------------------------------------
+// --- Page ------------------------------------------------------------------
 
 tagsRoutes.get("/", async (c) => {
   const workspace = currentWorkspace(c);
@@ -82,7 +82,7 @@ tagsRoutes.get("/", async (c) => {
   );
 });
 
-// Fragment abans de :nom perque Hono no confongui «fragment» amb un nom.
+// Fragment before :nom so that Hono does not mistake «fragment» for a name.
 tagsRoutes.get("/:nom/fragment/taula", async (c) => {
   const workspace = currentWorkspace(c);
   const name = validName(c.req.param("nom"));
@@ -143,10 +143,11 @@ tagsRoutes.get("/:nom", async (c) => {
 });
 
 /**
- * Treu l'etiqueta de tots els moviments de l'espai i torna a la llista.
+ * Removes the tag from every transaction in the workspace and goes back to
+ * the list.
  *
- * Tant des de l'index com des del detall: la redireccio evita haver de
- * decidir quin tros redibuixar.
+ * From both the index and the detail: the redirect saves having to decide
+ * which piece to redraw.
  */
 tagsRoutes.post("/:nom/esborra", requireEditor, async (c) => {
   const workspace = currentWorkspace(c);

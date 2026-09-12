@@ -1,13 +1,13 @@
 /**
- * Esquemes de les descarregues.
+ * Download schemas.
  *
- * Reutilitzen els filtres dels moviments: el que et descarregues es el que
- * estas veient.
+ * They reuse the transaction filters: what you download is what you are
+ * looking at.
  */
 
 import { z } from "zod/v4";
 
-/** Sostre de files per descarrega, com el `MAX_ROWS` del Python. */
+/** Row ceiling per download, like the Python's `MAX_ROWS`. */
 export const MAX_ROWS = 20_000;
 
 export const exportFiltersSchema = z.object({

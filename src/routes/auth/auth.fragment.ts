@@ -1,13 +1,13 @@
 /**
- * Fragments d'autenticacio.
+ * Authentication fragments.
  *
- * El formulari d'entrada es l'unic de tota l'aplicacio que duu el camp ocult
- * `_csrf`: quan es dibuixa encara no hi ha sessio, i per tant tampoc no hi ha
- * el `hx-headers` del `<body>` que la resta hereten.
+ * The sign-in form is the only one in the whole application that carries the
+ * hidden `_csrf` field: when it is drawn there is no session yet, and
+ * therefore neither is the `hx-headers` of the `<body>` the rest inherit.
  *
- * A mes, s'envia com un formulari de tota la vida (`method="post"`), no per
- * HTMX: despres d'entrar cal una navegacio de debò, amb la galeta nova, i no
- * un intercanvi de tros de pagina.
+ * On top of that it is submitted as an ordinary form (`method="post"`), not
+ * over HTMX: after signing in a real navigation is needed, with the new
+ * cookie, and not a swap of a piece of the page.
  */
 
 import { html, raw } from "hono/html";
@@ -17,7 +17,7 @@ import { Field, FormError, type FieldErrors } from "../../components/form.ts";
 import { CSRF_FIELD } from "../../lib/csrf.ts";
 
 export interface LoginFormProps {
-  /** Testimoni d'un sol us per al formulari d'entrada (vegeu `auth.routes.ts`). */
+  /** Single-use token for the sign-in form (see `auth.routes.ts`). */
   csrfToken: string;
   desti?: string;
   email?: string;
@@ -61,8 +61,8 @@ export interface PasswordFormProps {
 }
 
 /**
- * Formulari de canvi de contrasenya. Aquest si que va per HTMX: es queda a la
- * mateixa pagina i es torna a dibuixar amb els errors o amb la confirmacio.
+ * Password change form. This one does go over HTMX: it stays on the same page
+ * and is redrawn with the errors or with the confirmation.
  */
 export function PasswordForm(props: PasswordFormProps): Html {
   const { errors, fet = false } = props;

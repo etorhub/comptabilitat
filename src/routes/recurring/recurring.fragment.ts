@@ -1,5 +1,5 @@
 /**
- * Fragments de les series recurrents (schedules).
+ * Fragments of the recurring series (schedules).
  */
 
 import { html, raw } from "hono/html";
@@ -68,10 +68,10 @@ export interface TableProps {
   code: string;
   series: SeriesView[];
   canEdit: boolean;
-  /** Id del contenidor HTMX (suggestions vs actives). */
+  /** Id of the HTMX container (suggestions vs active). */
   containerId: OobId;
   empty: Html | string;
-  /** Si true, mostra el formulari de confirmar/descartar. */
+  /** If true, shows the confirm/dismiss form. */
   areProposals?: boolean;
 }
 
@@ -197,9 +197,9 @@ export function ActiveRow({
   code: string;
   series: SeriesView;
   canEdit: boolean;
-  /** Mode edicio: import + Descarta. */
+  /** Edit mode: amount + Dismiss. */
   editant?: boolean;
-  /** Si no es null, es mostren els moviments reals enllaçats. */
+  /** If not null, the real linked transactions are shown. */
   occurrences?: OccurrenceView[] | null;
 }): Html {
   const base = `/e/${code}/recurrents/${series.id}`;
@@ -405,7 +405,7 @@ export interface CreateFormProps {
   errors?: FieldErrors;
 }
 
-/** Formulari per afegir una serie activa a ma. */
+/** Form for adding an active series by hand. */
 export function CreateForm({ code, groups, values = {}, errors }: CreateFormProps): Html {
   return html`<form
     id="form-recurrent-nou"

@@ -1,5 +1,5 @@
 /**
- * Pagina de moviments.
+ * Transactions page.
  */
 
 import { html, raw } from "hono/html";
@@ -36,7 +36,7 @@ export function TransactionsPage(props: TransactionsPageProps): Html {
     knownTags = [],
     knownCards = [],
   } = props;
-  // El que et descarregues es el que estas veient: els mateixos filtres.
+  // What you download is what you are looking at: the same filters.
   const query = transactionFiltersToQuery(filters);
   const searchOberta = hasActiveFilters(filters);
 

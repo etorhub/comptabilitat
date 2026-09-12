@@ -1,12 +1,12 @@
 /**
- * Feines del planificador. Nomes per a administradors de la instal·lacio.
+ * Scheduler jobs. Installation administrators only.
  *
- * Cada boto engega la feina en segon pla i contesta de seguida amb un
- * `#toast` i els fragments fora de banda (`#en-curs`, `#historial-feines`,
- * …). El resultat queda a `job_runs`, visible a l'historial.
+ * Each button starts the job in the background and answers straight away with
+ * a `#toast` and the out-of-band fragments (`#en-curs`, `#historial-feines`,
+ * …). The result is left in `job_runs`, visible in the history.
  *
- * El pany es a la base de dades: la mateixa feina de primer nivell no es pot
- * tornar a engegar mentre encara corre (des de la UI, el cron o el CLI).
+ * The lock is in the database: the same top-level job cannot be started again
+ * while it is still running (from the UI, cron or the CLI).
  */
 
 import { Hono } from "hono";
@@ -193,7 +193,7 @@ async function oobMonitor(filters = historyFiltersSchema.parse({})) {
   ];
 }
 
-// --- Pagina ----------------------------------------------------------------
+// --- Page ------------------------------------------------------------------
 
 jobsRoutes.get("/", async (c) => {
   const jo = currentUser(c);
@@ -225,10 +225,10 @@ jobsRoutes.get("/fragment/historial", async (c) => {
 
 jobsRoutes.get("/fragment/en-curs", async (c) => {
   const data = await pageData(historyFiltersSchema.parse({}));
-  // El compte d'intents ve a l'adreça: el sondeig te limit i el porta el
-  // servidor, no el client. Vegeu `lib/sondeig.ts`.
+  // The attempt counter comes in the URL: the poll has a limit and the server
+  // holds it, not the client. See `lib/sondeig.ts`.
   const attempt = attemptFromQuery(c.req.query(ATTEMPT_PARAM));
-  // El target principal es `#en-curs` (sense oob); la resta va fora de banda.
+  // The main target is `#en-curs` (no oob); the rest goes out of band.
   return fragment(
     c,
     await withOob(
@@ -262,7 +262,7 @@ jobsRoutes.get("/fragment/execucio/:id", async (c) => {
   return fragment(c, RunDetail({ run, children, syncs }));
 });
 
-// --- Mutacions -------------------------------------------------------------
+// --- Mutations -------------------------------------------------------------
 
 jobsRoutes.post("/", async (c) => {
   const parsed = jobSchema.safeParse(await c.req.parseBody());

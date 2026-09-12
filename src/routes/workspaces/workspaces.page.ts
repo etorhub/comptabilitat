@@ -1,5 +1,5 @@
 /**
- * Pagina de configuracio de l'espai.
+ * Workspace configuration page.
  */
 
 import { html } from "hono/html";

@@ -1,5 +1,5 @@
 /**
- * Esquemes del recurs d'etiquetes.
+ * Schemas of the tags resource.
  */
 
 import { z } from "zod/v4";
@@ -17,7 +17,7 @@ export function tagDetailToQuery(q: TagDetailQuery): string {
   return `?pagina=${q.pagina}`;
 }
 
-/** Nom d'etiqueta a l'adreça (despres de decodeURIComponent). */
+/** Tag name in the URL (after decodeURIComponent). */
 export function nameFromRoute(value: string | undefined): string {
   const brut = value ?? "";
   let decodificat = brut;
