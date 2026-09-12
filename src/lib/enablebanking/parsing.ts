@@ -19,23 +19,23 @@ const STATUS_MAP: Record<string, TransactionStatus> = {
   PENDING: "pending",
 };
 
-function asObject(valor: unknown): Record<string, unknown> {
-  return typeof valor === "object" && valor !== null ? (valor as Record<string, unknown>) : {};
+function asObject(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
 }
 
-function decimal(valor: unknown): Decimal | null {
-  if (valor === null || valor === undefined) return null;
+function decimal(value: unknown): Decimal | null {
+  if (value === null || value === undefined) return null;
   try {
-    return new Decimal(String(valor));
+    return new Decimal(String(value));
   } catch {
     return null;
   }
 }
 
 /** A `YYYY-MM-DD` calendar date, or `null`. */
-function date(valor: unknown): string | null {
-  if (!valor) return null;
-  const text = String(valor).slice(0, 10);
+function date(value: unknown): string | null {
+  if (!value) return null;
+  const text = String(value).slice(0, 10);
   return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
 }
 

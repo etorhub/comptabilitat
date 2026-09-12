@@ -83,7 +83,7 @@ export function Card({ user, workspaces, jo, editErrors, passwordErrors }: CardP
           name: "full_name",
           id: `${idPrefix}-full_name`,
           tag: "Nom",
-          valor: user.fullName,
+          value: user.fullName,
           errors: editErrors,
           autocomplete: "off",
         })}
@@ -171,10 +171,10 @@ export function Card({ user, workspaces, jo, editErrors, passwordErrors }: CardP
 
 export interface CreateFormProps {
   errors?: FieldErrors | undefined;
-  valors?: { email?: string; full_name?: string } | undefined;
+  values?: { email?: string; full_name?: string } | undefined;
 }
 
-export function CreateForm({ errors, valors }: CreateFormProps): Html {
+export function CreateForm({ errors, values }: CreateFormProps): Html {
   return html`<form
     id="form-usuari"
     class="superficie targeta"
@@ -190,7 +190,7 @@ export function CreateForm({ errors, valors }: CreateFormProps): Html {
         name: "email",
         tag: "Correu",
         type: "email",
-        valor: valors?.email ?? "",
+        value: values?.email ?? "",
         errors,
         requerit: true,
         autocomplete: "off",
@@ -198,7 +198,7 @@ export function CreateForm({ errors, valors }: CreateFormProps): Html {
       ${Field({
         name: "full_name",
         tag: "Nom",
-        valor: valors?.full_name ?? "",
+        value: values?.full_name ?? "",
         errors,
         autocomplete: "off",
       })}

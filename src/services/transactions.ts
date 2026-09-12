@@ -78,7 +78,7 @@ export interface TransactionView {
    * Tipus d'operacio deduit del concepte. Null quan hi ha alias (no ensenyem
    * metadades del banc).
    */
-  tipusOperacio: OperationType | null;
+  operationType: OperationType | null;
   counterparty: string;
   merchantId: number | null;
   merchantName: string | null;
@@ -94,8 +94,8 @@ export interface TransactionView {
   /** Cert si algu n'ha amagat el concepte del banc. */
   isMasked: boolean;
   /** Serie recurrent enllaçada via `recurring_occurrences`, si n'hi ha. */
-  serieId: number | null;
-  serieLabel: string | null;
+  seriesId: number | null;
+  seriesLabel: string | null;
 }
 
 /**
@@ -126,8 +126,8 @@ const Fields = {
   notes: transactions.notes,
   tags: transactions.tags,
   isExcluded: transactions.isExcluded,
-  serieId: recurringSeries.id,
-  serieLabel: recurringSeries.label,
+  seriesId: recurringSeries.id,
+  seriesLabel: recurringSeries.label,
 } as const;
 
 /**
@@ -159,8 +159,8 @@ interface RawRow {
   notes: string;
   tags: string[];
   isExcluded: boolean;
-  serieId: number | null;
-  serieLabel: string | null;
+  seriesId: number | null;
+  seriesLabel: string | null;
 }
 
 /**
@@ -186,7 +186,7 @@ export function transactionView(row: RawRow): TransactionView {
       description: row.displayDescription ?? "",
       descriptionHint: null,
       darrers4: null,
-      tipusOperacio: null,
+      operationType: null,
       counterparty: "",
       merchantId: row.merchantId,
       merchantName: null,
@@ -200,13 +200,13 @@ export function transactionView(row: RawRow): TransactionView {
       tags: row.tags,
       isExcluded: row.isExcluded,
       isMasked: true,
-      serieId: row.serieId,
-      serieLabel: row.serieLabel,
+      seriesId: row.seriesId,
+      seriesLabel: row.seriesLabel,
     };
   }
 
   const parsed = parseDescription(row.description);
-  const hint = parsed.originalNetejat !== parsed.titol ? parsed.originalNetejat : null;
+  const hint = parsed.cleanedOriginal !== parsed.title ? parsed.cleanedOriginal : null;
 
   return {
     id: row.id,
@@ -217,10 +217,10 @@ export function transactionView(row: RawRow): TransactionView {
     amount: row.amount,
     currency: row.currency,
     status: row.status,
-    description: parsed.titol,
+    description: parsed.title,
     descriptionHint: hint,
     darrers4: parsed.darrers4,
-    tipusOperacio: parsed.type,
+    operationType: parsed.type,
     counterparty: row.counterparty,
     merchantId: row.merchantId,
     merchantName: row.merchantName,
@@ -234,8 +234,8 @@ export function transactionView(row: RawRow): TransactionView {
     tags: row.tags,
     isExcluded: row.isExcluded,
     isMasked: false,
-    serieId: row.serieId,
-    serieLabel: row.serieLabel,
+    seriesId: row.seriesId,
+    seriesLabel: row.seriesLabel,
   };
 }
 
@@ -249,12 +249,12 @@ export interface TransactionsFilters {
   /** Filtre per etiqueta (insensible a majuscules). Null = sense filtre. */
   tag: string | null;
   /** Tipus d'operacio (OR). Buit = tots. */
-  tipusOperacio: OperationType[];
+  operationType: OperationType[];
   /** Darrers 4 digits de targeta (OR). Buit = totes. */
   cards: string[];
-  nomesRevisio: boolean;
-  nomesSenseClassificar: boolean;
-  incloTraspassos: boolean;
+  onlyReview: boolean;
+  onlyUnclassified: boolean;
+  includeTransfers: boolean;
   limit: number;
   offset: number;
 }
@@ -382,13 +382,13 @@ function condicions(ledgerId: number, f: TransactionsFilters): SQL | undefined {
   if (f.merchantId !== null) parts.push(eq(transactions.merchantId, f.merchantId));
   if (f.search.trim()) parts.push(searchClause(`%${f.search.trim()}%`));
   if (f.tag) parts.push(hasTag(f.tag));
-  parts.push(typeClause(f.tipusOperacio));
+  parts.push(typeClause(f.operationType));
   parts.push(cardClause(f.cards));
-  if (f.nomesRevisio) parts.push(eq(transactions.needsReview, true));
-  if (f.nomesSenseClassificar) parts.push(isNull(transactions.categoryId));
+  if (f.onlyReview) parts.push(eq(transactions.needsReview, true));
+  if (f.onlyUnclassified) parts.push(isNull(transactions.categoryId));
   // Els traspassos entre comptes propis no son ni ingres ni despesa: per
   // defecte no surten.
-  if (!f.incloTraspassos) parts.push(isNull(transactions.transferGroupId));
+  if (!f.includeTransfers) parts.push(isNull(transactions.transferGroupId));
 
   return and(...parts);
 }
@@ -397,7 +397,7 @@ export interface TransactionsPage {
   items: TransactionView[];
   total: number;
   /** Suma dels moviments que encaixen amb els filtres, no nomes de la pagina. */
-  totalImport: MoneyString;
+  totalAmount: MoneyString;
   limit: number;
   offset: number;
 }
@@ -429,7 +429,7 @@ export async function listTransactions(
   return {
     items: rows.map(transactionView),
     total: summary?.n ?? 0,
-    totalImport: summary?.total ?? "0.00",
+    totalAmount: summary?.total ?? "0.00",
     limit: filters.limit,
     offset: filters.offset,
   };

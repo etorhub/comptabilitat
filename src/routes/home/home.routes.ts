@@ -28,7 +28,7 @@ homeRoutes.get("/sense-espais", requireUser, async (c) => {
   return page(
     c,
     Layout({
-      titol: "Sense espais",
+      title: "Sense espais",
       user,
       csrfToken: c.get("csrfToken") ?? "",
       ruta: c.req.path,

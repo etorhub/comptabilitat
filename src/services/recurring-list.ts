@@ -74,11 +74,11 @@ function toView(
 
 export async function listSeries(
   ledgerId: number,
-  options: { estats?: SeriesStatus[]; inclouAcabades?: boolean } = {},
+  options: { statuses?: SeriesStatus[]; inclouAcabades?: boolean } = {},
 ): Promise<SeriesView[]> {
   const parts = [eq(recurringSeries.ledgerId, ledgerId)];
-  if (options.estats && options.estats.length > 0) {
-    parts.push(inArray(recurringSeries.status, options.estats));
+  if (options.statuses && options.statuses.length > 0) {
+    parts.push(inArray(recurringSeries.status, options.statuses));
   } else if (!options.inclouAcabades) {
     parts.push(ne(recurringSeries.status, "ended"));
     parts.push(ne(recurringSeries.status, "dismissed"));
@@ -126,10 +126,10 @@ export async function seriesView(id: number, ledgerId: number): Promise<SeriesVi
  * l'emmascarament del concepte (alias si n'hi ha).
  */
 export async function seriesOccurrences(
-  serieId: number,
+  seriesId: number,
   ledgerId: number,
 ): Promise<OccurrenceView[]> {
-  await seriesInWorkspace(serieId, ledgerId);
+  await seriesInWorkspace(seriesId, ledgerId);
 
   const rows = await db
     .select({
@@ -141,7 +141,9 @@ export async function seriesOccurrences(
     })
     .from(recurringOccurrences)
     .innerJoin(transactions, eq(transactions.id, recurringOccurrences.transactionId))
-    .where(and(eq(recurringOccurrences.seriesId, serieId), eq(transactions.ledgerId, ledgerId)))
+    .where(
+      and(eq(recurringOccurrences.seriesId, seriesId), eq(transactions.ledgerId, ledgerId)),
+    )
     .orderBy(desc(transactions.bookingDate), desc(transactions.id));
 
   return rows.map((f) => {
@@ -151,7 +153,7 @@ export async function seriesOccurrences(
       bookingDate: f.bookingDate,
       description: emmascarat
         ? (f.displayDescription ?? "")
-        : parseDescription(f.description).titol,
+        : parseDescription(f.description).title,
       amount: f.amount,
     };
   });

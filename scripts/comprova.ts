@@ -1,67 +1,67 @@
 /**
- * Les comprovacions, una darrere l'altra, dient quina ha fallat.
+ * The checks, one after another, saying which one failed.
  *
- * Abans aixo era una cadena de cinc `&&` dins del `package.json`. Quan petava,
- * el que sortia per pantalla era la sortida crua de l'eina que hagues fallat
- * —de vegades cent linies de `tsc`— sense res que digues **quina** de les cinc
- * era ni que calia fer. Qui ho sap ja no ho necessita; qui no ho sap es
- * exactament qui ho llegeix.
+ * This used to be a chain of five `&&` inside `package.json`. When it broke,
+ * what came out was the raw output of whichever tool had failed — sometimes a
+ * hundred lines of `tsc` — with nothing saying **which** of the five it was or
+ * what to do. Whoever already knows does not need it; whoever does not is
+ * exactly who is reading it.
  *
- * Aqui cada passa duu el seu nom i com s'arregla, i al final es diu en una
- * linia. No hi ha cap magia: es la mateixa cadena, amb etiquetes.
+ * Here each step carries its name and how to fix it, and the end says so in
+ * one line. No magic: the same chain, with labels.
  */
 
-interface Passa {
+interface Step {
   name: string;
-  ordre: string[];
-  /** Que ha de fer qui la vegi vermella. */
-  arregla: string;
+  command: string[];
+  /** What whoever sees it red has to do. */
+  fix: string;
 }
 
-const PASSES: Passa[] = [
+const STEPS: Step[] = [
   {
-    name: "tipus",
-    ordre: ["bun", "run", "typecheck"],
-    arregla: "Arregla els errors que diu el `tsc`. No hi posis `any` ni `!`.",
+    name: "types",
+    command: ["bun", "run", "typecheck"],
+    fix: "Fix what `tsc` reports. Do not reach for `any` or `!`.",
   },
   {
-    name: "estil",
-    ordre: ["bun", "run", "lint"],
-    arregla: "Arregla el que diu l'oxlint.",
+    name: "lint",
+    command: ["bun", "run", "lint"],
+    fix: "Fix what oxlint reports.",
   },
   {
     name: "format",
-    ordre: ["bun", "run", "format:check"],
-    arregla: "Passa-hi `bun run format`. No cal tocar res a ma.",
+    command: ["bun", "run", "format:check"],
+    fix: "Run `bun run format`. Nothing needs fixing by hand.",
   },
   {
-    name: "frontera",
-    ordre: ["bun", "run", "frontera"],
-    arregla: "`htmx-contract/` no pot importar res de l'aplicacio. Vegeu AGENTS.md.",
+    name: "boundary",
+    command: ["bun", "run", "frontera"],
+    fix: "`htmx-contract/` may not import from the application. See AGENTS.md.",
   },
   {
-    name: "documentacio",
-    ordre: ["bun", "run", "docs:check"],
-    arregla: "Passa-hi `bun run docs`. Les taules generades no s'editen a ma.",
+    name: "docs",
+    command: ["bun", "run", "docs:check"],
+    fix: "Run `bun run docs`. The generated tables are not edited by hand.",
   },
 ];
 
-const fallides: Passa[] = [];
+const failed: Step[] = [];
 
-for (const passa of PASSES) {
-  const proc = Bun.spawn(passa.ordre, { stdout: "inherit", stderr: "inherit" });
-  const codi = await proc.exited;
-  if (codi !== 0) fallides.push(passa);
+for (const step of STEPS) {
+  const proc = Bun.spawn(step.command, { stdout: "inherit", stderr: "inherit" });
+  const code = await proc.exited;
+  if (code !== 0) failed.push(step);
 }
 
-if (fallides.length === 0) {
-  console.log("\n[comprova] tot net.");
+if (failed.length === 0) {
+  console.log("\n[comprova] all clean.");
   process.exit(0);
 }
 
-console.error(`\n[comprova] ha fallat: ${fallides.map((f) => f.name).join(", ")}\n`);
-for (const passa of fallides) {
-  console.error(`  ${passa.name}: ${passa.arregla}`);
+console.error(`\n[comprova] failed: ${failed.map((f) => f.name).join(", ")}\n`);
+for (const step of failed) {
+  console.error(`  ${step.name}: ${step.fix}`);
 }
 console.error("");
 process.exit(1);

@@ -1,27 +1,26 @@
 /**
- * Les seccions de l'`AGENTS.md` que surten del codi.
+ * The documentation sections that come out of the code.
  *
- * L'`AGENTS.md` no es documentacio de cortesia: es el manual que llegeix qui
- * toca aquest codi, persona o agent, i s'hi confia. Quan una part queda
- * enrere, no es que estigui desendreçada —es que menteix, i algu hi treballa a
- * sobre.
+ * `AGENTS.md` is not courtesy documentation: it is the manual whoever touches
+ * this code reads — person or agent — and trusts. When a part of it falls
+ * behind, it is not untidy, it is lying, and somebody is working on top of it.
  *
- * Ja ha passat. La taula dels intercanvis fora de banda en llistava **tres**
- * quan el codi ja en dibuixava **tretze**, i aixo despres d'un commit
- * (`a3a9457`) dedicat expressament a reconciliar el document amb el codi. Una
- * llista escrita a ma al costat del codi se n'acaba separant sempre; l'unica
- * manera que no passi es que no sigui a ma.
+ * That has happened. The out-of-band table listed **three** targets while the
+ * code already rendered **thirteen**, and that was after a commit (`a3a9457`)
+ * devoted expressly to reconciling the document with the code. A list written
+ * by hand next to the code always drifts away from it; the only way it cannot
+ * is for it not to be written by hand.
  *
- * Per aixo aquestes seccions **es generen**:
+ * So these sections **are generated**:
  *
- *   bun run docs         les torna a escriure
- *   bun run docs:check   falla si no encaixen (va dins de `bun run check`)
+ *   bun run docs         rewrites them
+ *   bun run docs:check   fails when they no longer match (inside `bun run check`)
  *
- * Cada seccio viu entre dues marques HTML dins de l'`AGENTS.md`. El que hi ha
- * fora no es toca mai: el document continua sent escrit per persones, i nomes
- * aquests trossos surten del codi.
+ * Each section lives between two HTML markers. What is outside them is never
+ * touched: the documents stay written by people, and only these pieces come
+ * out of the code.
  *
- * Afegir-ne una es afegir una entrada a `SECCIONS`.
+ * Adding one means adding an entry to `SECTIONS`.
  */
 
 import { readdir } from "node:fs/promises";
@@ -29,18 +28,18 @@ import { join, resolve } from "node:path";
 
 import { OOB_TARGETS } from "../src/lib/oob.ts";
 
-const Root = resolve(import.meta.dir, "..");
+const ROOT = resolve(import.meta.dir, "..");
 
-interface Seccio {
-  /** El nom que surt a les marques: `<!-- generat:<nom> -->`. */
+interface Section {
+  /** The name in the markers: `<!-- generat:<name> -->`. */
   name: string;
-  /** En quin fitxer viu, relatiu a l'arrel. */
+  /** Which file it lives in, relative to the root. */
   file: string;
-  genera: () => Promise<string> | string;
+  generate: () => Promise<string> | string;
 }
 
-/** Els objectius fora de banda, tal com els declara `src/lib/oob.ts`. */
-function tableOob(): string {
+/** The out-of-band targets, as `src/lib/oob.ts` declares them. */
+function oobTable(): string {
   const rows = Object.entries(OOB_TARGETS).map(([id, o]) => {
     const target = `\`#${id}\``;
     const mode = o.mode === "innerHTML" ? " _(contingut)_" : "";
@@ -55,13 +54,13 @@ function tableOob(): string {
 }
 
 /**
- * Els recursos de `src/routes/`, amb quins dels quatre fitxers tenen.
+ * The resources under `src/routes/`, with which of the four files each has.
  *
- * La regla dels quatre fitxers es de l'`AGENTS.md`, i fins ara ningu no la
- * comprovava: es llegia i es confiava.
+ * The four-file rule comes from `AGENTS.md`, and until now nobody checked it:
+ * it was read and trusted.
  */
 async function resourcesTable(): Promise<string> {
-  const base = join(Root, "src", "routes");
+  const base = join(ROOT, "src", "routes");
   const entrades = await readdir(base, { withFileTypes: true });
   const resources = entrades
     .filter((e) => e.isDirectory())
@@ -85,104 +84,103 @@ async function resourcesTable(): Promise<string> {
 }
 
 /**
- * Les seccions generades viuen a `docs/`, no a l'`AGENTS.md`.
+ * The generated sections live in `docs/`, not in `AGENTS.md`.
  *
- * L'`AGENTS.md` es el que ha de caber a la finestra de qui treballa; aquestes
- * dues taules son material de consulta i sumen mes de cent linies. Qui necessiti
- * la llista sencera d'objectius fora de banda la te aqui —i, sobretot, la te al
- * `src/lib/oob.ts`, que es on el `tsc` l'hi dira.
+ * `AGENTS.md` is what has to fit in the window of whoever is working; these
+ * two tables are reference material and run to more than a hundred lines.
+ * Whoever needs the full list of out-of-band targets has it here — and, above
+ * all, has it in `src/lib/oob.ts`, which is where `tsc` will tell them.
  */
-const SECCIONS: Seccio[] = [
-  { name: "oob", file: "docs/referencia.md", genera: tableOob },
-  { name: "recursos", file: "docs/referencia.md", genera: resourcesTable },
+const SECTIONS: Section[] = [
+  { name: "oob", file: "docs/referencia.md", generate: oobTable },
+  { name: "recursos", file: "docs/referencia.md", generate: resourcesTable },
 ];
 
-function marques(name: string): { inici: string; fi: string } {
-  return { inici: `<!-- generat:${name} -->`, fi: `<!-- /generat:${name} -->` };
+function markers(name: string): { start: string; end: string } {
+  return { start: `<!-- generat:${name} -->`, end: `<!-- /generat:${name} -->` };
 }
 
 /**
- * Passa el text pel Prettier, amb la configuracio del projecte.
+ * Runs the text through Prettier, with the project's configuration.
  *
- * Sense aixo, el generador i el `format` es barallen: el generador escriu les
- * taules amb les barres juntes i el Prettier les alinea, de manera que
- * `bun run docs` seguit de `bun run format` deixava el `docs:check` vermell
- * sense que ningu hagues tocat res. Val mes que el generador escrigui d'entrada
- * el que el Prettier escriuria.
+ * Without this the generator and `format` fight: the generator writes tables
+ * with the bars unaligned and Prettier aligns them, so `bun run docs` followed
+ * by `bun run format` left `docs:check` red without anybody having touched
+ * anything. Better that the generator write what Prettier would write in the
+ * first place.
  */
 async function withPrettier(text: string): Promise<string> {
   const proc = Bun.spawn(
-    [join(Root, "node_modules", ".bin", "prettier"), "--parser", "markdown"],
+    [join(ROOT, "node_modules", ".bin", "prettier"), "--parser", "markdown"],
     { stdin: new TextEncoder().encode(text), stdout: "pipe", stderr: "pipe" },
   );
-  const [output, error, codi] = await Promise.all([
+  const [output, error, code] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
-  if (codi !== 0) throw new Error(`El Prettier ha fallat:\n${error}`);
+  if (code !== 0) throw new Error(`El Prettier ha fallat:\n${error}`);
   return output;
 }
 
-/** Un fitxer amb les seves seccions generades al dia. */
-export async function upToDate(original: string, seccions: Seccio[]): Promise<string> {
+/** One file with its generated sections brought up to date. */
+export async function upToDate(original: string, sections: Section[]): Promise<string> {
   let text = original;
 
-  for (const seccio of seccions) {
-    const { inici, fi } = marques(seccio.name);
-    const desde = text.indexOf(inici);
-    const fins = text.indexOf(fi);
+  for (const section of sections) {
+    const { start, end } = markers(section.name);
+    const from = text.indexOf(start);
+    const to = text.indexOf(end);
 
-    if (desde === -1 || fins === -1 || fins < desde) {
+    if (from === -1 || to === -1 || to < from) {
       throw new Error(
-        `A ${seccio.file} hi falten les marques de la seccio "${seccio.name}".\n` +
-          `Han de ser-hi totes dues, en aquest ordre:\n  ${inici}\n  ${fi}`,
+        `${section.file} is missing the markers for the "${section.name}" section.\n` +
+          `Both have to be there, in this order:\n  ${start}\n  ${end}`,
       );
     }
 
-    const content = await seccio.genera();
-    text = text.slice(0, desde + inici.length) + "\n\n" + content + "\n\n" + text.slice(fins);
+    const content = await section.generate();
+    text = text.slice(0, from + start.length) + "\n\n" + content + "\n\n" + text.slice(to);
   }
 
   return withPrettier(text);
 }
 
-async function principal(): Promise<void> {
-  const check = process.argv.includes("--check");
+async function main(): Promise<void> {
+  const checkOnly = process.argv.includes("--check");
 
-  const perFile = new Map<string, Seccio[]>();
-  for (const seccio of SECCIONS) {
-    perFile.set(seccio.file, [...(perFile.get(seccio.file) ?? []), seccio]);
+  const perFile = new Map<string, Section[]>();
+  for (const section of SECTIONS) {
+    perFile.set(section.file, [...(perFile.get(section.file) ?? []), section]);
   }
 
-  const endarrerits: string[] = [];
+  const stale: string[] = [];
 
-  for (const [file, seccions] of perFile) {
-    const path = join(Root, file);
+  for (const [file, sections] of perFile) {
+    const path = join(ROOT, file);
     const original = await Bun.file(path).text();
-    const fresh = await upToDate(original, seccions);
+    const fresh = await upToDate(original, sections);
     if (original === fresh) continue;
 
-    if (check) {
-      endarrerits.push(file);
+    if (checkOnly) {
+      stale.push(file);
       continue;
     }
     await Bun.write(path, fresh);
-    console.log(`[docs] ${file} actualitzat.`);
+    console.log(`[docs] ${file} updated.`);
   }
 
-  if (endarrerits.length === 0) {
-    if (!check) console.log("[docs] les seccions generades son al dia.");
-    else console.log("[docs] les seccions generades son al dia.");
+  if (stale.length === 0) {
+    console.log("[docs] the generated sections are up to date.");
     return;
   }
 
   console.error(
-    `[docs] les seccions generades no encaixen amb el codi: ${endarrerits.join(", ")}\n\n` +
+    `[docs] les seccions generades no encaixen amb el codi: ${stale.join(", ")}\n\n` +
       "Surten de `src/lib/oob.ts` i de `src/routes/`; no s'editen a ma.\n" +
       "Passa-hi `bun run docs` i torna a comprovar.",
   );
   process.exit(1);
 }
 
-if (import.meta.main) await principal();
+if (import.meta.main) await main();

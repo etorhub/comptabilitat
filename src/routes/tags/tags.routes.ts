@@ -33,8 +33,8 @@ import {
 
 export const tagsRoutes = new Hono();
 
-function validName(valor: string | undefined): string {
-  const name = nameFromRoute(valor);
+function validName(value: string | undefined): string {
+  const name = nameFromRoute(value);
   try {
     return normalizeTag(name);
   } catch (err) {
@@ -45,7 +45,7 @@ function validName(valor: string | undefined): string {
 
 async function detailData(ledgerId: number, name: string, query: Record<string, string>) {
   const filters = tagDetailQuerySchema.parse(query);
-  const [summary, paged, groups, etiquetesConegudes] = await Promise.all([
+  const [summary, paged, groups, knownTags] = await Promise.all([
     summaryTag(ledgerId, name),
     listTransactions(ledgerId, {
       accountId: null,
@@ -55,30 +55,30 @@ async function detailData(ledgerId: number, name: string, query: Record<string, 
       merchantId: null,
       search: "",
       tag: name,
-      tipusOperacio: [],
+      operationType: [],
       cards: [],
-      nomesRevisio: false,
-      nomesSenseClassificar: false,
-      incloTraspassos: false,
+      onlyReview: false,
+      onlyUnclassified: false,
+      includeTransfers: false,
       limit: PER_PAGE,
       offset: filters.pagina * PER_PAGE,
     }),
     categoryOptions(ledgerId),
     workspaceTags(ledgerId),
   ]);
-  return { filters, summary, page: paged, groups, etiquetesConegudes };
+  return { filters, summary, page: paged, groups, knownTags };
 }
 
 // --- Pagina ----------------------------------------------------------------
 
 tagsRoutes.get("/", async (c) => {
   const workspace = currentWorkspace(c);
-  const potEditar = roleAtLeast(currentRole(c), "editor");
+  const canEdit = roleAtLeast(currentRole(c), "editor");
   const tags = await listTags(workspace.id);
 
   return page(
     c,
-    await workspacePage(c, "Etiquetes", TagsPage({ codi: workspace.code, tags, potEditar })),
+    await workspacePage(c, "Etiquetes", TagsPage({ code: workspace.code, tags, canEdit })),
   );
 });
 
@@ -91,7 +91,7 @@ tagsRoutes.get("/:nom/fragment/taula", async (c) => {
     filters,
     summary,
     groups,
-    etiquetesConegudes,
+    knownTags,
   } = await detailData(workspace.id, name, c.req.query());
 
   pushUrl(
@@ -102,13 +102,13 @@ tagsRoutes.get("/:nom/fragment/taula", async (c) => {
   return fragment(
     c,
     DetailTable({
-      codi: workspace.code,
+      code: workspace.code,
       name: summary.name,
       page: paged,
       groups,
-      potEditar: roleAtLeast(currentRole(c), "editor"),
+      canEdit: roleAtLeast(currentRole(c), "editor"),
       query: filters,
-      etiquetesConegudes,
+      knownTags,
     }),
   );
 });
@@ -121,7 +121,7 @@ tagsRoutes.get("/:nom", async (c) => {
     filters,
     summary,
     groups,
-    etiquetesConegudes,
+    knownTags,
   } = await detailData(workspace.id, name, c.req.query());
 
   return page(
@@ -130,13 +130,13 @@ tagsRoutes.get("/:nom", async (c) => {
       c,
       summary.name,
       TagDetailPage({
-        codi: workspace.code,
+        code: workspace.code,
         summary,
         page: paged,
         groups,
-        potEditar: roleAtLeast(currentRole(c), "editor"),
+        canEdit: roleAtLeast(currentRole(c), "editor"),
         query: filters,
-        etiquetesConegudes,
+        knownTags,
       }),
     ),
   );

@@ -105,7 +105,7 @@ export async function beginAuthorization(options: {
  * renovar el consentiment **conserva l'espai assignat i l'historic**.
  */
 export async function finishAuthorization(
-  codi: string,
+  code: string,
   state: string,
 ): Promise<BankConnection> {
   const [connection] = await db
@@ -117,7 +117,7 @@ export async function finishAuthorization(
   if (!connection) throw new Error("Estat d'autoritzacio desconegut");
 
   const client = new EnableBankingClient();
-  const session = await client.createSession(codi);
+  const session = await client.createSession(code);
 
   const validUntil = session.access?.valid_until ? new Date(session.access.valid_until) : null;
 

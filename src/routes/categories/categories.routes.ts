@@ -66,7 +66,7 @@ async function viewOf(id: number, ledgerId: number) {
 
 categoriesRoutes.get("/", async (c) => {
   const workspace = currentWorkspace(c);
-  const potEditar = roleAtLeast(currentRole(c), "editor");
+  const canEdit = roleAtLeast(currentRole(c), "editor");
   const [tree, groups] = await Promise.all([
     categoryTree(workspace.id),
     categoryOptions(workspace.id),
@@ -77,7 +77,7 @@ categoriesRoutes.get("/", async (c) => {
     await workspacePage(
       c,
       "Categories",
-      CategoriesPage({ codi: workspace.code, tree, groups, potEditar }),
+      CategoriesPage({ code: workspace.code, tree, groups, canEdit }),
     ),
   );
 });
@@ -97,9 +97,9 @@ categoriesRoutes.get("/:id/fragment/fila", async (c) => {
     c,
     await withOob(
       Row({
-        codi: workspace.code,
+        code: workspace.code,
         category: found.view,
-        potEditar: roleAtLeast(currentRole(c), "editor"),
+        canEdit: roleAtLeast(currentRole(c), "editor"),
         filla: found.filla,
       }),
       clearToast(),
@@ -116,7 +116,7 @@ categoriesRoutes.get("/:id/fragment/edicio", requireEditor, async (c) => {
   const found = await viewOf(id, workspace.id);
   if (!found) return fragment(c, DeletedRow(id));
 
-  return fragment(c, EditRow({ codi: workspace.code, category: found.view }));
+  return fragment(c, EditRow({ code: workspace.code, category: found.view }));
 });
 
 // --- Mutacions -------------------------------------------------------------
@@ -133,10 +133,10 @@ categoriesRoutes.post("/", requireEditor, async (c) => {
       c,
       await withOob(
         CreateForm({
-          codi: workspace.code,
+          code: workspace.code,
           groups,
           errors: zodErrors(parsed.error),
-          valors: {
+          values: {
             name: typeof body.name === "string" ? body.name : "",
             kind: typeof body.kind === "string" ? body.kind : "expense",
             parent_id: typeof body.parent_id === "string" ? body.parent_id : "",
@@ -166,8 +166,8 @@ categoriesRoutes.post("/", requireEditor, async (c) => {
   return fragment(
     c,
     await withOob(
-      CreateForm({ codi: workspace.code, groups: grupsNous }),
-      Tree({ codi: workspace.code, tree, potEditar: true, oob: true }),
+      CreateForm({ code: workspace.code, groups: grupsNous }),
+      Tree({ code: workspace.code, tree, canEdit: true, oob: true }),
       toast(`S'ha afegit «${parsed.data.name}»`, "success"),
     ),
   );
@@ -185,7 +185,7 @@ categoriesRoutes.patch("/:id", requireEditor, async (c) => {
     return fragment(
       c,
       await withOob(
-        EditRow({ codi: workspace.code, category: found.view }),
+        EditRow({ code: workspace.code, category: found.view }),
         toast(zodErrors(parsed.error).name?.[0] ?? "Revisa el nom", "error"),
       ),
       422,
@@ -201,9 +201,9 @@ categoriesRoutes.patch("/:id", requireEditor, async (c) => {
     c,
     await withOob(
       Row({
-        codi: workspace.code,
+        code: workspace.code,
         category: found.view,
-        potEditar: true,
+        canEdit: true,
         filla: found.filla,
       }),
       clearToast(),
@@ -243,7 +243,7 @@ categoriesRoutes.delete("/:id", requireEditor, async (c) => {
         c,
         await withOob(
           ReassignmentForm({
-            codi: workspace.code,
+            code: workspace.code,
             category: found.view,
             transactionList: await transactionsOf(id),
             groups,
@@ -263,7 +263,7 @@ categoriesRoutes.delete("/:id", requireEditor, async (c) => {
     c,
     await withOob(
       DeletedRow(id),
-      Tree({ codi: workspace.code, tree, potEditar: true, oob: true }),
+      Tree({ code: workspace.code, tree, canEdit: true, oob: true }),
       toast("Categoria esborrada", "success"),
     ),
   );

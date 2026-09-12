@@ -1,5 +1,5 @@
 /**
- * Feina d'importacio.
+ * The import job.
  */
 
 import { and, eq, isNotNull } from "drizzle-orm";

@@ -68,14 +68,14 @@ async function createUser(): Promise<void> {
 
 async function grantsAccess(): Promise<void> {
   const email = requireArg("email").toLowerCase();
-  const codi = requireArg("espai");
+  const code = requireArg("espai");
   const rol = ledgerRoleSchema.parse(arg("rol") ?? "viewer");
 
   const [user] = await db.select().from(users).where(eq(users.email, email));
   if (!user) throw new Error(`No hi ha cap usuari amb el correu ${email}`);
 
-  const [workspace] = await db.select().from(ledgers).where(eq(ledgers.code, codi));
-  if (!workspace) throw new Error(`No hi ha cap espai amb el codi ${codi}`);
+  const [workspace] = await db.select().from(ledgers).where(eq(ledgers.code, code));
+  if (!workspace) throw new Error(`No hi ha cap espai amb el codi ${code}`);
 
   const [ja] = await db
     .select({ id: userLedgerPermissions.id })
@@ -181,7 +181,7 @@ async function demo(): Promise<void> {
   console.log(JSON.stringify(summary, null, 2));
 }
 
-const ordres: Record<string, () => Promise<void>> = {
+const orders: Record<string, () => Promise<void>> = {
   init: inicia,
   demo,
   "crea-espai": createWorkspace,
@@ -198,11 +198,11 @@ if (process.env.SKIP_MIGRATIONS !== "true") {
   await applyMigrations();
 }
 
-const ordre = process.argv[2];
-const funcio = ordre === undefined ? undefined : ordres[ordre];
+const order = process.argv[2];
+const funcio = order === undefined ? undefined : orders[order];
 
 if (funcio === undefined) {
-  console.error(`Ordres: ${Object.keys(ordres).join(", ")}`);
+  console.error(`Ordres: ${Object.keys(orders).join(", ")}`);
   process.exit(1);
 }
 

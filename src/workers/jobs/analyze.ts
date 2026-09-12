@@ -1,5 +1,5 @@
 /**
- * Feina d'analisi: recurrents, rebuts que falten i previsio de descobert.
+ * The analysis job: recurring series, missing bills and the overdraft forecast.
  */
 
 import { eq } from "drizzle-orm";

@@ -34,15 +34,15 @@ export interface LlmStats {
   pocaConfianca: number;
   errors: number;
   /** Si te text, no s'ha arribat a preguntar res i explica per que. */
-  omes: string;
+  omitted: string;
 }
 
 function emptyStats(): LlmStats {
-  return { mirats: 0, classificats: 0, pocaConfianca: 0, errors: 0, omes: "" };
+  return { mirats: 0, classificats: 0, pocaConfianca: 0, errors: 0, omitted: "" };
 }
 
 export function summaryLlm(s: LlmStats): string {
-  if (s.omes !== "") return `model local omes: ${s.omes}`;
+  if (s.omitted !== "") return `model local omes: ${s.omitted}`;
   return (
     `model local: ${s.mirats} comerços mirats, ${s.classificats} classificats, ` +
     `${s.pocaConfianca} amb poca confiança, ${s.errors} amb error`
@@ -110,11 +110,11 @@ async function buildContext(merchant: Merchant): Promise<MerchantContext> {
     .limit(3);
 
   const [mitjana] = await db
-    .select({ valor: avg(transactions.amount) })
+    .select({ value: avg(transactions.amount) })
     .from(transactions)
     .where(eq(transactions.merchantId, merchant.id));
 
-  const importMitja = money(mitjana?.valor ?? "0");
+  const importMitja = money(mitjana?.value ?? "0");
 
   return {
     normalizedName:
@@ -159,19 +159,19 @@ export async function classifyMerchants(
   const stats = emptyStats();
 
   if (!config.ollamaEnabled) {
-    stats.omes = "desactivat a la configuracio";
+    stats.omitted = "desactivat a la configuracio";
     return stats;
   }
 
   const pending = await merchantsToClassify(ledgerId, options.limit ?? 50);
   if (pending.length === 0) {
-    stats.omes = "no hi ha cap comerç nou per mirar";
+    stats.omitted = "no hi ha cap comerç nou per mirar";
     return stats;
   }
 
   const client = options.client ?? new OllamaClient();
   if (!(await client.isAvailable())) {
-    stats.omes = "el model local no esta disponible";
+    stats.omitted = "el model local no esta disponible";
     return stats;
   }
 

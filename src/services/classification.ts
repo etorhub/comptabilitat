@@ -25,12 +25,12 @@ import {
 import { SLUG_INTERNAL_TRANSFER, SLUG_UNCATEGORIZED } from "./slugs.ts";
 
 export interface ClassificationStats {
-  perComerc: number;
+  byMerchant: number;
   pending: number;
 }
 
 export function summaryStats(s: ClassificationStats): string {
-  return `${s.perComerc} per comerç, ${s.pending} pendents de revisar`;
+  return `${s.byMerchant} per comerç, ${s.pending} pendents de revisar`;
 }
 
 /** El moviment tal com el necessita la classificacio. */
@@ -105,7 +105,7 @@ export async function classifyPending(
   limit?: number,
 ): Promise<ClassificationStats> {
   const stats: ClassificationStats = {
-    perComerc: 0,
+    byMerchant: 0,
     pending: 0,
   };
 
@@ -125,7 +125,7 @@ export async function classifyPending(
 
   for (const transaction of candidats) {
     const origin = await classifyTransaction(transaction);
-    if (origin === "merchant") stats.perComerc += 1;
+    if (origin === "merchant") stats.byMerchant += 1;
     else stats.pending += 1;
   }
 

@@ -37,7 +37,7 @@ interface FieldProps {
   name: string;
   tag: string;
   type?: string;
-  valor?: string | number | null | undefined;
+  value?: string | number | null | undefined;
   errors?: FieldErrors | undefined;
   requerit?: boolean;
   help?: string;
@@ -55,7 +55,7 @@ export function Field(props: FieldProps): Html {
     name,
     tag,
     type = "text",
-    valor,
+    value,
     errors,
     requerit = false,
     help,
@@ -78,7 +78,7 @@ export function Field(props: FieldProps): Html {
       type="${type}"
       name="${name}"
       id="${id}"
-      value="${valor ?? ""}"
+      value="${value ?? ""}"
       ${requerit ? raw("required") : ""}
       ${autofocus ? raw("autofocus") : ""}
       ${autocomplete ? raw(`autocomplete="${autocomplete}"`) : ""}
@@ -94,7 +94,7 @@ export function Field(props: FieldProps): Html {
 }
 
 export interface Option {
-  valor: string | number;
+  value: string | number;
   text: string;
 }
 
@@ -106,7 +106,7 @@ export interface OptionsGroup {
 interface SelectProps {
   name: string;
   tag: string;
-  valor?: string | number | null | undefined;
+  value?: string | number | null | undefined;
   /** Flat options, or groups for an `<optgroup>`. */
   options?: Option[];
   groups?: OptionsGroup[];
@@ -133,14 +133,14 @@ interface SelectProps {
  * type-ahead and accessibility, for free and without JavaScript.
  */
 export function Select(props: SelectProps): Html {
-  const { name, tag, valor, options, groups, empty, errors, help, attributes } = props;
+  const { name, tag, value, options, groups, empty, errors, help, attributes } = props;
   const id = props.id ?? name;
   const error = fieldError(errors, name);
   const idError = `${id}-error`;
-  const valorActual = valor === null || valor === undefined ? "" : String(valor);
+  const currentValue = value === null || value === undefined ? "" : String(value);
 
   const option = (o: Option) =>
-    html`<option value="${o.valor}" ${String(o.valor) === valorActual ? raw("selected") : ""}>
+    html`<option value="${o.value}" ${String(o.value) === currentValue ? raw("selected") : ""}>
       ${o.text}
     </option>`;
 
@@ -155,7 +155,7 @@ export function Select(props: SelectProps): Html {
     >
       ${
         empty !== undefined
-          ? html`<option value="" ${valorActual === "" ? raw("selected") : ""}>${empty}</option>`
+          ? html`<option value="" ${currentValue === "" ? raw("selected") : ""}>${empty}</option>`
           : ""
       }
       ${options?.map(option) ?? ""}
@@ -175,16 +175,16 @@ interface CheckboxProps {
   tag: string;
   marcat?: boolean;
   attributes?: string;
-  valor?: string;
+  value?: string;
 }
 
 export function Checkbox(props: CheckboxProps): Html {
-  const { name, tag, marcat = false, attributes, valor } = props;
+  const { name, tag, marcat = false, attributes, value } = props;
   return html`<label class="casella">
     <input
       type="checkbox"
       name="${name}"
-      ${valor ? raw(`value="${valor}"`) : ""}
+      ${value ? raw(`value="${value}"`) : ""}
       ${marcat ? raw("checked") : ""}
       ${attributes ? raw(attributes) : ""}
     />

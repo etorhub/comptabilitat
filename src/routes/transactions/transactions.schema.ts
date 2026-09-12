@@ -69,12 +69,12 @@ export const transactionFiltersSchema = z.object({
 export type TransactionFilters = z.infer<typeof transactionFiltersSchema>;
 
 /** Etiquetes catalanes per a la barra de filtres. */
-export const OPERATION_TYPE_LABELS: { valor: OperationType; text: string }[] = [
-  { valor: "targeta", text: "Targeta" },
-  { valor: "transferencia", text: "Transferència" },
-  { valor: "bizum", text: "Bizum" },
-  { valor: "rebut", text: "Rebut" },
-  { valor: "altres", text: "Altres" },
+export const OPERATION_TYPE_LABELS: { value: OperationType; text: string }[] = [
+  { value: "targeta", text: "Targeta" },
+  { value: "transferencia", text: "Transferència" },
+  { value: "bizum", text: "Bizum" },
+  { value: "rebut", text: "Rebut" },
+  { value: "altres", text: "Altres" },
 ];
 
 /** Hi ha cap filtre de cerca actiu (la pagina no compta). */

@@ -11,16 +11,16 @@ import { FilterBar, CreateForm, Table } from "./recurring.fragment.ts";
 import type { RecurringFilters } from "./recurring.schema.ts";
 
 export interface RecurringPageProps {
-  codi: string;
+  code: string;
   proposals: SeriesView[];
   active: SeriesView[];
   filters: RecurringFilters;
-  potEditar: boolean;
+  canEdit: boolean;
   groups: CategoryGroup[];
 }
 
 export function RecurringPage(props: RecurringPageProps): Html {
-  const { codi, proposals, active, filters, potEditar, groups } = props;
+  const { code, proposals, active, filters, canEdit, groups } = props;
 
   return html`
     <header class="capçalera">
@@ -34,10 +34,10 @@ export function RecurringPage(props: RecurringPageProps): Html {
     </header>
 
     ${
-      potEditar
+      canEdit
         ? html`<section class="superficie targeta">
           <h2>Afegeix un recurrent</h2>
-          ${CreateForm({ codi, groups })}
+          ${CreateForm({ code, groups })}
         </section>`
         : ""
     }
@@ -45,11 +45,11 @@ export function RecurringPage(props: RecurringPageProps): Html {
     <section class="superficie targeta">
       <h2>Propostes</h2>
       ${Table({
-        codi,
+        code,
         series: proposals,
-        potEditar,
-        idContenidor: "taula-recurrents-propostes",
-        sonPropostes: true,
+        canEdit,
+        containerId: "taula-recurrents-propostes",
+        areProposals: true,
         empty:
           "No hi ha cap proposta nova. Quan hi hagi tres aparicions regulars d'un mateix concepte categoritzat, apareixeran aqui.",
       })}
@@ -57,12 +57,12 @@ export function RecurringPage(props: RecurringPageProps): Html {
 
     <section class="superficie targeta">
       <h2>Confirmats</h2>
-      ${FilterBar({ codi, filters })}
+      ${FilterBar({ code, filters })}
       ${Table({
-        codi,
+        code,
         series: active,
-        potEditar,
-        idContenidor: "taula-recurrents-actives",
+        canEdit,
+        containerId: "taula-recurrents-actives",
         empty:
           "Encara no hi ha cap rebut confirmat. Confirma una proposta de dalt o afegeix-ne un a ma.",
       })}

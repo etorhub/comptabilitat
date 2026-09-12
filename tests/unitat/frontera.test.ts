@@ -1,31 +1,31 @@
 /**
- * La comprovacio de la frontera, contra directoris de mentida.
+ * The boundary check, against made-up directories.
  *
- * Hi es perque `scripts/frontera.ts` ja va dir un cop que tot estava be mentre
- * buscava les importacions en una font a la qual acabava de treure els textos
- * —es a dir, mentre no en podia trobar ni una. Una comprovacio que no es prova
- * es nomes una manera de sentir-se tranquil.
+ * It exists because `scripts/frontera.ts` once reported that everything was
+ * fine while it searched for imports in a source it had just stripped the
+ * string literals from — that is, where it could not find a single one. A
+ * check that is not tested is just a way of feeling reassured.
  *
- * No cal base de dades.
+ * No database needed.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { checkBoundary } from "../../scripts/frontera.ts";
 
 let root = "";
-const Extractables = [{ dir: "paquet", paquets: ["bun:test"] }];
+const EXTRACTABLE = [{ dir: "package", packages: ["bun:test"] }];
 
-async function escriu(name: string, content: string): Promise<void> {
-  await writeFile(join(root, "paquet", name), content, "utf8");
+async function write(name: string, content: string): Promise<void> {
+  await writeFile(join(root, "package", name), content, "utf8");
 }
 
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), "frontera-"));
-  await mkdir(join(root, "paquet"), { recursive: true });
+  await mkdir(join(root, "package"), { recursive: true });
   await mkdir(join(root, "src"), { recursive: true });
 });
 
@@ -33,82 +33,63 @@ afterAll(async () => {
   if (root !== "") await rm(root, { recursive: true, force: true });
 });
 
-describe("importacions", () => {
-  test("un fitxer que nomes es mira a ell mateix passa", async () => {
-    await escriu(
+describe("imports", () => {
+  test("a file that only looks at itself passes", async () => {
+    await write(
       "index.ts",
       `import { helper } from "./helper.ts";\nexport const value = helper;\n`,
     );
-    await escriu("helper.ts", `export const helper = 1;\n`);
-    expect(await checkBoundary(Extractables, root)).toEqual([]);
+    await write("helper.ts", `export const helper = 1;\n`);
+    expect(await checkBoundary(EXTRACTABLE, root)).toEqual([]);
   });
 
-  test("importar de fora del directori es un problema", async () => {
-    await escriu(
+  test("importing from outside the directory is a problem", async () => {
+    await write(
       "index.ts",
-      `import { config } from "../../src/config.ts";\nexport const v = config;\n`,
+      `import { config } from "../src/config.ts";\nexport const v = config;\n`,
     );
-    const problems = await checkBoundary(Extractables, root);
+    const problems = await checkBoundary(EXTRACTABLE, root);
     expect(problems).toHaveLength(1);
-    expect(problems[0]?.motiu).toContain("es fora de paquet/");
-    expect(problems[0]?.linia).toBe(1);
+    expect(problems[0]?.reason).toContain("outside package/");
+    expect(problems[0]?.line).toBe(1);
   });
 
-  test("un paquet que no es a la llista blanca tambe", async () => {
-    await escriu("index.ts", `import { z } from "zod";\nexport const v = z;\n`);
-    const problems = await checkBoundary(Extractables, root);
+  test("so is a package that is not on the allowlist", async () => {
+    await write("index.ts", `import { z } from "zod";\nexport const v = z;\n`);
+    const problems = await checkBoundary(EXTRACTABLE, root);
     expect(problems).toHaveLength(1);
-    expect(problems[0]?.motiu).toContain("llista blanca");
+    expect(problems[0]?.reason).toContain("allowlist");
   });
 
-  test("els de la llista blanca no ho son", async () => {
-    await escriu("index.ts", `import { test } from "bun:test";\nexport const v = test;\n`);
-    expect(await checkBoundary(Extractables, root)).toEqual([]);
+  test("the allowed ones are not", async () => {
+    await write("index.ts", `import { test } from "bun:test";\nexport const v = test;\n`);
+    expect(await checkBoundary(EXTRACTABLE, root)).toEqual([]);
   });
 
-  test("un `export ... from` compta igual que un `import`", async () => {
-    await escriu("index.ts", `export { config } from "../../src/config.ts";\n`);
-    const problems = await checkBoundary(Extractables, root);
+  test("an `export … from` counts the same as an `import`", async () => {
+    await write("index.ts", `export { config } from "../src/config.ts";\n`);
+    const problems = await checkBoundary(EXTRACTABLE, root);
     expect(problems).toHaveLength(1);
-    expect(problems[0]?.motiu).toContain("es fora de paquet/");
+    expect(problems[0]?.reason).toContain("outside package/");
   });
 
-  test("una importacio dins d'un comentari no compta", async () => {
-    await escriu(
+  test("an import inside a comment does not count", async () => {
+    await write(
       "index.ts",
-      `// import { config } from "../../src/config.ts";\nexport const v = 1;\n`,
+      `// import { config } from "../src/config.ts";\nexport const v = 1;\n`,
     );
-    expect(await checkBoundary(Extractables, root)).toEqual([]);
+    expect(await checkBoundary(EXTRACTABLE, root)).toEqual([]);
   });
-});
 
-describe("idioma", () => {
-  test("un identificador catala es un problema", async () => {
-    await escriu("index.ts", `export function comprovaResposta(): number {\n  return 1;\n}\n`);
-    const problems = await checkBoundary(Extractables, root);
+  test("an import specifier is a string, and strings are where it has to look", async () => {
+    // The regression: stripping string literals before searching found nothing
+    // at all, and nothing at all looks exactly like nothing wrong.
+    await write(
+      "index.ts",
+      `const s = "not an import";\nimport { x } from "../src/x.ts";\nexport const v = [s, x];\n`,
+    );
+    const problems = await checkBoundary(EXTRACTABLE, root);
     expect(problems).toHaveLength(1);
-    expect(problems[0]?.motiu).toContain("sembla catala");
-    expect(problems[0]?.motiu).toContain("comprova, resposta");
-  });
-
-  test("un identificador angles no ho es", async () => {
-    await escriu("index.ts", `export function checkResponse(): number {\n  return 1;\n}\n`);
-    expect(await checkBoundary(Extractables, root)).toEqual([]);
-  });
-
-  test("el catala dins d'un text no compta: els fixtures son marcatge de l'aplicacio", async () => {
-    await escriu(
-      "index.ts",
-      `export const FIXTURE = "<p class='buit'>No hi ha cap regla.</p>";\n`,
-    );
-    expect(await checkBoundary(Extractables, root)).toEqual([]);
-  });
-
-  test("ni el catala dins d'un comentari que cita un commit", async () => {
-    await escriu(
-      "index.ts",
-      `/** e5dd962 — "Un error deixava de menjar-se la fila que estaves tocant". */\nexport const ok = 1;\n`,
-    );
-    expect(await checkBoundary(Extractables, root)).toEqual([]);
+    expect(problems[0]?.line).toBe(2);
   });
 });

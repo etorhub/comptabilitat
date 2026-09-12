@@ -50,14 +50,14 @@ beforeAll(async () => {
 describe("els usuaris", () => {
   test("son tres, amb accessos diferents", async () => {
     const rows = await db
-      .select({ email: users.email, codi: ledgers.code })
+      .select({ email: users.email, code: ledgers.code })
       .from(userLedgerPermissions)
       .innerJoin(users, eq(users.id, userLedgerPermissions.userId))
       .innerJoin(ledgers, eq(ledgers.id, userLedgerPermissions.ledgerId));
 
     const accessos = new Map<string, string[]>();
     for (const row of rows) {
-      accessos.set(row.email, [...(accessos.get(row.email) ?? []), row.codi].toSorted());
+      accessos.set(row.email, [...(accessos.get(row.email) ?? []), row.code].toSorted());
     }
 
     expect(accessos.get("demo@exemple.cat")).toEqual(["calella", "pardals", "personal"]);
@@ -88,8 +88,8 @@ describe("els usuaris", () => {
     const page = await app.request("/e/personal", { headers: { Cookie: cookie } });
     const body = await page.text();
     expect(page.status).toBe(200);
-    for (const codi of ["personal", "calella", "pardals"]) {
-      expect(body).toContain(`<option value="${codi}"`);
+    for (const code of ["personal", "calella", "pardals"]) {
+      expect(body).toContain(`<option value="${code}"`);
     }
   });
 });

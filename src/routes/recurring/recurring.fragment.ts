@@ -65,34 +65,34 @@ const iconUll = html`<svg
 </svg>`;
 
 export interface TableProps {
-  codi: string;
+  code: string;
   series: SeriesView[];
-  potEditar: boolean;
+  canEdit: boolean;
   /** Id del contenidor HTMX (suggestions vs actives). */
-  idContenidor: OobId;
+  containerId: OobId;
   empty: Html | string;
   /** Si true, mostra el formulari de confirmar/descartar. */
-  sonPropostes?: boolean;
+  areProposals?: boolean;
 }
 
 export function Table({
-  codi,
+  code,
   series,
-  potEditar,
-  idContenidor,
+  canEdit,
+  containerId,
   empty,
-  sonPropostes = false,
+  areProposals = false,
   oob = false,
 }: TableProps & { oob?: boolean }): Html {
-  return html`<div ${oobAttributes(idContenidor, oob)}>
+  return html`<div ${oobAttributes(containerId, oob)}>
     ${DataTable({
-      columnes: sonPropostes
+      columnes: areProposals
         ? (html`<th>Proposta</th>
             <th>Cadencia</th>
             <th class="dreta">Import</th>
             <th>Seguent</th>
             <th class="dreta">Confiança</th>
-            ${potEditar ? html`<th></th>` : ""}` as Html)
+            ${canEdit ? html`<th></th>` : ""}` as Html)
         : (html`<th>Serie</th>
             <th>Cadencia</th>
             <th class="dreta">Import</th>
@@ -101,9 +101,9 @@ export function Table({
             <th>A la previsio</th>
             <th></th>` as Html),
       rows: series.map((item) =>
-        sonPropostes
-          ? ProposalRow({ codi, series: item, potEditar })
-          : ActiveRow({ codi, series: item, potEditar }),
+        areProposals
+          ? ProposalRow({ code, series: item, canEdit })
+          : ActiveRow({ code, series: item, canEdit }),
       ),
       empty,
     })}
@@ -111,15 +111,15 @@ export function Table({
 }
 
 export function ProposalRow({
-  codi,
+  code,
   series,
-  potEditar,
+  canEdit,
 }: {
-  codi: string;
+  code: string;
   series: SeriesView;
-  potEditar: boolean;
+  canEdit: boolean;
 }): Html {
-  const base = `/e/${codi}/recurrents/${series.id}`;
+  const base = `/e/${code}/recurrents/${series.id}`;
 
   return html`<tr id="serie-${series.id}">
     <td>
@@ -144,7 +144,7 @@ export function ProposalRow({
     </td>
     <td class="dreta">${String(Math.round(series.confidence * 100))}%</td>
     ${
-      potEditar
+      canEdit
         ? html`<td>
           <form
             class="fila-accions"
@@ -155,18 +155,18 @@ export function ProposalRow({
             ${Select({
               name: "cadence",
               tag: "Cadencia",
-              valor: series.cadence,
+              value: series.cadence,
               options: (Object.keys(CADENCIES) as Cadence[]).map((c) => ({
-                valor: c,
+                value: c,
                 text: CADENCIES[c],
               })),
             })}
             ${Select({
               name: "amount_mode",
               tag: "Import",
-              valor: "exact",
+              value: "exact",
               options: (Object.keys(MODES) as AmountMode[]).map((m) => ({
-                valor: m,
+                value: m,
                 text: MODES[m],
               })),
             })}
@@ -188,21 +188,21 @@ export function ProposalRow({
 }
 
 export function ActiveRow({
-  codi,
+  code,
   series,
-  potEditar,
+  canEdit,
   editant = false,
   occurrences = null,
 }: {
-  codi: string;
+  code: string;
   series: SeriesView;
-  potEditar: boolean;
+  canEdit: boolean;
   /** Mode edicio: import + Descarta. */
   editant?: boolean;
   /** Si no es null, es mostren els moviments reals enllaçats. */
   occurrences?: OccurrenceView[] | null;
 }): Html {
-  const base = `/e/${codi}/recurrents/${series.id}`;
+  const base = `/e/${code}/recurrents/${series.id}`;
   const importAbsolut = money(series.expectedAmount).abs().toFixed(2);
   const mostrant = occurrences !== null;
 
@@ -244,7 +244,7 @@ export function ActiveRow({
     <td>${CADENCIES[series.cadence]}</td>
     <td class="dreta">
       ${
-        potEditar && editant && series.status === "active"
+        canEdit && editant && series.status === "active"
           ? html`<form
             class="fila-accions"
             hx-post="${base}/import"
@@ -278,7 +278,7 @@ export function ActiveRow({
     </td>
     <td>
       ${
-        potEditar && series.status === "active"
+        canEdit && series.status === "active"
           ? html`<input
             type="checkbox"
             name="include_in_forecast"
@@ -295,9 +295,9 @@ export function ActiveRow({
     </td>
     <td>
       ${SeriesActions({
-        codi,
+        code,
         series,
-        potEditar,
+        canEdit,
         editant,
         mostrant,
       })}
@@ -306,19 +306,19 @@ export function ActiveRow({
 }
 
 function SeriesActions({
-  codi,
+  code,
   series,
-  potEditar,
+  canEdit,
   editant,
   mostrant,
 }: {
-  codi: string;
+  code: string;
   series: SeriesView;
-  potEditar: boolean;
+  canEdit: boolean;
   editant: boolean;
   mostrant: boolean;
 }): Html {
-  const base = `/e/${codi}/recurrents/${series.id}`;
+  const base = `/e/${code}/recurrents/${series.id}`;
   const buttonShow = html`<button
     type="button"
     class="boto-icona"
@@ -331,7 +331,7 @@ function SeriesActions({
     ${iconUll}
   </button>`;
 
-  if (potEditar && series.status === "active" && editant) {
+  if (canEdit && series.status === "active" && editant) {
     return html`<div class="fila-accions">
       <button
         type="button"
@@ -355,7 +355,7 @@ function SeriesActions({
     </div>` as Html;
   }
 
-  if (potEditar && series.status === "active") {
+  if (canEdit && series.status === "active") {
     return html`<div class="fila-accions">
       <button
         type="button"
@@ -376,14 +376,14 @@ function SeriesActions({
 }
 
 export interface FilterBarProps {
-  codi: string;
+  code: string;
   filters: RecurringFilters;
 }
 
-export function FilterBar({ codi, filters }: FilterBarProps): Html {
+export function FilterBar({ code, filters }: FilterBarProps): Html {
   return html`<form
     class="filtres"
-    hx-get="/e/${codi}/recurrents/fragment/actives"
+    hx-get="/e/${code}/recurrents/fragment/actives"
     hx-target="#taula-recurrents-actives"
     hx-swap="outerHTML"
     hx-push-url="false"
@@ -392,32 +392,32 @@ export function FilterBar({ codi, filters }: FilterBarProps): Html {
       name: "inclou_acabades",
       tag: "Inclou les acabades",
       marcat: filters.inclou_acabades,
-      valor: "1",
+      value: "1",
       attributes: 'onchange="this.form.requestSubmit()"',
     })}
   </form>` as Html;
 }
 
 export interface CreateFormProps {
-  codi: string;
+  code: string;
   groups: CategoryGroup[];
-  valors?: Partial<CreateSeriesInput> & { amount?: string };
+  values?: Partial<CreateSeriesInput> & { amount?: string };
   errors?: FieldErrors;
 }
 
 /** Formulari per afegir una serie activa a ma. */
-export function CreateForm({ codi, groups, valors = {}, errors }: CreateFormProps): Html {
+export function CreateForm({ code, groups, values = {}, errors }: CreateFormProps): Html {
   return html`<form
     id="form-recurrent-nou"
     class="filtres"
-    hx-post="/e/${codi}/recurrents"
+    hx-post="/e/${code}/recurrents"
     hx-target="#form-recurrent-nou"
     hx-swap="outerHTML"
   >
     ${Field({
       name: "label",
       tag: "Nom",
-      valor: valors.label ?? "",
+      value: values.label ?? "",
       errors,
       requerit: true,
       maxlength: 200,
@@ -425,10 +425,10 @@ export function CreateForm({ codi, groups, valors = {}, errors }: CreateFormProp
     ${Select({
       name: "category_id",
       tag: "Categoria",
-      valor: valors.category_id ?? "",
+      value: values.category_id ?? "",
       groups: groups.map((g) => ({
         tag: g.tag,
-        options: g.options.map((o) => ({ valor: o.valor, text: o.text })),
+        options: g.options.map((o) => ({ value: o.value, text: o.text })),
       })),
       empty: "Tria’n una",
       errors,
@@ -436,9 +436,9 @@ export function CreateForm({ codi, groups, valors = {}, errors }: CreateFormProp
     ${Select({
       name: "cadence",
       tag: "Cadencia",
-      valor: valors.cadence ?? "monthly",
+      value: values.cadence ?? "monthly",
       options: (Object.keys(CADENCIES) as Cadence[]).map((c) => ({
-        valor: c,
+        value: c,
         text: CADENCIES[c],
       })),
       errors,
@@ -446,7 +446,7 @@ export function CreateForm({ codi, groups, valors = {}, errors }: CreateFormProp
     ${Field({
       name: "amount",
       tag: "Import",
-      valor: valors.amount ?? "",
+      value: values.amount ?? "",
       errors,
       requerit: true,
       step: "0.01",
@@ -455,10 +455,10 @@ export function CreateForm({ codi, groups, valors = {}, errors }: CreateFormProp
     ${Select({
       name: "sentit",
       tag: "Sentit",
-      valor: valors.sentit ?? "out",
+      value: values.sentit ?? "out",
       options: [
-        { valor: "out", text: "Despesa" },
-        { valor: "in", text: "Ingres" },
+        { value: "out", text: "Despesa" },
+        { value: "in", text: "Ingres" },
       ],
       errors,
     })}
@@ -466,7 +466,7 @@ export function CreateForm({ codi, groups, valors = {}, errors }: CreateFormProp
       name: "next_expected_date",
       tag: "Proxima data",
       type: "date",
-      valor: valors.next_expected_date ?? todayLocal(),
+      value: values.next_expected_date ?? todayLocal(),
       errors,
       requerit: true,
     })}

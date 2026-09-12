@@ -10,7 +10,7 @@ import { LoginForm, type LoginFormProps } from "./auth.fragment.ts";
 
 export function LoginPage(props: LoginFormProps): Html {
   return Shell({
-    titol: "Entra",
+    title: "Entra",
     children: html`
       <h1>Comptabilitat</h1>
       <p class="text-suau">Entra per veure els teus espais.</p>

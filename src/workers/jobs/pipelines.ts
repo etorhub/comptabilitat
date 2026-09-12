@@ -1,13 +1,13 @@
 /**
- * Passades compostes del planificador.
+ * The scheduler's composite passes.
  *
- * Viuen aparte del `scheduler.ts` perque aquell fitxer engega el cron en
- * importar-se: la UI i el CLI no el poden tocar. L'ordre importa: no te
- * sentit classificar abans d'haver importat, ni analitzar recurrents abans
- * d'haver classificat.
+ * They live apart from `scheduler.ts` because that file starts the cron when
+ * imported: the UI and the CLI must not touch it. Order matters: there is no
+ * point classifying before importing, nor analysing recurring series before
+ * classifying.
  *
- * Cada pas passa per `executaPas` quan corre dins d'`executaFeina`, de
- * manera que l'historial mostra la passada i els fills.
+ * Each step goes through `runStep` when it runs inside `runJob`, so the
+ * history shows the pass and its children.
  */
 
 import { config } from "../../lib/config.ts";
@@ -19,7 +19,7 @@ import { maintenanceJob } from "./maintenance.ts";
 import { alertsJob } from "./notify.ts";
 import { syncJob } from "./sync.ts";
 
-/** Importar, classificar i analitzar, en aquest ordre. */
+/** Import, classify and analyse, in that order. */
 export async function dailyPass(): Promise<string> {
   const parts: string[] = [];
   parts.push(await runStep("sync", () => syncJob()));
@@ -29,8 +29,8 @@ export async function dailyPass(): Promise<string> {
 }
 
 /**
- * El model local mira els comerços nous i despres es torna a classificar,
- * ja sense model, per escampar el que hagi proposat.
+ * The local model looks at the new merchants and then everything is classified
+ * again, without the model this time, to spread whatever it proposed.
  */
 export async function nightlyPass(): Promise<string> {
   const model = await runStep("llm", () => localModelJob());
@@ -39,11 +39,11 @@ export async function nightlyPass(): Promise<string> {
 }
 
 /**
- * Tot el que el planificador acabaria fent al llarg del dia, en un sol
- * cop: diària, nocturna (si Ollama hi es), avisos i manteniment.
+ * Everything the scheduler would end up doing over a day, in one go: the daily
+ * pass, the nightly one (when Ollama is there), alerts and maintenance.
  *
- * Els avisos urgents no hi van: `feinaAvisos` ja cobreix els critics, i
- * tornar-los a enviar els duplicaria.
+ * The urgent alerts are not included: `alertsJob` already covers the critical
+ * ones, and sending them again would duplicate them.
  */
 export async function passAll(ambModelLocal: boolean = config.ollamaEnabled): Promise<string> {
   const parts: string[] = [];

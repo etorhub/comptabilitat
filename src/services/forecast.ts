@@ -36,11 +36,11 @@ export interface Forecast {
   ledgerId: number;
   ledgerName: string;
   currency: string;
-  saldoInicial: MoneyString;
+  openingBalance: MoneyString;
   llindar: MoneyString;
-  horitzoDies: number;
+  horizonDays: number;
   /** Sempre zero: es conserva al tipus per no trencar la UI dels grafics. */
-  despesaDiaria: MoneyString;
+  dailySpend: MoneyString;
   /** Saldo real reconstruit cap enrere (mateixa amplada que l'horitzo). */
   historic: BalancePoint[];
   points: ForecastPoint[];
@@ -92,9 +92,9 @@ export async function eventsExpected(
 
 export async function buildForecast(
   workspace: Ledger,
-  horitzoDies?: number,
+  horizonDays?: number,
 ): Promise<Forecast> {
-  const days = horitzoDies ?? config.forecastHorizonDays;
+  const days = horizonDays ?? config.forecastHorizonDays;
   const inici = todayLocal();
   const horitzo = addDays(inici, days);
 
@@ -146,10 +146,10 @@ export async function buildForecast(
     ledgerId: workspace.id,
     ledgerName: workspace.name,
     currency: workspace.currency,
-    saldoInicial: balance,
+    openingBalance: balance,
     llindar: workspace.overdraftThreshold,
-    horitzoDies: days,
-    despesaDiaria: "0.00",
+    horizonDays: days,
+    dailySpend: "0.00",
     historic,
     points,
     events,
@@ -158,10 +158,10 @@ export async function buildForecast(
   };
 }
 
-export function leastSquaresLine(valors: Decimal[]): Decimal[] {
-  const n = valors.length;
+export function leastSquaresLine(values: Decimal[]): Decimal[] {
+  const n = values.length;
   if (n === 0) return [];
-  if (n === 1) return [valors[0] ?? ZERO];
+  if (n === 1) return [values[0] ?? ZERO];
 
   let sumX = ZERO;
   let sumY = ZERO;
@@ -170,7 +170,7 @@ export function leastSquaresLine(valors: Decimal[]): Decimal[] {
 
   for (let i = 0; i < n; i += 1) {
     const x = new Decimal(i);
-    const y = valors[i] ?? ZERO;
+    const y = values[i] ?? ZERO;
     sumX = sumX.plus(x);
     sumY = sumY.plus(y);
     sumXY = sumXY.plus(x.times(y));
@@ -181,13 +181,13 @@ export function leastSquaresLine(valors: Decimal[]): Decimal[] {
   const denominador = nDec.times(sumXX).minus(sumX.times(sumX));
   if (denominador.isZero()) {
     const mitjana = sumY.dividedBy(nDec);
-    return valors.map(() => mitjana.toDecimalPlaces(2));
+    return values.map(() => mitjana.toDecimalPlaces(2));
   }
 
   const pendent = nDec.times(sumXY).minus(sumX.times(sumY)).dividedBy(denominador);
   const origin = sumY.minus(pendent.times(sumX)).dividedBy(nDec);
 
-  return valors.map((_, i) => origin.plus(pendent.times(i)).toDecimalPlaces(2));
+  return values.map((_, i) => origin.plus(pendent.times(i)).toDecimalPlaces(2));
 }
 
 function setmanaIso(isoDate: string): string {
@@ -202,9 +202,9 @@ function setmanaIso(isoDate: string): string {
 
 export async function checkOverdrafts(
   workspace: Ledger,
-  horitzoDies?: number,
+  horizonDays?: number,
 ): Promise<number> {
-  const forecast = await buildForecast(workspace, horitzoDies);
+  const forecast = await buildForecast(workspace, horizonDays);
   if (forecast.firstOverdraft === null) return 0;
 
   const viewDays = daysBetween(todayLocal(), forecast.firstOverdraft);
@@ -213,7 +213,7 @@ export async function checkOverdrafts(
   );
 
   let body =
-    `Amb el saldo actual de ${money(forecast.saldoInicial).toFixed(2)} EUR i els rebuts ` +
+    `Amb el saldo actual de ${money(forecast.openingBalance).toFixed(2)} EUR i els rebuts ` +
     `previstos confirmats, el saldo baixaria a ${money(forecast.firstOverdraftAmount).toFixed(2)} EUR el ` +
     `${forecast.firstOverdraft}.`;
   if (causa) body += ` El primer rebut important previst es ${causa.label}.`;
@@ -229,7 +229,7 @@ export async function checkOverdrafts(
       ledger_id: workspace.id,
       breach_day: forecast.firstOverdraft,
       breach_amount: forecast.firstOverdraftAmount,
-      starting_balance: forecast.saldoInicial,
+      starting_balance: forecast.openingBalance,
     },
   });
 

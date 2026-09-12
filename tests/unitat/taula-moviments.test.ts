@@ -21,8 +21,8 @@ import type { TransactionView } from "../../src/services/transactions.ts";
 import { transactionFiltersSchema } from "../../src/routes/transactions/transactions.schema.ts";
 
 const groups: CategoryGroup[] = [
-  { tag: "Alimentacio", options: [{ valor: 1, text: "Supermercat" }] },
-  { tag: "Transport", options: [{ valor: 2, text: "Benzina" }] },
+  { tag: "Alimentacio", options: [{ value: 1, text: "Supermercat" }] },
+  { tag: "Transport", options: [{ value: 2, text: "Benzina" }] },
 ];
 
 function transaction(id: number): TransactionView {
@@ -36,7 +36,7 @@ function transaction(id: number): TransactionView {
     description: `Compra ${id}`,
     descriptionHint: null,
     darrers4: null,
-    tipusOperacio: "altres",
+    operationType: "altres",
     counterparty: "",
     merchantId: null,
     merchantName: null,
@@ -52,20 +52,20 @@ function transaction(id: number): TransactionView {
     accountId: 1,
     accountName: "Compte",
     isMasked: false,
-    serieId: null,
-    serieLabel: null,
+    seriesId: null,
+    seriesLabel: null,
   };
 }
 
-async function table(potEditar: boolean, quantes = 3): Promise<string> {
+async function table(canEdit: boolean, quantes = 3): Promise<string> {
   const items = Array.from({ length: quantes }, (_, i) => transaction(i + 1));
   return String(
     await Table({
-      codi: "personal",
-      page: { items, total: quantes, offset: 0, limit: 50, totalImport: "-90.00" },
+      code: "personal",
+      page: { items, total: quantes, offset: 0, limit: 50, totalAmount: "-90.00" },
       groups,
       filters: transactionFiltersSchema.parse({}),
-      potEditar,
+      canEdit,
     }),
   );
 }
@@ -153,21 +153,21 @@ describe("la taula de moviments", () => {
       description: "Amazon",
       descriptionHint: "COMPRA WWW.AMAZON, LUXEMBOURG",
       darrers4: "4017",
-      tipusOperacio: "targeta",
+      operationType: "targeta",
     };
     const markup = String(
       await Table({
-        codi: "personal",
+        code: "personal",
         page: {
           items: [ambTargeta],
           total: 1,
           offset: 0,
           limit: 50,
-          totalImport: "-30.00",
+          totalAmount: "-30.00",
         },
         groups,
         filters: transactionFiltersSchema.parse({}),
-        potEditar: true,
+        canEdit: true,
       }),
     );
     expect(markup).toContain('class="xip-targeta"');
@@ -180,22 +180,22 @@ describe("la taula de moviments", () => {
     const transferencia: TransactionView = {
       ...transaction(10),
       description: "María Lourdes Cortés Braña",
-      tipusOperacio: "transferencia",
+      operationType: "transferencia",
       transferGroupId: null,
     };
     const markup = String(
       await Table({
-        codi: "personal",
+        code: "personal",
         page: {
           items: [transferencia],
           total: 1,
           offset: 0,
           limit: 50,
-          totalImport: "-30.00",
+          totalAmount: "-30.00",
         },
         groups,
         filters: transactionFiltersSchema.parse({}),
-        potEditar: false,
+        canEdit: false,
       }),
     );
     expect(markup).toContain("transferència");

@@ -145,14 +145,14 @@ export function hasTag(name: string) {
  * no duplica.
  */
 export async function addTag(
-  movimentId: number,
+  transactionId: number,
   ledgerId: number,
   nomBrut: string,
 ): Promise<string[]> {
   const [row] = await db
     .select({ id: transactions.id, tags: transactions.tags })
     .from(transactions)
-    .where(and(eq(transactions.id, movimentId), eq(transactions.ledgerId, ledgerId)))
+    .where(and(eq(transactions.id, transactionId), eq(transactions.ledgerId, ledgerId)))
     .limit(1);
   if (!row) throw new NotFoundError("Aquest moviment no existeix");
 
@@ -163,13 +163,13 @@ export async function addTag(
   }
 
   const noves = [...actuals, canònica].toSorted();
-  await db.update(transactions).set({ tags: noves }).where(eq(transactions.id, movimentId));
+  await db.update(transactions).set({ tags: noves }).where(eq(transactions.id, transactionId));
   return noves;
 }
 
 /** Treu una etiqueta d'un moviment (insensible a majuscules). */
 export async function removeTag(
-  movimentId: number,
+  transactionId: number,
   ledgerId: number,
   nomBrut: string,
 ): Promise<string[]> {
@@ -177,12 +177,12 @@ export async function removeTag(
   const [row] = await db
     .select({ id: transactions.id, tags: transactions.tags })
     .from(transactions)
-    .where(and(eq(transactions.id, movimentId), eq(transactions.ledgerId, ledgerId)))
+    .where(and(eq(transactions.id, transactionId), eq(transactions.ledgerId, ledgerId)))
     .limit(1);
   if (!row) throw new NotFoundError("Aquest moviment no existeix");
 
   const noves = (row.tags ?? []).filter((t) => !sameTag(t, cleaned)).toSorted();
-  await db.update(transactions).set({ tags: noves }).where(eq(transactions.id, movimentId));
+  await db.update(transactions).set({ tags: noves }).where(eq(transactions.id, transactionId));
   return noves;
 }
 

@@ -189,7 +189,7 @@ export async function fillForTests(
 
   await seedLedgers();
   const workspaces = await db.select().from(ledgers);
-  const perCodi = new Map(workspaces.map((e) => [e.code, e]));
+  const byCode = new Map(workspaces.map((e) => [e.code, e]));
 
   // --- Usuaris ---
   for (const [correu, name, esAdmin, accessos] of Users) {
@@ -209,8 +209,8 @@ export async function fillForTests(
       .returning();
     if (!persona) continue;
 
-    for (const [codi, rol] of Object.entries(accessos)) {
-      const workspace = perCodi.get(codi);
+    for (const [code, rol] of Object.entries(accessos)) {
+      const workspace = byCode.get(code);
       if (workspace) {
         await db
           .insert(userLedgerPermissions)
@@ -312,8 +312,8 @@ export async function fillForTests(
 
   const personal = accountList.get("personal");
 
-  for (let mes = Months; mes >= 0; mes -= 1) {
-    const base = addDays(today, -mes * 30);
+  for (let month = Months; month >= 0; month -= 1) {
+    const base = addDays(today, -month * 30);
 
     // La nomina, cada mes.
     if (personal) {
@@ -336,7 +336,7 @@ export async function fillForTests(
     for (const [description, quantitat, days, codiEspai] of Recurring) {
       const account = accountList.get(codiEspai);
       if (!account) continue;
-      if (mes % Math.max(1, Math.round(days / 30)) !== 0) continue;
+      if (month % Math.max(1, Math.round(days / 30)) !== 0) continue;
       await add(account, addDays(base, 3), new Decimal(quantitat), description);
     }
 
@@ -346,7 +346,7 @@ export async function fillForTests(
       if (days === null) continue;
       const account = accountList.get(codiEspai);
       if (!account) continue;
-      if (mes % Math.max(1, Math.round(days / 30)) !== 0) continue;
+      if (month % Math.max(1, Math.round(days / 30)) !== 0) continue;
       await add(account, addDays(base, 5), new Decimal(quantitat), description);
     }
   }
@@ -378,11 +378,11 @@ export async function fillForTests(
   ];
 
   // --- Saldos ---
-  for (const [codi, account] of accountList) {
+  for (const [code, account] of accountList) {
     await db.insert(balances).values({
       accountId: account.id,
       balanceType: "CLBD",
-      amount: Balances[codi] ?? "0.00",
+      amount: Balances[code] ?? "0.00",
       currency: "EUR",
       referenceDate: today,
       fetchedAt: new Date(),

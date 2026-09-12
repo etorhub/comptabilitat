@@ -18,8 +18,8 @@ export function tagDetailToQuery(q: TagDetailQuery): string {
 }
 
 /** Nom d'etiqueta a l'adreça (despres de decodeURIComponent). */
-export function nameFromRoute(valor: string | undefined): string {
-  const brut = valor ?? "";
+export function nameFromRoute(value: string | undefined): string {
+  const brut = value ?? "";
   let decodificat = brut;
   try {
     decodificat = decodeURIComponent(brut);

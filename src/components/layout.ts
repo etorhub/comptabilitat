@@ -19,7 +19,7 @@ import { staticHref } from "../lib/estatics.ts";
 import { oobAttributes } from "../lib/oob.ts";
 
 export interface LayoutProps {
-  titol: string;
+  title: string;
   user: User;
   csrfToken: string;
   /** The workspaces the user can reach, for the picker. */
@@ -36,7 +36,7 @@ export interface LayoutProps {
   ruta?: string;
   /** The sidebar counters. They are out-of-band targets. */
   perRevisar?: number;
-  avisosNous?: number;
+  newAlerts?: number;
   children: unknown;
 }
 
@@ -85,13 +85,13 @@ const closeIcon = raw(
 
 export function Layout(props: LayoutProps): Html {
   const {
-    titol,
+    title,
     user,
     csrfToken,
     workspaces,
     workspace,
     perRevisar = 0,
-    avisosNous = 0,
+    newAlerts = 0,
     ruta = "",
   } = props;
 
@@ -105,7 +105,7 @@ export function Layout(props: LayoutProps): Html {
           toggle and no dark variant. See styles/app.css.
         -->
         <meta name="color-scheme" content="light" />
-        <title>${titol} · Comptabilitat</title>
+        <title>${title} · Comptabilitat</title>
         <link rel="icon" href="${staticHref("favicon.svg")}" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -151,7 +151,7 @@ export function Layout(props: LayoutProps): Html {
           <!-- Tapping outside the drawer closes it. For sighted users only. -->
           <label for="menu-obert" class="rerefons-menu" aria-hidden="true"></label>
 
-          ${Sidebar({ user, workspaces, workspace, perRevisar, avisosNous, ruta })}
+          ${Sidebar({ user, workspaces, workspace, perRevisar, newAlerts, ruta })}
 
           <main id="contingut" class="principal">${props.children}</main>
         </div>
@@ -171,7 +171,7 @@ interface SidebarProps {
   workspaces: (Ledger & { role: LedgerRole })[];
   workspace?: Ledger | undefined;
   perRevisar: number;
-  avisosNous: number;
+  newAlerts: number;
   ruta: string;
 }
 
@@ -187,38 +187,38 @@ function activeLink(rutes: string[], ruta: string): string | undefined {
   return paths.toSorted((a, b) => b.length - a.length)[0];
 }
 
-function Sidebar({ user, workspaces, workspace, perRevisar, avisosNous, ruta }: SidebarProps) {
-  const codi = workspace?.code;
+function Sidebar({ user, workspaces, workspace, perRevisar, newAlerts, ruta }: SidebarProps) {
+  const code = workspace?.code;
 
-  const enllacos: { href: string; text: string; comptador?: Html }[] = codi
+  const links: { href: string; text: string; comptador?: Html }[] = code
     ? [
-        { href: `/e/${codi}`, text: "Panell" },
-        { href: `/e/${codi}/moviments`, text: "Moviments" },
+        { href: `/e/${code}`, text: "Panell" },
+        { href: `/e/${code}/moviments`, text: "Moviments" },
         {
           // The review queue is a view of the transactions, which is why it
           // hangs off them. In the React app it was `/e/:codi/revisio`.
-          href: `/e/${codi}/moviments/revisio`,
+          href: `/e/${code}/moviments/revisio`,
           text: "Per revisar",
           comptador: ReviewCounter(perRevisar),
         },
-        { href: `/e/${codi}/recurrents`, text: "Recurrents" },
-        { href: `/e/${codi}/previsio`, text: "Previsio" },
-        { href: `/e/${codi}/informes`, text: "Informes" },
+        { href: `/e/${code}/recurrents`, text: "Recurrents" },
+        { href: `/e/${code}/previsio`, text: "Previsio" },
+        { href: `/e/${code}/informes`, text: "Informes" },
       ]
     : [];
 
-  const configuracio: { href: string; text: string; comptador?: Html }[] = codi
+  const configuracio: { href: string; text: string; comptador?: Html }[] = code
     ? [
-        { href: `/e/${codi}/configuracio`, text: "Espai" },
-        { href: `/e/${codi}/categories`, text: "Categories" },
-        { href: `/e/${codi}/etiquetes`, text: "Etiquetes" },
-        { href: `/e/${codi}/avisos`, text: "Avisos", comptador: AlertCounter(avisosNous) },
+        { href: `/e/${code}/configuracio`, text: "Espai" },
+        { href: `/e/${code}/categories`, text: "Categories" },
+        { href: `/e/${code}/etiquetes`, text: "Etiquetes" },
+        { href: `/e/${code}/avisos`, text: "Avisos", comptador: AlertCounter(newAlerts) },
       ]
     : [];
 
   const active = activeLink(
     [
-      ...enllacos.map((e) => e.href),
+      ...links.map((e) => e.href),
       ...configuracio.map((e) => e.href),
       ...(user.isAdmin ? ["/connexions", "/feines", "/usuaris"] : []),
     ],
@@ -246,7 +246,7 @@ function Sidebar({ user, workspaces, workspace, perRevisar, avisosNous, ruta }: 
           >
             ${workspaces.map(
               (e) =>
-                html`<option value="${e.code}" ${e.code === codi ? raw("selected") : ""}>
+                html`<option value="${e.code}" ${e.code === code ? raw("selected") : ""}>
                   ${e.name}
                 </option>`,
             )}
@@ -256,7 +256,7 @@ function Sidebar({ user, workspaces, workspace, perRevisar, avisosNous, ruta }: 
     }
 
     <ul class="menu">
-      ${enllacos.map(
+      ${links.map(
         (link) => html`<li>
           <a href="${link.href}"${marca(link.href)}>
             <span>${link.text}</span>
@@ -267,7 +267,7 @@ function Sidebar({ user, workspaces, workspace, perRevisar, avisosNous, ruta }: 
     </ul>
 
     ${
-      user.isAdmin && codi
+      user.isAdmin && code
         ? html`<div class="menu-seccio">
           <h2 class="menu-titol">Configuracio</h2>
           <ul class="menu">

@@ -10,12 +10,12 @@ import { FilterBar, AlertsList } from "./alerts.fragment.ts";
 import type { AlertFilters } from "./alerts.schema.ts";
 
 export interface AlertsPageProps {
-  codi: string;
+  code: string;
   alertList: Alert[];
   filters: AlertFilters;
 }
 
-export function AlertsPage({ codi, alertList, filters }: AlertsPageProps): Html {
+export function AlertsPage({ code, alertList, filters }: AlertsPageProps): Html {
   return html`
     <header class="capçalera">
       <h1>Avisos</h1>
@@ -26,6 +26,6 @@ export function AlertsPage({ codi, alertList, filters }: AlertsPageProps): Html 
       </p>
     </header>
 
-    ${FilterBar({ codi, filters })} ${AlertsList({ codi, alertList, filters })}
+    ${FilterBar({ code, filters })} ${AlertsList({ code, alertList, filters })}
   ` as Html;
 }

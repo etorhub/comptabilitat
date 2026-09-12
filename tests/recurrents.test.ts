@@ -231,13 +231,13 @@ describe("que es reconeix com a serie", () => {
       await transaction(`n${i}`, addDays(today, -days), "-12.99", c, netflix);
     }
     await detectRecurring(ledgerId);
-    const proposal = (await listSeries(ledgerId, { estats: ["suggested"] }))[0];
+    const proposal = (await listSeries(ledgerId, { statuses: ["suggested"] }))[0];
     expect(proposal).toBeDefined();
     if (!proposal) throw new Error("calia una proposta");
 
     await confirmSeries(proposal.id, { cadence: "monthly", amountMode: "exact" });
 
-    const [active] = await listSeries(ledgerId, { estats: ["active"] });
+    const [active] = await listSeries(ledgerId, { statuses: ["active"] });
     expect(active?.status).toBe("active");
     expect(active?.includeInForecast).toBe(true);
     expect(active?.cadence).toBe("monthly");
@@ -347,7 +347,7 @@ describe("tornar a detectar", () => {
       await transaction(`g${i}`, addDays(today, -days), "-30.00", c, m);
     }
     await detectRecurring(ledgerId);
-    const proposal = (await listSeries(ledgerId, { estats: ["suggested"] }))[0];
+    const proposal = (await listSeries(ledgerId, { statuses: ["suggested"] }))[0];
     expect(proposal).toBeDefined();
     if (!proposal) throw new Error("calia una proposta");
     await confirmSeries(proposal.id, { cadence: "monthly", amountMode: "exact" });
@@ -398,7 +398,7 @@ describe("rebuts que falten", () => {
       await transaction(`g${i}`, addDays(today, -days), "-35.00", c, m);
     }
     await detectRecurring(ledgerId);
-    const proposal = (await listSeries(ledgerId, { estats: ["suggested"] }))[0];
+    const proposal = (await listSeries(ledgerId, { statuses: ["suggested"] }))[0];
     expect(proposal).toBeDefined();
     if (!proposal) throw new Error("calia una proposta");
     await confirmSeries(proposal.id, { cadence: "monthly", amountMode: "exact" });
@@ -431,7 +431,7 @@ describe("CRUD manual", () => {
       nextExpectedDate: addDays(todayLocal(), 5),
     });
 
-    const [series] = await listSeries(ledgerId, { estats: ["active"] });
+    const [series] = await listSeries(ledgerId, { statuses: ["active"] });
     expect(series?.id).toBe(id);
     expect(series?.label).toBe("Lloguer pis");
     expect(series?.expectedAmount).toBe("-850.00");
@@ -459,7 +459,7 @@ describe("CRUD manual", () => {
     });
     expect(revifada).toBe(id);
 
-    const [series] = await listSeries(ledgerId, { estats: ["active"] });
+    const [series] = await listSeries(ledgerId, { statuses: ["active"] });
     expect(series?.label).toBe("Lloguer nou");
     expect(series?.expectedAmount).toBe("-900.00");
     expect(series?.status).toBe("active");
@@ -497,7 +497,7 @@ describe("CRUD manual", () => {
     });
 
     await updateSeriesAmount(id, "-15.00");
-    const [series] = await listSeries(ledgerId, { estats: ["active"] });
+    const [series] = await listSeries(ledgerId, { statuses: ["active"] });
     expect(series?.expectedAmount).toBe("-15.00");
     expect(series?.amountMode).toBe("exact");
   });
@@ -512,7 +512,7 @@ describe("CRUD manual", () => {
       nextExpectedDate: todayLocal(),
     });
     await dismissSeries(id);
-    expect(await listSeries(ledgerId, { estats: ["active"] })).toHaveLength(0);
+    expect(await listSeries(ledgerId, { statuses: ["active"] })).toHaveLength(0);
   });
 });
 
@@ -525,11 +525,11 @@ describe("moviments i recurrents", () => {
     merchantId: null as number | null,
     search: "",
     tag: null as string | null,
-    tipusOperacio: [] as [],
+    operationType: [] as [],
     cards: [] as string[],
-    nomesRevisio: false,
-    nomesSenseClassificar: false,
-    incloTraspassos: true,
+    onlyReview: false,
+    onlyUnclassified: false,
+    includeTransfers: true,
     limit: 50,
     offset: 0,
   };
@@ -545,7 +545,7 @@ describe("moviments i recurrents", () => {
 
     const page = await listTransactions(ledgerId, baseFilter);
     expect(page.items).toHaveLength(3);
-    expect(page.items.every((i) => i.serieId !== null)).toBe(true);
+    expect(page.items.every((i) => i.seriesId !== null)).toBe(true);
   });
 
   test("els previstos no surten a la llista de moviments", async () => {
@@ -559,7 +559,7 @@ describe("moviments i recurrents", () => {
     });
 
     const page = await listTransactions(ledgerId, baseFilter);
-    expect(page.items.every((i) => i.serieId === null || i.id > 0)).toBe(true);
+    expect(page.items.every((i) => i.seriesId === null || i.id > 0)).toBe(true);
     expect(page.items.some((i) => i.description === "Lloguer pis")).toBe(false);
   });
 
@@ -571,7 +571,7 @@ describe("moviments i recurrents", () => {
       await transaction(`s${i}`, addDays(today, -days), "-9.99", c, spotify);
     }
     await detectRecurring(ledgerId);
-    const [series] = await listSeries(ledgerId, { estats: ["suggested"] });
+    const [series] = await listSeries(ledgerId, { statuses: ["suggested"] });
     expect(series).toBeDefined();
     if (!series) return;
 

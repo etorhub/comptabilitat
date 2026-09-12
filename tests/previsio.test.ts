@@ -186,7 +186,7 @@ describe("la projeccio", () => {
     expect(forecast.points).toHaveLength(31);
     expect(Number(forecast.points[0]?.esperat)).toBeCloseTo(1000, 1);
     expect(Number(forecast.points[30]?.esperat)).toBeCloseTo(1000, 1);
-    expect(forecast.despesaDiaria).toBe("0.00");
+    expect(forecast.dailySpend).toBe("0.00");
     expect(forecast.firstOverdraft).toBeNull();
     // Mateixa amplada a esquerra (real) i dreta (previsio), amb avui a les dues.
     expect(forecast.historic.length).toBe(31);

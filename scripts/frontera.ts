@@ -1,131 +1,56 @@
 /**
- * La frontera dels directoris que algun dia han de marxar.
+ * The boundary around the directories that are meant to leave one day.
  *
- * `htmx-contract/` no es d'aquesta aplicacio: es una peça que s'ha de poder
- * endur a un paquet seu amb un `git mv` i prou. Perque aixo continui sent cert
- * sense que ningu se'n recordi, aqui es comprova el que **si** que es pot
- * comprovar del tot:
+ * `htmx-contract/` is not part of this application: it is a piece that has to
+ * be liftable into a package of its own with a `git mv` and nothing else. For
+ * that to stay true without anyone having to remember, this checks the part
+ * that can be checked completely:
  *
- *   1. Que no importa res de `src/`, de `tests/`, ni de fora del seu directori.
- *   2. Que no importa cap paquet que no sigui a la llista blanca.
+ *   1. that it imports nothing from `src/`, from `tests/`, or from outside its
+ *      own directory;
+ *   2. that it imports no package outside its allowlist.
  *
- * I, com a **heuristica declarada**, que els identificadors que declara son en
- * angles. Aixo ultim no es exacte i no pretén ser-ho: la regla de la casa diu
- * que l'aplicacio es en catala i les peces extraibles en angles, i el que
- * realment passa quan algu s'ho descuida es escriure-hi un
- * `function comprovaResposta` per inercia. Aixo es el que busca.
+ * That dependency boundary — not word choice — is what actually stops the
+ * piece from leaving, and it is exactly decidable.
  *
- * **Els comentaris i els textos no es miren.** Un comentari que cita el titol
- * d'un commit («Un error deixava de menjar-se la fila que estaves tocant») es
- * en catala amb tota la rao, i el marcatge de `fixtures.ts` es una copia
- * reduida del que dibuixa l'aplicacio, que es en catala per definicio. El que
- * ha de ser en angles es l'API i els noms.
+ * (There used to be a second, heuristic check here for Catalan identifiers,
+ * from when the application was written in Catalan and only this directory was
+ * English. The whole codebase is English now, so it had nothing left to find.)
  */
 
 import { readdir } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 
-/** Els directoris que han de poder marxar, i el que se'ls permet importar. */
-const Extractables = [{ dir: "htmx-contract", paquets: ["bun:test"] }] as const;
+/** The directories that have to be able to leave, and what they may import. */
+const EXTRACTABLE = [{ dir: "htmx-contract", packages: ["bun:test"] }] as const;
 
-const Root = resolve(import.meta.dir, "..");
+const ROOT = resolve(import.meta.dir, "..");
 
 export interface Problem {
   file: string;
-  linia: number;
-  motiu: string;
+  line: number;
+  reason: string;
 }
 
-/**
- * Paraules catalanes que no son tambe angleses.
- *
- * Llista curta a proposit: val mes deixar passar algun cas que no pas fer
- * fallar la comprovacio per una paraula que en angles vol dir una altra cosa.
- * `camp`, `proves` o `per` no hi son per aixo mateix.
- */
-const PARAULES = [
-  "adreca",
-  "adreça",
-  "aixo",
-  "amb",
-  "aquesta",
-  "avis",
-  "buit",
-  "cadena",
-  "capcalera",
-  "capçalera",
-  "cerca",
-  "comprova",
-  "consulta",
-  "dels",
-  "dibuixa",
-  "esborra",
-  "escriu",
-  "espai",
-  "feina",
-  "fitxer",
-  "galeta",
-  "intercanvi",
-  "llista",
-  "missatge",
-  "moviment",
-  "nomes",
-  "pagina",
-  "peticio",
-  "plantilla",
-  "perque",
-  "resposta",
-  "sencera",
-  "sondeig",
-  "taula",
-  "testimoni",
-  "torna",
-];
-
-const PARAULES_SET = new Set(PARAULES);
-
-/**
- * Treu els comentaris, i opcionalment els textos.
- *
- * Son dues passades diferents a proposit. Les importacions **son** textos, de
- * manera que buscar-les en una font sense textos no en troba ni una —cosa que
- * aquest fitxer ja ha fet una vegada, deixant passar un `import` de `src/` i un
- * paquet de fora de la llista mentre deia que tot estava be. Els noms
- * declarats, en canvi, s'han de buscar sense textos, perque si no el marcatge
- * catala de `fixtures.ts` surt com si fos un identificador.
- *
- * Les linies es conserven perque els numeros que surten a l'informe siguin els
- * del fitxer de debo.
- */
-function clean(font: string, { textos }: { textos: boolean }): string {
+/** Strips comments, so an `import` inside one does not count. */
+function withoutComments(source: string): string {
   let out = "";
   let i = 0;
-  while (i < font.length) {
-    const c = font[i];
-    const next = font[i + 1];
+  while (i < source.length) {
+    const c = source[i];
+    const next = source[i + 1];
 
     if (c === "/" && next === "/") {
-      while (i < font.length && font[i] !== "\n") i++;
+      while (i < source.length && source[i] !== "\n") i++;
       continue;
     }
     if (c === "/" && next === "*") {
       i += 2;
-      while (i < font.length && !(font[i] === "*" && font[i + 1] === "/")) {
-        if (font[i] === "\n") out += "\n";
+      while (i < source.length && !(source[i] === "*" && source[i + 1] === "/")) {
+        if (source[i] === "\n") out += "\n";
         i++;
       }
       i += 2;
-      continue;
-    }
-    if (!textos && (c === '"' || c === "'" || c === "`")) {
-      const cometa = c;
-      i++;
-      while (i < font.length && font[i] !== cometa) {
-        if (font[i] === "\\") i++;
-        else if (font[i] === "\n") out += "\n";
-        i++;
-      }
-      i++;
       continue;
     }
     out += c;
@@ -134,106 +59,79 @@ function clean(font: string, { textos }: { textos: boolean }): string {
   return out;
 }
 
-/** Els especificadors d'importacio, amb el numero de linia. */
-function imports(font: string): { spec: string; linia: number }[] {
-  const out: { spec: string; linia: number }[] = [];
-  const patro = /(?:\bfrom\s*|(?:\bimport|\brequire)\s*\(\s*)["']([^"']+)["']/g;
+/**
+ * The import specifiers, with their line numbers.
+ *
+ * Note that the source keeps its string literals here: import specifiers *are*
+ * strings. An earlier version of this file stripped them before searching,
+ * which meant it could not find a single import — and it happily reported that
+ * everything was fine while `htmx-contract/` imported `src/lib/config.ts`.
+ */
+function imports(source: string): { spec: string; line: number }[] {
+  const out: { spec: string; line: number }[] = [];
+  const pattern = /(?:\bfrom\s*|(?:\bimport|\brequire)\s*\(\s*)["']([^"']+)["']/g;
   let match: RegExpExecArray | null;
-  while ((match = patro.exec(font)) !== null) {
+  while ((match = pattern.exec(source)) !== null) {
     const spec = match[1];
     if (spec === undefined) continue;
-    out.push({ spec, linia: font.slice(0, match.index).split("\n").length });
+    out.push({ spec, line: source.slice(0, match.index).split("\n").length });
   }
   return out;
 }
 
-/** Els noms que declara un fitxer. */
-function declaracions(codi: string): { name: string; linia: number }[] {
-  const out: { name: string; linia: number }[] = [];
-  const patro = /\b(?:function|const|let|var|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/g;
-  let match: RegExpExecArray | null;
-  while ((match = patro.exec(codi)) !== null) {
-    const name = match[1];
-    if (name === undefined) continue;
-    out.push({ name, linia: codi.slice(0, match.index).split("\n").length });
-  }
-  return out;
-}
-
-/** `comprovaResposta` → ["comprova", "resposta"] */
-function parts(name: string): string[] {
-  return name
-    .replaceAll(/([a-z\d])([A-Z])/g, "$1 $2")
-    .split(/[\s_$]+/)
-    .map((t) => t.toLowerCase())
-    .filter(Boolean);
-}
-
-async function filesTs(dir: string): Promise<string[]> {
-  const entrades = await readdir(dir, { withFileTypes: true, recursive: true });
-  return entrades
+async function tsFiles(dir: string): Promise<string[]> {
+  const entries = await readdir(dir, { withFileTypes: true, recursive: true });
+  return entries
     .filter((e) => e.isFile() && e.name.endsWith(".ts"))
     .map((e) => join(e.parentPath, e.name));
 }
 
 export interface Extractable {
   dir: string;
-  paquets: readonly string[];
+  packages: readonly string[];
 }
 
 /**
- * Comprova una llista de directoris extraibles contra una arrel.
+ * Checks a list of extractable directories against a root.
  *
- * Exportada i amb els dos parametres a fora perque `tests/frontera.test.ts` la
- * pugui cridar amb un directori de mentida. Una comprovacio que no es pot
- * provar no es una comprovacio: aquesta ja va dir un cop que tot estava be
- * mentre no mirava les importacions.
+ * Exported, with both parameters outside, so `tests/frontera.test.ts` can call
+ * it with a made-up directory. A check that cannot be tested is not a check:
+ * this one once reported that everything was fine while it was not looking at
+ * the imports at all.
  */
 export async function checkBoundary(
-  extraibles: readonly Extractable[] = Extractables,
-  root: string = Root,
+  extractables: readonly Extractable[] = EXTRACTABLE,
+  root: string = ROOT,
 ): Promise<Problem[]> {
   const problems: Problem[] = [];
 
-  for (const { dir, paquets } of extraibles) {
+  for (const { dir, packages } of extractables) {
     const base = join(root, dir);
-    const permesos = new Set<string>(paquets);
+    const allowed = new Set<string>(packages);
 
-    for (const file of await filesTs(base)) {
-      const relatiu = relative(root, file);
-      const font = await Bun.file(file).text();
-      const withStrings = clean(font, { textos: true });
-      const codi = clean(font, { textos: false });
+    for (const file of await tsFiles(base)) {
+      const rel = relative(root, file);
+      const source = withoutComments(await Bun.file(file).text());
 
-      for (const { spec, linia } of imports(withStrings)) {
+      for (const { spec, line } of imports(source)) {
         if (spec.startsWith(".")) {
-          const desti = resolve(file, "..", spec);
-          if (!desti.startsWith(base + "/")) {
+          const target = resolve(file, "..", spec);
+          if (!target.startsWith(base + "/")) {
             problems.push({
-              file: relatiu,
-              linia,
-              motiu: `importa "${spec}", que es fora de ${dir}/`,
+              file: rel,
+              line,
+              reason: `imports "${spec}", which is outside ${dir}/`,
             });
           }
           continue;
         }
-        if (!permesos.has(spec)) {
+        if (!allowed.has(spec)) {
           problems.push({
-            file: relatiu,
-            linia,
-            motiu: `importa el paquet "${spec}", que no es a la llista blanca de ${dir}/`,
+            file: rel,
+            line,
+            reason: `imports the package "${spec}", which is not on ${dir}/'s allowlist`,
           });
         }
-      }
-
-      for (const { name, linia } of declaracions(codi)) {
-        const catalanes = parts(name).filter((t) => PARAULES_SET.has(t));
-        if (catalanes.length === 0) continue;
-        problems.push({
-          file: relatiu,
-          linia,
-          motiu: `\`${name}\` sembla catala (${catalanes.join(", ")}); ${dir}/ es en angles`,
-        });
       }
     }
   }
@@ -241,25 +139,25 @@ export async function checkBoundary(
   return problems;
 }
 
-async function principal(): Promise<void> {
+async function main(): Promise<void> {
   const problems = await checkBoundary();
 
   if (problems.length === 0) {
-    const names = Extractables.map((e) => `${e.dir}/`).join(", ");
-    console.log(`[frontera] ${names} es pot endur tal com esta.`);
+    const names = EXTRACTABLE.map((e) => `${e.dir}/`).join(", ");
+    console.log(`[frontera] ${names} can be lifted out as it stands.`);
     return;
   }
 
-  console.error("[frontera] la frontera dels directoris extraibles no es respecta:\n");
+  console.error("[frontera] the extractable directories' boundary is not respected:\n");
   for (const problem of problems) {
-    console.error(`  ${problem.file}:${problem.linia}  ${problem.motiu}`);
+    console.error(`  ${problem.file}:${problem.line}  ${problem.reason}`);
   }
   console.error(
-    "\nAquests directoris han de poder marxar a un paquet seu amb un `git mv`.\n" +
-      "Si un d'ells necessita alguna cosa de l'aplicacio, es que la peça esta mal\n" +
-      "tallada: passa-li el que necessiti com a argument.",
+    "\nThese directories have to be liftable into a package of their own with a\n" +
+      "`git mv`. If one of them seems to need something from the application, the\n" +
+      "piece is cut wrong: pass it whatever it needs as an argument.",
   );
   process.exit(1);
 }
 
-if (import.meta.main) await principal();
+if (import.meta.main) await main();

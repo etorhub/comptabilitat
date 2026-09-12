@@ -189,15 +189,15 @@ export async function saveTransactions(
 
     // Un apunt pendent que es consolida no ha de duplicar-se.
     if (item.status === "booked") {
-      const aparellat = pending.find(
+      const matched = pending.find(
         (p) =>
           p.amount === item.amount &&
           Math.abs(daysBetween(p.bookingDate, item.bookingDate)) <= PENDING_MATCH_DAYS,
       );
 
-      if (aparellat !== undefined) {
-        pending = pending.filter((p) => p.id !== aparellat.id);
-        byKey.delete(aparellat.dedupKey);
+      if (matched !== undefined) {
+        pending = pending.filter((p) => p.id !== matched.id);
+        byKey.delete(matched.dedupKey);
 
         await db
           .update(transactions)
@@ -213,9 +213,9 @@ export async function saveTransactions(
             counterparty: item.counterparty,
             raw: item.raw,
           })
-          .where(eq(transactions.id, aparellat.id));
+          .where(eq(transactions.id, matched.id));
 
-        byKey.set(key, { ...aparellat, dedupKey: key });
+        byKey.set(key, { ...matched, dedupKey: key });
         result.actualitzats += 1;
         continue;
       }

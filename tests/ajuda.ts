@@ -70,8 +70,8 @@ export async function csrfForSession(cookie: string): Promise<string> {
   try {
     const llegit: unknown = JSON.parse(headers);
     if (typeof llegit !== "object" || llegit === null) return "";
-    const valor = (llegit as Record<string, unknown>)["X-CSRF-Token"];
-    return typeof valor === "string" ? valor : "";
+    const value = (llegit as Record<string, unknown>)["X-CSRF-Token"];
+    return typeof value === "string" ? value : "";
   } catch {
     return "";
   }

@@ -43,17 +43,17 @@ if (config.debug) {
 // A one-year `immutable`: the browser does not ask again. Templates append
 // `?v=<digest>` (see `lib/estatics.ts`) so a deployment does not leave stale
 // bytes in the cache.
-const cacheEstatic = (_path: string, c: Context) => {
+const staticCache = (_path: string, c: Context) => {
   c.header("Cache-Control", "public, max-age=31536000, immutable");
 };
-app.use("/app.css", serveStatic({ path: "./public/app.css", onFound: cacheEstatic }));
-app.use("/htmx.min.js", serveStatic({ path: "./public/htmx.min.js", onFound: cacheEstatic }));
+app.use("/app.css", serveStatic({ path: "./public/app.css", onFound: staticCache }));
+app.use("/htmx.min.js", serveStatic({ path: "./public/htmx.min.js", onFound: staticCache }));
 app.use(
   "/echarts.min.js",
-  serveStatic({ path: "./public/echarts.min.js", onFound: cacheEstatic }),
+  serveStatic({ path: "./public/echarts.min.js", onFound: staticCache }),
 );
-app.use("/grafics.js", serveStatic({ path: "./public/grafics.js", onFound: cacheEstatic }));
-app.use("/favicon.svg", serveStatic({ path: "./public/favicon.svg", onFound: cacheEstatic }));
+app.use("/grafics.js", serveStatic({ path: "./public/grafics.js", onFound: staticCache }));
+app.use("/favicon.svg", serveStatic({ path: "./public/favicon.svg", onFound: staticCache }));
 
 app.get("/salut", (c) => c.json({ status: "ok", environment: config.environment }));
 

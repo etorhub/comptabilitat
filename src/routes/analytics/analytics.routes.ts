@@ -86,16 +86,16 @@ analyticsRoutes.get("/", async (c) => {
       c,
       workspace.name,
       DashboardPage({
-        codi: workspace.code,
-        nomEspai: workspace.name,
-        colorEspai: workspace.color,
+        code: workspace.code,
+        workspaceName: workspace.name,
+        workspaceColor: workspace.color,
         balance: balance.total,
-        dataSaldo: balance.date,
+        balanceDate: balance.date,
         mesActual,
         perRevisar,
         senseClassificar,
         activeAlerts: nAvisos,
-        potVeureAvisos: currentUser(c).isAdmin,
+        canSeeAlerts: currentUser(c).isAdmin,
         monthly,
         categories,
         saldos,
@@ -112,7 +112,7 @@ async function reportData(ledgerId: number, query: Record<string, string>) {
   const des = filters.des ?? addDays(today, -filters.mesos * 31);
   const fins = filters.fins ?? today;
 
-  const [totals, monthly, despesesPerCategoria, ingressosPerCategoria, comercos] =
+  const [totals, monthly, despesesPerCategoria, incomeByCategory, merchantList] =
     await Promise.all([
       incomeAndExpenses([ledgerId], des, fins),
       monthlySeries([ledgerId], des, fins),
@@ -121,7 +121,7 @@ async function reportData(ledgerId: number, query: Record<string, string>) {
       merchantBreakdown([ledgerId], des, fins, 10),
     ]);
 
-  return { filters, totals, monthly, despesesPerCategoria, ingressosPerCategoria, comercos };
+  return { filters, totals, monthly, despesesPerCategoria, incomeByCategory, merchantList };
 }
 
 analyticsRoutes.get("/informes", async (c) => {
@@ -130,7 +130,7 @@ analyticsRoutes.get("/informes", async (c) => {
 
   return page(
     c,
-    await workspacePage(c, "Informes", ReportsPage({ codi: workspace.code, ...data })),
+    await workspacePage(c, "Informes", ReportsPage({ code: workspace.code, ...data })),
   );
 });
 
@@ -152,7 +152,7 @@ analyticsRoutes.get("/previsio", async (c) => {
 
   return page(
     c,
-    await workspacePage(c, "Previsio", ForecastPage({ codi: workspace.code, forecast })),
+    await workspacePage(c, "Previsio", ForecastPage({ code: workspace.code, forecast })),
   );
 });
 
@@ -163,5 +163,5 @@ analyticsRoutes.get("/previsio/fragment/grafic", async (c) => {
 
   pushUrl(c, `/e/${workspace.code}/previsio${horitzo === 90 ? "" : `?horitzo=${horitzo}`}`);
 
-  return fragment(c, ForecastContent({ codi: workspace.code, forecast }));
+  return fragment(c, ForecastContent({ code: workspace.code, forecast }));
 });

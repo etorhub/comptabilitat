@@ -11,7 +11,7 @@ import { staticHref } from "../lib/estatics.ts";
 import type { Html } from "../lib/html.ts";
 
 export interface ShellProps {
-  titol: string;
+  title: string;
   children: unknown;
 }
 
@@ -22,7 +22,7 @@ export function Shell(props: ShellProps): Html {
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="color-scheme" content="light" />
-        <title>${props.titol} · Comptabilitat</title>
+        <title>${props.title} · Comptabilitat</title>
         <link rel="icon" href="${staticHref("favicon.svg")}" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -52,7 +52,7 @@ export function Shell(props: ShellProps): Html {
 /** The 404 page. The same one whether it does not exist or you have no access. */
 export function NotFoundPage(): Html {
   return Shell({
-    titol: "No s'ha trobat",
+    title: "No s'ha trobat",
     children: html`
       <h1>No s'ha trobat</h1>
       <p class="text-suau">
@@ -66,7 +66,7 @@ export function NotFoundPage(): Html {
 
 export function ErrorPage(message: string): Html {
   return Shell({
-    titol: "Error",
+    title: "Error",
     children: html`
       <h1>Hi ha hagut un error</h1>
       <p class="text-suau">${message}</p>

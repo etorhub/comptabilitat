@@ -1,14 +1,14 @@
 /**
- * Planificador de feines.
+ * The job scheduler.
  *
- * Corre en un proces a part del servidor web, com feia el `worker` de Python
- * amb APScheduler. Sense cua ni intermediari: aixo es una instal·lacio d'una
- * sola maquina.
+ * It runs in a process separate from the web server, as Python's `worker` did
+ * with APScheduler. No queue and no broker: this is a single-machine
+ * installation.
  *
- * Els horaris surten de les mateixes variables d'entorn que abans
+ * The schedules come from the same environment variables as before
  * (`SYNC_CRON_HOUR`, `CLASSIFY_CRON_HOUR`, `ANALYSIS_CRON_HOUR`,
- * `NOTIFY_CRON_HOUR`), de manera que el `deploy/.env` que ja hi ha continua
- * servint sense tocar-hi res.
+ * `NOTIFY_CRON_HOUR`), so the existing `deploy/.env` keeps working
+ * untouched.
  *
  *   bun run src/workers/scheduler.ts
  */
@@ -26,10 +26,10 @@ import { dailyPass, nightlyPass } from "./jobs/pipelines.ts";
 validateConfig();
 
 /**
- * Executa una feina sense deixar que un error se'n dugui el planificador.
+ * Runs a job without letting an error take the scheduler down with it.
  *
- * Es el `_run()` del Python: una feina que peta es registra i prou; les altres
- * han de continuar corrent. El resultat queda a `job_runs`.
+ * This is Python's `_run()`: a job that blows up is logged and that is all;
+ * the others have to keep running. The result lands in `job_runs`.
  */
 async function run(name: string, job: () => Promise<string>): Promise<void> {
   const començat = Date.now();
@@ -50,21 +50,21 @@ function main(): void {
   const options = { timezone: config.timezone, protect: true } as const;
   const jobs: Cron[] = [];
 
-  // La passada diaria. Nomes una: sota PSD2 el banc limita les consultes
-  // sense l'usuari present, i abusar-ne les gasta.
+  // The daily pass. Only one: under PSD2 the bank limits queries made without
+  // the user present, and overusing them spends the allowance.
   jobs.push(
     new Cron(`${config.syncCronMinute} ${config.syncCronHour} * * *`, options, () =>
       run("passada-diaria", dailyPass),
     ),
   );
 
-  // Una analisi a banda, per si durant el dia s'ha classificat a ma.
+  // A separate analysis, in case anything was categorised by hand during the day.
   jobs.push(
     new Cron(`45 ${config.analysisCronHour} * * *`, options, () => run("analyze", analysisJob)),
   );
 
-  // El model local, de matinada: en un NAS sense targeta grafica cada
-  // pregunta triga segons, i de dia molestaria.
+  // The local model, in the small hours: on a NAS without a graphics card
+  // each question takes seconds, and during the day it would get in the way.
   if (config.ollamaEnabled) {
     jobs.push(
       new Cron(`15 ${config.classifyCronHour} * * *`, options, () =>
@@ -73,15 +73,15 @@ function main(): void {
     );
   }
 
-  // El resum d'avisos, un cop al dia.
+  // The alert summary, once a day.
   jobs.push(
     new Cron(`0 ${config.notifyCronHour} * * *`, options, () => run("notify", alertsJob)),
   );
 
-  // Els urgents, cada hora: un descobert previst no pot esperar al resum.
+  // The urgent ones hourly: a projected overdraft cannot wait for the summary.
   jobs.push(new Cron("5 * * * *", options, () => run("notify-urgents", urgentAlertsJob)));
 
-  // Manteniment: esborra les sessions caducades.
+  // Maintenance: deletes expired sessions.
   jobs.push(new Cron("30 4 * * *", options, () => run("maintenance", maintenanceJob)));
 
   console.info(

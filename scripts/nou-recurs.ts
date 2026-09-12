@@ -28,7 +28,7 @@ const Root = resolve(import.meta.dir, "..");
 interface Options {
   dir: string;
   ruta: string;
-  titol: string;
+  title: string;
   admin: boolean;
 }
 
@@ -60,9 +60,9 @@ function readOptions(argv: string[]): Options {
       nomenats.set("admin", "si");
       continue;
     }
-    const valor = argv[++i];
-    if (valor === undefined) help(`A --${key} li falta el valor.`);
-    nomenats.set(key, valor);
+    const value = argv[++i];
+    if (value === undefined) help(`A --${key} li falta el valor.`);
+    nomenats.set(key, value);
   }
 
   const dir = lliures[0];
@@ -72,8 +72,8 @@ function readOptions(argv: string[]): Options {
   }
 
   const ruta = nomenats.get("ruta") ?? dir;
-  const titol = nomenats.get("titol") ?? ruta.charAt(0).toUpperCase() + ruta.slice(1);
-  return { dir, ruta, titol, admin: nomenats.has("admin") };
+  const title = nomenats.get("titol") ?? ruta.charAt(0).toUpperCase() + ruta.slice(1);
+  return { dir, ruta, title, admin: nomenats.has("admin") };
 }
 
 /** `projectes` → `Projectes`; `bank-connections` → `BankConnections`. */
@@ -190,7 +190,7 @@ export function ${enPascal(o.dir)}Page({
 }): Html {
   return html\`
     <header class="capçalera">
-      <h1>${o.titol}</h1>
+      <h1>${o.title}</h1>
     </header>
 
     \${Llista({ codi, items })}
@@ -253,7 +253,7 @@ ${camell}Routes.get("/", async (c) => {
   return page(
     c,
     Layout({
-      titol: "${o.titol}",
+      titol: "${o.title}",
       user,
       csrfToken: c.get("csrfToken") ?? "",
       ruta: c.req.path,
@@ -287,7 +287,7 @@ ${camell}Routes.get("/", async (c) => {
 
   return page(
     c,
-    await workspacePage(c, "${o.titol}", ${pascal}Page({ codi: espai.code, items })),
+    await workspacePage(c, "${o.title}", ${pascal}Page({ codi: espai.code, items })),
   );
 });
 
@@ -349,7 +349,7 @@ function registraContracte(font: string, o: Options): string {
   if (font.includes(`recurs: "${o.dir}"`)) return font;
 
   const url = o.admin ? `/${o.ruta}` : `/e/personal/${o.ruta}`;
-  const linia = `  { recurs: "${o.dir}", url: "${url}", que: "${o.titol.toLowerCase()}" },`;
+  const linia = `  { recurs: "${o.dir}", url: "${url}", que: "${o.title.toLowerCase()}" },`;
   const ancora = `];\n\n/**\n * Els recursos que no tenen cap pagina`;
 
   if (!font.includes(ancora)) {
@@ -399,11 +399,11 @@ await Bun.write(
 // I la taula de recursos de l'`AGENTS.md` es torna a generar aqui mateix. Un
 // recurs nou la canvia, i deixar-la per fer voldria dir que la bastida surt
 // amb el `bun run ok` vermell —que es exactament el que aixo ha d'evitar.
-for (const ordre of [
+for (const order of [
   ["bun", "run", "format"],
   ["bun", "run", "docs"],
 ]) {
-  await Bun.spawn(ordre, { stdout: "ignore", stderr: "ignore" }).exited;
+  await Bun.spawn(order, { stdout: "ignore", stderr: "ignore" }).exited;
 }
 
 const url = options.admin ? `/${options.ruta}` : `/e/<espai>/${options.ruta}`;

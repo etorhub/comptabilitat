@@ -29,20 +29,20 @@ import type { MonthlyPoint, CategoryPart, MerchantPart } from "../../services/re
 function Chart({
   type,
   id,
-  titol,
+  title,
   descripcio,
   data,
   alçada = 260,
 }: {
   type: string;
   id: string;
-  titol: string;
+  title: string;
   descripcio: string;
   data: unknown;
   alçada?: number;
 }): Html {
   return html`<section class="superficie targeta">
-    <h2>${titol}</h2>
+    <h2>${title}</h2>
     <div
       data-grafic="${type}"
       id="${id}"
@@ -71,7 +71,7 @@ export function MonthlyChart(data: MonthlyPoint[]): Html {
   return Chart({
     type: "mensual",
     id: "grafic-mensual",
-    titol: "Mes a mes",
+    title: "Mes a mes",
     descripcio: "Ingressos, despeses fixes i variables, i resultat de cada mes",
     data: data.map((d) => ({
       periode: d.periode,
@@ -87,7 +87,7 @@ export function CategoryChart(data: CategoryPart[]): Html {
   return Chart({
     type: "categories",
     id: "grafic-categories",
-    titol: "On van les despeses",
+    title: "On van les despeses",
     descripcio: "Repartiment de la despesa per categoria",
     data: data.map((d) => ({
       categoryName: d.categoryName,
@@ -101,7 +101,7 @@ export function BalanceChart(data: BalancePoint[]): Html {
   return Chart({
     type: "saldos",
     id: "grafic-saldos",
-    titol: "Evolucio del saldo",
+    title: "Evolucio del saldo",
     descripcio: "Saldo dia a dia, reconstruit cap enrere des del saldo d'avui",
     data: data.map((d) => ({ day: d.day, balance: toChartNumber(d.balance) })),
   });
@@ -111,7 +111,7 @@ export function MerchantChart(data: MerchantPart[]): Html {
   return Chart({
     type: "comercos",
     id: "grafic-comercos",
-    titol: "On es gasta mes",
+    title: "On es gasta mes",
     descripcio: "Els comerços amb mes despesa",
     data: data.map((d) => ({
       merchantName: d.merchantName,
@@ -126,8 +126,8 @@ export function ForecastChart(forecast: Forecast): Html {
   return Chart({
     type: "previsio",
     id: "grafic-previsio",
-    titol: "Saldo previst",
-    descripcio: `Saldo real dels darrers ${forecast.horitzoDies} dies i projeccio a ${forecast.horitzoDies} dies`,
+    title: "Saldo previst",
+    descripcio: `Saldo real dels darrers ${forecast.horizonDays} dies i projeccio a ${forecast.horizonDays} dies`,
     data: {
       historic: forecast.historic.map((p) => ({
         day: p.day,
@@ -152,15 +152,15 @@ export function ForecastChart(forecast: Forecast): Html {
 
 export interface StatProps {
   tag: string;
-  valor: string;
+  value: string;
   detail?: Html | string;
   to?: "positiu" | "negatiu" | "";
   href?: string;
 }
 
-export function Stat({ tag, valor, detail, to = "", href }: StatProps): Html {
+export function Stat({ tag, value, detail, to = "", href }: StatProps): Html {
   const body = html`<span class="xifra-etiqueta">${tag}</span>
-    <strong class="xifra-valor ${to}">${valor}</strong>
+    <strong class="xifra-valor ${to}">${value}</strong>
     ${detail ? html`<small class="text-suau">${detail}</small>` : ""}`;
 
   return href

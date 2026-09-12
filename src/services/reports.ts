@@ -32,10 +32,10 @@ function baseFilter(
 export function monthBounds(referencia?: string): [string, string] {
   const base = referencia ?? todayLocal();
   const any = Number(base.slice(0, 4));
-  const mes = Number(base.slice(5, 7));
+  const month = Number(base.slice(5, 7));
   const first = `${base.slice(0, 7)}-01`;
   const next =
-    mes === 12 ? `${any + 1}-01-01` : `${any}-${String(mes + 1).padStart(2, "0")}-01`;
+    month === 12 ? `${any + 1}-01-01` : `${any}-${String(month + 1).padStart(2, "0")}-01`;
   return [first, next];
 }
 

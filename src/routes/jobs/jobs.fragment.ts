@@ -30,7 +30,7 @@ import {
 
 export interface JobEntry {
   id: JobId;
-  titol: string;
+  title: string;
   descripcio: string;
 }
 
@@ -91,7 +91,7 @@ function pad2(n: number): string {
 
 export interface ScheduleEntry {
   id: JobId;
-  titol: string;
+  title: string;
   hora: string;
   darrera: JobRun | null;
 }
@@ -135,7 +135,7 @@ export function ScheduleHealth({
     <ul class="feines-agenda">
       ${entrades.map(
         (e) => html`<li>
-          <strong>${e.titol}</strong>
+          <strong>${e.title}</strong>
           <span class="text-suau">${e.hora}</span>
           ${
             e.darrera
@@ -180,7 +180,7 @@ function buttonBlocked(id: JobId, enCurs: Set<string>): boolean {
 
 export function ButtonJob({
   id,
-  titol,
+  title,
   descripcio,
   darrera,
   enCurs,
@@ -189,7 +189,7 @@ export function ButtonJob({
   return html`<div class="superficie targeta">
     <div class="item-cap">
       <div>
-        <strong>${titol}</strong>
+        <strong>${title}</strong>
         ${
           darrera
             ? html`<span class="${stateClass(darrera.status)}">${STATUS_LABELS[darrera.status]}</span>
@@ -305,7 +305,7 @@ export function Running({
 }
 
 export function HistoryFilterBar({ filters }: { filters: HistoryFilters }): Html {
-  const jobOptions = JOBS.map((id) => ({ valor: id, text: JOB_LABELS[id] }));
+  const jobOptions = JOBS.map((id) => ({ value: id, text: JOB_LABELS[id] }));
   return html`<form
     class="filtres"
     hx-get="/feines/fragment/historial"
@@ -316,44 +316,44 @@ export function HistoryFilterBar({ filters }: { filters: HistoryFilters }): Html
     ${Select({
       name: "feina",
       tag: "Feina",
-      valor: filters.feina ?? "",
+      value: filters.feina ?? "",
       empty: "Totes",
       options: jobOptions,
     })}
     ${Select({
       name: "estat",
       tag: "Estat",
-      valor: filters.estat ?? "",
+      value: filters.estat ?? "",
       empty: "Tots",
       options: [
-        { valor: "running", text: "En curs" },
-        { valor: "success", text: "Fet" },
-        { valor: "partial", text: "Parcial" },
-        { valor: "failed", text: "Ha fallat" },
+        { value: "running", text: "En curs" },
+        { value: "success", text: "Fet" },
+        { value: "partial", text: "Parcial" },
+        { value: "failed", text: "Ha fallat" },
       ],
     })}
     ${Select({
       name: "origen",
       tag: "Origen",
-      valor: filters.origen ?? "",
+      value: filters.origen ?? "",
       empty: "Tots",
       options: [
-        { valor: "scheduled", text: "Cron" },
-        { valor: "manual", text: "UI" },
-        { valor: "cli", text: "CLI" },
+        { value: "scheduled", text: "Cron" },
+        { value: "manual", text: "UI" },
+        { value: "cli", text: "CLI" },
       ],
     })}
     ${Field({
       name: "des_de",
       tag: "Des de",
       type: "date",
-      valor: filters.des_de ?? "",
+      value: filters.des_de ?? "",
     })}
     ${Field({
       name: "fins_a",
       tag: "Fins a",
       type: "date",
-      valor: filters.fins_a ?? "",
+      value: filters.fins_a ?? "",
     })}
   </form>` as Html;
 }
@@ -539,13 +539,13 @@ export function scheduleEntries(darreres: Map<string, JobRun>): ScheduleEntry[] 
   const items: ScheduleEntry[] = [
     {
       id: "passada-diaria",
-      titol: "Passada diaria",
+      title: "Passada diaria",
       hora: `${pad2(config.syncCronHour)}:${pad2(config.syncCronMinute)}`,
       darrera: darreres.get("passada-diaria") ?? null,
     },
     {
       id: "analyze",
-      titol: "Analisi",
+      title: "Analisi",
       hora: `${pad2(config.analysisCronHour)}:45`,
       darrera: darreres.get("analyze") ?? null,
     },
@@ -553,7 +553,7 @@ export function scheduleEntries(darreres: Map<string, JobRun>): ScheduleEntry[] 
   if (config.ollamaEnabled) {
     items.push({
       id: "passada-nocturna",
-      titol: "Passada nocturna",
+      title: "Passada nocturna",
       hora: `${pad2(config.classifyCronHour)}:15`,
       darrera: darreres.get("passada-nocturna") ?? null,
     });
@@ -561,19 +561,19 @@ export function scheduleEntries(darreres: Map<string, JobRun>): ScheduleEntry[] 
   items.push(
     {
       id: "notify",
-      titol: "Avisos",
+      title: "Avisos",
       hora: `${pad2(config.notifyCronHour)}:00`,
       darrera: darreres.get("notify") ?? null,
     },
     {
       id: "notify-urgents",
-      titol: "Avisos urgents",
+      title: "Avisos urgents",
       hora: "cada hora (:05)",
       darrera: darreres.get("notify-urgents") ?? null,
     },
     {
       id: "maintenance",
-      titol: "Manteniment",
+      title: "Manteniment",
       hora: "04:30",
       darrera: darreres.get("maintenance") ?? null,
     },

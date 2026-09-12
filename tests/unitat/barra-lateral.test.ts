@@ -35,7 +35,7 @@ const workspaces = [
 async function bar(ruta: string): Promise<string> {
   return String(
     await Layout({
-      titol: "Prova",
+      title: "Prova",
       user: user,
       csrfToken: "x",
       workspaces,

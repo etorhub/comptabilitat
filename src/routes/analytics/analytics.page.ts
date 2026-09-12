@@ -29,17 +29,17 @@ import {
 import type { ReportFilters } from "./analytics.schema.ts";
 
 export interface DashboardPageProps {
-  codi: string;
-  nomEspai: string;
-  colorEspai: string;
+  code: string;
+  workspaceName: string;
+  workspaceColor: string;
   balance: string;
-  dataSaldo: string | null;
+  balanceDate: string | null;
   mesActual: IncomeAndExpenses;
   perRevisar: number;
   senseClassificar: number;
   activeAlerts: number;
   /** L'enllaç d'avisos nomes te sentit per a administradors de la instal·lacio. */
-  potVeureAvisos: boolean;
+  canSeeAlerts: boolean;
   monthly: MonthlyPoint[];
   categories: CategoryPart[];
   saldos: BalancePoint[];
@@ -47,16 +47,16 @@ export interface DashboardPageProps {
 
 export function DashboardPage(props: DashboardPageProps): Html {
   const {
-    codi,
-    nomEspai,
-    colorEspai,
+    code,
+    workspaceName,
+    workspaceColor,
     balance,
-    dataSaldo,
+    balanceDate,
     mesActual,
     perRevisar,
     senseClassificar,
     activeAlerts,
-    potVeureAvisos,
+    canSeeAlerts,
     monthly,
     categories,
     saldos,
@@ -65,30 +65,30 @@ export function DashboardPage(props: DashboardPageProps): Html {
   return html`
     <header class="capçalera">
       <h1>
-        <span class="punt punt-gran" style="background:${colorEspai}" aria-hidden="true"></span>
-        ${nomEspai}
+        <span class="punt punt-gran" style="background:${workspaceColor}" aria-hidden="true"></span>
+        ${workspaceName}
       </h1>
     </header>
 
     <div class="xifres">
-      ${HeaderBalance({ balance, date: dataSaldo })}
+      ${HeaderBalance({ balance, date: balanceDate })}
       ${Stat({
         tag: "Aquest mes",
-        valor: formatMoney(mesActual.cleaned),
+        value: formatMoney(mesActual.cleaned),
         to: mesActual.cleaned.startsWith("-") ? "negatiu" : "positiu",
         detail: html`${formatMoney(mesActual.income)} entren ·
         ${formatMoney(mesActual.expenses)} surten`,
       })}
       ${Stat({
         tag: "Per revisar",
-        valor: String(perRevisar),
-        href: `/e/${codi}/moviments/revisio`,
+        value: String(perRevisar),
+        href: `/e/${code}/moviments/revisio`,
         detail: senseClassificar > 0 ? `${senseClassificar} sense classificar` : "",
       })}
       ${Stat({
         tag: "Avisos",
-        valor: String(activeAlerts),
-        href: potVeureAvisos ? `/e/${codi}/avisos` : undefined,
+        value: String(activeAlerts),
+        href: canSeeAlerts ? `/e/${code}/avisos` : undefined,
       })}
     </div>
 
@@ -102,24 +102,24 @@ export function DashboardPage(props: DashboardPageProps): Html {
 }
 
 export interface ReportsPageProps {
-  codi: string;
+  code: string;
   filters: ReportFilters;
   totals: IncomeAndExpenses;
   monthly: MonthlyPoint[];
   despesesPerCategoria: CategoryPart[];
-  ingressosPerCategoria: CategoryPart[];
-  comercos: MerchantPart[];
+  incomeByCategory: CategoryPart[];
+  merchantList: MerchantPart[];
 }
 
 export function ReportsPage(props: ReportsPageProps): Html {
   const {
-    codi,
+    code,
     filters,
     totals,
     monthly,
     despesesPerCategoria,
-    ingressosPerCategoria,
-    comercos,
+    incomeByCategory,
+    merchantList,
   } = props;
 
   return html`
@@ -129,7 +129,7 @@ export function ReportsPage(props: ReportsPageProps): Html {
 
     <form
       class="filtres superficie targeta"
-      hx-get="/e/${codi}/informes/fragment/contingut"
+      hx-get="/e/${code}/informes/fragment/contingut"
       hx-target="#contingut-informes"
       hx-swap="outerHTML"
       hx-trigger="change"
@@ -153,10 +153,10 @@ export function ReportsPage(props: ReportsPageProps): Html {
       </label>
 
       <span class="descarregues">
-        <a class="boto boto-discret" href="/e/${codi}/informes/informe.xlsx?mesos=${filters.mesos}">
+        <a class="boto boto-discret" href="/e/${code}/informes/informe.xlsx?mesos=${filters.mesos}">
           Excel
         </a>
-        <a class="boto boto-discret" href="/e/${codi}/informes/informe.pdf">PDF</a>
+        <a class="boto boto-discret" href="/e/${code}/informes/informe.pdf">PDF</a>
       </span>
     </form>
 
@@ -164,8 +164,8 @@ export function ReportsPage(props: ReportsPageProps): Html {
       totals,
       monthly,
       despesesPerCategoria,
-      ingressosPerCategoria,
-      comercos,
+      incomeByCategory,
+      merchantList,
     })}
   ` as Html;
 }
@@ -174,25 +174,25 @@ export interface ReportsContentProps {
   totals: IncomeAndExpenses;
   monthly: MonthlyPoint[];
   despesesPerCategoria: CategoryPart[];
-  ingressosPerCategoria: CategoryPart[];
-  comercos: MerchantPart[];
+  incomeByCategory: CategoryPart[];
+  merchantList: MerchantPart[];
 }
 
 export function ReportsContent(props: ReportsContentProps): Html {
-  const { totals, monthly, despesesPerCategoria, ingressosPerCategoria, comercos } = props;
+  const { totals, monthly, despesesPerCategoria, incomeByCategory, merchantList } = props;
 
   return html`<div id="contingut-informes">
     <div class="xifres">
-      ${Stat({ tag: "Ingressos", valor: formatMoney(totals.income), to: "positiu" })}
-      ${Stat({ tag: "Despeses", valor: formatMoney(totals.expenses), to: "negatiu" })}
+      ${Stat({ tag: "Ingressos", value: formatMoney(totals.income), to: "positiu" })}
+      ${Stat({ tag: "Despeses", value: formatMoney(totals.expenses), to: "negatiu" })}
       ${Stat({
         tag: "Resultat",
-        valor: formatMoney(totals.cleaned),
+        value: formatMoney(totals.cleaned),
         to: totals.cleaned.startsWith("-") ? "negatiu" : "positiu",
       })}
     </div>
 
-    ${MonthlyChart(monthly)} ${MerchantChart(comercos)}
+    ${MonthlyChart(monthly)} ${MerchantChart(merchantList)}
 
     <section class="superficie targeta">
       <h2>Despeses per categoria</h2>
@@ -201,30 +201,30 @@ export function ReportsContent(props: ReportsContentProps): Html {
 
     <section class="superficie targeta">
       <h2>Ingressos per categoria</h2>
-      ${CategoriesTable(ingressosPerCategoria)}
+      ${CategoriesTable(incomeByCategory)}
     </section>
   </div>` as Html;
 }
 
 export interface ForecastPageProps {
-  codi: string;
+  code: string;
   forecast: Forecast;
 }
 
-export function ForecastPage({ codi, forecast }: ForecastPageProps): Html {
-  return ForecastContent({ codi, forecast });
+export function ForecastPage({ code, forecast }: ForecastPageProps): Html {
+  return ForecastContent({ code, forecast });
 }
 
 export function ForecastContent({
-  codi,
+  code,
   forecast,
 }: {
-  codi: string;
+  code: string;
   forecast: Forecast;
 }): Html {
   const last = forecast.points[forecast.points.length - 1];
-  const finalBalance = last?.esperat ?? forecast.saldoInicial;
-  const diferencia = money(finalBalance).minus(money(forecast.saldoInicial));
+  const finalBalance = last?.esperat ?? forecast.openingBalance;
+  const diferencia = money(finalBalance).minus(money(forecast.openingBalance));
   const diferenciaText = `${diferencia.isPositive() ? "+" : ""}${formatMoney(diferencia)}`;
 
   return html`<div id="previsio-contingut">
@@ -252,7 +252,7 @@ export function ForecastContent({
 
         <form
           class="filtres"
-          hx-get="/e/${codi}/previsio/fragment/grafic"
+          hx-get="/e/${code}/previsio/fragment/grafic"
           hx-target="#previsio-contingut"
           hx-swap="outerHTML"
           hx-trigger="change"
@@ -262,7 +262,7 @@ export function ForecastContent({
             <select name="horitzo">
               ${[30, 60, 90, 180].map(
                 (d) =>
-                  html`<option value="${d}" ${d === forecast.horitzoDies ? "selected" : ""}>
+                  html`<option value="${d}" ${d === forecast.horizonDays ? "selected" : ""}>
                     ${d} dies
                   </option>`,
               )}
@@ -272,11 +272,11 @@ export function ForecastContent({
       </div>
 
       <div class="xifres previsio-xifres">
-        ${Stat({ tag: "Saldo d'avui", valor: formatMoney(forecast.saldoInicial) })}
-        ${Stat({ tag: "Llindar de descobert", valor: formatMoney(forecast.llindar) })}
+        ${Stat({ tag: "Saldo d'avui", value: formatMoney(forecast.openingBalance) })}
+        ${Stat({ tag: "Llindar de descobert", value: formatMoney(forecast.llindar) })}
         ${Stat({
-          tag: `D'aqui a ${forecast.horitzoDies} dies`,
-          valor: formatMoney(finalBalance),
+          tag: `D'aqui a ${forecast.horizonDays} dies`,
+          value: formatMoney(finalBalance),
           to: diferencia.isNegative() ? "negatiu" : diferencia.isPositive() ? "positiu" : "",
           detail: diferencia.isZero() ? "igual que avui" : `${diferenciaText} respecte d'avui`,
         })}

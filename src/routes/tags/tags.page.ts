@@ -12,13 +12,13 @@ import { CapAleraDetail, TagsList, DetailTable } from "./tags.fragment.ts";
 import type { TagDetailQuery } from "./tags.schema.ts";
 
 export function TagsPage({
-  codi,
+  code,
   tags,
-  potEditar,
+  canEdit,
 }: {
-  codi: string;
+  code: string;
   tags: TagSummary[];
-  potEditar: boolean;
+  canEdit: boolean;
 }): Html {
   return html`
     <header class="capçalera">
@@ -29,37 +29,37 @@ export function TagsPage({
       </p>
     </header>
 
-    ${TagsList({ codi, tags, potEditar })}
+    ${TagsList({ code, tags, canEdit })}
   ` as Html;
 }
 
 export function TagDetailPage({
-  codi,
+  code,
   summary,
   page,
   groups,
-  potEditar,
+  canEdit,
   query,
-  etiquetesConegudes,
+  knownTags,
 }: {
-  codi: string;
+  code: string;
   summary: TagSummary;
   page: TransactionsPage;
   groups: CategoryGroup[];
-  potEditar: boolean;
+  canEdit: boolean;
   query: TagDetailQuery;
-  etiquetesConegudes: string[];
+  knownTags: string[];
 }): Html {
   return html`
-    ${CapAleraDetail({ codi, summary, potEditar })}
+    ${CapAleraDetail({ code, summary, canEdit })}
     ${DetailTable({
-      codi,
+      code,
       name: summary.name,
       page,
       groups,
-      potEditar,
+      canEdit,
       query,
-      etiquetesConegudes,
+      knownTags,
     })}
   ` as Html;
 }

@@ -20,11 +20,11 @@ import { detectOperationType, type OperationType } from "./normalization.ts";
 
 export interface ParsedDescription {
   /** Text net per a la columna Concepte. */
-  titol: string;
+  title: string;
   /** Darrers 4 digits de la targeta, o null si no n'hi ha. */
   darrers4: string | null;
   /** Text bancari sense PAN/targeta/comissio: per al `title` del boto. */
-  originalNetejat: string;
+  cleanedOriginal: string;
   /** Tipus d'operacio per a l'etiqueta i el filtre. */
   type: OperationType;
 }
@@ -297,29 +297,29 @@ function presenta(text: string): string {
 export function parseDescription(text: string): ParsedDescription {
   const raw = text.trim();
   if (!raw) {
-    return { titol: "", darrers4: null, originalNetejat: "", type: "altres" };
+    return { title: "", darrers4: null, cleanedOriginal: "", type: "altres" };
   }
 
   const type = detectOperationType(raw);
   const { text: senseTargeta, darrers4 } = removeCard(raw);
   const withoutFee = stripFee(senseTargeta);
-  const originalNetejat = collapseSpaces(withoutFee);
+  const cleanedOriginal = collapseSpaces(withoutFee);
 
   // «concepto:» — el titol es el que ve despres.
-  const matchDescription = /(?:^|[,;]\s*)concepto\s*:\s*(.*)$/i.exec(originalNetejat);
+  const matchDescription = /(?:^|[,;]\s*)concepto\s*:\s*(.*)$/i.exec(cleanedOriginal);
   if (matchDescription) {
     const despres = (matchDescription[1] ?? "").trim();
     const humans = descriptionParts(despres);
-    const titol = presenta(humans || despres);
+    const title = presenta(humans || despres);
     return {
-      titol: titol || originalNetejat,
+      title: title || cleanedOriginal,
       darrers4,
-      originalNetejat,
+      cleanedOriginal,
       type,
     };
   }
 
-  let body = originalNetejat;
+  let body = cleanedOriginal;
   body = removePrefix(body);
   // «EN MERCADONA» despres de treure COMPRA TARJ.
   body = body.replace(/^(?:EN|A|DE|DEL|LA|EL|POR)\s+/i, "");
@@ -333,11 +333,11 @@ export function parseDescription(text: string): ParsedDescription {
   body = body.replace(/\b\d{13,19}\b/g, " ");
   body = collapseSpaces(body);
 
-  const titol = presenta(body);
+  const title = presenta(body);
   return {
-    titol: titol || originalNetejat,
+    title: title || cleanedOriginal,
     darrers4,
-    originalNetejat,
+    cleanedOriginal,
     type,
   };
 }

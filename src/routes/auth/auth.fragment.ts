@@ -36,7 +36,7 @@ export function LoginForm(props: LoginFormProps): Html {
       name: "email",
       tag: "Correu",
       type: "email",
-      valor: email,
+      value: email,
       errors,
       requerit: true,
       autocomplete: "username",

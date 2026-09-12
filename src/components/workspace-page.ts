@@ -16,26 +16,26 @@ import { currentWorkspace, myWorkspaces } from "../middleware/workspace.ts";
 
 export async function workspacePage(
   c: Context,
-  titol: string,
+  title: string,
   children: unknown,
 ): Promise<Html> {
   const user = currentUser(c);
   const workspace = currentWorkspace(c);
 
-  const [workspaces, { perRevisar, avisosNous }] = await Promise.all([
+  const [workspaces, { perRevisar, newAlerts }] = await Promise.all([
     myWorkspaces(user.id),
     counters(workspace.id),
   ]);
 
   return Layout({
-    titol,
+    title,
     user,
     csrfToken: c.get("csrfToken") ?? "",
     ruta: c.req.path,
     workspaces,
     workspace,
     perRevisar,
-    avisosNous,
+    newAlerts,
     children,
   });
 }

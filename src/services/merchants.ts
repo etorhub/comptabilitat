@@ -40,8 +40,8 @@ const CUBELLS_ESPECIALS = new Set([
 /** Filtres de la llista de comerços. */
 export interface MerchantsFilters {
   search: string;
-  nomesSenseClassificar: boolean;
-  nomesSenseConfirmar: boolean;
+  onlyUnclassified: boolean;
+  onlyUnconfirmed: boolean;
   limit: number;
   offset: number;
 }
@@ -73,8 +73,8 @@ function condicions(ledgerId: number, filters: MerchantsFilters): SQL | undefine
     const patro = `%${search}%`;
     parts.push(or(ilike(merchants.normalizedName, patro), ilike(merchants.displayName, patro)));
   }
-  if (filters.nomesSenseClassificar) parts.push(isNull(merchants.defaultCategoryId));
-  if (filters.nomesSenseConfirmar) parts.push(eq(merchants.isConfirmed, false));
+  if (filters.onlyUnclassified) parts.push(isNull(merchants.defaultCategoryId));
+  if (filters.onlyUnconfirmed) parts.push(eq(merchants.isConfirmed, false));
 
   return and(...parts);
 }

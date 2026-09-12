@@ -49,13 +49,13 @@ export const recurringRoutes = new Hono();
 recurringRoutes.get("/", async (c) => {
   const workspace = currentWorkspace(c);
   const filters = recurringFiltersSchema.parse(c.req.query());
-  const potEditar = roleAtLeast(currentRole(c), "editor");
+  const canEdit = roleAtLeast(currentRole(c), "editor");
   const [proposals, active, groups] = await Promise.all([
-    listSeries(workspace.id, { estats: ["suggested"] }),
+    listSeries(workspace.id, { statuses: ["suggested"] }),
     listSeries(workspace.id, {
-      estats: filters.inclou_acabades ? ["active", "ended"] : ["active"],
+      statuses: filters.inclou_acabades ? ["active", "ended"] : ["active"],
     }),
-    potEditar ? categoryOptions(workspace.id) : Promise.resolve([]),
+    canEdit ? categoryOptions(workspace.id) : Promise.resolve([]),
   ]);
 
   return page(
@@ -64,11 +64,11 @@ recurringRoutes.get("/", async (c) => {
       c,
       "Recurrents",
       RecurringPage({
-        codi: workspace.code,
+        code: workspace.code,
         proposals,
         active,
         filters,
-        potEditar,
+        canEdit,
         groups,
       }),
     ),
@@ -77,15 +77,15 @@ recurringRoutes.get("/", async (c) => {
 
 recurringRoutes.get("/fragment/propostes", async (c) => {
   const workspace = currentWorkspace(c);
-  const proposals = await listSeries(workspace.id, { estats: ["suggested"] });
+  const proposals = await listSeries(workspace.id, { statuses: ["suggested"] });
   return fragment(
     c,
     Table({
-      codi: workspace.code,
+      code: workspace.code,
       series: proposals,
-      potEditar: roleAtLeast(currentRole(c), "editor"),
-      idContenidor: "taula-recurrents-propostes",
-      sonPropostes: true,
+      canEdit: roleAtLeast(currentRole(c), "editor"),
+      containerId: "taula-recurrents-propostes",
+      areProposals: true,
       empty: "No hi ha cap proposta nova.",
     }),
   );
@@ -95,7 +95,7 @@ recurringRoutes.get("/fragment/actives", async (c) => {
   const workspace = currentWorkspace(c);
   const filters = recurringFiltersSchema.parse(c.req.query());
   const active = await listSeries(workspace.id, {
-    estats: filters.inclou_acabades ? ["active", "ended"] : ["active"],
+    statuses: filters.inclou_acabades ? ["active", "ended"] : ["active"],
   });
 
   pushUrl(c, `/e/${workspace.code}/recurrents${recurringFiltersToQuery(filters)}`);
@@ -103,10 +103,10 @@ recurringRoutes.get("/fragment/actives", async (c) => {
   return fragment(
     c,
     Table({
-      codi: workspace.code,
+      code: workspace.code,
       series: active,
-      potEditar: roleAtLeast(currentRole(c), "editor"),
-      idContenidor: "taula-recurrents-actives",
+      canEdit: roleAtLeast(currentRole(c), "editor"),
+      containerId: "taula-recurrents-actives",
       empty: "Encara no hi ha cap rebut confirmat.",
     }),
   );
@@ -117,17 +117,17 @@ recurringRoutes.get("/:id/fragment/fila", async (c) => {
   const id = idFromRoute(c.req.param("id"), "Aquesta serie no existeix");
   const editant = c.req.query("editant") === "1";
   const show = !editant && c.req.query("mostra") === "1";
-  const potEditar = roleAtLeast(currentRole(c), "editor");
+  const canEdit = roleAtLeast(currentRole(c), "editor");
   const view = await seriesView(id, workspace.id);
   const occurrences = show ? await seriesOccurrences(id, workspace.id) : null;
 
   return fragment(
     c,
     ActiveRow({
-      codi: workspace.code,
+      code: workspace.code,
       series: view,
-      potEditar,
-      editant: potEditar && editant,
+      canEdit,
+      editant: canEdit && editant,
       occurrences,
     }),
   );
@@ -144,9 +144,9 @@ recurringRoutes.post("/", requireEditor, async (c) => {
       c,
       await withOob(
         CreateForm({
-          codi: workspace.code,
+          code: workspace.code,
           groups,
-          valors: {
+          values: {
             label: typeof body.label === "string" ? body.label : "",
             category_id:
               typeof body.category_id === "string" && body.category_id !== ""
@@ -177,16 +177,16 @@ recurringRoutes.post("/", requireEditor, async (c) => {
     nextExpectedDate: data.next_expected_date,
   });
 
-  const active = await listSeries(workspace.id, { estats: ["active"] });
+  const active = await listSeries(workspace.id, { statuses: ["active"] });
   return fragment(
     c,
     await withOob(
-      CreateForm({ codi: workspace.code, groups }),
+      CreateForm({ code: workspace.code, groups }),
       Table({
-        codi: workspace.code,
+        code: workspace.code,
         series: active,
-        potEditar: true,
-        idContenidor: "taula-recurrents-actives",
+        canEdit: true,
+        containerId: "taula-recurrents-actives",
         empty: "Encara no hi ha cap rebut confirmat.",
         oob: true,
       }),
@@ -210,7 +210,7 @@ recurringRoutes.post("/:id/previsio", requireEditor, async (c) => {
   return fragment(
     c,
     await withOob(
-      ActiveRow({ codi: workspace.code, series: view, potEditar: true }),
+      ActiveRow({ code: workspace.code, series: view, canEdit: true }),
       clearToast(),
     ),
   );
@@ -231,7 +231,7 @@ recurringRoutes.post("/:id/import", requireEditor, async (c) => {
     return fragment(
       c,
       await withOob(
-        ActiveRow({ codi: workspace.code, series: view, potEditar: true, editant: true }),
+        ActiveRow({ code: workspace.code, series: view, canEdit: true, editant: true }),
         toast(zodErrors(parsed.error).amount?.[0] ?? "Revisa l'import", "error"),
       ),
       422,
@@ -248,7 +248,7 @@ recurringRoutes.post("/:id/import", requireEditor, async (c) => {
   return fragment(
     c,
     await withOob(
-      ActiveRow({ codi: workspace.code, series: view, potEditar: true }),
+      ActiveRow({ code: workspace.code, series: view, canEdit: true }),
       toast("S'ha actualitzat l'import", "success"),
     ),
   );
@@ -270,16 +270,16 @@ recurringRoutes.post("/:id/confirma", requireEditor, async (c) => {
 
   await confirmSeries(id, { cadence: data.cadence, amountMode: data.amount_mode });
 
-  const active = await listSeries(workspace.id, { estats: ["active"] });
+  const active = await listSeries(workspace.id, { statuses: ["active"] });
   return fragment(
     c,
     await withOob(
       `<!-- serie-${id} confirmada -->`,
       Table({
-        codi: workspace.code,
+        code: workspace.code,
         series: active,
-        potEditar: true,
-        idContenidor: "taula-recurrents-actives",
+        canEdit: true,
+        containerId: "taula-recurrents-actives",
         empty: "Encara no hi ha cap rebut confirmat.",
         oob: true,
       }),

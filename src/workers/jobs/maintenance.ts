@@ -1,11 +1,11 @@
 /**
- * Manteniment.
+ * Maintenance.
  *
- * Les tres coses que, si no les fa ningu, van creixent, es queden penjades
- * per sempre, o queden mal posades: l'aplicacio de Python no esborrava mai les
- * sessions caducades i la taula creixia sense parar; una importacio morta
- * enmig deixa la pagina de connexions sondejant; i uns quants comerços queden
- * mal normalitzats (comissio accidental, prefix buit).
+ * The three things that, if nobody does them, keep growing, stay stuck for
+ * ever, or end up wrong: the Python application never deleted expired sessions
+ * and the table grew without end; an import killed midway leaves the
+ * connections page polling; and a few merchants end up badly normalised (an
+ * accidental fee, an empty prefix).
  */
 
 import { purgeExpiredSessions } from "../../lib/auth.ts";
@@ -14,12 +14,12 @@ import { reassignNormalization } from "../../services/merchants.ts";
 import { closeStuckImports } from "../../services/sync.ts";
 
 export async function maintenanceJob(): Promise<string> {
-  // L'aplicacio de Python no esborrava mai les sessions caducades i la taula
-  // creixia sense parar.
+  // The Python application never deleted expired sessions and the table grew
+  // without end.
   const esborrades = await purgeExpiredSessions();
 
-  // I una importacio que es va quedar a mitges deixa la pagina de connexions
-  // sondejant cada dos segons per sempre.
+  // And an import that stopped halfway leaves the connections page polling
+  // every two seconds for ever.
   const stuck = await closeStuckImports();
   const jobsStuck = await closeStuckJobs();
   const reassignment = await reassignNormalization();

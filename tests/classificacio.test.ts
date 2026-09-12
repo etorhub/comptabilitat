@@ -39,9 +39,9 @@ let session = { cookie: "", csrf: "" };
 
 async function send(url: string, body: Record<string, string | string[]>): Promise<Response> {
   const params = new URLSearchParams();
-  for (const [key, valor] of Object.entries(body)) {
-    if (Array.isArray(valor)) for (const v of valor) params.append(key, v);
-    else params.set(key, valor);
+  for (const [key, value] of Object.entries(body)) {
+    if (Array.isArray(value)) for (const v of value) params.append(key, v);
+    else params.set(key, value);
   }
   return app.request(url, {
     method: "POST",

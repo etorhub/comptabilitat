@@ -1,8 +1,9 @@
 /**
- * Feina programada: classificacio nocturna amb el model local, espai per espai.
+ * Scheduled job: the nightly classification with the local model, one
+ * workspace at a time.
  *
- * Es fa de nit perque en un NAS sense targeta grafica cada pregunta triga
- * segons. Traduccio de `backend/app/workers/jobs/llm.py`.
+ * It runs at night because on a NAS without a graphics card each question
+ * takes seconds. Translated from `backend/app/workers/jobs/llm.py`.
  */
 
 import { eq } from "drizzle-orm";

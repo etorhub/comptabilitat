@@ -27,14 +27,14 @@ const NAMES_KIND: Record<CategoryKind, string> = {
 const ORDRE_KIND: CategoryKind[] = ["expense", "income", "transfer"];
 
 export interface TreeProps {
-  codi: string;
+  code: string;
   tree: Record<CategoryKind, NodeCategory[]>;
-  potEditar: boolean;
+  canEdit: boolean;
   /** Torna'l fora de banda quan el canvi ve d'una altra part de la pagina. */
   oob?: boolean;
 }
 
-export function Tree({ codi, tree, potEditar, oob = false }: TreeProps): Html {
+export function Tree({ code, tree, canEdit, oob = false }: TreeProps): Html {
   return html`<div ${oobAttributes("arbre-categories", oob)} class="arbre">
     ${ORDRE_KIND.map((kind) => {
       const nodes = tree[kind];
@@ -45,10 +45,10 @@ export function Tree({ codi, tree, potEditar, oob = false }: TreeProps): Html {
           columnes: html`<th>Categoria</th>
             <th class="dreta">Moviments</th>
             <th class="dreta">Total</th>
-            ${potEditar ? html`<th></th>` : ""}` as Html,
+            ${canEdit ? html`<th></th>` : ""}` as Html,
           rows: nodes.flatMap((parent) => [
-            Row({ codi, category: parent, potEditar, filla: false }),
-            ...parent.filles.map((f) => Row({ codi, category: f, potEditar, filla: true })),
+            Row({ code, category: parent, canEdit, filla: false }),
+            ...parent.filles.map((f) => Row({ code, category: f, canEdit, filla: true })),
           ]),
           // Inabastable: la seccio no es dibuixa si el grup es buit.
           empty: "Aquest grup no te cap categoria.",
@@ -59,15 +59,15 @@ export function Tree({ codi, tree, potEditar, oob = false }: TreeProps): Html {
 }
 
 export interface RowProps {
-  codi: string;
+  code: string;
   category: CategoryView;
-  potEditar: boolean;
+  canEdit: boolean;
   filla: boolean;
 }
 
 /** Una fila de la taula. Es el que es torna a dibuixar quan es canvia el nom. */
-export function Row({ codi, category, potEditar, filla }: RowProps): Html {
-  const base = `/e/${codi}/categories/${category.id}`;
+export function Row({ code, category, canEdit, filla }: RowProps): Html {
+  const base = `/e/${code}/categories/${category.id}`;
 
   return html`<tr id="categoria-${category.id}" class="${filla ? "filla" : "pare"}">
     <td>
@@ -83,7 +83,7 @@ export function Row({ codi, category, potEditar, filla }: RowProps): Html {
     <td class="dreta">${String(category.transactionCount)}</td>
     <td class="dreta">${formatMoney(category.totalAmount)}</td>
     ${
-      potEditar
+      canEdit
         ? html`<td class="accions">
           <button
             type="button"
@@ -119,8 +119,8 @@ export function Row({ codi, category, potEditar, filla }: RowProps): Html {
 }
 
 /** La fila convertida en un camp de text, per reanomenar-la sense sortir. */
-export function EditRow({ codi, category }: { codi: string; category: CategoryView }): Html {
-  const base = `/e/${codi}/categories/${category.id}`;
+export function EditRow({ code, category }: { code: string; category: CategoryView }): Html {
+  const base = `/e/${code}/categories/${category.id}`;
   return html`<tr id="categoria-${category.id}" class="editant">
     <td colspan="4">
       <form
@@ -154,7 +154,7 @@ export function DeletedRow(id: number): Html {
 }
 
 export interface ReassignmentFormProps {
-  codi: string;
+  code: string;
   category: CategoryView;
   transactionList: number;
   groups: CategoryGroup[];
@@ -166,7 +166,7 @@ export interface ReassignmentFormProps {
  * categoria que s'estava esborrant.
  */
 export function ReassignmentForm({
-  codi,
+  code,
   category,
   transactionList,
   groups,
@@ -175,7 +175,7 @@ export function ReassignmentForm({
     <td colspan="4">
       <form
         class="linia"
-        hx-delete="/e/${codi}/categories/${category.id}"
+        hx-delete="/e/${code}/categories/${category.id}"
         hx-target="#categoria-${category.id}"
         hx-swap="outerHTML"
       >
@@ -193,7 +193,7 @@ export function ReassignmentForm({
         <button
           type="button"
           class="boto boto-discret"
-          hx-get="/e/${codi}/categories/${category.id}/fragment/fila"
+          hx-get="/e/${code}/categories/${category.id}/fragment/fila"
           hx-target="#categoria-${category.id}"
           hx-swap="outerHTML"
         >
@@ -205,17 +205,17 @@ export function ReassignmentForm({
 }
 
 export interface CreateFormProps {
-  codi: string;
+  code: string;
   groups: CategoryGroup[];
   errors?: Record<string, string[]> | undefined;
-  valors?: { name?: string; kind?: string; parent_id?: string } | undefined;
+  values?: { name?: string; kind?: string; parent_id?: string } | undefined;
 }
 
-export function CreateForm({ codi, groups, errors, valors }: CreateFormProps): Html {
+export function CreateForm({ code, groups, errors, values }: CreateFormProps): Html {
   return html`<form
     id="form-categoria"
     class="superficie targeta form-linia"
-    hx-post="/e/${codi}/categories"
+    hx-post="/e/${code}/categories"
     hx-target="#form-categoria"
     hx-swap="outerHTML"
   >
@@ -226,7 +226,7 @@ export function CreateForm({ codi, groups, errors, valors }: CreateFormProps): H
       <input
         type="text"
         name="name"
-        value="${valors?.name ?? ""}"
+        value="${values?.name ?? ""}"
         maxlength="120"
         required
         ${errors?.name ? raw('aria-invalid="true" aria-describedby="name-error"') : ""}
@@ -237,11 +237,11 @@ export function CreateForm({ codi, groups, errors, valors }: CreateFormProps): H
     ${Select({
       name: "kind",
       tag: "Tipus",
-      valor: valors?.kind ?? "expense",
+      value: values?.kind ?? "expense",
       options: [
-        { valor: "expense", text: "Despesa" },
-        { valor: "income", text: "Ingres" },
-        { valor: "transfer", text: "Traspas" },
+        { value: "expense", text: "Despesa" },
+        { value: "income", text: "Ingres" },
+        { value: "transfer", text: "Traspas" },
       ],
       errors,
       help: "Si tries un pare, s'hereta el seu i aixo no compta.",
@@ -249,7 +249,7 @@ export function CreateForm({ codi, groups, errors, valors }: CreateFormProps): H
     ${Select({
       name: "parent_id",
       tag: "Dins de",
-      valor: valors?.parent_id ?? "",
+      value: values?.parent_id ?? "",
       groups,
       empty: "— cap: sera una categoria principal —",
       errors,

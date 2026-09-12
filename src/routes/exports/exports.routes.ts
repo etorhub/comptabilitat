@@ -31,9 +31,9 @@ export const transactionsExportRoutes = new Hono();
 export const reportsExportRoutes = new Hono();
 
 /** Nom de fitxer amb l'espai i el dia, com feia el Python. */
-function fileName(codi: string, extensio: string): string {
+function fileName(code: string, extensio: string): string {
   const day = todayLocal().replace(/-/g, "");
-  return `moviments-${codi}-${day}.${extensio}`;
+  return `moviments-${code}-${day}.${extensio}`;
 }
 
 function capçaleres(name: string, type: string): Record<string, string> {
@@ -54,11 +54,11 @@ async function transactionsToExport(ledgerId: number, query: Record<string, stri
     merchantId: null,
     search: filters.search,
     tag: null,
-    tipusOperacio: [],
+    operationType: [],
     cards: [],
-    nomesRevisio: false,
-    nomesSenseClassificar: false,
-    incloTraspassos: filters.transfers,
+    onlyReview: false,
+    onlyUnclassified: false,
+    includeTransfers: filters.transfers,
     limit: MAX_ROWS,
     offset: 0,
   });
@@ -120,7 +120,7 @@ reportsExportRoutes.get("/informe.pdf", async (c) => {
   ]);
 
   const pdf = await informeAPdf({
-    nomEspai: workspace.name,
+    workspaceName: workspace.name,
     des,
     fins,
     income: totals.income,

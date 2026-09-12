@@ -40,14 +40,14 @@ export const alertsRoutes = new Hono();
 
 /** Els avisos de l'espai, els mes nous primer. */
 async function readAlerts(ledgerId: number, descartats: boolean, limit: number) {
-  const estats = descartats
+  const statuses = descartats
     ? (["new", "read", "dismissed"] as const)
     : (["new", "read"] as const);
 
   return db
     .select()
     .from(alerts)
-    .where(and(eq(alerts.ledgerId, ledgerId), inArray(alerts.status, [...estats])))
+    .where(and(eq(alerts.ledgerId, ledgerId), inArray(alerts.status, [...statuses])))
     .orderBy(desc(alerts.createdAt))
     .limit(limit);
 }
@@ -77,7 +77,7 @@ alertsRoutes.get("/", async (c) => {
 
   return page(
     c,
-    await workspacePage(c, "Avisos", AlertsPage({ codi: workspace.code, alertList, filters })),
+    await workspacePage(c, "Avisos", AlertsPage({ code: workspace.code, alertList, filters })),
   );
 });
 
@@ -91,7 +91,7 @@ alertsRoutes.get("/fragment/llista", async (c) => {
   // L'adreça que ha de quedar a la barra i a l'historial es la de la pagina.
   pushUrl(c, `/e/${workspace.code}/avisos${alertFiltersToQuery(filters)}`);
 
-  return fragment(c, AlertsList({ codi: workspace.code, alertList, filters }));
+  return fragment(c, AlertsList({ code: workspace.code, alertList, filters }));
 });
 
 // --- Mutacions -------------------------------------------------------------
@@ -116,7 +116,7 @@ alertsRoutes.post("/:id/llegit", async (c) => {
     // i el `#toast` net per esborrar l'error que hi pogues haver.
     await withOob(
       AlertCard({
-        codi: workspace.code,
+        code: workspace.code,
         alert: actualitzat,
         filters: alertFiltersSchema.parse(c.req.query()),
       }),
@@ -141,7 +141,7 @@ alertsRoutes.post("/:id/descarta", async (c) => {
   return fragment(
     c,
     await withOob(
-      AlertsList({ codi: workspace.code, alertList, filters: filters }),
+      AlertsList({ code: workspace.code, alertList, filters: filters }),
       AlertCounter(await countNewAlerts(workspace.id), true),
       clearToast(),
     ),

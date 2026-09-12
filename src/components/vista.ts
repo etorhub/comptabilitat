@@ -109,11 +109,11 @@ export function Pagination({
  * can come from a database row, and a quote would break it out of the
  * attribute.
  */
-export function Badge(text: string, options: { suau?: boolean; titol?: string } = {}): Html {
+export function Badge(text: string, options: { suau?: boolean; title?: string } = {}): Html {
   const cssClass = options.suau === true ? "etiqueta etiqueta-suau" : "etiqueta";
   return html`<span
     class="${cssClass}"
-    ${options.titol === undefined ? "" : html`title="${options.titol}"`}
+    ${options.title === undefined ? "" : html`title="${options.title}"`}
     >${text}</span
   >` as Html;
 }

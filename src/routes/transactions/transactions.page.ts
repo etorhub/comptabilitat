@@ -15,26 +15,26 @@ import {
 } from "./transactions.schema.ts";
 
 export interface TransactionsPageProps {
-  codi: string;
+  code: string;
   page: TransactionsPage;
   groups: CategoryGroup[];
-  accountList: { valor: number; text: string }[];
+  accountList: { value: number; text: string }[];
   filters: TransactionFilters;
-  potEditar: boolean;
-  etiquetesConegudes?: string[];
-  targetesConegudes?: string[];
+  canEdit: boolean;
+  knownTags?: string[];
+  knownCards?: string[];
 }
 
 export function TransactionsPage(props: TransactionsPageProps): Html {
   const {
-    codi,
+    code,
     page,
     groups,
     accountList,
     filters,
-    potEditar,
-    etiquetesConegudes = [],
-    targetesConegudes = [],
+    canEdit,
+    knownTags = [],
+    knownCards = [],
   } = props;
   // El que et descarregues es el que estas veient: els mateixos filtres.
   const query = transactionFiltersToQuery(filters);
@@ -51,27 +51,27 @@ export function TransactionsPage(props: TransactionsPageProps): Html {
       <header class="capçalera capçalera-fila">
         <h1>Moviments</h1>
         <div class="capçalera-accions">
-          <a class="boto boto-discret" href="/e/${codi}/moviments/moviments.csv${query}">
+          <a class="boto boto-discret" href="/e/${code}/moviments/moviments.csv${query}">
             Descarrega en CSV
           </a>
           <label for="cerca-oberta" class="boto boto-discret">Cerca</label>
         </div>
       </header>
 
-      ${FilterBar({ codi, filters, accountList, groups, etiquetesConegudes, targetesConegudes })}
-      ${Table({ codi, page, groups, filters, potEditar, etiquetesConegudes })}
+      ${FilterBar({ code, filters, accountList, groups, knownTags, knownCards })}
+      ${Table({ code, page, groups, filters, canEdit, knownTags })}
     </div>
   ` as Html;
 }
 
 export interface ReviewPageProps {
-  codi: string;
+  code: string;
   items: ReviewItem[];
   groups: CategoryGroup[];
   total: number;
 }
 
-export function ReviewPage({ codi, items, groups, total }: ReviewPageProps): Html {
+export function ReviewPage({ code, items, groups, total }: ReviewPageProps): Html {
   return html`
     <header class="capçalera">
       <h1>Per revisar</h1>
@@ -82,6 +82,6 @@ export function ReviewPage({ codi, items, groups, total }: ReviewPageProps): Htm
       </p>
     </header>
 
-    ${ReviewQueue({ codi, items, groups, total })}
+    ${ReviewQueue({ code, items, groups, total })}
   ` as Html;
 }

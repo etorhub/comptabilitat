@@ -40,27 +40,27 @@ export function WorkspaceForm({ workspace, errors, fet = false }: WorkspaceFormP
     ${fet ? html`<p class="form-ok" role="status">S'ha desat.</p>` : ""} ${FormError(errors)}
 
     <div class="form-linia">
-      ${Field({ name: "name", tag: "Nom", valor: workspace.name, errors, requerit: true })}
-      ${Field({ name: "color", tag: "Color", type: "color", valor: workspace.color, errors })}
+      ${Field({ name: "name", tag: "Nom", value: workspace.name, errors, requerit: true })}
+      ${Field({ name: "color", tag: "Color", type: "color", value: workspace.color, errors })}
     </div>
 
     ${Field({
       name: "description",
       tag: "Descripcio",
-      valor: workspace.description,
+      value: workspace.description,
       errors,
     })}
     ${Field({
       name: "overdraft_threshold",
       tag: "Llindar de descobert",
-      valor: workspace.overdraftThreshold,
+      value: workspace.overdraftThreshold,
       errors,
       help: "Per sota d'aquest saldo previst salta l'avis. Si el compte te linia de credit, hi va el numero negatiu que correspongui.",
     })}
     ${Field({
       name: "alert_recipients",
       tag: "Destinataris dels avisos",
-      valor: workspace.alertRecipients.join(", "),
+      value: workspace.alertRecipients.join(", "),
       errors,
       help: "Separats per comes. Si es buit, els avisos d'aquest espai van als destinataris generals.",
     })}

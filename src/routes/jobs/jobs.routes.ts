@@ -73,61 +73,61 @@ function catalog(): { passes: JobEntry[]; individuals: JobEntry[] } {
   const passes: JobEntry[] = [
     {
       id: "passada-diaria",
-      titol: "Passada diaria",
+      title: "Passada diaria",
       descripcio: "Sincronitza, classifica i analitza, en aquest ordre.",
     },
   ];
   if (config.ollamaEnabled) {
     passes.push({
       id: "passada-nocturna",
-      titol: "Passada nocturna",
+      title: "Passada nocturna",
       descripcio: "El model local proposa categories i es torna a classificar.",
     });
   }
   passes.push({
     id: "totes",
-    titol: "Totes les feines",
+    title: "Totes les feines",
     descripcio: "Passada diaria, nocturna (si hi ha model), avisos i manteniment.",
   });
 
   const individuals: JobEntry[] = [
     {
       id: "sync",
-      titol: "Sincronitzacio",
+      title: "Sincronitzacio",
       descripcio: "Importa els moviments de totes les connexions actives.",
     },
     {
       id: "classify",
-      titol: "Classificacio",
+      title: "Classificacio",
       descripcio: "Aparella traspassos i classifica els moviments pendents.",
     },
   ];
   if (config.ollamaEnabled) {
     individuals.push({
       id: "llm",
-      titol: "Model local",
+      title: "Model local",
       descripcio: "Proposa una categoria per als comerços nous.",
     });
   }
   individuals.push(
     {
       id: "analyze",
-      titol: "Analisi",
+      title: "Analisi",
       descripcio: "Recalcula recurrents, rebuts que falten i descoberts.",
     },
     {
       id: "notify",
-      titol: "Avisos",
+      title: "Avisos",
       descripcio: "Envia per correu tots els avisos pendents.",
     },
     {
       id: "notify-urgents",
-      titol: "Avisos urgents",
+      title: "Avisos urgents",
       descripcio: "Envia nomes els avisos critics pendents.",
     },
     {
       id: "maintenance",
-      titol: "Manteniment",
+      title: "Manteniment",
       descripcio: "Esborra sessions caducades, tanca importacions penjades i reassigna.",
     },
   );
@@ -204,7 +204,7 @@ jobsRoutes.get("/", async (c) => {
   return page(
     c,
     Layout({
-      titol: "Feines",
+      title: "Feines",
       user: jo,
       csrfToken: c.get("csrfToken") ?? "",
       ruta: c.req.path,

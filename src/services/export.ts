@@ -50,11 +50,11 @@ function row(m: TransactionView): (string | number)[] {
 
 // --- CSV -------------------------------------------------------------------
 
-function escapaCsv(valor: string): string {
-  if (/[";\n\r]/.test(valor)) {
-    return `"${valor.replace(/"/g, '""')}"`;
+function escapaCsv(value: string): string {
+  if (/[";\n\r]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
   }
-  return valor;
+  return value;
 }
 
 /**
@@ -67,10 +67,10 @@ export function movimentsACsv(transactionList: TransactionView[]): Uint8Array<Ar
   for (const transaction of transactionList) {
     linies.push(
       row(transaction)
-        .map((valor, i) => {
+        .map((value, i) => {
           // La columna de l'import va amb coma decimal.
-          if (i === 6) return money(String(valor)).toFixed(2).replace(".", ",");
-          return escapaCsv(String(valor));
+          if (i === 6) return money(String(value)).toFixed(2).replace(".", ",");
+          return escapaCsv(String(value));
         })
         .join(";"),
     );
@@ -141,7 +141,7 @@ export async function resumAXlsx(
  * s'hi dibuixen a ma, que es el preu de no dependre de res mes.
  */
 export interface DadesInforme {
-  nomEspai: string;
+  workspaceName: string;
   des: string;
   fins: string;
   income: string;
@@ -156,7 +156,7 @@ export function informeAPdf(data: DadesInforme): Promise<Uint8Array<ArrayBuffer>
     const doc = new PDFDocument({
       size: "A4",
       margin: 48,
-      info: { Title: `Informe · ${data.nomEspai}` },
+      info: { Title: `Informe · ${data.workspaceName}` },
     });
     const parts: Buffer[] = [];
 
@@ -171,7 +171,7 @@ export function informeAPdf(data: DadesInforme): Promise<Uint8Array<ArrayBuffer>
 
     const AMPLADA = doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
-    doc.fontSize(20).fillColor("#0f172a").text(data.nomEspai);
+    doc.fontSize(20).fillColor("#0f172a").text(data.workspaceName);
     doc.fontSize(10).fillColor("#64748b").text(`Informe del ${data.des} al ${data.fins}`);
     doc.moveDown(1.2);
 
@@ -182,16 +182,16 @@ export function informeAPdf(data: DadesInforme): Promise<Uint8Array<ArrayBuffer>
       ["Despeses", formatMoney(data.expenses)],
       ["Resultat", formatMoney(data.cleaned)],
     ];
-    for (const [tag, valor] of summary) {
+    for (const [tag, value] of summary) {
       doc.font("Helvetica").fillColor("#64748b").text(tag, { continued: true });
-      doc.font("Helvetica-Bold").fillColor("#0f172a").text(`   ${valor}`, { align: "right" });
+      doc.font("Helvetica-Bold").fillColor("#0f172a").text(`   ${value}`, { align: "right" });
     }
     doc.moveDown(1.2);
 
-    const table = (titol: string, headers: string[], rows: string[][], amplades: number[]) => {
+    const table = (title: string, headers: string[], rows: string[][], amplades: number[]) => {
       if (doc.y > doc.page.height - 160) doc.addPage();
 
-      doc.font("Helvetica-Bold").fontSize(13).fillColor("#0f172a").text(titol);
+      doc.font("Helvetica-Bold").fontSize(13).fillColor("#0f172a").text(title);
       doc.moveDown(0.4);
 
       const x0 = doc.page.margins.left;

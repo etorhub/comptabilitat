@@ -286,7 +286,7 @@ describe("quan no hi ha res a fer o el model no hi es", () => {
     const stats = await classifyMerchants(ledgerId, { client: asClient(fals) });
 
     expect(fals.preguntats).toEqual([]);
-    expect(stats.omes).toContain("no hi ha cap comerç nou");
+    expect(stats.omitted).toContain("no hi ha cap comerç nou");
   });
 
   test("si el model no esta disponible no es trenca res", async () => {
@@ -296,7 +296,7 @@ describe("quan no hi ha res a fer o el model no hi es", () => {
       client: asClient(new OllamaFals({}, false)),
     });
 
-    expect(stats.omes).toContain("no esta disponible");
+    expect(stats.omitted).toContain("no esta disponible");
     const [transaction] = await db.select().from(transactions);
     expect(transaction?.categoryId).toBeNull();
   });
@@ -321,7 +321,7 @@ describe("quan no hi ha res a fer o el model no hi es", () => {
       client: asClient(new OllamaFals()),
     });
 
-    expect(stats.omes).toContain("desactivat");
+    expect(stats.omitted).toContain("desactivat");
   });
 });
 

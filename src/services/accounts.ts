@@ -43,22 +43,22 @@ export interface TransactionSummary {
  * que uns quants moviments es quedin per revisar, que es l'estat segur.
  */
 export async function moveAccountToWorkspace(
-  compteId: number,
-  nouEspai: number | null,
+  accountId: number,
+  newWorkspace: number | null,
 ): Promise<TransactionSummary> {
-  const [account] = await db.select().from(accounts).where(eq(accounts.id, compteId)).limit(1);
+  const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId)).limit(1);
   if (!account) throw new NotFoundError("Aquest compte no existeix");
 
-  if (nouEspai !== null) {
+  if (newWorkspace !== null) {
     const [workspace] = await db
       .select({ id: ledgers.id })
       .from(ledgers)
-      .where(eq(ledgers.id, nouEspai))
+      .where(eq(ledgers.id, newWorkspace))
       .limit(1);
     if (!workspace) throw new NotFoundError("Aquest espai no existeix");
   }
 
-  if (nouEspai === account.ledgerId) {
+  if (newWorkspace === account.ledgerId) {
     return { moguts: 0, conservades: 0, undoneTransfers: 0 };
   }
 
@@ -68,11 +68,11 @@ export async function moveAccountToWorkspace(
     // Les decisions d'una persona, apuntades pel slug, que es el que vol dir
     // el mateix a tots els espais.
     const decisions = await tx
-      .select({ movimentId: transactions.id, slug: categories.slug })
+      .select({ transactionId: transactions.id, slug: categories.slug })
       .from(transactions)
       .innerJoin(categories, eq(categories.id, transactions.categoryId))
       .where(
-        and(eq(transactions.accountId, compteId), eq(transactions.categorySource, "user")),
+        and(eq(transactions.accountId, accountId), eq(transactions.categorySource, "user")),
       );
 
     // Els traspassos on aquest compte era una de les dues cames. L'altra es
@@ -84,7 +84,7 @@ export async function moveAccountToWorkspace(
         .selectDistinct({ group: transactions.transferGroupId })
         .from(transactions)
         .where(
-          and(eq(transactions.accountId, compteId), isNotNull(transactions.transferGroupId)),
+          and(eq(transactions.accountId, accountId), isNotNull(transactions.transferGroupId)),
         )
     )
       .map((f) => f.group)
@@ -98,7 +98,7 @@ export async function moveAccountToWorkspace(
         .where(
           and(
             inArray(transactions.transferGroupId, groups),
-            ne(transactions.accountId, compteId),
+            ne(transactions.accountId, accountId),
           ),
         )
         .returning({ id: transactions.id });
@@ -107,12 +107,12 @@ export async function moveAccountToWorkspace(
 
     // --- El trasllat ---
 
-    await tx.update(accounts).set({ ledgerId: nouEspai }).where(eq(accounts.id, compteId));
+    await tx.update(accounts).set({ ledgerId: newWorkspace }).where(eq(accounts.id, accountId));
 
     const moguts = await tx
       .update(transactions)
       .set({
-        ledgerId: nouEspai,
+        ledgerId: newWorkspace,
         merchantId: null,
         categoryId: null,
         categorySource: "none",
@@ -121,28 +121,28 @@ export async function moveAccountToWorkspace(
         transferGroupId: null,
         needsReview: true,
       })
-      .where(eq(transactions.accountId, compteId))
+      .where(eq(transactions.accountId, accountId))
       .returning({ id: transactions.id });
 
     let conservades = 0;
-    if (nouEspai !== null) {
+    if (newWorkspace !== null) {
       // --- El que es recupera ---
-      conservades = await returnsLesDecisions(tx, nouEspai, decisions);
-      await redoCounterparties(tx, compteId, nouEspai);
+      conservades = await returnsLesDecisions(tx, newWorkspace, decisions);
+      await redoCounterparties(tx, accountId, newWorkspace);
     }
 
     // Els comerços dels **dos** espais queden desquadrats: els de l'espai nou
     // perque `obteOCreaComerc` puja el comptador d'un en un i aqui s'ha cridat
     // un cop per grup, i els de l'espai vell perque compten moviments que ja
     // no hi son.
-    await boxTheCounters(tx, [account.ledgerId, nouEspai]);
+    await boxTheCounters(tx, [account.ledgerId, newWorkspace]);
 
     return { moguts: moguts.length, conservades, undoneTransfers };
   });
 
   // Fora de la transaccio a posta: `classificaPendents` obre les seves
   // consultes i no veuria res del que encara no s'ha desat.
-  if (nouEspai !== null) await classifyPending(nouEspai);
+  if (newWorkspace !== null) await classifyPending(newWorkspace);
 
   return summary;
 }
@@ -155,8 +155,8 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
  */
 async function returnsLesDecisions(
   tx: Tx,
-  nouEspai: number,
-  decisions: { movimentId: number; slug: string }[],
+  newWorkspace: number,
+  decisions: { transactionId: number; slug: string }[],
 ): Promise<number> {
   if (decisions.length === 0) return 0;
 
@@ -164,7 +164,7 @@ async function returnsLesDecisions(
   const destins = await tx
     .select({ id: categories.id, slug: categories.slug })
     .from(categories)
-    .where(and(eq(categories.ledgerId, nouEspai), inArray(categories.slug, slugs)));
+    .where(and(eq(categories.ledgerId, newWorkspace), inArray(categories.slug, slugs)));
 
   const perSlug = new Map(destins.map((c) => [c.slug, c.id]));
 
@@ -173,7 +173,7 @@ async function returnsLesDecisions(
   for (const decision of decisions) {
     const categoryId = perSlug.get(decision.slug);
     if (categoryId === undefined) continue;
-    byCategory.set(categoryId, [...(byCategory.get(categoryId) ?? []), decision.movimentId]);
+    byCategory.set(categoryId, [...(byCategory.get(categoryId) ?? []), decision.transactionId]);
   }
 
   let conservades = 0;
@@ -199,7 +199,11 @@ async function returnsLesDecisions(
  * Va per grup i no per moviment: un compte amb tres mil apunts sol tenir
  * unes desenes de contraparts, i la diferencia son milers de consultes.
  */
-async function redoCounterparties(tx: Tx, compteId: number, nouEspai: number): Promise<void> {
+async function redoCounterparties(
+  tx: Tx,
+  accountId: number,
+  newWorkspace: number,
+): Promise<void> {
   const seus = await tx
     .select({
       id: transactions.id,
@@ -208,12 +212,12 @@ async function redoCounterparties(tx: Tx, compteId: number, nouEspai: number): P
       bookingDate: transactions.bookingDate,
     })
     .from(transactions)
-    .where(and(eq(transactions.accountId, compteId), isNull(transactions.merchantId)));
+    .where(and(eq(transactions.accountId, accountId), isNull(transactions.merchantId)));
 
   interface Group {
     normalitzat: string;
     mostrar: string;
-    ultimDia: string | null;
+    lastDay: string | null;
     ids: number[];
   }
   const byKey = new Map<string, Group>();
@@ -231,22 +235,22 @@ async function redoCounterparties(tx: Tx, compteId: number, nouEspai: number): P
       byKey.set(key, {
         normalitzat: key,
         mostrar,
-        ultimDia: transaction.bookingDate,
+        lastDay: transaction.bookingDate,
         ids: [transaction.id],
       });
     } else {
       group.ids.push(transaction.id);
-      if (transaction.bookingDate > (group.ultimDia ?? ""))
-        group.ultimDia = transaction.bookingDate;
+      if (transaction.bookingDate > (group.lastDay ?? ""))
+        group.lastDay = transaction.bookingDate;
     }
   }
 
   for (const group of byKey.values()) {
     const merchant = await getOrCreateMerchant(
-      nouEspai,
+      newWorkspace,
       group.normalitzat,
       group.mostrar,
-      group.ultimDia,
+      group.lastDay,
       tx,
     );
     await tx

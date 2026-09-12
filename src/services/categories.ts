@@ -323,7 +323,7 @@ export async function deleteCategory(
  */
 export interface CategoryGroup {
   tag: string;
-  options: { valor: number; text: string }[];
+  options: { value: number; text: string }[];
 }
 
 export async function categoryOptions(
@@ -339,8 +339,8 @@ export async function categoryOptions(
     const filles = all.filter((c) => c.parentId === parent.id && !fora.has(c.id));
     const options = [
       // El pare tambe s'hi pot triar: hi ha moviments que no son de cap filla.
-      { valor: parent.id, text: parent.name },
-      ...filles.map((f) => ({ valor: f.id, text: `  ${f.name}` })),
+      { value: parent.id, text: parent.name },
+      ...filles.map((f) => ({ value: f.id, text: `  ${f.name}` })),
     ];
     groups.push({ tag: parent.name, options });
   }

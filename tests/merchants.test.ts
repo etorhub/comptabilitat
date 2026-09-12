@@ -257,8 +257,8 @@ describe("la llista", () => {
     await getOrCreateMerchant(altreLedgerId, "FORASTER");
     const page = await listMerchants(ledgerId, {
       search: "",
-      nomesSenseClassificar: false,
-      nomesSenseConfirmar: false,
+      onlyUnclassified: false,
+      onlyUnconfirmed: false,
       limit: 50,
       offset: 0,
     });
@@ -268,8 +268,8 @@ describe("la llista", () => {
   test("la cerca mira el nom normalitzat i el que es veu", async () => {
     const page = await listMerchants(ledgerId, {
       search: "pepe",
-      nomesSenseClassificar: false,
-      nomesSenseConfirmar: false,
+      onlyUnclassified: false,
+      onlyUnconfirmed: false,
       limit: 50,
       offset: 0,
     });
@@ -284,8 +284,8 @@ describe("la llista", () => {
 
     const page = await listMerchants(ledgerId, {
       search: "",
-      nomesSenseClassificar: true,
-      nomesSenseConfirmar: false,
+      onlyUnclassified: true,
+      onlyUnconfirmed: false,
       limit: 50,
       offset: 0,
     });

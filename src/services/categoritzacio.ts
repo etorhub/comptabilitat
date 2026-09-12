@@ -24,7 +24,7 @@ export const HUMAN_DECISION = {
 
 export interface CategorizeOptions {
   /** Recorda-ho per a tot el comerç d'aquest espai. */
-  recordaComerc?: boolean;
+  rememberMerchant?: boolean;
 }
 
 export interface CategorizeResult {
@@ -39,7 +39,7 @@ export interface CategorizeResult {
  * moviment no —o al reves— l'espai queda dient dues coses diferents.
  */
 export async function categorizeTransaction(
-  movimentId: number,
+  transactionId: number,
   row: { merchantId: number | null },
   categoryId: number | null,
   options: CategorizeOptions = {},
@@ -48,10 +48,10 @@ export async function categorizeTransaction(
     await tx
       .update(transactions)
       .set({ categoryId, ...HUMAN_DECISION })
-      .where(eq(transactions.id, movimentId));
+      .where(eq(transactions.id, transactionId));
 
     let recordats = 0;
-    if (options.recordaComerc === true && row.merchantId !== null) {
+    if (options.rememberMerchant === true && row.merchantId !== null) {
       recordats = await rememberMerchantFromRow(tx, row.merchantId, categoryId);
     }
 
@@ -69,7 +69,7 @@ export async function categorizeBulk(
   movimentIds: number[],
   ledgerId: number,
   categoryId: number | null,
-  options: { recordaComerc?: boolean } = {},
+  options: { rememberMerchant?: boolean } = {},
 ): Promise<{ aplicats: number }> {
   const demanats = [...new Set(movimentIds)];
 
@@ -93,7 +93,7 @@ export async function categorizeBulk(
         ),
       );
 
-    if (options.recordaComerc === true) {
+    if (options.rememberMerchant === true) {
       const merchantIds = [
         ...new Set(meus.map((m) => m.merchantId).filter((x): x is number => x !== null)),
       ];
@@ -113,12 +113,12 @@ export async function categorizeBulk(
  * model** dient si l'encertava: es l'unica manera de saber si val la pena.
  */
 export async function confirmFromReview(
-  movimentId: number,
+  transactionId: number,
   row: { merchantId: number | null },
   categoryId: number,
   options: CategorizeOptions = {},
 ): Promise<CategorizeResult> {
-  const result = await categorizeTransaction(movimentId, row, categoryId, options);
+  const result = await categorizeTransaction(transactionId, row, categoryId, options);
   await closeModelProposal(row.merchantId, categoryId);
   return result;
 }

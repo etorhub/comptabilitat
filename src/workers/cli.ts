@@ -1,5 +1,7 @@
 /**
- * Llançar les feines a ma.
+ * Running the jobs by hand.
+ *
+ * The command names stay Catalan: they are the operator's interface.
  *
  *   bun run src/workers/cli.ts sync [--connexio 1] [--dies 30]
  *   bun run src/workers/cli.ts classify
@@ -9,8 +11,8 @@
  *   bun run src/workers/cli.ts maintenance
  *   bun run src/workers/cli.ts reassign-normalization [--espai 1]
  *
- * Equival al `python -m app.cli sync|classify|analyze|notify` d'abans.
- * Les feines amb historial passen per `executaFeina` (origen `cli`).
+ * The equivalent of the old `python -m app.cli sync|classify|analyze|notify`.
+ * Jobs with a history go through `runJob` (trigger `cli`).
  */
 
 import { closeDb } from "../db/client.ts";
@@ -29,8 +31,8 @@ function arg(name: string): string | undefined {
 }
 
 const enter = (name: string): number | null => {
-  const valor = Number.parseInt(arg(name) ?? "", 10);
-  return Number.isNaN(valor) ? null : valor;
+  const value = Number.parseInt(arg(name) ?? "", 10);
+  return Number.isNaN(value) ? null : value;
 };
 
 const jobs: Record<string, () => Promise<string>> = {
@@ -53,8 +55,8 @@ const jobs: Record<string, () => Promise<string>> = {
   },
 };
 
-const ordre = process.argv[2];
-const job = ordre === undefined ? undefined : jobs[ordre];
+const order = process.argv[2];
+const job = order === undefined ? undefined : jobs[order];
 
 if (job === undefined) {
   console.error(`Feines: ${Object.keys(jobs).join(", ")}`);

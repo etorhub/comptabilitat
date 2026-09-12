@@ -33,8 +33,8 @@ function formataMarca(moment: Date): string {
 }
 
 function dateCurta(isoDate: string): string {
-  const [any, mes, day] = isoDate.split("-");
-  return `${day}/${mes}/${any}`;
+  const [any, month, day] = isoDate.split("-");
+  return `${day}/${month}/${any}`;
 }
 
 /** A qui van els avisos d'aquest espai. */
@@ -90,11 +90,11 @@ export async function notifyPending(nomesUrgents = false): Promise<string> {
       continue;
     }
 
-    const titol = nomesUrgents ? "Avis urgent de la comptabilitat" : "Resum d'avisos";
-    let subtitol = nomesUrgents
+    const title = nomesUrgents ? "Avis urgent de la comptabilitat" : "Resum d'avisos";
+    let subtitle = nomesUrgents
       ? "Hi ha una cosa que necessita atencio ara."
       : `Avisos nous del ${dateCurta(todayLocal())}.`;
-    if (workspace !== undefined) subtitol = `${workspace.name} · ${subtitol}`;
+    if (workspace !== undefined) subtitle = `${workspace.name} · ${subtitle}`;
 
     const entrades: SummaryEntry[] = delEspai.map((alert) => ({
       severity: alert.severity,
@@ -104,8 +104,8 @@ export async function notifyPending(nomesUrgents = false): Promise<string> {
       created: formataMarca(alert.createdAt),
     }));
 
-    const { html, text } = await renderSummary(entrades, titol, subtitol);
-    const name = workspace !== undefined ? `${titol} · ${workspace.name}` : titol;
+    const { html, text } = await renderSummary(entrades, title, subtitle);
+    const name = workspace !== undefined ? `${title} · ${workspace.name}` : title;
     const first = delEspai[0];
     const assumpte =
       delEspai.length === 1 && first !== undefined

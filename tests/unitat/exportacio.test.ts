@@ -23,7 +23,7 @@ const normal: TransactionView = {
   description: "Clinica Discreta",
   descriptionHint: "COMPRA TARJ. CLINICA DISCRETA",
   darrers4: null,
-  tipusOperacio: "targeta",
+  operationType: "targeta",
   counterparty: "Clinica Discreta SL",
   merchantId: 3,
   merchantName: "Clinica Discreta",
@@ -37,8 +37,8 @@ const normal: TransactionView = {
   tags: ["salut"],
   isExcluded: false,
   isMasked: false,
-  serieId: null,
-  serieLabel: null,
+  seriesId: null,
+  seriesLabel: null,
 };
 
 /** El mateix moviment, ja passat per `vistaMoviment()` amb alies. */
@@ -50,7 +50,7 @@ const amagat: TransactionView = {
   darrers4: null,
   counterparty: "",
   merchantName: null,
-  tipusOperacio: null,
+  operationType: null,
   isMasked: true,
 };
 
@@ -134,7 +134,7 @@ describe("XLSX", () => {
 describe("PDF", () => {
   test("es un PDF valid i no es buit", async () => {
     const bytes = await informeAPdf({
-      nomEspai: "Personal",
+      workspaceName: "Personal",
       des: "2026-01-01",
       fins: "2026-03-31",
       income: "1000.00",
@@ -186,7 +186,7 @@ describe("PDF", () => {
     }));
 
     const bytes = await informeAPdf({
-      nomEspai: "Personal",
+      workspaceName: "Personal",
       des: "2020-01-01",
       fins: "2026-01-01",
       income: "60000.00",

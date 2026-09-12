@@ -93,7 +93,7 @@ export const DEFAULT_LEDGERS: readonly (readonly [string, string, string, string
  * a cridar no duplica res.
  */
 export async function seedCategories(ledgerId: number): Promise<number> {
-  const arbres: readonly (readonly [CategoryKind, Tree])[] = [
+  const trees: readonly (readonly [CategoryKind, Tree])[] = [
     ["expense", EXPENSE_TREE],
     ["income", INCOME_TREE],
     ["transfer", TRANSFER_TREE],
@@ -111,7 +111,7 @@ export async function seedCategories(ledgerId: number): Promise<number> {
   let creades = 0;
   let posicio = 0;
 
-  for (const [kind, tree] of arbres) {
+  for (const [kind, tree] of trees) {
     for (const [nomPare, color, children] of tree) {
       const parentSlug = slugify(nomPare);
       let parentId: number | undefined;

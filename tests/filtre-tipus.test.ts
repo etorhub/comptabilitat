@@ -38,11 +38,11 @@ const baseFilter = {
   merchantId: null as number | null,
   search: "",
   tag: null as string | null,
-  tipusOperacio: [] as ("targeta" | "transferencia" | "bizum" | "rebut" | "altres")[],
+  operationType: [] as ("targeta" | "transferencia" | "bizum" | "rebut" | "altres")[],
   cards: [] as string[],
-  nomesRevisio: false,
-  nomesSenseClassificar: false,
-  incloTraspassos: true,
+  onlyReview: false,
+  onlyUnclassified: false,
+  includeTransfers: true,
   limit: 50,
   offset: 0,
 };
@@ -166,17 +166,17 @@ describe("filtre per tipus d'operacio", () => {
   test("nomes transferencies", async () => {
     const page = await listTransactions(ledgerId, {
       ...baseFilter,
-      tipusOperacio: ["transferencia"],
+      operationType: ["transferencia"],
     });
     expect(page.items).toHaveLength(1);
     expect(page.items[0]?.description).toBe("Maria Lopez");
-    expect(page.items[0]?.tipusOperacio).toBe("transferencia");
+    expect(page.items[0]?.operationType).toBe("transferencia");
   });
 
   test("targeta o bizum (OR)", async () => {
     const page = await listTransactions(ledgerId, {
       ...baseFilter,
-      tipusOperacio: ["targeta", "bizum"],
+      operationType: ["targeta", "bizum"],
     });
     const descs = page.items.map((i) => i.description).toSorted();
     expect(descs).toEqual(["Joan", "Mercadona"]);
@@ -185,7 +185,7 @@ describe("filtre per tipus d'operacio", () => {
   test("altres exclou targeta transferencia bizum i rebut", async () => {
     const page = await listTransactions(ledgerId, {
       ...baseFilter,
-      tipusOperacio: ["altres"],
+      operationType: ["altres"],
     });
     expect(page.items).toHaveLength(1);
     expect(page.items[0]?.description).toMatch(/Intereses|Liquidacion/i);
@@ -263,7 +263,7 @@ describe("schema de filtres tipus", () => {
   test("la barra mostra els checkboxes de tipus", async () => {
     const html = String(
       await FilterBar({
-        codi: "personal",
+        code: "personal",
         filters: transactionFiltersSchema.parse({ type: "transferencia" }),
         accountList: [],
         groups: [],
@@ -278,11 +278,11 @@ describe("schema de filtres tipus", () => {
   test("la barra mostra els checkboxes de targeta quan n'hi ha", async () => {
     const html = String(
       await FilterBar({
-        codi: "personal",
+        code: "personal",
         filters: transactionFiltersSchema.parse({ card: "1234" }),
         accountList: [],
         groups: [],
-        targetesConegudes: ["1234"],
+        knownCards: ["1234"],
       }),
     );
     expect(html).toContain('name="targeta"');
@@ -293,7 +293,7 @@ describe("schema de filtres tipus", () => {
   test("sense targetes conegudes no hi ha fieldset", async () => {
     const html = String(
       await FilterBar({
-        codi: "personal",
+        code: "personal",
         filters: transactionFiltersSchema.parse({}),
         accountList: [],
         groups: [],

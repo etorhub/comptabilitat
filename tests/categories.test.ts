@@ -333,13 +333,13 @@ describe("les opcions del selector", () => {
   test("es poden excloure categories", async () => {
     const c = await categoryBySlug("habitatge");
     const groups = await categoryOptions(ledgerId, [c.id]);
-    const ids = groups.flatMap((g) => g.options.map((o) => o.valor));
+    const ids = groups.flatMap((g) => g.options.map((o) => o.value));
     expect(ids).not.toContain(c.id);
   });
 
   test("nomes hi surten les d'aquest espai", async () => {
     const groups = await categoryOptions(ledgerId);
-    const ids = groups.flatMap((g) => g.options.map((o) => o.valor));
+    const ids = groups.flatMap((g) => g.options.map((o) => o.value));
     const foranes = await db
       .select({ id: categories.id })
       .from(categories)

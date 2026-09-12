@@ -59,9 +59,9 @@ export async function myWorkspaces(userId: number): Promise<(Ledger & { role: Le
  */
 export const workspaceMiddleware: MiddlewareHandler = async (c, next) => {
   const user = currentUser(c);
-  const codi = c.req.param("codi");
+  const code = c.req.param("codi");
 
-  if (codi === undefined) {
+  if (code === undefined) {
     return c.notFound();
   }
 
@@ -75,7 +75,7 @@ export const workspaceMiddleware: MiddlewareHandler = async (c, next) => {
         eq(userLedgerPermissions.userId, user.id),
       ),
     )
-    .where(and(eq(ledgers.code, codi), eq(ledgers.isActive, true)))
+    .where(and(eq(ledgers.code, code), eq(ledgers.isActive, true)))
     .limit(1);
 
   const found = rows[0];

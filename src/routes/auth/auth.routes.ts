@@ -167,7 +167,7 @@ authRoutes.get("/contrasenya", requireUser, async (c) => {
   return page(
     c,
     Layout({
-      titol: "Contrasenya",
+      title: "Contrasenya",
       user,
       csrfToken: c.get("csrfToken") ?? "",
       ruta: c.req.path,

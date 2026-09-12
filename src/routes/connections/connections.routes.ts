@@ -131,7 +131,7 @@ connectionsRoutes.get("/", async (c) => {
   return page(
     c,
     Layout({
-      titol: "Connexions",
+      title: "Connexions",
       user,
       csrfToken: c.get("csrfToken") ?? "",
       ruta: c.req.path,
@@ -283,8 +283,8 @@ connectionsRoutes.post("/comptes/:id/espai", async (c) => {
 });
 
 /** Que ha passat, dit en una linia. */
-function moveMessage(nouEspai: number | null, summary: TransactionSummary): string {
-  if (nouEspai === null) return "El compte ja no pertany a cap espai";
+function moveMessage(newWorkspace: number | null, summary: TransactionSummary): string {
+  if (newWorkspace === null) return "El compte ja no pertany a cap espai";
 
   const parts = [`${summary.moguts} moviments moguts`];
   if (summary.conservades > 0) {

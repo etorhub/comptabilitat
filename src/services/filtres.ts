@@ -29,7 +29,7 @@ export interface FilterOptions {
   /** Fins a aquesta data, inclosa. */
   fins?: string | null;
   /** Nomes els que treuen diners. */
-  nomesDespeses?: boolean;
+  onlyExpenses?: boolean;
 }
 
 export function countableTransactions(options: FilterOptions): SQL | undefined {
@@ -46,7 +46,7 @@ export function countableTransactions(options: FilterOptions): SQL | undefined {
 
   if (options.des != null) parts.push(gte(transactions.bookingDate, options.des));
   if (options.fins != null) parts.push(lte(transactions.bookingDate, options.fins));
-  if (options.nomesDespeses === true) parts.push(lt(transactions.amount, "0"));
+  if (options.onlyExpenses === true) parts.push(lt(transactions.amount, "0"));
 
   return and(...parts);
 }

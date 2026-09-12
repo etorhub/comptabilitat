@@ -1,5 +1,5 @@
 /**
- * Feina de classificacio: aparella traspassos i classifica el que queda.
+ * The classification job: pairs transfers and classifies what is left.
  */
 
 import { eq } from "drizzle-orm";

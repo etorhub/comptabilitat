@@ -83,7 +83,7 @@ usersRoutes.get("/", async (c) => {
   return page(
     c,
     Layout({
-      titol: "Usuaris",
+      title: "Usuaris",
       user: jo,
       csrfToken: c.get("csrfToken") ?? "",
       ruta: c.req.path,
@@ -107,7 +107,7 @@ usersRoutes.post("/", async (c) => {
       await withOob(
         CreateForm({
           errors: zodErrors(parsed.error),
-          valors: { email: text("email"), full_name: text("full_name") },
+          values: { email: text("email"), full_name: text("full_name") },
         }),
         toast("Revisa el formulari"),
       ),
@@ -127,7 +127,7 @@ usersRoutes.post("/", async (c) => {
       await withOob(
         CreateForm({
           errors: { email: ["Ja hi ha un usuari amb aquest correu"] },
-          valors: { email: parsed.data.email, full_name: parsed.data.full_name },
+          values: { email: parsed.data.email, full_name: parsed.data.full_name },
         }),
         toast("Aquest correu ja esta donat d'alta"),
       ),

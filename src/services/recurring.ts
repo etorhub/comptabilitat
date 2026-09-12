@@ -49,25 +49,25 @@ const AVERAGE_MONTHS = 6;
 export interface RecurringStats {
   creades: number;
   actualitzades: number;
-  acabades: number;
+  finished: number;
   alertList: number;
 }
 
 export function summaryRecurring(s: RecurringStats): string {
-  return `recurrents: ${s.creades} noves, ${s.actualitzades} actualitzades, ${s.acabades} finalitzades, ${s.alertList} avisos`;
+  return `recurrents: ${s.creades} noves, ${s.actualitzades} actualitzades, ${s.finished} finalitzades, ${s.alertList} avisos`;
 }
 
-function mediana(valors: number[]): number {
-  if (valors.length === 0) return 0;
-  const ordenats = valors.toSorted((a, b) => a - b);
+function mediana(values: number[]): number {
+  if (values.length === 0) return 0;
+  const ordenats = values.toSorted((a, b) => a - b);
   const mig = Math.floor(ordenats.length / 2);
   if (ordenats.length % 2 === 1) return ordenats[mig] as number;
   return ((ordenats[mig - 1] as number) + (ordenats[mig] as number)) / 2;
 }
 
-function medianaImports(valors: string[]): Decimal {
-  if (valors.length === 0) return new Decimal(0);
-  const ordenats = valors.map((v) => new Decimal(v)).toSorted((a, b) => a.comparedTo(b));
+function medianaImports(values: string[]): Decimal {
+  if (values.length === 0) return new Decimal(0);
+  const ordenats = values.map((v) => new Decimal(v)).toSorted((a, b) => a.comparedTo(b));
   const mig = Math.floor(ordenats.length / 2);
   if (ordenats.length % 2 === 1) return ordenats[mig] as Decimal;
   return (ordenats[mig - 1] as Decimal).plus(ordenats[mig] as Decimal).dividedBy(2);
@@ -128,7 +128,7 @@ export async function detectRecurring(ledgerId: number): Promise<RecurringStats>
   const stats: RecurringStats = {
     creades: 0,
     actualitzades: 0,
-    acabades: 0,
+    finished: 0,
     alertList: 0,
   };
 
@@ -336,20 +336,20 @@ function importsRecents(items: TransactionSeries[]): string[] {
   return recents.length > 0 ? recents : items.map((i) => i.amount);
 }
 
-async function linkOccurrences(serieId: number, items: TransactionSeries[]): Promise<void> {
+async function linkOccurrences(seriesId: number, items: TransactionSeries[]): Promise<void> {
   const known = new Set(
     (
       await db
         .select({ transactionId: recurringOccurrences.transactionId })
         .from(recurringOccurrences)
-        .where(eq(recurringOccurrences.seriesId, serieId))
+        .where(eq(recurringOccurrences.seriesId, seriesId))
     ).map((o) => o.transactionId),
   );
 
   const noves = items
     .filter((i) => !known.has(i.id))
     .map((i) => ({
-      seriesId: serieId,
+      seriesId: seriesId,
       transactionId: i.id,
       occurredOn: i.bookingDate,
       amount: i.amount,
@@ -364,7 +364,7 @@ async function linkOccurrences(serieId: number, items: TransactionSeries[]): Pro
  * Confirma una proposta: passa a activa i entra a la previsio.
  */
 export async function confirmSeries(
-  serieId: number,
+  seriesId: number,
   options: { cadence: Cadence; amountMode: AmountMode },
   connection: Transactor = db,
 ): Promise<void> {
@@ -378,18 +378,18 @@ export async function confirmSeries(
       amountMode: options.amountMode,
       confidence: 1,
     })
-    .where(eq(recurringSeries.id, serieId));
+    .where(eq(recurringSeries.id, seriesId));
 }
 
 /** Descarta una serie: el detector ja no la tornarà a crear (mateixa signatura). */
 export async function dismissSeries(
-  serieId: number,
+  seriesId: number,
   connection: Transactor = db,
 ): Promise<void> {
   await connection
     .update(recurringSeries)
     .set({ status: "dismissed", includeInForecast: false })
-    .where(eq(recurringSeries.id, serieId));
+    .where(eq(recurringSeries.id, seriesId));
 }
 
 export interface ManualSeriesData {
@@ -509,7 +509,7 @@ export async function createSeriesManual(
 
 /** Canvia l'import esperat i el deixa fix perquè el detector no l'escrigui. */
 export async function updateSeriesAmount(
-  serieId: number,
+  seriesId: number,
   expectedAmount: MoneyString,
   connection: Transactor = db,
 ): Promise<void> {
@@ -525,7 +525,7 @@ export async function updateSeriesAmount(
       amountTolerance: toMoneyString(toleranciaDimport(importEsperat)),
       amountMode: "exact",
     })
-    .where(eq(recurringSeries.id, serieId));
+    .where(eq(recurringSeries.id, seriesId));
 }
 
 /**

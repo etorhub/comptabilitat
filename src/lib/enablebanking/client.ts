@@ -109,9 +109,9 @@ export class EnableBankingClient {
     options: { params?: Record<string, string | null | undefined>; json?: unknown } = {},
   ): Promise<T> {
     const url = new URL(`${this.baseUrl}${path}`);
-    for (const [key, valor] of Object.entries(options.params ?? {})) {
-      if (valor !== null && valor !== undefined && valor !== "") {
-        url.searchParams.set(key, valor);
+    for (const [key, value] of Object.entries(options.params ?? {})) {
+      if (value !== null && value !== undefined && value !== "") {
+        url.searchParams.set(key, value);
       }
     }
 

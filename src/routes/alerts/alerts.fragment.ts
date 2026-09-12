@@ -28,12 +28,12 @@ const dateLlarga = new Intl.DateTimeFormat("ca-ES", {
 });
 
 export interface AlertsListProps {
-  codi: string;
+  code: string;
   alertList: Alert[];
   filters: AlertFilters;
 }
 
-export function AlertsList({ codi, alertList, filters }: AlertsListProps): Html {
+export function AlertsList({ code, alertList, filters }: AlertsListProps): Html {
   return html`<div id="llista-avisos">
     ${
       alertList.length === 0
@@ -43,14 +43,14 @@ export function AlertsList({ codi, alertList, filters }: AlertsListProps): Html 
               : "Cap avis pendent. Quan n'hi hagi, sortiran aqui.",
           )
         : html`<ul class="avisos">
-          ${alertList.map((alert) => AlertCard({ codi, alert, filters }))}
+          ${alertList.map((alert) => AlertCard({ code, alert, filters }))}
         </ul>`
     }
   </div>` as Html;
 }
 
 interface AlertCardProps {
-  codi: string;
+  code: string;
   alert: Alert;
   /**
    * Els filtres de la llista on viu la targeta.
@@ -63,7 +63,7 @@ interface AlertCardProps {
   filters?: AlertFilters;
 }
 
-export function AlertCard({ codi, alert, filters }: AlertCardProps): Html {
+export function AlertCard({ code, alert, filters }: AlertCardProps): Html {
   const query = filters === undefined ? "" : alertFiltersToQuery(filters);
   const gravetat = GRAVETAT[alert.severity];
   const dismissed = alert.status === "dismissed";
@@ -92,7 +92,7 @@ export function AlertCard({ codi, alert, filters }: AlertCardProps): Html {
                 ? html`<button
                   type="button"
                   class="boto boto-discret"
-                  hx-post="/e/${codi}/avisos/${alert.id}/llegit${query}"
+                  hx-post="/e/${code}/avisos/${alert.id}/llegit${query}"
                   hx-target="#avis-${alert.id}"
                   hx-swap="outerHTML"
                 >
@@ -103,7 +103,7 @@ export function AlertCard({ codi, alert, filters }: AlertCardProps): Html {
             <button
               type="button"
               class="boto boto-discret"
-              hx-post="/e/${codi}/avisos/${alert.id}/descarta${query}"
+              hx-post="/e/${code}/avisos/${alert.id}/descarta${query}"
               hx-target="#llista-avisos"
               hx-swap="outerHTML"
             >
@@ -127,7 +127,7 @@ export function DismissedAlert(id: number): Html {
 }
 
 export interface FilterBarProps {
-  codi: string;
+  code: string;
   filters: AlertFilters;
 }
 
@@ -137,17 +137,17 @@ export interface FilterBarProps {
  * torna `HX-Push-Url` amb l'adreça canonica, de manera que l'enllaç es pot
  * compartir i el boto d'enrere funciona.
  */
-export function FilterBar({ codi, filters }: FilterBarProps): Html {
+export function FilterBar({ code, filters }: FilterBarProps): Html {
   return html`<form
     class="filtres"
-    hx-get="/e/${codi}/avisos/fragment/llista"
+    hx-get="/e/${code}/avisos/fragment/llista"
     hx-target="#llista-avisos"
     hx-swap="outerHTML"
     hx-trigger="change"
   >
     ${Checkbox({
       name: "descartats",
-      valor: "1",
+      value: "1",
       tag: "Inclou els descartats",
       marcat: filters.descartats,
     })}

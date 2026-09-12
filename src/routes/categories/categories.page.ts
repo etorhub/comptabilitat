@@ -10,13 +10,13 @@ import type { CategoryGroup, NodeCategory } from "../../services/categories.ts";
 import { Tree, CreateForm } from "./categories.fragment.ts";
 
 export interface CategoriesPageProps {
-  codi: string;
+  code: string;
   tree: Record<CategoryKind, NodeCategory[]>;
   groups: CategoryGroup[];
-  potEditar: boolean;
+  canEdit: boolean;
 }
 
-export function CategoriesPage({ codi, tree, groups, potEditar }: CategoriesPageProps): Html {
+export function CategoriesPage({ code, tree, groups, canEdit }: CategoriesPageProps): Html {
   return html`
     <header class="capçalera">
       <h1>Categories</h1>
@@ -26,7 +26,7 @@ export function CategoriesPage({ codi, tree, groups, potEditar }: CategoriesPage
       </p>
     </header>
 
-    ${potEditar ? CreateForm({ codi, groups }) : ""}
-    ${Tree({ codi, tree, potEditar })}
+    ${canEdit ? CreateForm({ code, groups }) : ""}
+    ${Tree({ code, tree, canEdit })}
   ` as Html;
 }

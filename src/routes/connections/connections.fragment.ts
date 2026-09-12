@@ -157,8 +157,8 @@ export function AccountRow({
         name: "ledger_id",
         id: `espai-compte-${account.id}`,
         tag: `Espai del compte ${account.name}`,
-        valor: account.ledgerId,
-        options: workspaces.map((e) => ({ valor: e.id, text: e.name })),
+        value: account.ledgerId,
+        options: workspaces.map((e) => ({ value: e.id, text: e.name })),
         empty: "— sense assignar —",
         // Es la peticio mes llarga de l'aplicacio —centenars de moviments
         // reclassificats— i fins ara no es veia que estigues passant res.

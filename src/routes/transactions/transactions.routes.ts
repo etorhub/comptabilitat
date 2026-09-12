@@ -63,35 +63,33 @@ export const transactionsRoutes = new Hono();
 
 async function data(ledgerId: number, query: Record<string, string | string[]>) {
   const filters = transactionFiltersSchema.parse(query);
-  const [paged, groups, accountList, etiquetesConegudes, targetesConegudes] = await Promise.all(
-    [
-      listTransactions(ledgerId, {
-        accountId: filters.compte,
-        dateFrom: filters.des,
-        dateTo: filters.fins,
-        categoryIds: filters.categoria === null ? [] : [filters.categoria],
-        merchantId: null,
-        search: filters.cerca,
-        tag: filters.etiqueta,
-        tipusOperacio: filters.type,
-        cards: filters.card,
-        nomesRevisio: filters.revisio,
-        nomesSenseClassificar: filters.sense_classificar,
-        incloTraspassos: filters.traspassos,
-        limit: PER_PAGE,
-        offset: filters.pagina * PER_PAGE,
-      }),
-      categoryOptions(ledgerId),
-      db
-        .select({ valor: accounts.id, text: accounts.name })
-        .from(accounts)
-        .where(eq(accounts.ledgerId, ledgerId))
-        .orderBy(accounts.name),
-      workspaceTags(ledgerId),
-      cardsAvailable(ledgerId, filters.compte),
-    ],
-  );
-  return { filters, page: paged, groups, accountList, etiquetesConegudes, targetesConegudes };
+  const [paged, groups, accountList, knownTags, knownCards] = await Promise.all([
+    listTransactions(ledgerId, {
+      accountId: filters.compte,
+      dateFrom: filters.des,
+      dateTo: filters.fins,
+      categoryIds: filters.categoria === null ? [] : [filters.categoria],
+      merchantId: null,
+      search: filters.cerca,
+      tag: filters.etiqueta,
+      operationType: filters.type,
+      cards: filters.card,
+      onlyReview: filters.revisio,
+      onlyUnclassified: filters.sense_classificar,
+      includeTransfers: filters.traspassos,
+      limit: PER_PAGE,
+      offset: filters.pagina * PER_PAGE,
+    }),
+    categoryOptions(ledgerId),
+    db
+      .select({ value: accounts.id, text: accounts.name })
+      .from(accounts)
+      .where(eq(accounts.ledgerId, ledgerId))
+      .orderBy(accounts.name),
+    workspaceTags(ledgerId),
+    cardsAvailable(ledgerId, filters.compte),
+  ]);
+  return { filters, page: paged, groups, accountList, knownTags, knownCards };
 }
 
 /** Query string amb `tipus` i `targeta` repetits (checkboxes multiples). */
@@ -126,8 +124,8 @@ transactionsRoutes.get("/", async (c) => {
     filters,
     groups,
     accountList,
-    etiquetesConegudes,
-    targetesConegudes,
+    knownTags,
+    knownCards,
   } = await data(workspace.id, requestQuery(c));
 
   return page(
@@ -136,14 +134,14 @@ transactionsRoutes.get("/", async (c) => {
       c,
       "Moviments",
       TransactionsPage({
-        codi: workspace.code,
+        code: workspace.code,
         page: paged,
         groups,
         accountList,
         filters,
-        potEditar: roleAtLeast(currentRole(c), "editor"),
-        etiquetesConegudes,
-        targetesConegudes,
+        canEdit: roleAtLeast(currentRole(c), "editor"),
+        knownTags,
+        knownCards,
       }),
     ),
   );
@@ -157,8 +155,8 @@ transactionsRoutes.get("/fragment/taula", async (c) => {
     page: paged,
     filters,
     groups,
-    etiquetesConegudes,
-    targetesConegudes,
+    knownTags,
+    knownCards,
   } = await data(workspace.id, requestQuery(c));
 
   pushUrl(c, `/e/${workspace.code}/moviments${transactionFiltersToQuery(filters)}`);
@@ -167,15 +165,15 @@ transactionsRoutes.get("/fragment/taula", async (c) => {
     c,
     await withOob(
       Table({
-        codi: workspace.code,
+        code: workspace.code,
         page: paged,
         groups,
         filters,
-        potEditar: roleAtLeast(currentRole(c), "editor"),
-        etiquetesConegudes,
+        canEdit: roleAtLeast(currentRole(c), "editor"),
+        knownTags,
       }),
       FiltreTargetes({
-        cards: targetesConegudes,
+        cards: knownCards,
         seleccionades: filters.card,
         oob: true,
       }),
@@ -190,7 +188,7 @@ transactionsRoutes.get("/:id/fragment/fila", async (c) => {
     idFromRoute(c.req.param("id"), "Aquest moviment no existeix"),
     workspace.id,
   );
-  const [groups, etiquetesConegudes] = await Promise.all([
+  const [groups, knownTags] = await Promise.all([
     categoryOptions(workspace.id),
     workspaceTags(workspace.id),
   ]);
@@ -199,11 +197,11 @@ transactionsRoutes.get("/:id/fragment/fila", async (c) => {
     c,
     await withOob(
       Row({
-        codi: workspace.code,
+        code: workspace.code,
         transaction,
         groups,
-        potEditar: roleAtLeast(currentRole(c), "editor"),
-        etiquetesConegudes,
+        canEdit: roleAtLeast(currentRole(c), "editor"),
+        knownTags,
       }),
       clearToast(),
     ),
@@ -217,7 +215,7 @@ transactionsRoutes.get("/:id/fragment/categoria", requireEditor, async (c) => {
     idFromRoute(c.req.param("id"), "Aquest moviment no existeix"),
     workspace.id,
   );
-  const [groups, etiquetesConegudes] = await Promise.all([
+  const [groups, knownTags] = await Promise.all([
     categoryOptions(workspace.id),
     workspaceTags(workspace.id),
   ]);
@@ -225,12 +223,12 @@ transactionsRoutes.get("/:id/fragment/categoria", requireEditor, async (c) => {
   return fragment(
     c,
     Row({
-      codi: workspace.code,
+      code: workspace.code,
       transaction,
       groups,
-      potEditar: true,
+      canEdit: true,
       editantCategoria: true,
-      etiquetesConegudes,
+      knownTags,
     }),
   );
 });
@@ -242,7 +240,7 @@ transactionsRoutes.get("/:id/fragment/concepte", requireEditor, async (c) => {
     idFromRoute(c.req.param("id"), "Aquest moviment no existeix"),
     workspace.id,
   );
-  return fragment(c, FilaConcepte({ codi: workspace.code, transaction }));
+  return fragment(c, FilaConcepte({ code: workspace.code, transaction }));
 });
 
 // --- Mutacions -------------------------------------------------------------
@@ -251,11 +249,11 @@ transactionsRoutes.get("/:id/fragment/concepte", requireEditor, async (c) => {
 async function rowResponse(
   c: Parameters<typeof fragment>[0],
   workspaceId: number,
-  codi: string,
+  code: string,
   id: number,
   message?: { text: string; to: "success" | "info" },
 ) {
-  const [transaction, groups, perRevisar, etiquetesConegudes] = await Promise.all([
+  const [transaction, groups, perRevisar, knownTags] = await Promise.all([
     transactionInWorkspace(id, workspaceId),
     categoryOptions(workspaceId),
     countToReview(workspaceId),
@@ -265,7 +263,7 @@ async function rowResponse(
   return fragment(
     c,
     await withOob(
-      Row({ codi, transaction, groups, potEditar: true, etiquetesConegudes }),
+      Row({ code, transaction, groups, canEdit: true, knownTags }),
       ReviewCounter(perRevisar, true),
       message ? toast(message.text, message.to) : clearToast(),
     ),
@@ -292,7 +290,7 @@ transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
   const row = await transactionRow(id, workspace.id);
 
   const { recordats } = await categorizeTransaction(id, row, parsed.data.category_id, {
-    recordaComerc: parsed.data.recorda_comerc,
+    rememberMerchant: parsed.data.recorda_comerc,
   });
 
   return rowResponse(
@@ -322,7 +320,7 @@ transactionsRoutes.post("/:id/concepte", requireEditor, async (c) => {
     return fragment(
       c,
       await withOob(
-        FilaConcepte({ codi: workspace.code, transaction }),
+        FilaConcepte({ code: workspace.code, transaction }),
         toast("El text es massa llarg"),
       ),
       422,
@@ -379,15 +377,10 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
     parsed.data.transaction,
     workspace.id,
     parsed.data.category_id,
-    { recordaComerc: parsed.data.recorda_comerc },
+    { rememberMerchant: parsed.data.recorda_comerc },
   );
 
-  const {
-    page: paged,
-    filters,
-    groups,
-    etiquetesConegudes,
-  } = await data(workspace.id, requestQuery(c));
+  const { page: paged, filters, groups, knownTags } = await data(workspace.id, requestQuery(c));
   const perRevisar = await countToReview(workspace.id);
 
   // Els filtres venen a l'adreça del `hx-post`, de manera que la taula torna
@@ -399,12 +392,12 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
     c,
     await withOob(
       Table({
-        codi: workspace.code,
+        code: workspace.code,
         page: paged,
         groups,
         filters,
-        potEditar: true,
-        etiquetesConegudes,
+        canEdit: true,
+        knownTags,
       }),
       ReviewCounter(perRevisar, true),
       toast(
@@ -441,24 +434,19 @@ transactionsRoutes.post("/bloc/etiquetes", requireEditor, async (c) => {
     throw err;
   }
 
-  const {
-    page: paged,
-    filters,
-    groups,
-    etiquetesConegudes,
-  } = await data(workspace.id, requestQuery(c));
+  const { page: paged, filters, groups, knownTags } = await data(workspace.id, requestQuery(c));
   pushUrl(c, `/e/${workspace.code}/moviments${transactionFiltersToQuery(filters)}`);
 
   return fragment(
     c,
     await withOob(
       Table({
-        codi: workspace.code,
+        code: workspace.code,
         page: paged,
         groups,
         filters,
-        potEditar: true,
-        etiquetesConegudes,
+        canEdit: true,
+        knownTags,
       }),
       toast(
         `S'ha posat l'etiqueta a ${parsed.data.transaction.length} ${
@@ -479,7 +467,7 @@ transactionsRoutes.post("/:id/etiquetes", requireEditor, async (c) => {
   const parsed = tagAddRowSchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success) {
-    const [groups, etiquetesConegudes, transaction] = await Promise.all([
+    const [groups, knownTags, transaction] = await Promise.all([
       categoryOptions(workspace.id),
       workspaceTags(workspace.id),
       transactionInWorkspace(id, workspace.id),
@@ -487,7 +475,7 @@ transactionsRoutes.post("/:id/etiquetes", requireEditor, async (c) => {
     return fragment(
       c,
       await withOob(
-        Row({ codi: workspace.code, transaction, groups, potEditar: true, etiquetesConegudes }),
+        Row({ code: workspace.code, transaction, groups, canEdit: true, knownTags }),
         toast(parsed.error.issues[0]?.message ?? "L'etiqueta no es valida"),
       ),
       422,
@@ -526,7 +514,7 @@ transactionsRoutes.get("/revisio", async (c) => {
     await workspacePage(
       c,
       "Per revisar",
-      ReviewPage({ codi: workspace.code, items, groups, total }),
+      ReviewPage({ code: workspace.code, items, groups, total }),
     ),
   );
 });
@@ -555,7 +543,7 @@ transactionsRoutes.post("/:id/revisa", requireEditor, async (c) => {
   // El mateix que canviar-la des de la llista, i a mes tanca la proposta del
   // model dient si l'encertava.
   await confirmFromReview(id, row, parsed.data.category_id, {
-    recordaComerc: parsed.data.recorda_comerc,
+    rememberMerchant: parsed.data.recorda_comerc,
   });
 
   const perRevisar = await countToReview(workspace.id);
