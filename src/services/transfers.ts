@@ -103,34 +103,35 @@ export async function detectTransfers(ledgerId: number, lookbackDays = 120): Pro
 }
 
 /**
- * L'entrada que fa parella amb una sortida.
+ * The credit leg that pairs with a given debit leg.
  *
- * Ha de ser d'un **altre compte**, del mateix import canviat de signe i dins
- * de la finestra; si n'hi ha mes d'una, guanya la mes propera en el temps.
+ * It has to be on a **different account**, for the same amount with the sign
+ * flipped, and inside the window; if there is more than one, the closest in
+ * time wins.
  */
 function findCounterparty(
-  output: Candidat,
-  entrades: Candidat[],
-  gastades: Set<number>,
+  debit: Candidat,
+  credits: Candidat[],
+  used: Set<number>,
 ): Candidat | null {
-  const target = money(output.amount).negated();
-  let millor: Candidat | null = null;
-  let millorDistancia = MATCH_WINDOW_DAYS + 1;
+  const target = money(debit.amount).negated();
+  let best: Candidat | null = null;
+  let bestDistance = MATCH_WINDOW_DAYS + 1;
 
-  for (const login of entrades) {
-    if (gastades.has(login.id) || login.id === output.id) continue;
-    // Del mateix compte no es un traspas.
-    if (login.accountId === output.accountId) continue;
-    if (!money(login.amount).equals(target)) continue;
+  for (const credit of credits) {
+    if (used.has(credit.id) || credit.id === debit.id) continue;
+    // Within the same account it is not a transfer.
+    if (credit.accountId === debit.accountId) continue;
+    if (!money(credit.amount).equals(target)) continue;
 
-    const distancia = Math.abs(daysBetween(output.bookingDate, login.bookingDate));
-    if (distancia > MATCH_WINDOW_DAYS) continue;
+    const distance = Math.abs(daysBetween(debit.bookingDate, credit.bookingDate));
+    if (distance > MATCH_WINDOW_DAYS) continue;
 
-    if (distancia < millorDistancia) {
-      millor = login;
-      millorDistancia = distancia;
+    if (distance < bestDistance) {
+      best = credit;
+      bestDistance = distance;
     }
   }
 
-  return millor;
+  return best;
 }

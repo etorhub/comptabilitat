@@ -1,38 +1,38 @@
 /**
- * Diners.
+ * Money.
  *
- * El Python feia servir `Decimal` a tot arreu. JavaScript no en te equivalent
- * i `numeric(14,2)` arriba de Drizzle com a **`string`**. La regla, doncs:
+ * The Python version used `Decimal` everywhere. JavaScript has no equivalent,
+ * and `numeric(14,2)` arrives from Drizzle as a **`string`**. Hence the rule:
  *
- *   - a la vora de la base de dades, `string`;
- *   - als serveis, `Decimal`;
- *   - a la vora de la plantilla, `string` ja formatat.
+ *   - at the database edge, `string`;
+ *   - in the services, `Decimal`;
+ *   - at the template edge, an already-formatted `string`.
  *
- * `number` nomes s'hi val per als grafics, que son nomes per mirar. Fer
- * `parseFloat` d'un import per sumar-lo es un error de correccio en una
- * aplicacio de comptabilitat, no una preferencia d'estil.
+ * `number` is only good enough for charts, which are only there to be looked
+ * at. Running `parseFloat` on an amount in order to add it up is a correctness
+ * bug in an accounting application, not a matter of style.
  */
 
 import Decimal from "decimal.js";
 
-// 2 decimals, arrodoniment a la meitat amunt: el que fa `Decimal` de Python
-// amb `ROUND_HALF_UP`, que es el que espera qualsevol banc.
+// Two decimals, half-up rounding: what Python's `Decimal` does with
+// `ROUND_HALF_UP`, which is what any bank expects.
 Decimal.set({ precision: 28, rounding: Decimal.ROUND_HALF_UP });
 
 export { Decimal };
 
-/** Import monetari tal com surt de la base de dades. */
+/** A monetary amount as it comes out of the database. */
 export type MoneyString = string;
 
 export const ZERO = new Decimal(0);
 
-/** De la base de dades (o d'un formulari ja validat) a `Decimal`. */
+/** From the database (or an already-validated form) to `Decimal`. */
 export function money(value: MoneyString | number | Decimal | null | undefined): Decimal {
   if (value === null || value === undefined || value === "") return ZERO;
   return new Decimal(value);
 }
 
-/** De `Decimal` a la cadena de dos decimals que espera la base de dades. */
+/** From `Decimal` to the two-decimal string the database expects. */
 export function toMoneyString(value: Decimal | number | string): MoneyString {
   return new Decimal(value).toFixed(2);
 }
@@ -56,16 +56,17 @@ export function abs(value: MoneyString | Decimal): Decimal {
 }
 
 /**
- * Nomes per als grafics. Qualsevol altre us es un error: si t'ho trobes en un
- * calcul, el calcul esta malament.
+ * For charts only. Any other use is a bug: if you find this in a calculation,
+ * the calculation is wrong.
  */
 export function toChartNumber(value: MoneyString | Decimal): number {
   return money(value).toNumber();
 }
 
-// --- Format ----------------------------------------------------------------
+// --- Formatting ------------------------------------------------------------
 
-const formatadorLlarg = new Intl.NumberFormat("ca-ES", {
+// Catalan and euros, because this is shown on screen.
+const currencyFormatter = new Intl.NumberFormat("ca-ES", {
   style: "currency",
   currency: "EUR",
   minimumFractionDigits: 2,
@@ -74,5 +75,5 @@ const formatadorLlarg = new Intl.NumberFormat("ca-ES", {
 
 /** «1.234,56 €» */
 export function formatMoney(value: MoneyString | Decimal | null | undefined): string {
-  return formatadorLlarg.format(money(value).toNumber());
+  return currencyFormatter.format(money(value).toNumber());
 }

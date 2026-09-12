@@ -44,7 +44,7 @@ function tableOob(): string {
   const rows = Object.entries(OOB_TARGETS).map(([id, o]) => {
     const target = `\`#${id}\``;
     const mode = o.mode === "innerHTML" ? " _(contingut)_" : "";
-    return `| ${target}${mode} | ${o.amo} | ${o.quan} |`;
+    return `| ${target}${mode} | ${o.owner} | ${o.when} |`;
   });
 
   return [

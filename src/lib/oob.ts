@@ -1,109 +1,114 @@
 /**
- * Els objectius dels intercanvis fora de banda.
+ * The out-of-band swap targets.
  *
- * **Aquest fitxer es la font de veritat, i la taula de l'`AGENTS.md` en surt.**
- * `bun run docs` la torna a escriure i `bun run docs:check` (dins de `bun run
- * check`) fa fallar el CI si no hi encaixa. Aixi la documentacio no pot quedar
- * enrere: no es que algu s'hagi de recordar d'actualitzar-la, es que no existeix
- * per separat.
+ * **This file is the source of truth, and the table in `docs/referencia.md`
+ * comes out of it.** `bun run docs` rewrites that table and `bun run docs:check`
+ * (inside `bun run check`) fails CI when it no longer matches. The documentation
+ * cannot fall behind, because it does not exist separately: nobody has to
+ * remember to update it.
  *
- * Feia falta. La taula de l'`AGENTS.md` en llistava **tres** quan el codi ja en
- * dibuixava **tretze**, i aixo despres d'un commit (`a3a9457`) dedicat
- * expressament a reconciliar el document amb el codi. Una llista escrita a ma
- * al costat del codi torna a separar-se'n; l'unica manera que no passi es que
- * no sigui a ma.
+ * That was needed. The table listed **three** targets while the code already
+ * rendered **thirteen** — and that was after a commit (`a3a9457`) devoted
+ * expressly to reconciling the document with the code. A list written by hand
+ * next to the code drifts away from it again; the only way it cannot is for it
+ * not to be written by hand.
  *
- * **I el registre es de debo, no decoratiu.** Els components demanen els seus
- * atributs a `atributsOob()`, que nomes accepta claus d'aqui: un objectiu nou
- * que no s'hi registri no compila. Un registre que ningu no importa es
- * exactament tan fragil com la taula que substitueix.
+ * **And the registry is load-bearing, not decorative.** Components ask
+ * `oobAttributes()` for their attributes, and it only accepts keys from here:
+ * a new target that is not registered does not compile. A registry nobody
+ * imports is exactly as fragile as the table it replaces.
  */
 
 import { raw } from "hono/html";
 import type { HtmlEscapedString } from "hono/utils/html";
 
 /**
- * Com s'intercanvia un objectiu.
+ * How a target is swapped.
  *
- * Gairebe tots son `outerHTML`: arriba el node sencer i substitueix el que hi
- * havia. El `#toast` no, i el motiu es a `lib/http.ts`: si es reemplaces el
- * node sencer, el de recanvi hauria de dur l'`aria-live`, i el navegador nomes
- * anuncia una regio viva que ja existia quan s'hi ha posat el text.
+ * Nearly all of them are `outerHTML`: the whole node arrives and replaces what
+ * was there. `#toast` is not, and the reason is in `lib/http.ts`: replacing the
+ * whole node would mean the replacement has to carry `aria-live`, and the
+ * browser only announces a live region that already existed when the text was
+ * put into it.
  */
 export type OobMode = "outerHTML" | "innerHTML";
 
 export interface OobTarget {
-  /** Qui el dibuixa. */
-  amo: string;
-  /** Quan canvia. */
-  quan: string;
+  /** Which module renders it. */
+  owner: string;
+  /** When it changes. */
+  when: string;
   mode: OobMode;
 }
 
+/**
+ * The ids stay Catalan: they are part of the markup the browser sees, like the
+ * URLs. Everything said *about* them is English.
+ */
 export const OOB_TARGETS = {
   toast: {
-    amo: "lib/http.ts",
-    quan: "qualsevol error o confirmacio",
+    owner: "lib/http.ts",
+    when: "any error or confirmation",
     mode: "innerHTML",
   },
   "comptador-revisio": {
-    amo: "components/layout.ts",
-    quan: "es classifica un moviment",
+    owner: "components/layout.ts",
+    when: "a transaction is categorised",
     mode: "outerHTML",
   },
   "comptador-avisos": {
-    amo: "components/layout.ts",
-    quan: "es llegeix o es descarta un avis",
+    owner: "components/layout.ts",
+    when: "an alert is read or dismissed",
     mode: "outerHTML",
   },
   "arbre-categories": {
-    amo: "routes/categories",
-    quan: "es crea, es canvia o s'esborra una categoria",
+    owner: "routes/categories",
+    when: "a category is created, changed or deleted",
     mode: "outerHTML",
   },
   "filtre-targetes": {
-    amo: "routes/transactions",
-    quan: "canvien les targetes conegudes de l'espai",
+    owner: "routes/transactions",
+    when: "the workspace's known cards change",
     mode: "outerHTML",
   },
   "taula-recurrents-propostes": {
-    amo: "routes/recurring",
-    quan: "es confirma o es descarta una proposta",
+    owner: "routes/recurring",
+    when: "a proposal is confirmed or dismissed",
     mode: "outerHTML",
   },
   "taula-recurrents-actives": {
-    amo: "routes/recurring",
-    quan: "es confirma, es canvia o es descarta una serie",
+    owner: "routes/recurring",
+    when: "a series is confirmed, changed or dismissed",
     mode: "outerHTML",
   },
   "llista-connexions": {
-    amo: "routes/connections",
-    quan: "es connecta, es mou o s'esborra un compte",
+    owner: "routes/connections",
+    when: "an account is connected, moved or deleted",
     mode: "outerHTML",
   },
   "llista-usuaris": {
-    amo: "routes/users",
-    quan: "es crea, es canvia o s'esborra un usuari",
+    owner: "routes/users",
+    when: "a user is created, changed or deleted",
     mode: "outerHTML",
   },
   "llista-feines": {
-    amo: "routes/jobs",
-    quan: "canvia la configuracio d'una feina",
+    owner: "routes/jobs",
+    when: "a job's configuration changes",
     mode: "outerHTML",
   },
   "historial-feines": {
-    amo: "routes/jobs",
-    quan: "acaba una execucio",
+    owner: "routes/jobs",
+    when: "a run finishes",
     mode: "outerHTML",
   },
   "en-curs": {
-    amo: "routes/jobs",
-    quan: "arrenca o acaba una feina",
+    owner: "routes/jobs",
+    when: "a job starts or finishes",
     mode: "outerHTML",
   },
   "agenda-salut": {
-    amo: "routes/jobs",
-    quan: "canvia l'estat del planificador",
+    owner: "routes/jobs",
+    when: "the scheduler's state changes",
     mode: "outerHTML",
   },
 } as const satisfies Record<string, OobTarget>;
@@ -111,22 +116,22 @@ export const OOB_TARGETS = {
 export type OobId = keyof typeof OOB_TARGETS;
 
 /**
- * L'`id` d'un objectiu i, si toca, el seu `hx-swap-oob`.
+ * A target's `id` and, when it applies, its `hx-swap-oob`.
  *
- * Substitueix l'`id="..."` escrit a ma mes el
- * `${oob ? raw('hx-swap-oob="true"') : ""}` que hi havia repetit a onze llocs.
- * El tipus de `id` es el que lliga el registre amb el codi: un objectiu que no
- * hi sigui no compila.
+ * This replaces the hand-written `id="..."` plus the
+ * `${oob ? raw('hx-swap-oob="true"') : ""}` that was repeated in eleven places.
+ * The type of `id` is what ties the registry to the code: a target that is not
+ * in it does not compile.
  */
 export function oobAttributes(id: OobId, oob = false): HtmlEscapedString {
   return raw(`id="${id}"${oob ? ' hx-swap-oob="true"' : ""}`) as HtmlEscapedString;
 }
 
 /**
- * L'atribut d'un embolcall que canvia **el contingut** d'un objectiu.
+ * The attribute for a wrapper that replaces a target's **content**.
  *
- * Nomes per als de mode `innerHTML`: el node que es dibuixa no es l'objectiu,
- * sino una capsa que duu el contingut nou cap a ell.
+ * Only for `innerHTML` targets: the node being rendered is not the target
+ * itself but a box carrying the new content towards it.
  */
 export function oobWrapper(id: OobId): HtmlEscapedString {
   return raw(`hx-swap-oob="innerHTML:#${id}"`) as HtmlEscapedString;

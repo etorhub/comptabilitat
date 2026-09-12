@@ -1,24 +1,25 @@
 /**
- * Els sondejos de l'aplicacio.
+ * The application's polls.
  *
- * N'hi ha dos —l'estat d'una importacio a `/connexions` i les feines en curs a
- * `/feines`— i son l'unica excepcio de la regla de l'`AGENTS.md` que diu que no
- * se sondeja mai.
+ * There are two — the state of an import on `/connexions`, and the running
+ * jobs on `/feines` — and they are the one exception to the `AGENTS.md` rule
+ * that says never to poll.
  *
- * Tots dos s'aturaven **nomes** quan el servidor deia que la feina havia
- * acabat. Aixo es correcte mentre la feina acabi. Quan no acaba —un
- * `docker compose stop` enmig d'una importacio deixa la fila en `running` per
- * sempre— la pagina s'ho continua preguntant cada dos segons, indefinidament i
- * per a tothom qui la miri. Va passar (`f80df91`), i el sondeig no en deia res:
- * el marcatge d'un que s'aturara i el d'un que no s'aturara mai son identics.
+ * Both of them used to stop **only** when the server said the work had
+ * finished. That is correct as long as the work finishes. When it does not — a
+ * `docker compose stop` in the middle of an import leaves the row `running`
+ * for ever — the page keeps asking every two seconds, indefinitely, for
+ * everyone looking at it. It happened (`f80df91`), and the poll said nothing
+ * about it: the markup of one that will stop and one that never will are
+ * identical.
  *
- * Ara el compte de vegades viatja **a l'adreça que se sondeja**. Es
- * server-authoritative i sense estat de client, com tota la resta de
- * l'aplicacio: cada resposta demana l'intent seguent, i quan s'acaben el
- * fragment deixa d'emetre disparador i ensenya que s'ha aturat.
+ * Now the attempt counter travels **in the URL being polled**. It is
+ * server-authoritative and holds no client state, like everything else here:
+ * each response asks for the next attempt, and when they run out the fragment
+ * stops emitting a trigger and shows that it has given up.
  *
- * Aquest fitxer es la capa prima en catala; el mecanisme es a
- * `htmx-contract/poll.ts`, en angles, perque ha de poder marxar amb la resta.
+ * This file is the thin application layer; the mechanism lives in
+ * `htmx-contract/poll.ts`, which is English because it has to be able to leave.
  */
 
 import { raw } from "hono/html";
@@ -26,56 +27,56 @@ import type { HtmlEscapedString } from "hono/utils/html";
 
 import { pollAttributes, readAttempt } from "../../htmx-contract/poll.ts";
 
-/** El parametre on viatja el compte. */
+/** The query parameter the counter rides in. Catalan, like the rest of the URL. */
 export const ATTEMPT_PARAM = "intent";
 
 /**
- * Trenta minuts a dos segons.
+ * Thirty minutes at two seconds.
  *
- * Generos a proposit. El manteniment de cada nit ja tanca les importacions que
- * fa mes de dues hores que no es mouen, i sota PSD2 una importacio viva de debo
- * impedeix començar-ne una altra: val mes que el sondeig es rendeixi tard que
- * no pas que es rendeixi mentre la feina encara corre.
+ * Generous on purpose. The nightly maintenance job already closes imports that
+ * have not moved for two hours, and under PSD2 a genuinely live import stops
+ * another one from starting: better that the poll gives up late than that it
+ * gives up while the work is still running.
  */
 export const MAX_ATTEMPTS = 900;
 
 export interface PollOptions {
-  /** L'adreça del fragment que se sondeja. */
+  /** The URL of the fragment being polled. */
   url: string;
-  /** On va la resposta. */
+  /** Where the response goes. */
   target: string;
-  /** Quin intent ha dibuixat aixo. El primer es 0. */
+  /** Which attempt rendered this. The first one is 0. */
   attempt: number;
-  /** Cada quants segons. */
-  cadaSegons?: number;
-  maxIntents?: number;
+  /** How many seconds between attempts. */
+  everySeconds?: number;
+  maxAttempts?: number;
 }
 
 /**
- * Els atributs per a un intent mes, o `""` si ja no en queden.
+ * The attributes for one more attempt, or `""` when there are none left.
  *
- * Qui el crida ha de mirar `sondeigExhaurit()` per ensenyar que s'ha aturat:
- * no n'hi ha prou de deixar d'emetre el disparador en silenci, perque llavors
- * la pagina es queda ensenyant un filador que no avançara mai.
+ * The caller must check `pollExhausted()` to show that it has given up: it is
+ * not enough to stop emitting the trigger silently, because then the page sits
+ * there showing a spinner that will never move.
  */
 export function poll(options: PollOptions): HtmlEscapedString | "" {
   const attributes = pollAttributes({
     url: options.url,
     target: options.target,
-    everyMs: (options.cadaSegons ?? 2) * 1000,
+    everyMs: (options.everySeconds ?? 2) * 1000,
     attempt: options.attempt,
-    maxAttempts: options.maxIntents ?? MAX_ATTEMPTS,
+    maxAttempts: options.maxAttempts ?? MAX_ATTEMPTS,
     attemptParam: ATTEMPT_PARAM,
   });
   return attributes === null ? "" : (raw(attributes) as HtmlEscapedString);
 }
 
-/** Si aquest intent ja es fora del limit. */
-export function pollExhausted(attempt: number, maxIntents = MAX_ATTEMPTS): boolean {
-  return attempt >= maxIntents;
+/** Whether this attempt is already past the limit. */
+export function pollExhausted(attempt: number, maxAttempts = MAX_ATTEMPTS): boolean {
+  return attempt >= maxAttempts;
 }
 
-/** El compte d'intents que ve de la cadena de consulta. */
-export function attemptFromQuery(valor: string | null | undefined): number {
-  return readAttempt(valor);
+/** The attempt counter as it arrives in the query string. */
+export function attemptFromQuery(value: string | null | undefined): number {
+  return readAttempt(value);
 }

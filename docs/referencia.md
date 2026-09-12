@@ -15,21 +15,21 @@ objectiu nou que no s'hi registri no compila.
 
 <!-- generat:oob -->
 
-| Objectiu                      | De qui és            | Quan canvia                                    |
-| ----------------------------- | -------------------- | ---------------------------------------------- |
-| `#toast` _(contingut)_        | lib/http.ts          | qualsevol error o confirmacio                  |
-| `#comptador-revisio`          | components/layout.ts | es classifica un moviment                      |
-| `#comptador-avisos`           | components/layout.ts | es llegeix o es descarta un avis               |
-| `#arbre-categories`           | routes/categories    | es crea, es canvia o s'esborra una categoria   |
-| `#filtre-targetes`            | routes/transactions  | canvien les targetes conegudes de l'espai      |
-| `#taula-recurrents-propostes` | routes/recurring     | es confirma o es descarta una proposta         |
-| `#taula-recurrents-actives`   | routes/recurring     | es confirma, es canvia o es descarta una serie |
-| `#llista-connexions`          | routes/connections   | es connecta, es mou o s'esborra un compte      |
-| `#llista-usuaris`             | routes/users         | es crea, es canvia o s'esborra un usuari       |
-| `#llista-feines`              | routes/jobs          | canvia la configuracio d'una feina             |
-| `#historial-feines`           | routes/jobs          | acaba una execucio                             |
-| `#en-curs`                    | routes/jobs          | arrenca o acaba una feina                      |
-| `#agenda-salut`               | routes/jobs          | canvia l'estat del planificador                |
+| Objectiu                      | De qui és            | Quan canvia                                 |
+| ----------------------------- | -------------------- | ------------------------------------------- |
+| `#toast` _(contingut)_        | lib/http.ts          | any error or confirmation                   |
+| `#comptador-revisio`          | components/layout.ts | a transaction is categorised                |
+| `#comptador-avisos`           | components/layout.ts | an alert is read or dismissed               |
+| `#arbre-categories`           | routes/categories    | a category is created, changed or deleted   |
+| `#filtre-targetes`            | routes/transactions  | the workspace's known cards change          |
+| `#taula-recurrents-propostes` | routes/recurring     | a proposal is confirmed or dismissed        |
+| `#taula-recurrents-actives`   | routes/recurring     | a series is confirmed, changed or dismissed |
+| `#llista-connexions`          | routes/connections   | an account is connected, moved or deleted   |
+| `#llista-usuaris`             | routes/users         | a user is created, changed or deleted       |
+| `#llista-feines`              | routes/jobs          | a job's configuration changes               |
+| `#historial-feines`           | routes/jobs          | a run finishes                              |
+| `#en-curs`                    | routes/jobs          | a job starts or finishes                    |
+| `#agenda-salut`               | routes/jobs          | the scheduler's state changes               |
 
 <!-- /generat:oob -->
 

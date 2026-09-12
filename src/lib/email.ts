@@ -40,12 +40,12 @@ export interface Summary {
 
 /** Retorna el cos HTML i el cos de text pla del resum d'avisos. */
 export async function renderSummary(
-  entrades: readonly SummaryEntry[],
+  entries: readonly SummaryEntry[],
   titol: string,
   subtitol: string,
 ): Promise<Summary> {
   const blocs = await Promise.all(
-    entrades.map(
+    entries.map(
       (e) => html`
         <div
           style="border-left:4px solid ${COLOR_GRAVETAT[e.severity]};
@@ -78,9 +78,9 @@ export async function renderSummary(
     </html>`;
 
   const linies: string[] = [titol, subtitol, ""];
-  for (const login of entrades) {
-    linies.push(`[${TAG_GRAVETAT[login.severity]}] ${login.title}`);
-    if (login.body !== "") linies.push(`  ${login.body}`);
+  for (const entry of entries) {
+    linies.push(`[${TAG_GRAVETAT[entry.severity]}] ${entry.title}`);
+    if (entry.body !== "") linies.push(`  ${entry.body}`);
     linies.push("");
   }
   linies.push(config.publicBaseUrl);

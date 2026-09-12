@@ -1,11 +1,11 @@
 /**
- * Adreces versionades dels fitxers de `public/`.
+ * Versioned URLs for the files in `public/`.
  *
- * Els estàtics es serveixen amb `Cache-Control: immutable` d'un any. Sense
- * un `?v=` lligat al contingut, un desplegament deixaria CSS/JS vells al
- * navegador fins que caduqués la memòria cau. El resum canvia quan canvia
- * el fitxer; en desenvolupament, el `css:watch` es nota al refrescar la
- * pàgina sense reiniciar el servidor (la memòria cau local mira el mtime).
+ * Static files are served with a one-year `Cache-Control: immutable`. Without a
+ * `?v=` tied to the content, a deployment would leave stale CSS and JS in the
+ * browser until the cache expired. The digest changes when the file changes; in
+ * development, `css:watch` shows up on a page refresh without restarting the
+ * server, because the local cache keys on mtime.
  */
 
 import { createHash } from "node:crypto";
@@ -14,44 +14,44 @@ import { join } from "node:path";
 
 const PUBLIC = join(import.meta.dir, "../../public");
 
-interface Login {
+interface CacheEntry {
   mtimeMs: number;
-  summary: string;
+  digest: string;
 }
 
-const memoria = new Map<string, Login>();
+const cache = new Map<string, CacheEntry>();
 
 /**
- * Fitxers que la plantilla pot demanar. Només aquests: la funció no és
- * un servidor d'estàtics genèric.
+ * The files a template may ask for. Only these: this is not a general static
+ * file server.
  */
 export type StaticFile =
   "app.css" | "htmx.min.js" | "echarts.min.js" | "grafics.js" | "favicon.svg";
 
-function summaryOf(name: StaticFile): string {
+function digestOf(name: StaticFile): string {
   const path = join(PUBLIC, name);
   let mtimeMs = 0;
   try {
     mtimeMs = statSync(path).mtimeMs;
   } catch {
-    // El fitxer pot no existir encara (p. ex. `app.css` abans de `bun run css`).
-    // Retornem un marcador estable perquè la plantilla no peti.
+    // The file may not exist yet (`app.css` before `bun run css`, say). Return
+    // a stable marker so the template does not blow up.
     return "absent";
   }
 
-  const cached = memoria.get(name);
+  const cached = cache.get(name);
   if (cached && cached.mtimeMs === mtimeMs) {
-    return cached.summary;
+    return cached.digest;
   }
 
-  // Lectura síncrona: les plantilles de hono/html es dibuixen síncronament.
+  // Synchronous read: hono/html templates render synchronously.
   const buffer = readFileSync(path);
-  const summary = createHash("sha256").update(buffer).digest("hex").slice(0, 8);
-  memoria.set(name, { mtimeMs, summary });
-  return summary;
+  const digest = createHash("sha256").update(buffer).digest("hex").slice(0, 8);
+  cache.set(name, { mtimeMs, digest });
+  return digest;
 }
 
-/** Adreça amb versió: `/app.css?v=a1b2c3d4`. */
+/** A versioned URL: `/app.css?v=a1b2c3d4`. */
 export function staticHref(name: StaticFile): string {
-  return `/${name}?v=${summaryOf(name)}`;
+  return `/${name}?v=${digestOf(name)}`;
 }
