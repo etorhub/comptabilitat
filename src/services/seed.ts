@@ -99,7 +99,7 @@ export async function seedCategories(ledgerId: number): Promise<number> {
     ["transfer", TRANSFER_TREE],
   ];
 
-  const existents = new Set(
+  const existing = new Set(
     (
       await db
         .select({ slug: categories.slug })
@@ -112,24 +112,24 @@ export async function seedCategories(ledgerId: number): Promise<number> {
   let position = 0;
 
   for (const [kind, tree] of trees) {
-    for (const [nomPare, color, children] of tree) {
-      const parentSlug = slugify(nomPare);
+    for (const [parentName, color, children] of tree) {
+      const parentSlug = slugify(parentName);
       let parentId: number | undefined;
 
-      if (existents.has(parentSlug)) {
-        const [ja] = await db
+      if (existing.has(parentSlug)) {
+        const [already] = await db
           .select({ id: categories.id })
           .from(categories)
           .where(and(eq(categories.ledgerId, ledgerId), eq(categories.slug, parentSlug)))
           .limit(1);
-        parentId = ja?.id;
+        parentId = already?.id;
       } else {
         const [creat] = await db
           .insert(categories)
           .values({
             ledgerId,
             slug: parentSlug,
-            name: nomPare,
+            name: parentName,
             kind,
             color,
             icon: "",
@@ -146,7 +146,7 @@ export async function seedCategories(ledgerId: number): Promise<number> {
 
       for (const childName of children) {
         const slugChild = `${parentSlug}-${slugify(childName)}`;
-        if (existents.has(slugChild)) continue;
+        if (existing.has(slugChild)) continue;
         await db.insert(categories).values({
           ledgerId,
           slug: slugChild,
@@ -172,9 +172,9 @@ export async function seedLedgers(): Promise<Ledger[]> {
   const created: Ledger[] = [];
 
   for (const [position, [code, name, color, description]] of DEFAULT_LEDGERS.entries()) {
-    const [ja] = await db.select().from(ledgers).where(eq(ledgers.code, code)).limit(1);
-    if (ja) {
-      await seedCategories(ja.id);
+    const [already] = await db.select().from(ledgers).where(eq(ledgers.code, code)).limit(1);
+    if (already) {
+      await seedCategories(already.id);
       continue;
     }
 

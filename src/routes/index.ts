@@ -30,10 +30,10 @@ import { requireAdmin, requireUser } from "../middleware/session.ts";
 import { workspaceMiddleware } from "../middleware/workspace.ts";
 
 /** Hangs some routes behind the installation-administrator guard. */
-function withAdmin(rutes: Hono): Hono {
+function withAdmin(routes: Hono): Hono {
   const sub = new Hono();
   sub.use("*", requireAdmin);
-  sub.route("/", rutes);
+  sub.route("/", routes);
   return sub;
 }
 
