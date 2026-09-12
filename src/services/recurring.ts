@@ -1,18 +1,18 @@
 /**
- * Deteccio de rebuts previstos (schedules).
+ * Detection of expected direct debits (schedules).
  *
- * El detector mira l'historic categoritzat i **nomes proposa** series
- * (`status: suggested`). La persona les confirma o les descarta a
- * `/recurrents`. La previsio nomes mira les `active` amb
+ * The detector looks at the categorized history and **only proposes** series
+ * (`status: suggested`). The person confirms or dismisses them at
+ * `/recurrents`. The forecast only looks at the `active` ones with
  * `include_in_forecast`.
  *
- * Agrupa per categoria + comerç + sentit. Calen ≥3 aparicions a intervals
- * regulars (o ja una serie activa/suggested existent que es refresca).
+ * It groups by category + merchant + direction. It needs ≥3 occurrences at
+ * regular intervals (or an already existing active/suggested series refreshed).
  */
 
 import { and, asc, eq, isNotNull } from "drizzle-orm";
 
-import { movimentsComptables } from "./filtres.ts";
+import { countableTransactions } from "./filters.ts";
 import { db, type Transactor } from "../db/client.ts";
 import {
   CADENCE_DAYS,
@@ -26,8 +26,8 @@ import {
 import { ConflictError } from "../lib/http.ts";
 import { addDays, daysBetween, todayLocal } from "../lib/time.ts";
 import { Decimal, money, toMoneyString, type MoneyString } from "../lib/money.ts";
-import { creaAvis } from "./alerts.ts";
-import { categoriaDeLespai } from "./categories.ts";
+import { createAlert } from "./alerts.ts";
+import { categoryInWorkspace } from "./categories.ts";
 
 const CADENCE_TOLERANCE_DAYS: Record<Cadence, number> = {
   weekly: 2,
@@ -43,52 +43,52 @@ const MIN_OCCURRENCES = 3;
 const MISSING_GRACE_DAYS = 7;
 const HISTORY_MONTHS = 18;
 const MIN_REGULARITY = 0.6;
-/** Finestres per a `amount_mode: average`. */
+/** Windows for `amount_mode: average`. */
 const AVERAGE_MONTHS = 6;
 
-export interface EstadistiquesRecurrents {
-  creades: number;
-  actualitzades: number;
-  acabades: number;
-  avisos: number;
+export interface RecurringStats {
+  createdRows: number;
+  updatedRows: number;
+  finished: number;
+  alertList: number;
 }
 
-export function resumRecurrents(s: EstadistiquesRecurrents): string {
-  return `recurrents: ${s.creades} noves, ${s.actualitzades} actualitzades, ${s.acabades} finalitzades, ${s.avisos} avisos`;
+export function summaryRecurring(s: RecurringStats): string {
+  return `recurrents: ${s.createdRows} noves, ${s.updatedRows} actualitzades, ${s.finished} finalitzades, ${s.alertList} avisos`;
 }
 
-function mediana(valors: number[]): number {
-  if (valors.length === 0) return 0;
-  const ordenats = valors.toSorted((a, b) => a - b);
-  const mig = Math.floor(ordenats.length / 2);
-  if (ordenats.length % 2 === 1) return ordenats[mig] as number;
-  return ((ordenats[mig - 1] as number) + (ordenats[mig] as number)) / 2;
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = values.toSorted((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 1) return sorted[mid] as number;
+  return ((sorted[mid - 1] as number) + (sorted[mid] as number)) / 2;
 }
 
-function medianaImports(valors: string[]): Decimal {
-  if (valors.length === 0) return new Decimal(0);
-  const ordenats = valors.map((v) => new Decimal(v)).toSorted((a, b) => a.comparedTo(b));
-  const mig = Math.floor(ordenats.length / 2);
-  if (ordenats.length % 2 === 1) return ordenats[mig] as Decimal;
-  return (ordenats[mig - 1] as Decimal).plus(ordenats[mig] as Decimal).dividedBy(2);
+function medianAmount(values: string[]): Decimal {
+  if (values.length === 0) return new Decimal(0);
+  const sorted = values.map((v) => new Decimal(v)).toSorted((a, b) => a.comparedTo(b));
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 1) return sorted[mid] as Decimal;
+  return (sorted[mid - 1] as Decimal).plus(sorted[mid] as Decimal).dividedBy(2);
 }
 
-function cadenciaMesPropera(intervalDies: number): Cadence | null {
-  for (const cadencia of Object.keys(CADENCE_DAYS) as Cadence[]) {
-    if (Math.abs(intervalDies - CADENCE_DAYS[cadencia]) <= CADENCE_TOLERANCE_DAYS[cadencia]) {
-      return cadencia;
+function nextCadenceMonth(intervalDays: number): Cadence | null {
+  for (const cadence of Object.keys(CADENCE_DAYS) as Cadence[]) {
+    if (Math.abs(intervalDays - CADENCE_DAYS[cadence]) <= CADENCE_TOLERANCE_DAYS[cadence]) {
+      return cadence;
     }
   }
   return null;
 }
 
-function regularitat(intervals: number[], esperat: number, tolerancia: number): number {
+function regularity(intervals: number[], expected: number, tolerance: number): number {
   if (intervals.length === 0) return 0;
-  const bons = intervals.filter((v) => Math.abs(v - esperat) <= tolerancia).length;
-  return bons / intervals.length;
+  const good = intervals.filter((v) => Math.abs(v - expected) <= tolerance).length;
+  return good / intervals.length;
 }
 
-interface MovimentSerie {
+interface TransactionSeries {
   id: number;
   bookingDate: string;
   amount: string;
@@ -100,41 +100,43 @@ interface MovimentSerie {
   displayDescription: string | null;
 }
 
-function signatura(m: MovimentSerie): string {
-  const contrapart = m.merchantId !== null ? `m${m.merchantId}` : "-";
+function signature(m: TransactionSeries): string {
+  const counterparty = m.merchantId !== null ? `m${m.merchantId}` : "-";
   const sentit = money(m.amount).isPositive() ? "in" : "out";
-  return `c${m.categoryId}|${contrapart}|${sentit}`;
+  return `c${m.categoryId}|${counterparty}|${sentit}`;
 }
 
-function etiquetaSerie(m: MovimentSerie): string {
+function seriesLabel(m: TransactionSeries): string {
   if (m.displayDescription) return m.displayDescription;
   if (m.merchantDisplay) return m.merchantDisplay;
   return m.normalizedDescription || m.description.slice(0, 80);
 }
 
-function toleranciaDimport(importEsperat: Decimal): Decimal {
-  return Decimal.max(importEsperat.abs().times("0.10"), new Decimal("1.00")).toDecimalPlaces(2);
+function amountToleranceFor(expectedAmount: Decimal): Decimal {
+  return Decimal.max(expectedAmount.abs().times("0.10"), new Decimal("1.00")).toDecimalPlaces(
+    2,
+  );
 }
 
 /**
- * Proposa o refresca series a partir de l'historic categoritzat.
+ * Proposes or refreshes series from the categorized history.
  *
- * - Nova serie → `suggested`, fora de la previsio fins que es confirmi.
- * - `suggested` existent → refresca cadencia/import/dates.
- * - `active` → refresca dates i aparicions; l'import nomes si `average`.
- * - `dismissed` / `ended` → no es toca.
+ * - New series → `suggested`, out of the forecast until it is confirmed.
+ * - Existing `suggested` → refreshes cadence/amount/dates.
+ * - `active` → refreshes dates and occurrences; the amount only if `average`.
+ * - `dismissed` / `ended` → not touched.
  */
-export async function detectaRecurrents(ledgerId: number): Promise<EstadistiquesRecurrents> {
-  const estadistiques: EstadistiquesRecurrents = {
-    creades: 0,
-    actualitzades: 0,
-    acabades: 0,
-    avisos: 0,
+export async function detectRecurring(ledgerId: number): Promise<RecurringStats> {
+  const stats: RecurringStats = {
+    createdRows: 0,
+    updatedRows: 0,
+    finished: 0,
+    alertList: 0,
   };
 
   const des = addDays(todayLocal(), -HISTORY_MONTHS * 31);
 
-  const moviments = await db
+  const transactionList = await db
     .select({
       id: transactions.id,
       bookingDate: transactions.bookingDate,
@@ -149,259 +151,265 @@ export async function detectaRecurrents(ledgerId: number): Promise<Estadistiques
     .from(transactions)
     .leftJoin(merchants, eq(merchants.id, transactions.merchantId))
     .where(
-      and(movimentsComptables({ espais: ledgerId, des }), isNotNull(transactions.categoryId)),
+      and(
+        countableTransactions({ workspaces: ledgerId, des }),
+        isNotNull(transactions.categoryId),
+      ),
     )
     .orderBy(asc(transactions.bookingDate));
 
-  const grups = new Map<string, MovimentSerie[]>();
-  for (const moviment of moviments) {
-    if (moviment.categoryId === null) continue;
-    const fila: MovimentSerie = { ...moviment, categoryId: moviment.categoryId };
-    const clau = signatura(fila);
-    const grup = grups.get(clau);
-    if (grup) grup.push(fila);
-    else grups.set(clau, [fila]);
+  const groups = new Map<string, TransactionSeries[]>();
+  for (const transaction of transactionList) {
+    if (transaction.categoryId === null) continue;
+    const row: TransactionSeries = { ...transaction, categoryId: transaction.categoryId };
+    const key = signature(row);
+    const group = groups.get(key);
+    if (group) group.push(row);
+    else groups.set(key, [row]);
   }
 
-  for (const [clau, items] of grups) {
-    await avaluaGrup(ledgerId, clau, items, estadistiques);
+  for (const [key, items] of groups) {
+    await evaluateGroup(ledgerId, key, items, stats);
   }
 
-  return estadistiques;
+  return stats;
 }
 
-async function avaluaGrup(
+async function evaluateGroup(
   ledgerId: number,
-  clau: string,
-  items: MovimentSerie[],
-  estadistiques: EstadistiquesRecurrents,
+  key: string,
+  items: TransactionSeries[],
+  stats: RecurringStats,
 ): Promise<void> {
-  const [existent] = await db
+  const [existing] = await db
     .select()
     .from(recurringSeries)
-    .where(and(eq(recurringSeries.ledgerId, ledgerId), eq(recurringSeries.signature, clau)))
+    .where(and(eq(recurringSeries.ledgerId, ledgerId), eq(recurringSeries.signature, key)))
     .limit(1);
 
-  if (existent && (existent.status === "dismissed" || existent.status === "ended")) {
+  if (existing && (existing.status === "dismissed" || existing.status === "ended")) {
     return;
   }
 
   const dates = items.map((i) => i.bookingDate);
   const intervals: number[] = [];
   for (let i = 1; i < dates.length; i += 1) {
-    const dies = daysBetween(dates[i - 1] as string, dates[i] as string);
-    if (dies > 0) intervals.push(dies);
+    const days = daysBetween(dates[i - 1] as string, dates[i] as string);
+    if (days > 0) intervals.push(days);
   }
 
-  // Serie activa: refresca amb la cadencia que ja te (no cal re-detectar).
-  if (existent?.status === "active") {
-    const intervalArrodonit = existent.intervalDays;
-    const ultimaData = dates[dates.length - 1] as string;
-    const ultim = items[items.length - 1] as MovimentSerie;
-    const importDetectat = medianaImports(items.map((i) => i.amount)).toDecimalPlaces(2);
-    const importEsperat =
-      existent.amountMode === "average"
-        ? medianaImports(importsRecents(items)).toDecimalPlaces(2)
-        : money(existent.expectedAmount);
+  // Active series: refreshed with the cadence it already has (no need to re-detect).
+  if (existing?.status === "active") {
+    const roundedInterval = existing.intervalDays;
+    const lastDate = dates[dates.length - 1] as string;
+    const last = items[items.length - 1] as TransactionSeries;
+    const detectedAmount = medianAmount(items.map((i) => i.amount)).toDecimalPlaces(2);
+    const expectedAmount =
+      existing.amountMode === "average"
+        ? medianAmount(recentAmounts(items)).toDecimalPlaces(2)
+        : money(existing.expectedAmount);
 
     await db
       .update(recurringSeries)
       .set({
         occurrencesCount: items.length,
-        lastSeenDate: ultimaData,
-        nextExpectedDate: addDays(ultimaData, intervalArrodonit),
-        merchantId: ultim.merchantId,
-        ...(existent.amountMode === "average"
+        lastSeenDate: lastDate,
+        nextExpectedDate: addDays(lastDate, roundedInterval),
+        merchantId: last.merchantId,
+        ...(existing.amountMode === "average"
           ? {
-              expectedAmount: toMoneyString(importEsperat),
-              amountTolerance: toMoneyString(toleranciaDimport(importEsperat)),
+              expectedAmount: toMoneyString(expectedAmount),
+              amountTolerance: toMoneyString(amountToleranceFor(expectedAmount)),
             }
           : {}),
-        ...(ultim.displayDescription ? { label: ultim.displayDescription } : {}),
+        ...(last.displayDescription ? { label: last.displayDescription } : {}),
       })
-      .where(eq(recurringSeries.id, existent.id));
+      .where(eq(recurringSeries.id, existing.id));
 
-    estadistiques.actualitzades += 1;
+    stats.updatedRows += 1;
 
     if (
-      existent.amountMode === "exact" &&
-      money(ultim.amount)
-        .minus(money(existent.expectedAmount))
+      existing.amountMode === "exact" &&
+      money(last.amount)
+        .minus(money(existing.expectedAmount))
         .abs()
-        .gt(money(existent.amountTolerance))
+        .gt(money(existing.amountTolerance))
     ) {
-      const puja = money(ultim.amount).abs().gt(money(existent.expectedAmount).abs());
-      const creat = await creaAvis({
+      const goesUp = money(last.amount).abs().gt(money(existing.expectedAmount).abs());
+      const createdOne = await createAlert({
         type: "recurring_amount_change",
         ledgerId,
-        dedupKey: `amount-change:${existent.id}:${ultimaData}`,
-        title: `${existent.label}: l'import ${puja ? "puja" : "baixa"} a ${money(ultim.amount).abs().toFixed(2)} EUR`,
-        body: `L'import habitual era de ${money(existent.expectedAmount).abs().toFixed(2)} EUR i l'ultim rebut ha estat de ${money(ultim.amount).abs().toFixed(2)} EUR.`,
+        dedupKey: `amount-change:${existing.id}:${lastDate}`,
+        title: `${existing.label}: l'import ${goesUp ? "puja" : "baixa"} a ${money(last.amount).abs().toFixed(2)} EUR`,
+        body: `L'import habitual era de ${money(existing.expectedAmount).abs().toFixed(2)} EUR i l'ultim rebut ha estat de ${money(last.amount).abs().toFixed(2)} EUR.`,
         severity: "warning",
         payload: {
-          series_id: existent.id,
-          previous_amount: existent.expectedAmount,
-          new_amount: ultim.amount,
-          transaction_id: ultim.id,
+          series_id: existing.id,
+          previous_amount: existing.expectedAmount,
+          new_amount: last.amount,
+          transaction_id: last.id,
         },
       });
-      if (creat) estadistiques.avisos += 1;
+      if (createdOne) stats.alertList += 1;
     }
 
-    // Si l'import detectat divergeix molt amb average, no cal avis: ja es refresca.
-    void importDetectat;
-    await enllacaAparicions(existent.id, items);
+    // If the detected amount diverges a lot with average, no warning is needed: it is already refreshed.
+    void detectedAmount;
+    await linkOccurrences(existing.id, items);
     return;
   }
 
-  // Suggested nova o existent: cal patro minim.
+  // New or existing suggested: a minimum pattern is required.
   if (items.length < MIN_OCCURRENCES) return;
   if (intervals.length === 0) return;
 
-  const intervalMedia = mediana(intervals);
-  const trobada = cadenciaMesPropera(intervalMedia);
-  if (trobada === null) return;
+  const intervalMedia = median(intervals);
+  const found = nextCadenceMonth(intervalMedia);
+  if (found === null) return;
 
-  const tolerancia = CADENCE_TOLERANCE_DAYS[trobada];
-  const regular = regularitat(intervals, CADENCE_DAYS[trobada], tolerancia);
+  const tolerance = CADENCE_TOLERANCE_DAYS[found];
+  const regular = regularity(intervals, CADENCE_DAYS[found], tolerance);
   if (regular < MIN_REGULARITY) return;
 
-  const cadencia = trobada;
-  const intervalArrodonit = Math.round(intervalMedia);
-  const confianca =
+  const cadence = found;
+  const roundedInterval = Math.round(intervalMedia);
+  const confidence =
     Math.round(Math.min(1, regular * Math.min(1, items.length / 6)) * 100) / 100;
-  const importEsperat = medianaImports(items.map((i) => i.amount)).toDecimalPlaces(2);
-  const toleranciaImport = toleranciaDimport(importEsperat);
-  const ultimaData = dates[dates.length - 1] as string;
-  const seguentPrevista = addDays(ultimaData, intervalArrodonit);
-  const ultim = items[items.length - 1] as MovimentSerie;
+  const expectedAmount = medianAmount(items.map((i) => i.amount)).toDecimalPlaces(2);
+  const amountTolerance = amountToleranceFor(expectedAmount);
+  const lastDate = dates[dates.length - 1] as string;
+  const nextExpected = addDays(lastDate, roundedInterval);
+  const last = items[items.length - 1] as TransactionSeries;
 
-  if (!existent) {
-    const [creada] = await db
+  if (!existing) {
+    const [created] = await db
       .insert(recurringSeries)
       .values({
         ledgerId,
-        signature: clau,
-        label: etiquetaSerie(ultim),
-        merchantId: ultim.merchantId,
-        categoryId: ultim.categoryId,
-        cadence: cadencia,
-        expectedAmount: toMoneyString(importEsperat),
-        amountTolerance: toMoneyString(toleranciaImport),
+        signature: key,
+        label: seriesLabel(last),
+        merchantId: last.merchantId,
+        categoryId: last.categoryId,
+        cadence: cadence,
+        expectedAmount: toMoneyString(expectedAmount),
+        amountTolerance: toMoneyString(amountTolerance),
         amountMode: "exact",
-        intervalDays: intervalArrodonit,
-        confidence: confianca,
+        intervalDays: roundedInterval,
+        confidence: confidence,
         occurrencesCount: items.length,
         firstSeenDate: dates[0] as string,
-        lastSeenDate: ultimaData,
-        nextExpectedDate: seguentPrevista,
+        lastSeenDate: lastDate,
+        nextExpectedDate: nextExpected,
         status: "suggested",
         includeInForecast: false,
       })
       .returning({ id: recurringSeries.id });
 
-    if (!creada) return;
-    estadistiques.creades += 1;
-    await enllacaAparicions(creada.id, items);
+    if (!created) return;
+    stats.createdRows += 1;
+    await linkOccurrences(created.id, items);
     return;
   }
 
-  // suggested existent
+  // existing suggested
   await db
     .update(recurringSeries)
     .set({
-      cadence: cadencia,
-      intervalDays: intervalArrodonit,
-      confidence: confianca,
+      cadence: cadence,
+      intervalDays: roundedInterval,
+      confidence: confidence,
       occurrencesCount: items.length,
-      lastSeenDate: ultimaData,
-      nextExpectedDate: seguentPrevista,
-      merchantId: ultim.merchantId,
-      expectedAmount: toMoneyString(importEsperat),
-      amountTolerance: toMoneyString(toleranciaImport),
-      ...(ultim.displayDescription ? { label: ultim.displayDescription } : {}),
+      lastSeenDate: lastDate,
+      nextExpectedDate: nextExpected,
+      merchantId: last.merchantId,
+      expectedAmount: toMoneyString(expectedAmount),
+      amountTolerance: toMoneyString(amountTolerance),
+      ...(last.displayDescription ? { label: last.displayDescription } : {}),
     })
-    .where(eq(recurringSeries.id, existent.id));
+    .where(eq(recurringSeries.id, existing.id));
 
-  estadistiques.actualitzades += 1;
-  await enllacaAparicions(existent.id, items);
+  stats.updatedRows += 1;
+  await linkOccurrences(existing.id, items);
 }
 
-function importsRecents(items: MovimentSerie[]): string[] {
+function recentAmounts(items: TransactionSeries[]): string[] {
   const des = addDays(todayLocal(), -AVERAGE_MONTHS * 31);
-  const recents = items.filter((i) => i.bookingDate >= des).map((i) => i.amount);
-  return recents.length > 0 ? recents : items.map((i) => i.amount);
+  const recent = items.filter((i) => i.bookingDate >= des).map((i) => i.amount);
+  return recent.length > 0 ? recent : items.map((i) => i.amount);
 }
 
-async function enllacaAparicions(serieId: number, items: MovimentSerie[]): Promise<void> {
-  const conegudes = new Set(
+async function linkOccurrences(seriesId: number, items: TransactionSeries[]): Promise<void> {
+  const known = new Set(
     (
       await db
         .select({ transactionId: recurringOccurrences.transactionId })
         .from(recurringOccurrences)
-        .where(eq(recurringOccurrences.seriesId, serieId))
+        .where(eq(recurringOccurrences.seriesId, seriesId))
     ).map((o) => o.transactionId),
   );
 
-  const noves = items
-    .filter((i) => !conegudes.has(i.id))
+  const newOnes = items
+    .filter((i) => !known.has(i.id))
     .map((i) => ({
-      seriesId: serieId,
+      seriesId: seriesId,
       transactionId: i.id,
       occurredOn: i.bookingDate,
       amount: i.amount,
     }));
 
-  if (noves.length > 0) {
-    await db.insert(recurringOccurrences).values(noves).onConflictDoNothing();
+  if (newOnes.length > 0) {
+    await db.insert(recurringOccurrences).values(newOnes).onConflictDoNothing();
   }
 }
 
 /**
- * Confirma una proposta: passa a activa i entra a la previsio.
+ * Confirms a proposal: it becomes active and enters the forecast.
  */
-export async function confirmaSerie(
-  serieId: number,
-  opcions: { cadence: Cadence; amountMode: AmountMode },
-  connexio: Transactor = db,
+export async function confirmSeries(
+  seriesId: number,
+  options: { cadence: Cadence; amountMode: AmountMode },
+  connection: Transactor = db,
 ): Promise<void> {
-  await connexio
+  await connection
     .update(recurringSeries)
     .set({
       status: "active",
       includeInForecast: true,
-      cadence: opcions.cadence,
-      intervalDays: CADENCE_DAYS[opcions.cadence],
-      amountMode: opcions.amountMode,
+      cadence: options.cadence,
+      intervalDays: CADENCE_DAYS[options.cadence],
+      amountMode: options.amountMode,
       confidence: 1,
     })
-    .where(eq(recurringSeries.id, serieId));
+    .where(eq(recurringSeries.id, seriesId));
 }
 
-/** Descarta una serie: el detector ja no la tornarà a crear (mateixa signatura). */
-export async function descartaSerie(serieId: number, connexio: Transactor = db): Promise<void> {
-  await connexio
+/** Dismisses a series: the detector will not create it again (same signature). */
+export async function dismissSeries(
+  seriesId: number,
+  connection: Transactor = db,
+): Promise<void> {
+  await connection
     .update(recurringSeries)
     .set({ status: "dismissed", includeInForecast: false })
-    .where(eq(recurringSeries.id, serieId));
+    .where(eq(recurringSeries.id, seriesId));
 }
 
-export interface DadesSerieManual {
+export interface ManualSeriesData {
   label: string;
   categoryId: number;
   merchantId?: number | null;
   cadence: Cadence;
-  /** Amb signe: positiu = ingrés, negatiu = despesa. */
+  /** Signed: positive = income, negative = expense. */
   expectedAmount: MoneyString;
   nextExpectedDate: string;
 }
 
-function signaturaManual(
+function manualSignature(
   categoryId: number,
   merchantId: number | null,
   expectedAmount: MoneyString,
 ): string {
-  return signatura({
+  return signature({
     id: 0,
     bookingDate: "",
     amount: expectedAmount,
@@ -415,125 +423,128 @@ function signaturaManual(
 }
 
 /**
- * Crea una serie activa a ma (o reviu una de descartada amb la mateixa
- * signatura). Si ja n'hi ha una d'activa o suggerida, 409.
+ * Creates an active series by hand (or revives a dismissed one with the same
+ * signature). If there is already an active or suggested one, 409.
  */
-export async function creaSerieManual(
+export async function createSeriesManual(
   ledgerId: number,
-  dades: DadesSerieManual,
-  connexio: Transactor = db,
+  data: ManualSeriesData,
+  connection: Transactor = db,
 ): Promise<number> {
-  await categoriaDeLespai(dades.categoryId, ledgerId);
+  await categoryInWorkspace(data.categoryId, ledgerId);
 
-  const importEsperat = money(dades.expectedAmount);
-  if (importEsperat.isZero()) {
+  const expectedAmount = money(data.expectedAmount);
+  if (expectedAmount.isZero()) {
     throw new ConflictError("L'import no pot ser zero");
   }
 
-  const merchantId = dades.merchantId ?? null;
-  const signature = signaturaManual(dades.categoryId, merchantId, dades.expectedAmount);
-  const intervalDays = CADENCE_DAYS[dades.cadence];
-  const amount = toMoneyString(importEsperat);
-  const amountTolerance = toMoneyString(toleranciaDimport(importEsperat));
-  const dia = dades.nextExpectedDate;
+  const merchantId = data.merchantId ?? null;
+  const seriesSignature = manualSignature(data.categoryId, merchantId, data.expectedAmount);
+  const intervalDays = CADENCE_DAYS[data.cadence];
+  const amount = toMoneyString(expectedAmount);
+  const amountTolerance = toMoneyString(amountToleranceFor(expectedAmount));
+  const day = data.nextExpectedDate;
 
-  const [existent] = await connexio
+  const [existing] = await connection
     .select()
     .from(recurringSeries)
     .where(
-      and(eq(recurringSeries.ledgerId, ledgerId), eq(recurringSeries.signature, signature)),
+      and(
+        eq(recurringSeries.ledgerId, ledgerId),
+        eq(recurringSeries.signature, seriesSignature),
+      ),
     )
     .limit(1);
 
-  if (existent) {
-    if (existent.status !== "dismissed") {
+  if (existing) {
+    if (existing.status !== "dismissed") {
       throw new ConflictError("Ja hi ha una serie amb la mateixa categoria, comerç i sentit");
     }
 
-    await connexio
+    await connection
       .update(recurringSeries)
       .set({
-        label: dades.label,
+        label: data.label,
         merchantId,
-        categoryId: dades.categoryId,
-        cadence: dades.cadence,
+        categoryId: data.categoryId,
+        cadence: data.cadence,
         expectedAmount: amount,
         amountTolerance,
         amountMode: "exact",
         intervalDays,
         confidence: 1,
         occurrencesCount: 0,
-        firstSeenDate: dia,
-        lastSeenDate: dia,
-        nextExpectedDate: dia,
+        firstSeenDate: day,
+        lastSeenDate: day,
+        nextExpectedDate: day,
         status: "active",
         includeInForecast: true,
       })
-      .where(eq(recurringSeries.id, existent.id));
+      .where(eq(recurringSeries.id, existing.id));
 
-    return existent.id;
+    return existing.id;
   }
 
-  const [creada] = await connexio
+  const [created] = await connection
     .insert(recurringSeries)
     .values({
       ledgerId,
-      signature,
-      label: dades.label,
+      signature: seriesSignature,
+      label: data.label,
       merchantId,
-      categoryId: dades.categoryId,
-      cadence: dades.cadence,
+      categoryId: data.categoryId,
+      cadence: data.cadence,
       expectedAmount: amount,
       amountTolerance,
       amountMode: "exact",
       intervalDays,
       confidence: 1,
       occurrencesCount: 0,
-      firstSeenDate: dia,
-      lastSeenDate: dia,
-      nextExpectedDate: dia,
+      firstSeenDate: day,
+      lastSeenDate: day,
+      nextExpectedDate: day,
       status: "active",
       includeInForecast: true,
     })
     .returning({ id: recurringSeries.id });
 
-  if (!creada) throw new ConflictError("No s'ha pogut crear la serie");
-  return creada.id;
+  if (!created) throw new ConflictError("No s'ha pogut crear la serie");
+  return created.id;
 }
 
-/** Canvia l'import esperat i el deixa fix perquè el detector no l'escrigui. */
-export async function actualitzaImportSerie(
-  serieId: number,
+/** Changes the expected amount and pins it so the detector does not write it. */
+export async function updateSeriesAmount(
+  seriesId: number,
   expectedAmount: MoneyString,
-  connexio: Transactor = db,
+  connection: Transactor = db,
 ): Promise<void> {
-  const importEsperat = money(expectedAmount);
-  if (importEsperat.isZero()) {
+  const amount = money(expectedAmount);
+  if (amount.isZero()) {
     throw new ConflictError("L'import no pot ser zero");
   }
 
-  await connexio
+  await connection
     .update(recurringSeries)
     .set({
-      expectedAmount: toMoneyString(importEsperat),
-      amountTolerance: toMoneyString(toleranciaDimport(importEsperat)),
+      expectedAmount: toMoneyString(amount),
+      amountTolerance: toMoneyString(amountToleranceFor(amount)),
       amountMode: "exact",
     })
-    .where(eq(recurringSeries.id, serieId));
+    .where(eq(recurringSeries.id, seriesId));
 }
 
 /**
- * Avisa dels rebuts actius que no han arribat quan tocava.
+ * Warns about active direct debits that have not arrived when they should.
  *
- * Passat mes d'un periode sencer sense saber-ne res, la serie es dona per
- * acabada. Les confirmades amb `amount_mode: exact` **no** s'acaben soles
- * (la persona les vol a la previsio); nomes avisen.
+ * After more than a whole period with no sign of it, the series is taken as
+ * ended. Confirmed ones with `amount_mode: exact` do **not** end on their own
+ * (the person wants them in the forecast); they only warn.
  */
-export async function comprovaRebutsQueFalten(ledgerId: number): Promise<number> {
-  const avui = todayLocal();
-  let creats = 0;
+export async function checkMissingBills(ledgerId: number): Promise<number> {
+  const today = todayLocal();
+  let created = 0;
 
-  const series = await db
+  const dueSeries = await db
     .select({
       id: recurringSeries.id,
       label: recurringSeries.label,
@@ -551,41 +562,41 @@ export async function comprovaRebutsQueFalten(ledgerId: number): Promise<number>
       ),
     );
 
-  for (const serie of series) {
-    const prevista = serie.nextExpectedDate;
-    if (prevista === null) continue;
+  for (const series of dueSeries) {
+    const expected = series.nextExpectedDate;
+    if (expected === null) continue;
 
-    const diesDeRetard = daysBetween(prevista, avui);
-    if (diesDeRetard < MISSING_GRACE_DAYS) continue;
+    const daysLate = daysBetween(expected, today);
+    if (daysLate < MISSING_GRACE_DAYS) continue;
 
-    if (diesDeRetard > serie.intervalDays + MISSING_GRACE_DAYS) {
-      // Exactes confirmades es queden actives; les de mitjana poden acabar-se.
-      if (serie.amountMode === "exact") continue;
+    if (daysLate > series.intervalDays + MISSING_GRACE_DAYS) {
+      // Confirmed exact ones stay active; average ones can end.
+      if (series.amountMode === "exact") continue;
 
       await db
         .update(recurringSeries)
         .set({ status: "ended" })
-        .where(eq(recurringSeries.id, serie.id));
+        .where(eq(recurringSeries.id, series.id));
       continue;
     }
 
-    const creat = await creaAvis({
+    const createdOne = await createAlert({
       type: "recurring_missing",
       ledgerId,
-      dedupKey: `missing:${serie.id}:${prevista}`,
-      title: `${serie.label}: no ha arribat el rebut previst`,
-      body: `S'esperava un import aproximat de ${money(serie.expectedAmount).abs().toFixed(2)} EUR i encara no consta.`,
+      dedupKey: `missing:${series.id}:${expected}`,
+      title: `${series.label}: no ha arribat el rebut previst`,
+      body: `S'esperava un import aproximat de ${money(series.expectedAmount).abs().toFixed(2)} EUR i encara no consta.`,
       severity: "info",
-      payload: { series_id: serie.id, expected_date: prevista },
+      payload: { series_id: series.id, expected_date: expected },
     });
-    if (creat) creats += 1;
+    if (createdOne) created += 1;
   }
 
-  return creats;
+  return created;
 }
 
-/** Cost mensual d'una serie: l'import repartit segons el seu interval. */
-export function costMensual(expectedAmount: string, intervalDays: number): Decimal {
+/** Monthly cost of a series: the amount spread over its interval. */
+export function monthlyCost(expectedAmount: string, intervalDays: number): Decimal {
   return money(expectedAmount)
     .times(30)
     .dividedBy(intervalDays || 30);

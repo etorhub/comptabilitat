@@ -1,22 +1,23 @@
 /**
  * CSRF.
  *
- * L'aplicacio de Python **no en tenia cap defensa**: la galeta era
- * `SameSite=Lax` i prou. Aixo atura el cas facil, pero no una peticio
- * `POST` de nivell superior des d'una altra pagina (`SameSite=Lax` deixa
- * passar les navegacions GET de nivell superior, i qualsevol formulari
- * enviat des d'una altra pestanya viatja amb la galeta si el navegador ho
- * considera una navegacio). Amb HTMX, a mes, tot son peticions de fons.
+ * The Python application **had no defence at all**: the cookie was
+ * `SameSite=Lax` and that was it. That stops the easy case but not a top-level
+ * `POST` from another page (`SameSite=Lax` lets top-level GET navigations
+ * through, and a form submitted from another tab travels with the cookie when
+ * the browser counts it as a navigation). With htmx, on top of that,
+ * everything is a background request.
  *
- * El testimoni es `HMAC-SHA256(SECRET_KEY, resum_del_testimoni_de_sessio)`:
+ * The token is `HMAC-SHA256(SECRET_KEY, session_token_digest)`:
  *
- *   - no cal cap taula ni cap estat de servidor;
- *   - va lligat a la sessio, de manera que gira quan gira la sessio i mor
- *     amb ella;
- *   - qui no te la galeta no el pot calcular, i qui la te ja es l'usuari.
+ *   - no table and no server state are needed;
+ *   - it is tied to the session, so it rotates when the session does and dies
+ *     with it;
+ *   - whoever lacks the cookie cannot compute it, and whoever has it is
+ *     already the user.
  *
- * Es publica **un sol cop**, com a `hx-headers` del `<body>`, i totes les
- * peticions d'HTMX l'hereten. Mai un per formulari.
+ * It is published **once**, as the `<body>`'s `hx-headers`, and every htmx
+ * request inherits it. Never one per form.
  */
 
 import type { Context } from "hono";
@@ -25,21 +26,21 @@ import { config } from "./config.ts";
 
 const encoder = new TextEncoder();
 
-let clauHmac: CryptoKey | null = null;
+let hmacKey: CryptoKey | null = null;
 
 async function getKey(): Promise<CryptoKey> {
-  if (clauHmac !== null) return clauHmac;
-  clauHmac = await crypto.subtle.importKey(
+  if (hmacKey !== null) return hmacKey;
+  hmacKey = await crypto.subtle.importKey(
     "raw",
     encoder.encode(config.secretKey),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign", "verify"],
   );
-  return clauHmac;
+  return hmacKey;
 }
 
-/** Testimoni CSRF d'una sessio. Determinista: la mateixa sessio, el mateix. */
+/** A session's CSRF token. Deterministic: same session, same token. */
 export async function csrfTokenFor(sessionTokenHash: string): Promise<string> {
   const signature = await crypto.subtle.sign(
     "HMAC",
@@ -49,7 +50,7 @@ export async function csrfTokenFor(sessionTokenHash: string): Promise<string> {
   return Buffer.from(signature).toString("base64url");
 }
 
-/** Comparacio en temps constant. */
+/** Constant-time comparison. */
 function timingSafeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
   const bufB = Buffer.from(b);
@@ -59,19 +60,19 @@ function timingSafeEqual(a: string, b: string): boolean {
 
 export async function csrfTokenValid(
   sessionTokenHash: string,
-  presentat: string | undefined | null,
+  presented: string | undefined | null,
 ): Promise<boolean> {
-  if (!presentat) return false;
-  return timingSafeEqual(await csrfTokenFor(sessionTokenHash), presentat);
+  if (!presented) return false;
+  return timingSafeEqual(await csrfTokenFor(sessionTokenHash), presented);
 }
 
 /**
- * Comprovacio d'origen, com a segona barrera.
+ * Origin check, as a second barrier.
  *
- * `Sec-Fetch-Site` es el senyal bo i el posa el navegador, no la pagina.
- * Quan no hi es (navegadors vells), es mira `Origin` contra
- * `PUBLIC_BASE_URL`. Si no hi ha cap dels dos senyals, no es rebutja: hi ha
- * clients legitims que no els envien i el testimoni ja fa la feina.
+ * `Sec-Fetch-Site` is the good signal, and the browser sets it, not the page.
+ * When it is absent (older browsers), `Origin` is checked against
+ * `PUBLIC_BASE_URL`. When neither signal is present nothing is rejected: there
+ * are legitimate clients that send neither, and the token already does the job.
  */
 export function originAllowed(c: Context): boolean {
   const fetchSite = c.req.header("Sec-Fetch-Site");
@@ -89,20 +90,19 @@ export function originAllowed(c: Context): boolean {
   }
 }
 
-/** Nom del camp ocult per als formularis que no passen per HTMX. */
+/** The hidden field's name, for the forms that do not go through htmx. */
 export const CSRF_FIELD = "_csrf";
 export const CSRF_HEADER = "X-CSRF-Token";
 
 /**
- * Llavor per als formularis d'abans d'entrar.
+ * A seed for the forms that come before signing in.
  *
- * El formulari d'entrada tambe s'ha de protegir —si no, algu et podria fer
- * entrar amb un compte seu sense que te n'adonessis— pero encara no hi ha
- * sessio de la qual derivar el testimoni. Per aixo es posa una galeta amb un
- * valor aleatori i el testimoni es l'HMAC d'aquest valor: qui no ha carregat
- * la pagina no el pot calcular.
+ * The login form has to be protected too — otherwise somebody could sign you
+ * in as them without your noticing — but there is no session yet to derive the
+ * token from. So a cookie is set with a random value and the token is the HMAC
+ * of that value: whoever has not loaded the page cannot compute it.
  *
- * Dura poc i es substitueix per la de sessio tan bon punt s'entra.
+ * It is short-lived and is replaced by the session one as soon as you sign in.
  */
 export const CSRF_SEED_COOKIE = "comptabilitat_csrf";
 

@@ -1,23 +1,23 @@
 /**
- * Generacio de CSV, XLSX i PDF.
+ * Generation of CSV, XLSX and PDF.
  *
- * Aquest fitxer nomes dibuixa: no toca la base de dades. Les dades li arriben
- * ja emmascarades (`MovimentVista`), de manera que **un moviment amagat surt
- * amagat tambe als fitxers exportats**. Aixo importa: un full de calcul es
- * exactament el lloc on el concepte del banc tornaria a apareixer si
- * l'emmascarament nomes fos cosa de la pantalla.
+ * This file only draws: it does not touch the database. The data reaches it
+ * already masked (`TransactionView`), so **a hidden transaction comes out
+ * hidden in the exported files too**. This matters: a spreadsheet is exactly
+ * the place where the bank's concept would reappear if the masking were only
+ * a screen matter.
  *
- * Traduccio de `backend/app/services/export.py`.
+ * A translation of `backend/app/services/export.py`.
  */
 
 import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
 
 import { money, formatMoney } from "../lib/money.ts";
-import type { MovimentVista } from "./transactions.ts";
-import type { PuntMensual, TrosCategoria } from "./reports.ts";
+import type { TransactionView } from "./transactions.ts";
+import type { MonthlyPoint, CategoryPart } from "./reports.ts";
 
-const COLUMNES: [string, number][] = [
+const COLUMNS: [string, number][] = [
   ["Data", 12],
   ["Data valor", 12],
   ["Compte", 22],
@@ -31,8 +31,8 @@ const COLUMNES: [string, number][] = [
   ["Notes", 30],
 ];
 
-/** Una fila, ja emmascarada: `MovimentVista` no duu el concepte del banc. */
-function fila(m: MovimentVista): (string | number)[] {
+/** A row, already masked: `TransactionView` does not carry the bank's concept. */
+function row(m: TransactionView): (string | number)[] {
   return [
     m.bookingDate,
     m.valueDate ?? "",
@@ -50,204 +50,199 @@ function fila(m: MovimentVista): (string | number)[] {
 
 // --- CSV -------------------------------------------------------------------
 
-function escapaCsv(valor: string): string {
-  if (/[";\n\r]/.test(valor)) {
-    return `"${valor.replace(/"/g, '""')}"`;
+function escapeCsv(value: string): string {
+  if (/[";\n\r]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
   }
-  return valor;
+  return value;
 }
 
 /**
- * CSV amb punt i coma i BOM, que es el que espera l'Excel en espanyol; els
- * decimals amb coma, pel mateix motiu.
+ * CSV with semicolons and a BOM, which is what Spanish Excel expects; the
+ * decimals with a comma, for the same reason.
  */
-export function movimentsACsv(moviments: MovimentVista[]): Uint8Array<ArrayBuffer> {
-  const linies: string[] = [COLUMNES.map(([nom]) => escapaCsv(nom)).join(";")];
+export function transactionsToCsv(transactionList: TransactionView[]): Uint8Array<ArrayBuffer> {
+  const lines: string[] = [COLUMNS.map(([name]) => escapeCsv(name)).join(";")];
 
-  for (const moviment of moviments) {
-    linies.push(
-      fila(moviment)
-        .map((valor, i) => {
-          // La columna de l'import va amb coma decimal.
-          if (i === 6) return money(String(valor)).toFixed(2).replace(".", ",");
-          return escapaCsv(String(valor));
+  for (const transaction of transactionList) {
+    lines.push(
+      row(transaction)
+        .map((value, i) => {
+          // The amount column goes with a decimal comma.
+          if (i === 6) return money(String(value)).toFixed(2).replace(".", ",");
+          return escapeCsv(String(value));
         })
         .join(";"),
     );
   }
 
-  const text = `﻿${linies.join("\r\n")}\r\n`;
+  const text = `﻿${lines.join("\r\n")}\r\n`;
   return new TextEncoder().encode(text) as Uint8Array<ArrayBuffer>;
 }
 
 // --- XLSX ------------------------------------------------------------------
 
-function capçalera(full: ExcelJS.Worksheet, columnes: [string, number][]): void {
-  full.columns = columnes.map(([nom, amplada]) => ({ header: nom, width: amplada }));
-  const fila1 = full.getRow(1);
-  fila1.font = { bold: true, color: { argb: "FFFFFFFF" } };
-  fila1.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
-  fila1.alignment = { vertical: "middle" };
+function header(full: ExcelJS.Worksheet, columns: [string, number][]): void {
+  full.columns = columns.map(([name, width]) => ({ header: name, width: width }));
+  const row1 = full.getRow(1);
+  row1.font = { bold: true, color: { argb: "FFFFFFFF" } };
+  row1.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+  row1.alignment = { vertical: "middle" };
 }
 
-export async function resumAXlsx(
-  mensual: PuntMensual[],
-  categories: TrosCategoria[],
+export async function summaryToXlsx(
+  monthly: MonthlyPoint[],
+  categories: CategoryPart[],
 ): Promise<Uint8Array<ArrayBuffer>> {
-  const llibre = new ExcelJS.Workbook();
-  llibre.creator = "Comptabilitat";
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Comptabilitat";
 
-  const mesos = llibre.addWorksheet("Mes a mes");
-  capçalera(mesos, [
+  const months = workbook.addWorksheet("Mes a mes");
+  header(months, [
     ["Periode", 12],
     ["Ingressos", 14],
     ["Despeses", 14],
     ["Resultat", 14],
   ]);
-  for (const punt of mensual) {
-    mesos.addRow([
-      punt.periode,
-      Number(punt.ingressos),
-      Number(punt.despeses),
-      Number(punt.net),
+  for (const point of monthly) {
+    months.addRow([
+      point.periode,
+      Number(point.income),
+      Number(point.expenses),
+      Number(point.cleaned),
     ]);
   }
-  for (const col of [2, 3, 4]) mesos.getColumn(col).numFmt = '#,##0.00 "€"';
+  for (const col of [2, 3, 4]) months.getColumn(col).numFmt = '#,##0.00 "€"';
 
-  const cats = llibre.addWorksheet("Categories");
-  capçalera(cats, [
+  const cats = workbook.addWorksheet("Categories");
+  header(cats, [
     ["Categoria", 30],
     ["Import", 14],
     ["Part", 10],
     ["Moviments", 12],
   ]);
-  for (const tros of categories) {
-    cats.addRow([tros.categoryName, Number(tros.amount), tros.share, tros.transactions]);
+  for (const part of categories) {
+    cats.addRow([part.categoryName, Number(part.amount), part.share, part.transactions]);
   }
   cats.getColumn(2).numFmt = '#,##0.00 "€"';
   cats.getColumn(3).numFmt = "0.0%";
 
-  const buffer = await llibre.xlsx.writeBuffer();
+  const buffer = await workbook.xlsx.writeBuffer();
   return new Uint8Array(buffer as ArrayBuffer);
 }
 
 // --- PDF -------------------------------------------------------------------
 
 /**
- * Informe en PDF.
+ * PDF report.
  *
- * Es fa amb `pdfkit`: no demana cap binari del sistema ni cap navegador sense
- * cap, cosa que importa perque aixo ha de funcionar en un NAS. Les taules
- * s'hi dibuixen a ma, que es el preu de no dependre de res mes.
+ * It is done with `pdfkit`: it asks for no system binary and no headless
+ * browser, which matters because this has to work on a NAS. The tables are
+ * drawn by hand, which is the price of depending on nothing else.
  */
-export interface DadesInforme {
-  nomEspai: string;
+export interface ReportData {
+  workspaceName: string;
   des: string;
-  fins: string;
-  ingressos: string;
-  despeses: string;
-  net: string;
-  mensual: PuntMensual[];
-  categories: TrosCategoria[];
+  to: string;
+  income: string;
+  expenses: string;
+  cleaned: string;
+  monthly: MonthlyPoint[];
+  categories: CategoryPart[];
 }
 
-export function informeAPdf(dades: DadesInforme): Promise<Uint8Array<ArrayBuffer>> {
+export function reportToPdf(data: ReportData): Promise<Uint8Array<ArrayBuffer>> {
   return new Promise<Uint8Array<ArrayBuffer>>((resolve, reject) => {
     const doc = new PDFDocument({
       size: "A4",
       margin: 48,
-      info: { Title: `Informe · ${dades.nomEspai}` },
+      info: { Title: `Informe · ${data.workspaceName}` },
     });
-    const trossos: Buffer[] = [];
+    const parts: Buffer[] = [];
 
-    doc.on("data", (t: Buffer) => trossos.push(t));
+    doc.on("data", (t: Buffer) => parts.push(t));
     doc.on("end", () => {
-      const complet = Buffer.concat(trossos);
-      const sortida = new Uint8Array(new ArrayBuffer(complet.byteLength));
-      sortida.set(complet);
-      resolve(sortida);
+      const full = Buffer.concat(parts);
+      const output = new Uint8Array(new ArrayBuffer(full.byteLength));
+      output.set(full);
+      resolve(output);
     });
     doc.on("error", reject);
 
-    const AMPLADA = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const WIDTH = doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
-    doc.fontSize(20).fillColor("#0f172a").text(dades.nomEspai);
-    doc.fontSize(10).fillColor("#64748b").text(`Informe del ${dades.des} al ${dades.fins}`);
+    doc.fontSize(20).fillColor("#0f172a").text(data.workspaceName);
+    doc.fontSize(10).fillColor("#64748b").text(`Informe del ${data.des} al ${data.to}`);
     doc.moveDown(1.2);
 
-    // Resum
+    // Summary
     doc.fontSize(11).fillColor("#0f172a");
-    const resum: [string, string][] = [
-      ["Ingressos", formatMoney(dades.ingressos)],
-      ["Despeses", formatMoney(dades.despeses)],
-      ["Resultat", formatMoney(dades.net)],
+    const summary: [string, string][] = [
+      ["Ingressos", formatMoney(data.income)],
+      ["Despeses", formatMoney(data.expenses)],
+      ["Resultat", formatMoney(data.cleaned)],
     ];
-    for (const [etiqueta, valor] of resum) {
-      doc.font("Helvetica").fillColor("#64748b").text(etiqueta, { continued: true });
-      doc.font("Helvetica-Bold").fillColor("#0f172a").text(`   ${valor}`, { align: "right" });
+    for (const [tag, value] of summary) {
+      doc.font("Helvetica").fillColor("#64748b").text(tag, { continued: true });
+      doc.font("Helvetica-Bold").fillColor("#0f172a").text(`   ${value}`, { align: "right" });
     }
     doc.moveDown(1.2);
 
-    const taula = (
-      titol: string,
-      capceleres: string[],
-      files: string[][],
-      amplades: number[],
-    ) => {
+    const table = (title: string, headers: string[], rows: string[][], widths: number[]) => {
       if (doc.y > doc.page.height - 160) doc.addPage();
 
-      doc.font("Helvetica-Bold").fontSize(13).fillColor("#0f172a").text(titol);
+      doc.font("Helvetica-Bold").fontSize(13).fillColor("#0f172a").text(title);
       doc.moveDown(0.4);
 
       const x0 = doc.page.margins.left;
-      const columnes = amplades.map((p) => (AMPLADA * p) / 100);
+      const columns = widths.map((p) => (WIDTH * p) / 100);
 
       doc.font("Helvetica-Bold").fontSize(9).fillColor("#64748b");
       let y = doc.y;
-      capceleres.forEach((text, i) => {
-        const x = x0 + columnes.slice(0, i).reduce((a, b) => a + b, 0);
-        doc.text(text, x, y, { width: columnes[i], align: i === 0 ? "left" : "right" });
+      headers.forEach((text, i) => {
+        const x = x0 + columns.slice(0, i).reduce((a, b) => a + b, 0);
+        doc.text(text, x, y, { width: columns[i], align: i === 0 ? "left" : "right" });
       });
       y = doc.y + 4;
       doc
         .moveTo(x0, y)
-        .lineTo(x0 + AMPLADA, y)
+        .lineTo(x0 + WIDTH, y)
         .strokeColor("#e2e8f0")
         .stroke();
       doc.y = y + 6;
 
       doc.font("Helvetica").fontSize(9.5).fillColor("#0f172a");
-      for (const f of files) {
+      for (const f of rows) {
         if (doc.y > doc.page.height - 70) {
           doc.addPage();
           doc.y = doc.page.margins.top;
         }
         const fy = doc.y;
         f.forEach((text, i) => {
-          const x = x0 + columnes.slice(0, i).reduce((a, b) => a + b, 0);
-          doc.text(text, x, fy, { width: columnes[i], align: i === 0 ? "left" : "right" });
+          const x = x0 + columns.slice(0, i).reduce((a, b) => a + b, 0);
+          doc.text(text, x, fy, { width: columns[i], align: i === 0 ? "left" : "right" });
         });
         doc.y = fy + 15;
       }
       doc.moveDown(1);
     };
 
-    taula(
+    table(
       "Mes a mes",
       ["Periode", "Ingressos", "Despeses", "Resultat"],
-      dades.mensual.map((p) => [
+      data.monthly.map((p) => [
         p.periode,
-        formatMoney(p.ingressos),
-        formatMoney(p.despeses),
-        formatMoney(p.net),
+        formatMoney(p.income),
+        formatMoney(p.expenses),
+        formatMoney(p.cleaned),
       ]),
       [28, 24, 24, 24],
     );
 
-    taula(
+    table(
       "Despeses per categoria",
       ["Categoria", "Import", "Part", "Moviments"],
-      dades.categories.map((t) => [
+      data.categories.map((t) => [
         t.categoryName,
         formatMoney(t.amount),
         `${Math.round(t.share * 100)}%`,

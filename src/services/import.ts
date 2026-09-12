@@ -1,14 +1,14 @@
 /**
- * Baixar els moviments del banc i desar-los.
+ * Downloading the bank's transactions and saving them.
  *
- * Les dues coses que fan que importar dues vegades no faci malbe res:
+ * The two things that make importing twice harmless:
  *
- *   1. **La clau de deduplicacio** (`dedupKey`), que reconeix el que ja hi ha.
- *   2. **La reconciliacio dels pendents**: quan un apunt pendent es consolida,
- *      es reaprofita la mateixa fila en lloc de fer-ne una de nova, de manera
- *      que la categoria que hi hagi posat una persona es conserva.
+ *   1. **The deduplication key** (`dedupKey`), which recognizes what is
+ *      already there.
+ *   2. **Reconciling the pending entries**: when a pending entry is booked,
+ *      the same row is reused instead of making a new one, so that the
+ *      category a person has set is kept.
  *
- * Qui ho orquestra i qui en porta el registre es `sync.ts`.
  */
 
 import { and, eq, gte, inArray } from "drizzle-orm";
@@ -21,81 +21,81 @@ import {
   dedupKey,
   parseBalance,
   parseTransaction,
-  type MovimentAnalitzat,
+  type TransactionAnalyzed,
 } from "../lib/enablebanking/parsing.ts";
 import { addDays, daysBetween, todayLocal } from "../lib/time.ts";
-import { classificaMoviment } from "./classification.ts";
-import { resolContrapart } from "./contraparts.ts";
+import { classifyTransaction } from "./classification.ts";
+import { resolveCounterparty } from "./contraparts.ts";
 
-/** Marge per aparellar un pendent amb el seu apunt definitiu. */
+/** Margin for matching a pending entry with its final booked one. */
 const PENDING_MATCH_DAYS = 5;
-/** Finestres alternatives (en mesos) quan el banc rebutja el periode demanat. */
+/** Alternative windows (in months) when the bank rejects the period asked for. */
 const FALLBACK_WINDOWS_MONTHS = [24, 12, 6, 3, 1];
 
-export interface ResultatCompte {
+export interface AccountResult {
   accountId: number;
-  inserits: number;
-  actualitzats: number;
-  esborrats: number;
+  inserted: number;
+  updatedCount: number;
+  deletedRows: number;
   error: string;
 }
 
-/** La data d'inici d'una finestra de tants mesos enrere. */
-export function dataInicialFaMesos(mesos: number): string {
-  return addDays(todayLocal(), -Math.round(mesos * 30.4));
+/** The start date of a window that many months back. */
+export function startDateMonthsAgo(months: number): string {
+  return addDays(todayLocal(), -Math.round(months * 30.4));
 }
 
-// --- Importacio --------------------------------------------------------------
+// --- Import -------------------------------------------------------------------
 
 /**
- * Baixa els moviments, escurçant la finestra si el banc la rebutja.
+ * Downloads the transactions, shortening the window if the bank rejects it.
  *
- * El Santander no accepta sempre 24 mesos; quan diu que no, es prova amb 12,
- * 6, 3 i 1, i queda escrit al registre quina ha entrat.
+ * Santander does not always accept 24 months; when it says no, 12, 6, 3 and 1
+ * are tried, and which one got through is written in the log.
  */
-export async function baixaMoviments(
+export async function removeTransactions(
   client: EnableBankingClient,
-  compte: Account,
-  dataDes: string,
-): Promise<{ items: MovimentAnalitzat[]; usada: string; truncat: boolean }> {
-  const finestres = [dataDes];
-  for (const mesos of FALLBACK_WINDOWS_MONTHS) {
-    const candidata = dataInicialFaMesos(mesos);
-    if (candidata > dataDes && !finestres.includes(candidata)) finestres.push(candidata);
+  account: Account,
+  dateFrom: string,
+): Promise<{ items: TransactionAnalyzed[]; used: string; truncated: boolean }> {
+  const windows = [dateFrom];
+  for (const months of FALLBACK_WINDOWS_MONTHS) {
+    const candidateRow = startDateMonthsAgo(months);
+    if (candidateRow > dateFrom && !windows.includes(candidateRow)) windows.push(candidateRow);
   }
 
-  let ultimError: DateRangeError | null = null;
+  let lastError: DateRangeError | null = null;
 
-  for (const candidata of finestres) {
+  for (const candidateRow of windows) {
     try {
-      const items: MovimentAnalitzat[] = [];
-      // Es recorre a ma per poder llegir el valor de retorn del generador,
-      // que diu si la llista s'ha quedat curta.
-      const pagines = client.iterTransactions(compte.ebAccountUid, { dateFrom: candidata });
-      let pas = await pagines.next();
-      while (pas.done !== true) {
-        const analitzat = parseTransaction(pas.value);
-        if (analitzat !== null) items.push(analitzat);
-        pas = await pagines.next();
+      const items: TransactionAnalyzed[] = [];
+      // It is iterated by hand so that the generator's return value can be
+      // read, which says whether the list came up short.
+      const pages = client.iterTransactions(account.ebAccountUid, { dateFrom: candidateRow });
+      let step = await pages.next();
+      while (step.done !== true) {
+        const analyzed = parseTransaction(step.value);
+        if (analyzed !== null) items.push(analyzed);
+        step = await pages.next();
       }
-      return { items, usada: candidata, truncat: pas.value };
+      return { items, used: candidateRow, truncated: step.value };
     } catch (error) {
       if (error instanceof DateRangeError) {
         console.warn(
-          `[sync] compte ${compte.id}: el banc rebutja la finestra des de ${candidata} (${error.message})`,
+          `[sync] compte ${account.id}: el banc rebutja la finestra des de ${candidateRow} (${error.message})`,
         );
-        ultimError = error;
+        lastError = error;
         continue;
       }
       throw error;
     }
   }
 
-  throw ultimError ?? new DateRangeError("Cap finestra de dates acceptada");
+  throw lastError ?? new DateRangeError("Cap finestra de dates acceptada");
 }
 
-/** Camps que el banc pot canviar d'un moviment que ja teniem. */
-function calActualitzar(
+/** Fields the bank can change on a transaction we already had. */
+function needsUpdate(
   actual: {
     status: string;
     bookingDate: string;
@@ -104,46 +104,44 @@ function calActualitzar(
     description: string;
     counterparty: string;
   },
-  nou: MovimentAnalitzat,
+  fresh: TransactionAnalyzed,
 ): boolean {
   return (
-    actual.status !== nou.status ||
-    actual.bookingDate !== nou.bookingDate ||
-    actual.valueDate !== nou.valueDate ||
-    actual.amount !== nou.amount ||
-    actual.description !== nou.description ||
-    actual.counterparty !== nou.counterparty
+    actual.status !== fresh.status ||
+    actual.bookingDate !== fresh.bookingDate ||
+    actual.valueDate !== fresh.valueDate ||
+    actual.amount !== fresh.amount ||
+    actual.description !== fresh.description ||
+    actual.counterparty !== fresh.counterparty
   );
 }
 
 /**
- * Desa els moviments d'un compte.
+ * Saves an account's transactions.
  *
- * Aqui hi ha la reconciliacio dels pendents: un apunt pendent que es
- * consolida **reaprofita la fila que ja hi havia**, de manera que la
- * categoria que hi hagi posat una persona no es perd.
+ * Here is the reconciliation of the pending entries: a pending entry that is
+ * booked **reuses the row that was already there**, so that the category a
+ * person has set is not lost.
  */
-export async function desaMoviments(
-  compte: Account,
-  items: MovimentAnalitzat[],
-  /** Si el banc no ho ha donat tot, no es pot deduir res del que hi falta. */
-  llistaIncompleta = false,
-): Promise<ResultatCompte> {
-  const resultat: ResultatCompte = {
-    accountId: compte.id,
-    inserits: 0,
-    actualitzats: 0,
-    esborrats: 0,
+export async function saveTransactions(
+  account: Account,
+  items: TransactionAnalyzed[],
+  /** If the bank did not give everything, nothing can be deduced from what is missing. */
+  incompleteList = false,
+): Promise<AccountResult> {
+  const result: AccountResult = {
+    accountId: account.id,
+    inserted: 0,
+    updatedCount: 0,
+    deletedRows: 0,
     error: "",
   };
-  if (items.length === 0) return resultat;
+  if (items.length === 0) return result;
 
-  const dataMinima = items.reduce((a, b) =>
-    a.bookingDate < b.bookingDate ? a : b,
-  ).bookingDate;
-  const inicíFinestra = addDays(dataMinima, -PENDING_MATCH_DAYS);
+  const minDate = items.reduce((a, b) => (a.bookingDate < b.bookingDate ? a : b)).bookingDate;
+  const windowStart = addDays(minDate, -PENDING_MATCH_DAYS);
 
-  const existents = await db
+  const existing = await db
     .select({
       id: transactions.id,
       dedupKey: transactions.dedupKey,
@@ -156,20 +154,20 @@ export async function desaMoviments(
     })
     .from(transactions)
     .where(
-      and(eq(transactions.accountId, compte.id), gte(transactions.bookingDate, inicíFinestra)),
+      and(eq(transactions.accountId, account.id), gte(transactions.bookingDate, windowStart)),
     );
 
-  const perClau = new Map(existents.map((e) => [e.dedupKey, e]));
-  let pendents = existents.filter((e) => e.status === "pending");
-  const vistes = new Set<string>();
+  const byKey = new Map(existing.map((e) => [e.dedupKey, e]));
+  let pending = existing.filter((e) => e.status === "pending");
+  const views = new Set<string>();
 
   for (const item of items) {
-    const clau = dedupKey(item);
-    vistes.add(clau);
+    const key = dedupKey(item);
+    views.add(key);
 
-    const actual = perClau.get(clau);
+    const actual = byKey.get(key);
     if (actual !== undefined) {
-      if (calActualitzar(actual, item)) {
+      if (needsUpdate(actual, item)) {
         await db
           .update(transactions)
           .set({
@@ -182,27 +180,27 @@ export async function desaMoviments(
             raw: item.raw,
           })
           .where(eq(transactions.id, actual.id));
-        resultat.actualitzats += 1;
+        result.updatedCount += 1;
       }
       continue;
     }
 
-    // Un apunt pendent que es consolida no ha de duplicar-se.
+    // A pending entry that is booked must not be duplicated.
     if (item.status === "booked") {
-      const aparellat = pendents.find(
+      const matched = pending.find(
         (p) =>
           p.amount === item.amount &&
           Math.abs(daysBetween(p.bookingDate, item.bookingDate)) <= PENDING_MATCH_DAYS,
       );
 
-      if (aparellat !== undefined) {
-        pendents = pendents.filter((p) => p.id !== aparellat.id);
-        perClau.delete(aparellat.dedupKey);
+      if (matched !== undefined) {
+        pending = pending.filter((p) => p.id !== matched.id);
+        byKey.delete(matched.dedupKey);
 
         await db
           .update(transactions)
           .set({
-            dedupKey: clau,
+            dedupKey: key,
             entryReference: item.entryReference,
             transactionId: item.transactionId,
             status: item.status,
@@ -213,22 +211,22 @@ export async function desaMoviments(
             counterparty: item.counterparty,
             raw: item.raw,
           })
-          .where(eq(transactions.id, aparellat.id));
+          .where(eq(transactions.id, matched.id));
 
-        perClau.set(clau, { ...aparellat, dedupKey: clau });
-        resultat.actualitzats += 1;
+        byKey.set(key, { ...matched, dedupKey: key });
+        result.updatedCount += 1;
         continue;
       }
     }
 
-    const [creat] = await db
+    const [createdOne] = await db
       .insert(transactions)
       .values({
-        accountId: compte.id,
-        ledgerId: compte.ledgerId,
+        accountId: account.id,
+        ledgerId: account.ledgerId,
         entryReference: item.entryReference,
         transactionId: item.transactionId,
-        dedupKey: clau,
+        dedupKey: key,
         source: "enablebanking",
         bookingDate: item.bookingDate,
         valueDate: item.valueDate,
@@ -253,37 +251,37 @@ export async function desaMoviments(
       })
       .returning({ id: transactions.id });
 
-    if (!creat) continue;
+    if (!createdOne) continue;
 
-    // Nom normalitzat, comerç i categoria.
+    // Normalized name, merchant and category.
     let merchantId: number | null = null;
-    let normalitzat = "";
+    let normalized = "";
 
-    if (compte.ledgerId !== null) {
-      const contrapart = await resolContrapart(compte.ledgerId, {
+    if (account.ledgerId !== null) {
+      const counterparty = await resolveCounterparty(account.ledgerId, {
         description: item.description,
         counterparty: item.counterparty,
         bookingDate: item.bookingDate,
       });
-      merchantId = contrapart.merchantId;
-      normalitzat = contrapart.normalizedKey;
+      merchantId = counterparty.merchantId;
+      normalized = counterparty.normalizedKey;
     }
 
     await db
       .update(transactions)
-      .set({ normalizedDescription: normalitzat.slice(0, 200), merchantId })
-      .where(eq(transactions.id, creat.id));
+      .set({ normalizedDescription: normalized.slice(0, 200), merchantId })
+      .where(eq(transactions.id, createdOne.id));
 
-    await classificaMoviment({
-      id: creat.id,
-      ledgerId: compte.ledgerId,
+    await classifyTransaction({
+      id: createdOne.id,
+      ledgerId: account.ledgerId,
       merchantId,
       categorySource: "none",
     });
 
-    perClau.set(clau, {
-      id: creat.id,
-      dedupKey: clau,
+    byKey.set(key, {
+      id: createdOne.id,
+      dedupKey: key,
       status: item.status,
       bookingDate: item.bookingDate,
       valueDate: item.valueDate,
@@ -291,62 +289,65 @@ export async function desaMoviments(
       description: item.description,
       counterparty: item.counterparty,
     });
-    resultat.inserits += 1;
+    result.inserted += 1;
   }
 
-  // Els pendents que el banc ja no reporta han desaparegut. Aixo nomes es pot
-  // deduir si el banc ho ha donat **tot**: amb una llista escapçada, «no hi
-  // es» vol dir «no ha arribat», i esborrariem moviments vius amb les seves
-  // notes, les etiquetes i la categoria que hi hagues posat algu.
-  const caducats = llistaIncompleta
+  // The pending entries the bank no longer reports have disappeared. This can
+  // only be deduced if the bank gave **everything**: with a truncated list,
+  // «it is not there» means «it did not arrive», and we would delete live
+  // transactions along with their notes, tags and whatever category was set.
+  const expired = incompleteList
     ? []
-    : pendents.filter((p) => !vistes.has(p.dedupKey) && p.bookingDate >= inicíFinestra);
-  if (caducats.length > 0) {
+    : pending.filter((p) => !views.has(p.dedupKey) && p.bookingDate >= windowStart);
+  if (expired.length > 0) {
     await db.delete(transactions).where(
       inArray(
         transactions.id,
-        caducats.map((p) => p.id),
+        expired.map((p) => p.id),
       ),
     );
-    resultat.esborrats = caducats.length;
+    result.deletedRows = expired.length;
   }
 
-  // Fins on hem arribat.
-  const definitius = items.filter((i) => i.status === "booked").map((i) => i.bookingDate);
-  const canvis: Partial<typeof accounts.$inferInsert> = {};
+  // How far we got.
+  const booked = items.filter((i) => i.status === "booked").map((i) => i.bookingDate);
+  const changes: Partial<typeof accounts.$inferInsert> = {};
 
-  if (definitius.length > 0) {
-    const mesNova = definitius.reduce((a, b) => (a > b ? a : b));
-    if (compte.lastBookedDate === null || mesNova > compte.lastBookedDate) {
-      canvis.lastBookedDate = mesNova;
+  if (booked.length > 0) {
+    const newer = booked.reduce((a, b) => (a > b ? a : b));
+    if (account.lastBookedDate === null || newer > account.lastBookedDate) {
+      changes.lastBookedDate = newer;
     }
   }
-  const mesAntiga = items.reduce((a, b) => (a.bookingDate < b.bookingDate ? a : b)).bookingDate;
-  if (compte.historyStartDate === null || mesAntiga < compte.historyStartDate) {
-    canvis.historyStartDate = mesAntiga;
+  const older = items.reduce((a, b) => (a.bookingDate < b.bookingDate ? a : b)).bookingDate;
+  if (account.historyStartDate === null || older < account.historyStartDate) {
+    changes.historyStartDate = older;
   }
-  if (Object.keys(canvis).length > 0) {
-    await db.update(accounts).set(canvis).where(eq(accounts.id, compte.id));
+  if (Object.keys(changes).length > 0) {
+    await db.update(accounts).set(changes).where(eq(accounts.id, account.id));
   }
 
-  return resultat;
+  return result;
 }
 
-export async function desaSaldos(client: EnableBankingClient, compte: Account): Promise<void> {
-  const ara = new Date();
+export async function saveBalances(
+  client: EnableBankingClient,
+  account: Account,
+): Promise<void> {
+  const now = new Date();
 
-  for (const cru of await client.getBalances(compte.ebAccountUid)) {
-    const dades = parseBalance(cru);
-    if (dades === null || dades.referenceDate === null) continue;
+  for (const raw of await client.getBalances(account.ebAccountUid)) {
+    const data = parseBalance(raw);
+    if (data === null || data.referenceDate === null) continue;
 
     const [ja] = await db
       .select({ id: balances.id })
       .from(balances)
       .where(
         and(
-          eq(balances.accountId, compte.id),
-          eq(balances.balanceType, dades.balanceType),
-          eq(balances.referenceDate, dades.referenceDate),
+          eq(balances.accountId, account.id),
+          eq(balances.balanceType, data.balanceType),
+          eq(balances.referenceDate, data.referenceDate),
         ),
       )
       .limit(1);
@@ -354,16 +355,16 @@ export async function desaSaldos(client: EnableBankingClient, compte: Account): 
     if (ja) {
       await db
         .update(balances)
-        .set({ amount: dades.amount, fetchedAt: ara })
+        .set({ amount: data.amount, fetchedAt: now })
         .where(eq(balances.id, ja.id));
     } else {
       await db.insert(balances).values({
-        accountId: compte.id,
-        balanceType: dades.balanceType,
-        amount: dades.amount,
-        currency: dades.currency,
-        referenceDate: dades.referenceDate,
-        fetchedAt: ara,
+        accountId: account.id,
+        balanceType: data.balanceType,
+        amount: data.amount,
+        currency: data.currency,
+        referenceDate: data.referenceDate,
+        fetchedAt: now,
       });
     }
   }

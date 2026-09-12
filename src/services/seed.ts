@@ -1,10 +1,10 @@
 /**
- * Dades inicials: espais i pla de categories, en català.
+ * Initial data: workspaces and category plan, in Catalan.
  *
- * Traduccio de `backend/app/services/seed.py`. Els arbres s'han generat a
- * partir d'aquell fitxer per no transcriure vuitanta categories a ma, i els
- * pendents que en surten han de coincidir amb els que ja hi ha desats: la
- * prova de `tests/seed.test.ts` ho comprova.
+ * A translation of `backend/app/services/seed.py`. The trees were generated
+ * from that file so as not to transcribe eighty categories by hand, and the
+ * slugs that come out of them have to match the ones already stored: the
+ * `tests/seed.test.ts` test checks it.
  */
 
 import { and, eq } from "drizzle-orm";
@@ -14,10 +14,10 @@ import { categories, ledgers, type Ledger } from "../db/schema/index.ts";
 import type { CategoryKind } from "../db/schema/index.ts";
 import { slugify } from "./slugs.ts";
 
-/** [nom del pare, color, [fills]] */
-export type Arbre = readonly (readonly [string, string, readonly string[]])[];
+/** [parent name, color, [children]] */
+export type Tree = readonly (readonly [string, string, readonly string[]])[];
 
-export const EXPENSE_TREE: Arbre = [
+export const EXPENSE_TREE: Tree = [
   [
     "Habitatge",
     "#0ea5e9",
@@ -67,14 +67,14 @@ export const EXPENSE_TREE: Arbre = [
   ["Altres despeses", "#94a3b8", ["Efectiu retirat", "Sense classificar"]],
 ];
 
-export const INCOME_TREE: Arbre = [
+export const INCOME_TREE: Tree = [
   ["Ingressos del treball", "#16a34a", ["Nomina", "Facturacio i autonoms", "Pagues extra"]],
   ["Rendes", "#10b981", ["Lloguers cobrats", "Interessos i dividends"]],
   ["Prestacions", "#34d399", ["Pensions", "Subsidis i ajuts"]],
   ["Altres ingressos", "#4ade80", ["Devolucions", "Vendes", "Ingressos diversos"]],
 ];
 
-export const TRANSFER_TREE: Arbre = [
+export const TRANSFER_TREE: Tree = [
   [
     "Traspassos",
     "#8b5cf6",
@@ -89,17 +89,17 @@ export const DEFAULT_LEDGERS: readonly (readonly [string, string, string, string
 ];
 
 /**
- * Crea el pla de categories d'un espai. Es idempotent pel pendent: tornar-ho
- * a cridar no duplica res.
+ * Creates a workspace's category plan. It is idempotent by slug: calling it
+ * again duplicates nothing.
  */
 export async function seedCategories(ledgerId: number): Promise<number> {
-  const arbres: readonly (readonly [CategoryKind, Arbre])[] = [
+  const trees: readonly (readonly [CategoryKind, Tree])[] = [
     ["expense", EXPENSE_TREE],
     ["income", INCOME_TREE],
     ["transfer", TRANSFER_TREE],
   ];
 
-  const existents = new Set(
+  const existing = new Set(
     (
       await db
         .select({ slug: categories.slug })
@@ -108,77 +108,77 @@ export async function seedCategories(ledgerId: number): Promise<number> {
     ).map((c) => c.slug),
   );
 
-  let creades = 0;
-  let posicio = 0;
+  let createdRows = 0;
+  let position = 0;
 
-  for (const [kind, arbre] of arbres) {
-    for (const [nomPare, color, fills] of arbre) {
-      const slugPare = slugify(nomPare);
-      let idPare: number | undefined;
+  for (const [kind, tree] of trees) {
+    for (const [parentName, color, children] of tree) {
+      const parentSlug = slugify(parentName);
+      let parentId: number | undefined;
 
-      if (existents.has(slugPare)) {
-        const [ja] = await db
+      if (existing.has(parentSlug)) {
+        const [already] = await db
           .select({ id: categories.id })
           .from(categories)
-          .where(and(eq(categories.ledgerId, ledgerId), eq(categories.slug, slugPare)))
+          .where(and(eq(categories.ledgerId, ledgerId), eq(categories.slug, parentSlug)))
           .limit(1);
-        idPare = ja?.id;
+        parentId = already?.id;
       } else {
-        const [creat] = await db
+        const [createdOne] = await db
           .insert(categories)
           .values({
             ledgerId,
-            slug: slugPare,
-            name: nomPare,
+            slug: parentSlug,
+            name: parentName,
             kind,
             color,
             icon: "",
             isSystem: true,
-            position: posicio,
+            position: position,
             parentId: null,
           })
           .returning({ id: categories.id });
-        idPare = creat?.id;
-        creades += 1;
+        parentId = createdOne?.id;
+        createdRows += 1;
       }
-      posicio += 1;
-      if (idPare === undefined) continue;
+      position += 1;
+      if (parentId === undefined) continue;
 
-      for (const nomFill of fills) {
-        const slugFill = `${slugPare}-${slugify(nomFill)}`;
-        if (existents.has(slugFill)) continue;
+      for (const childName of children) {
+        const slugChild = `${parentSlug}-${slugify(childName)}`;
+        if (existing.has(slugChild)) continue;
         await db.insert(categories).values({
           ledgerId,
-          slug: slugFill,
-          name: nomFill,
+          slug: slugChild,
+          name: childName,
           kind,
           color,
           icon: "",
           isSystem: true,
-          position: posicio,
-          parentId: idPare,
+          position: position,
+          parentId: parentId,
         });
-        creades += 1;
-        posicio += 1;
+        createdRows += 1;
+        position += 1;
       }
     }
   }
 
-  return creades;
+  return createdRows;
 }
 
-/** Crea els tres espais inicials amb el seu pla, si no hi son. */
+/** Creates the three initial workspaces with their plan, if they are missing. */
 export async function seedLedgers(): Promise<Ledger[]> {
-  const creats: Ledger[] = [];
+  const created: Ledger[] = [];
 
-  for (const [posicio, [code, name, color, description]] of DEFAULT_LEDGERS.entries()) {
-    const [ja] = await db.select().from(ledgers).where(eq(ledgers.code, code)).limit(1);
-    if (ja) {
-      await seedCategories(ja.id);
+  for (const [position, [code, name, color, description]] of DEFAULT_LEDGERS.entries()) {
+    const [already] = await db.select().from(ledgers).where(eq(ledgers.code, code)).limit(1);
+    if (already) {
+      await seedCategories(already.id);
       continue;
     }
 
-    const [creat] = await db
+    const [createdOne] = await db
       .insert(ledgers)
       .values({
         code,
@@ -187,17 +187,17 @@ export async function seedLedgers(): Promise<Ledger[]> {
         currency: "EUR",
         color,
         overdraftThreshold: "0.00",
-        position: posicio,
+        position: position,
         isActive: true,
         alertRecipients: [],
       })
       .returning();
 
-    if (creat) {
-      await seedCategories(creat.id);
-      creats.push(creat);
+    if (createdOne) {
+      await seedCategories(createdOne.id);
+      created.push(createdOne);
     }
   }
 
-  return creats;
+  return created;
 }

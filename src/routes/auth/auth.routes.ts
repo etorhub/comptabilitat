@@ -1,16 +1,16 @@
 /**
- * Entrada, sortida i canvi de contrasenya.
+ * Sign in, sign out and password change.
  */
 
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 
-import { PasswordForm } from "./auth.fragment.tsx";
-import { LoginPage, PasswordPage } from "./auth.page.tsx";
+import { PasswordForm } from "./auth.fragment.ts";
+import { LoginPage, PasswordPage } from "./auth.page.ts";
 import { loginSchema, passwordChangeSchema } from "./auth.schema.ts";
-import { Layout } from "../../components/layout.tsx";
-import { zodErrors } from "../../components/form.tsx";
+import { Layout } from "../../components/layout.ts";
+import { zodErrors } from "../../components/form.ts";
 import { db } from "../../db/client.ts";
 import { users } from "../../db/schema/index.ts";
 import {
@@ -39,45 +39,45 @@ const cookieBase = {
   path: "/",
 } as const;
 
-/** Adreça de la primera pagina util: el primer espai on l'usuari tingui acces. */
-async function primeraPagina(userId: number): Promise<string> {
-  const espais = await myWorkspaces(userId);
-  const primer = espais[0];
-  return primer ? `/e/${primer.code}` : "/sense-espais";
+/** URL of the first useful page: the first workspace the user can access. */
+async function firstPage(userId: number): Promise<string> {
+  const workspaces = await myWorkspaces(userId);
+  const first = workspaces[0];
+  return first ? `/e/${first.code}` : "/sense-espais";
 }
 
-// --- Entrada ---------------------------------------------------------------
+// --- Sign in ---------------------------------------------------------------
 
 authRoutes.get("/entrada", async (c) => {
   const user = c.get("user");
   if (user !== null) {
-    return c.redirect(await primeraPagina(user.id), 303);
+    return c.redirect(await firstPage(user.id), 303);
   }
 
-  // Llavor d'un sol us perque el formulari pugui dur testimoni CSRF sense
-  // que encara hi hagi sessio.
-  let llavor = getCookie(c, CSRF_SEED_COOKIE);
-  if (llavor === undefined) {
-    llavor = newCsrfSeed();
-    setCookie(c, CSRF_SEED_COOKIE, llavor, { ...cookieBase, maxAge: 3600 });
+  // Single-use seed so that the form can carry a CSRF token while there is
+  // still no session.
+  let seed = getCookie(c, CSRF_SEED_COOKIE);
+  if (seed === undefined) {
+    seed = newCsrfSeed();
+    setCookie(c, CSRF_SEED_COOKIE, seed, { ...cookieBase, maxAge: 3600 });
   }
 
-  const desti = c.req.query("desti");
+  const target = c.req.query("desti");
   return page(
     c,
     LoginPage({
-      csrfToken: await csrfTokenFor(llavor),
-      desti: desti && desti.startsWith("/") && !desti.startsWith("//") ? desti : "/",
+      csrfToken: await csrfTokenFor(seed),
+      target: target && target.startsWith("/") && !target.startsWith("//") ? target : "/",
     }),
   );
 });
 
 authRoutes.post("/entrada", async (c) => {
-  const llavor = getCookie(c, CSRF_SEED_COOKIE) ?? newCsrfSeed();
-  const csrfToken = await csrfTokenFor(llavor);
+  const seed = getCookie(c, CSRF_SEED_COOKIE) ?? newCsrfSeed();
+  const csrfToken = await csrfTokenFor(seed);
 
-  const cos = await c.req.parseBody();
-  const parsed = loginSchema.safeParse(cos);
+  const body = await c.req.parseBody();
+  const parsed = loginSchema.safeParse(body);
 
   if (!parsed.success) {
     return fragment(
@@ -85,51 +85,51 @@ authRoutes.post("/entrada", async (c) => {
       LoginPage({
         csrfToken,
         errors: zodErrors(parsed.error),
-        email: typeof cos.email === "string" ? cos.email : "",
-        desti: typeof cos.desti === "string" ? cos.desti : "/",
+        email: typeof body.email === "string" ? body.email : "",
+        target: typeof body.desti === "string" ? body.desti : "/",
       }),
       422,
     );
   }
 
-  const { email, password, desti } = parsed.data;
+  const { email, password, target } = parsed.data;
   const ip =
     c.req.header("X-Forwarded-For")?.split(",")[0]?.trim() ??
     c.req.header("X-Real-IP") ??
     "desconeguda";
 
-  // Limit d'intents. L'aplicacio anterior no en tenia cap.
+  // Attempt limit. The previous application had none.
   if (loginBlocked(email, ip)) {
     return fragment(
       c,
       LoginPage({
         csrfToken,
         email,
-        desti,
+        target,
         errors: { _: ["Massa intents. Espera un quart d'hora i torna-ho a provar."] },
       }),
       429,
     );
   }
 
-  const trobat = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  const usuari = trobat[0];
+  const foundOne = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  const user = foundOne[0];
 
-  // Es comprova sempre una contrasenya, existeixi l'usuari o no: si no, el
-  // temps de resposta diria quins correus estan donats d'alta.
-  const correcta = usuari
-    ? await verifyPassword(password, usuari.passwordHash)
+  // A password is always checked, whether the user exists or not: otherwise
+  // the response time would tell which emails are registered.
+  const correct = user
+    ? await verifyPassword(password, user.passwordHash)
     : (await burnPasswordTime(password), false);
 
-  if (!usuari || !correcta || !usuari.isActive) {
+  if (!user || !correct || !user.isActive) {
     recordFailedLogin(email, ip);
-    // El mateix missatge en els tres casos, per no dir quin dels tres es.
+    // The same message in all three cases, so as not to say which of the three it is.
     return fragment(
       c,
       LoginPage({
         csrfToken,
         email,
-        desti,
+        target,
         errors: { _: ["El correu o la contrasenya no son correctes"] },
       }),
       401,
@@ -138,8 +138,8 @@ authRoutes.post("/entrada", async (c) => {
 
   clearFailedLogins(email, ip);
 
-  const { token, expiresAt } = await createSession(usuari.id, c.req.header("User-Agent") ?? "");
-  await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, usuari.id));
+  const { token, expiresAt } = await createSession(user.id, c.req.header("User-Agent") ?? "");
+  await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
   setCookie(c, config.sessionCookieName, token, {
     ...cookieBase,
@@ -148,10 +148,10 @@ authRoutes.post("/entrada", async (c) => {
   });
   deleteCookie(c, CSRF_SEED_COOKIE, { path: "/" });
 
-  return c.redirect(desti !== "/" ? desti : await primeraPagina(usuari.id), 303);
+  return c.redirect(target !== "/" ? target : await firstPage(user.id), 303);
 });
 
-// --- Sortida ---------------------------------------------------------------
+// --- Sign out --------------------------------------------------------------
 
 authRoutes.post("/sortida", async (c) => {
   const token = getCookie(c, config.sessionCookieName);
@@ -160,18 +160,18 @@ authRoutes.post("/sortida", async (c) => {
   return redirect(c, "/entrada");
 });
 
-// --- Contrasenya -----------------------------------------------------------
+// --- Password --------------------------------------------------------------
 
 authRoutes.get("/contrasenya", requireUser, async (c) => {
   const user = currentUser(c);
   return page(
     c,
     Layout({
-      titol: "Contrasenya",
+      title: "Contrasenya",
       user,
       csrfToken: c.get("csrfToken") ?? "",
-      ruta: c.req.path,
-      espais: await myWorkspaces(user.id),
+      path: c.req.path,
+      workspaces: await myWorkspaces(user.id),
       children: PasswordPage({ children: PasswordForm({}) }),
     }),
   );
@@ -179,16 +179,16 @@ authRoutes.get("/contrasenya", requireUser, async (c) => {
 
 authRoutes.post("/contrasenya", requireUser, async (c) => {
   const user = currentUser(c);
-  const cos = await c.req.parseBody();
-  const parsed = passwordChangeSchema.safeParse(cos);
+  const body = await c.req.parseBody();
+  const parsed = passwordChangeSchema.safeParse(body);
 
   if (!parsed.success) {
     return fragment(c, PasswordForm({ errors: zodErrors(parsed.error) }), 422);
   }
 
-  const fresc = await db.select().from(users).where(eq(users.id, user.id)).limit(1);
-  const usuari = fresc[0];
-  if (!usuari || !(await verifyPassword(parsed.data.current_password, usuari.passwordHash))) {
+  const rows = await db.select().from(users).where(eq(users.id, user.id)).limit(1);
+  const stored = rows[0];
+  if (!stored || !(await verifyPassword(parsed.data.current_password, stored.passwordHash))) {
     return fragment(
       c,
       PasswordForm({ errors: { current_password: ["La contrasenya actual no es correcta"] } }),
@@ -202,15 +202,15 @@ authRoutes.post("/contrasenya", requireUser, async (c) => {
     .where(eq(users.id, user.id));
 
   /**
-   * Tanca la resta de sessions i conserva la d'aqui, que es el que diu
-   * `docs/operacio.md`. Fer-les caure totes tambe invalidaria el testimoni
-   * CSRF que ja hi ha dibuixat en aquesta pagina —en deriva—, i la peticio
-   * següent d'HTMX fallaria sense que s'entengues per que.
+   * Closes the other sessions and keeps this one, which is what
+   * `docs/operacio.md` says. Dropping them all would also invalidate the CSRF
+   * token already drawn on this page —it derives from it—, and the next HTMX
+   * request would fail for no visible reason.
    */
   const tokenHash = c.get("sessionTokenHash");
   if (tokenHash !== null) {
     await destroyOtherSessions(user.id, tokenHash);
   }
 
-  return fragment(c, PasswordForm({ fet: true }));
+  return fragment(c, PasswordForm({ done: true }));
 });

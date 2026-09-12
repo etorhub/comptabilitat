@@ -1,13 +1,13 @@
 /**
- * Memoria de comerços.
+ * Merchant memory.
  *
- * Dins d'un espai, un comerç es classifica **una sola vegada**. Entre espais
- * no es comparteix res: el mateix Mercadona es un comerç diferent a Personal i
- * a Calella, perque cadascun te els seus usuaris i el seu pla de categories, i
- * perque el nom d'un comerç sovint es el nom d'una persona.
+ * Within a workspace, a merchant is classified **once only**. Nothing is
+ * shared between workspaces: the same Mercadona is a different merchant in
+ * Personal and in Calella, because each has its own users and its own
+ * category plan, and because a merchant's name is often a person's name.
  *
- * Traduccio de `backend/app/services/merchants.py` i de la part de
- * `classification.remember_merchant_choice`.
+ * A translation of `backend/app/services/merchants.py` and of the
+ * `classification.remember_merchant_choice` part.
  */
 
 import {
@@ -27,73 +27,75 @@ import {
 import { db, type Transactor } from "../db/client.ts";
 import { categories, merchants, transactions, type Merchant } from "../db/schema/index.ts";
 import { AppError, NotFoundError } from "../lib/http.ts";
-import { classificaMoviment } from "./classification.ts";
-import { resolContrapart } from "./contraparts.ts";
+import { classifyTransaction } from "./classification.ts";
+import { resolveCounterparty } from "./contraparts.ts";
 
-/** Cubells especials que abans engolien compres amb «COMISION» al final. */
-const CUBELLS_ESPECIALS = new Set([
+/** Special buckets that used to swallow purchases with «COMISION» at the end. */
+const SPECIAL_BUCKETS = new Set([
   "COMISSIO BANCARIA",
   "REINTEGRO EFECTIU",
   "TRASPAS ENTRE COMPTES",
 ]);
 
-/** Filtres de la llista de comerços. */
-export interface FiltresComercos {
-  cerca: string;
-  nomesSenseClassificar: boolean;
-  nomesSenseConfirmar: boolean;
+/** Filters of the merchant list. */
+export interface MerchantsFilters {
+  search: string;
+  onlyUnclassified: boolean;
+  onlyUnconfirmed: boolean;
   limit: number;
   offset: number;
 }
 
-export interface ComercVista {
+export interface MerchantView {
   id: number;
   normalizedName: string;
   displayName: string;
   defaultCategoryId: number | null;
-  /** El nom de la categoria, per no fer una consulta per fila. */
+  /** The category's name, so as not to do one query per row. */
   categoryName: string | null;
   isConfirmed: boolean;
   transactionCount: number;
   lastSeenAt: string | null;
 }
 
-export interface PaginaComercos {
-  items: ComercVista[];
+export interface MerchantsPage {
+  items: MerchantView[];
   total: number;
   limit: number;
   offset: number;
 }
 
-function condicions(ledgerId: number, filtres: FiltresComercos): SQL | undefined {
+function conditions(ledgerId: number, filters: MerchantsFilters): SQL | undefined {
   const parts: (SQL | undefined)[] = [eq(merchants.ledgerId, ledgerId)];
 
-  const cerca = filtres.cerca.trim();
-  if (cerca) {
-    const patro = `%${cerca}%`;
-    parts.push(or(ilike(merchants.normalizedName, patro), ilike(merchants.displayName, patro)));
+  const search = filters.search.trim();
+  if (search) {
+    const pattern = `%${search}%`;
+    parts.push(
+      or(ilike(merchants.normalizedName, pattern), ilike(merchants.displayName, pattern)),
+    );
   }
-  if (filtres.nomesSenseClassificar) parts.push(isNull(merchants.defaultCategoryId));
-  if (filtres.nomesSenseConfirmar) parts.push(eq(merchants.isConfirmed, false));
+  if (filters.onlyUnclassified) parts.push(isNull(merchants.defaultCategoryId));
+  if (filters.onlyUnconfirmed) parts.push(eq(merchants.isConfirmed, false));
 
   return and(...parts);
 }
 
 /**
- * Els comerços de l'espai, els que mes surten primer.
+ * The workspace's merchants, the most frequent first.
  *
- * Es demanen columnes explicites i s'hi ajunta el nom de la categoria: aixi la
- * plantilla no ha de fer cap consulta ni rep mai la fila sencera.
+ * Explicit columns are asked for and the category's name is joined in: that
+ * way the template has to do no query and never receives the whole row.
  */
-export async function llistaComercos(
+export async function listMerchants(
   ledgerId: number,
-  filtres: FiltresComercos,
-): Promise<PaginaComercos> {
-  const on = condicions(ledgerId, filtres);
+  filters: MerchantsFilters,
+): Promise<MerchantsPage> {
+  const on = conditions(ledgerId, filters);
 
   const [total] = await db.select({ n: count() }).from(merchants).where(on);
 
-  const files = await db
+  const rows = await db
     .select({
       id: merchants.id,
       normalizedName: merchants.normalizedName,
@@ -108,31 +110,31 @@ export async function llistaComercos(
     .leftJoin(categories, eq(categories.id, merchants.defaultCategoryId))
     .where(on)
     .orderBy(desc(merchants.transactionCount), asc(merchants.normalizedName))
-    .limit(filtres.limit)
-    .offset(filtres.offset);
+    .limit(filters.limit)
+    .offset(filters.offset);
 
   return {
-    items: files,
+    items: rows,
     total: total?.n ?? 0,
-    limit: filtres.limit,
-    offset: filtres.offset,
+    limit: filters.limit,
+    offset: filters.offset,
   };
 }
 
-/** Un comerç d'aquest espai, o 404. */
-export async function comercDeLespai(id: number, ledgerId: number): Promise<Merchant> {
-  const [comerc] = await db
+/** A merchant of this workspace, or 404. */
+export async function merchantInWorkspace(id: number, ledgerId: number): Promise<Merchant> {
+  const [merchant] = await db
     .select()
     .from(merchants)
     .where(and(eq(merchants.id, id), eq(merchants.ledgerId, ledgerId)))
     .limit(1);
-  if (!comerc) throw new NotFoundError("Aquest comerç no existeix");
-  return comerc;
+  if (!merchant) throw new NotFoundError("Aquest comerç no existeix");
+  return merchant;
 }
 
-/** Torna la vista d'un comerç, per redibuixar-ne la fila. */
-export async function vistaComerc(id: number, ledgerId: number): Promise<ComercVista> {
-  const [fila] = await db
+/** Returns a merchant's view, for redrawing its row. */
+export async function merchantView(id: number, ledgerId: number): Promise<MerchantView> {
+  const [row] = await db
     .select({
       id: merchants.id,
       normalizedName: merchants.normalizedName,
@@ -147,33 +149,33 @@ export async function vistaComerc(id: number, ledgerId: number): Promise<ComercV
     .leftJoin(categories, eq(categories.id, merchants.defaultCategoryId))
     .where(and(eq(merchants.id, id), eq(merchants.ledgerId, ledgerId)))
     .limit(1);
-  if (!fila) throw new NotFoundError("Aquest comerç no existeix");
-  return fila;
+  if (!row) throw new NotFoundError("Aquest comerç no existeix");
+  return row;
 }
 
 /**
- * Desa la decisio d'una persona sobre un comerç i la propaga dins del seu espai.
+ * Saves a person's decision about a merchant and propagates it within their workspace.
  *
- * Els moviments que ja tenen categoria posada **per una persona**
- * (`category_source = 'user'`) no es toquen mai: aquella decisio mana per
- * sobre de tot. Retorna quants moviments s'han canviat.
+ * Transactions that already have a category set **by a person**
+ * (`category_source = 'user'`) are never touched: that decision outranks
+ * everything. Returns how many transactions were changed.
  *
- * Les dues escriptures van juntes. Si nomes passes la primera, el comerç diu
- * «confirmat, categoria X» i els seus moviments continuen amb la d'abans; i
- * aixo no s'adoba sol, perque `classificaPendents` nomes recull els moviments
- * sense categoria o marcats per revisar, i aquests no en son cap dels dos.
+ * The two writes go together. If you only do the first, the merchant says
+ * «confirmed, category X» and its transactions keep the previous one; and
+ * that does not fix itself, because `classifyPending` only picks up
+ * transactions with no category or marked for review, and these are neither.
  *
- * `connexio.transaction()` val tant per a la piscina com per a una transaccio
- * que ja estigui oberta: dins d'una altra, Postgres hi posa un punt de
+ * `connexio.transaction()` works both for the pool and for a transaction that
+ * is already open: inside another one, Postgres just puts a savepoint there.
  * seguretat i prou.
  */
-export async function recordaEleccioComerc(
-  comerc: Merchant,
+export async function rememberMerchantChoice(
+  merchant: Merchant,
   categoryId: number | null,
-  aplicaAlsExistents = true,
-  connexio: Transactor = db,
+  applyToExisting = true,
+  connection: Transactor = db,
 ): Promise<number> {
-  return connexio.transaction(async (tx) => {
+  return connection.transaction(async (tx) => {
     await tx
       .update(merchants)
       .set({
@@ -181,11 +183,11 @@ export async function recordaEleccioComerc(
         categorySource: "user",
         isConfirmed: true,
       })
-      .where(eq(merchants.id, comerc.id));
+      .where(eq(merchants.id, merchant.id));
 
-    if (!aplicaAlsExistents) return 0;
+    if (!applyToExisting) return 0;
 
-    const canviats = await tx
+    const changed = await tx
       .update(transactions)
       .set({
         categoryId,
@@ -195,76 +197,76 @@ export async function recordaEleccioComerc(
       })
       .where(
         and(
-          eq(transactions.merchantId, comerc.id),
-          // La decisio d'una persona no la sobreescriu res.
+          eq(transactions.merchantId, merchant.id),
+          // Nothing overwrites a person's decision.
           ne(transactions.categorySource, "user"),
         ),
       )
       .returning({ id: transactions.id });
 
-    return canviats.length;
+    return changed.length;
   });
 }
 
 /**
- * Assigna la categoria per defecte d'un comerç.
+ * Assigns a merchant's default category.
  *
- * La categoria ha de ser d'aquest espai: si no, s'hi podrien enganxar
- * moviments a la comptabilitat d'un altre.
+ * The category must belong to this workspace: otherwise transactions could be
+ * stuck into another one's books.
  */
-export async function assignaCategoria(
+export async function assignCategory(
   id: number,
   ledgerId: number,
   categoryId: number | null,
-  aplicaAlsExistents = true,
+  applyToExisting = true,
 ): Promise<number> {
-  const comerc = await comercDeLespai(id, ledgerId);
+  const merchant = await merchantInWorkspace(id, ledgerId);
 
   if (categoryId !== null) {
-    const [categoria] = await db
+    const [category] = await db
       .select({ id: categories.id })
       .from(categories)
       .where(and(eq(categories.id, categoryId), eq(categories.ledgerId, ledgerId)))
       .limit(1);
-    if (!categoria) throw new AppError("La categoria no es d'aquest espai", 422);
+    if (!category) throw new AppError("La categoria no es d'aquest espai", 422);
   }
 
-  return recordaEleccioComerc(comerc, categoryId, aplicaAlsExistents);
+  return rememberMerchantChoice(merchant, categoryId, applyToExisting);
 }
 
 /**
- * El comerç d'aquest espai amb aquest nom normalitzat, creant-lo si cal.
+ * The merchant of this workspace with this normalized name, creating it if needed.
  *
- * La fa servir la sincronitzacio, un cop per moviment nou.
+ * It is used by the synchronization, once per new transaction.
  *
- * @param incrementaComptador si es fals, nomes obté o crea sense tocar
- *   `transaction_count` (per a reassignacions en lot que després recompten).
+ * @param incrementCounter if false, it only gets or creates without
+ *   touching `transaction_count` (for batch reassignments that recount after).
  */
-export async function obteOCreaComerc(
+export async function getOrCreateMerchant(
   ledgerId: number,
   normalizedName: string,
   display = "",
   seenOn: string | null = null,
-  connexio: Transactor = db,
-  incrementaComptador = true,
+  connection: Transactor = db,
+  incrementCounter = true,
 ): Promise<Merchant | null> {
-  const nom = (normalizedName || "").trim();
-  if (!nom) return null;
+  const name = (normalizedName || "").trim();
+  if (!name) return null;
 
-  const [existent] = await connexio
+  const [existing] = await connection
     .select()
     .from(merchants)
-    .where(and(eq(merchants.ledgerId, ledgerId), eq(merchants.normalizedName, nom)))
+    .where(and(eq(merchants.ledgerId, ledgerId), eq(merchants.normalizedName, name)))
     .limit(1);
 
-  let comerc = existent;
-  if (!comerc) {
-    const [creat] = await connexio
+  let merchant = existing;
+  if (!merchant) {
+    const [createdOne] = await connection
       .insert(merchants)
       .values({
         ledgerId,
-        normalizedName: nom.slice(0, 200),
-        displayName: (display || nom).slice(0, 200),
+        normalizedName: name.slice(0, 200),
+        displayName: (display || name).slice(0, 200),
         defaultCategoryId: null,
         categorySource: "none",
         isConfirmed: false,
@@ -272,75 +274,75 @@ export async function obteOCreaComerc(
         lastSeenAt: null,
       })
       .returning();
-    comerc = creat;
+    merchant = createdOne;
   }
-  if (!comerc) return null;
+  if (!merchant) return null;
 
-  if (!incrementaComptador) {
-    if (seenOn !== null && (comerc.lastSeenAt === null || seenOn > comerc.lastSeenAt)) {
-      const [ambData] = await connexio
+  if (!incrementCounter) {
+    if (seenOn !== null && (merchant.lastSeenAt === null || seenOn > merchant.lastSeenAt)) {
+      const [withDate] = await connection
         .update(merchants)
         .set({ lastSeenAt: seenOn })
-        .where(eq(merchants.id, comerc.id))
+        .where(eq(merchants.id, merchant.id))
         .returning();
-      return ambData ?? comerc;
+      return withDate ?? merchant;
     }
-    return comerc;
+    return merchant;
   }
 
-  const vistUltim =
-    seenOn !== null && (comerc.lastSeenAt === null || seenOn > comerc.lastSeenAt)
+  const seenLast =
+    seenOn !== null && (merchant.lastSeenAt === null || seenOn > merchant.lastSeenAt)
       ? seenOn
-      : comerc.lastSeenAt;
+      : merchant.lastSeenAt;
 
-  const [actualitzat] = await connexio
+  const [updatedOne] = await connection
     .update(merchants)
-    .set({ transactionCount: comerc.transactionCount + 1, lastSeenAt: vistUltim })
-    .where(eq(merchants.id, comerc.id))
+    .set({ transactionCount: merchant.transactionCount + 1, lastSeenAt: seenLast })
+    .where(eq(merchants.id, merchant.id))
     .returning();
 
-  return actualitzat ?? comerc;
+  return updatedOne ?? merchant;
 }
 
-/** Recompta `transaction_count` a partir dels moviments reals. */
-export async function recompteComercos(
+/** Recounts `transaction_count` from the real transactions. */
+export async function countMerchants(
   merchantIds: number[],
-  connexio: Transactor = db,
+  connection: Transactor = db,
 ): Promise<void> {
   const ids = [...new Set(merchantIds.filter((id) => id > 0))];
   if (ids.length === 0) return;
 
-  const recomptes = await connexio
+  const recounts = await connection
     .select({ merchantId: transactions.merchantId, n: count() })
     .from(transactions)
     .where(inArray(transactions.merchantId, ids))
     .groupBy(transactions.merchantId);
 
-  const perId = new Map(recomptes.map((r) => [r.merchantId, Number(r.n)]));
+  const perId = new Map(recounts.map((r) => [r.merchantId, Number(r.n)]));
   for (const id of ids) {
-    await connexio
+    await connection
       .update(merchants)
       .set({ transactionCount: perId.get(id) ?? 0 })
       .where(eq(merchants.id, id));
   }
 }
 
-export interface ResultatReassignacio {
-  revisats: number;
-  canviats: number;
+export interface ReassignmentResult {
+  reviewed: number;
+  changed: number;
 }
 
 /**
- * Torna a normalitzar els moviments i corregeix comerços mal assignats.
+ * Renormalizes the transactions and corrects wrongly assigned merchants.
  *
- * Una passada de manteniment després de canviar la normalitzacio (comissio
- * accidental, prefix buit). No toca mai `category_source = 'user'`.
+ * A maintenance pass after changing the normalization (accidental commission,
+ * empty prefix). It never touches `category_source = 'user'`.
  */
-export async function reassignaNormalitzacio(
+export async function reassignNormalization(
   ledgerId?: number,
-  connexio: Transactor = db,
-): Promise<ResultatReassignacio> {
-  const files = await connexio
+  connection: Transactor = db,
+): Promise<ReassignmentResult> {
+  const rows = await connection
     .select({
       id: transactions.id,
       ledgerId: transactions.ledgerId,
@@ -359,69 +361,69 @@ export async function reassignaNormalitzacio(
     .from(transactions)
     .where(ledgerId === undefined ? undefined : eq(transactions.ledgerId, ledgerId));
 
-  let canviats = 0;
-  const merchantsTocats = new Set<number>();
+  let changed = 0;
+  const touchedMerchants = new Set<number>();
 
-  for (const moviment of files) {
-    let nouMerchantId: number | null = null;
-    let clauNova = "";
+  for (const transaction of rows) {
+    let newMerchantId: number | null = null;
+    let newKey = "";
 
-    if (moviment.ledgerId !== null) {
-      const contrapart = await resolContrapart(
-        moviment.ledgerId,
+    if (transaction.ledgerId !== null) {
+      const counterparty = await resolveCounterparty(
+        transaction.ledgerId,
         {
-          description: moviment.description,
-          counterparty: moviment.counterparty,
-          bookingDate: moviment.bookingDate,
+          description: transaction.description,
+          counterparty: transaction.counterparty,
+          bookingDate: transaction.bookingDate,
         },
-        connexio,
+        connection,
         false,
       );
-      nouMerchantId = contrapart.merchantId;
-      clauNova = contrapart.normalizedKey.slice(0, 200);
+      newMerchantId = counterparty.merchantId;
+      newKey = counterparty.normalizedKey.slice(0, 200);
     }
 
-    const calCanviarClau = clauNova !== moviment.normalizedDescription;
-    const noCanviaContrapart = nouMerchantId === moviment.merchantId;
+    const mustChangeKey = newKey !== transaction.normalizedDescription;
+    const keepsCounterparty = newMerchantId === transaction.merchantId;
 
-    if (!calCanviarClau && noCanviaContrapart) continue;
+    if (!mustChangeKey && keepsCounterparty) continue;
 
-    canviats += 1;
-    if (moviment.merchantId !== null) merchantsTocats.add(moviment.merchantId);
-    if (nouMerchantId !== null) merchantsTocats.add(nouMerchantId);
+    changed += 1;
+    if (transaction.merchantId !== null) touchedMerchants.add(transaction.merchantId);
+    if (newMerchantId !== null) touchedMerchants.add(newMerchantId);
 
-    await connexio
+    await connection
       .update(transactions)
       .set({
-        normalizedDescription: clauNova,
-        merchantId: nouMerchantId,
+        normalizedDescription: newKey,
+        merchantId: newMerchantId,
       })
-      .where(eq(transactions.id, moviment.id));
+      .where(eq(transactions.id, transaction.id));
 
-    if (moviment.categorySource === "user") continue;
-    if (moviment.ledgerId === null) continue;
+    if (transaction.categorySource === "user") continue;
+    if (transaction.ledgerId === null) continue;
 
-    // Si venia d'un cubell especial (o la clau ha canviat), torna a classificar.
-    const veniaDelCubell =
-      moviment.categorySource === "merchant" &&
-      CUBELLS_ESPECIALS.has(moviment.normalizedDescription);
+    // If it came from a special bucket (or the key changed), classify it again.
+    const cameFromBucket =
+      transaction.categorySource === "merchant" &&
+      SPECIAL_BUCKETS.has(transaction.normalizedDescription);
 
-    if (!calCanviarClau && !veniaDelCubell && noCanviaContrapart) {
+    if (!mustChangeKey && !cameFromBucket && keepsCounterparty) {
       continue;
     }
 
-    await classificaMoviment(
+    await classifyTransaction(
       {
-        id: moviment.id,
-        ledgerId: moviment.ledgerId,
-        merchantId: nouMerchantId,
-        // Forcem que es torni a decidir: treiem la categoria del cubell.
+        id: transaction.id,
+        ledgerId: transaction.ledgerId,
+        merchantId: newMerchantId,
+        // We force a fresh decision: the bucket's category is removed.
         categorySource: "none",
       },
-      connexio,
+      connection,
     );
   }
 
-  await recompteComercos([...merchantsTocats], connexio);
-  return { revisats: files.length, canviats };
+  await countMerchants([...touchedMerchants], connection);
+  return { reviewed: rows.length, changed };
 }

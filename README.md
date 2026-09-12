@@ -1,108 +1,141 @@
 # Comptabilitat
 
-Gestor de comptabilitat personal i familiar autoallotjat. Importa els moviments dels
-comptes bancaris a través de l'API d'[Enable Banking](https://enablebanking.com), els
-classifica (amb ajuda d'un model local via Ollama), i mostra saldos, gràfiques, moviments
-recurrents, previsions de descobert i informes exportables.
+Self-hosted personal and family accounting. It imports the transactions of your
+bank accounts through the [Enable Banking](https://enablebanking.com) API,
+classifies them (with the help of a local model via Ollama), and shows balances,
+charts, recurring transactions, overdraft forecasts and exportable reports.
 
-Hi conviuen tres **espais de treball estancs** — **Personal**, **Calella** i **Pardals**.
-Cadascun és una comptabilitat completament separada: els seus comptes, el seu pla de
-categories, els seus comerços, les seves regles i els seus usuaris. **No hi ha cap vista
-que en barregi més d'un**: sempre s'hi treballa des de dins d'un espai.
+Three **watertight workspaces** live in it — **Personal**, **Calella** and
+**Pardals**. Each is a completely separate set of books: its own accounts, its
+own category plan, its own merchants, its own rules and its own users. **No view
+mixes more than one**: you always work from inside a workspace.
 
-Així, a Personal només hi entres tu; a Pardals, tu i la parella; a Calella, tu i la sogra.
-Qui no té accés a un espai no en veu res, ni tan sols que existeixi.
+So only you get into Personal; into Pardals, you and your partner; into Calella,
+you and your mother-in-law. Whoever has no access to a workspace sees nothing of
+it, not even that it exists.
 
-## Estructura
+## Structure
 
-| Directori        | Contingut                                                                  |
-| ---------------- | -------------------------------------------------------------------------- |
-| `src/routes/`    | Una carpeta per recurs: rutes, pàgina, fragments i esquemes                |
-| `src/services/`  | La lògica: importació, classificació, recurrents, previsió, informes       |
-| `src/db/schema/` | L'esquema de Drizzle, per agregats                                         |
-| `src/workers/`   | El planificador i les cinc feines programades                              |
-| `public/`        | HTMX, ECharts, el full d'estil compilat i el fitxer de les gràfiques       |
-| `deploy/`        | Stacks de Docker Compose (producció i local), túnel de Cloudflare i còpies |
-| `docs/`          | Espais, provar-ho en local, Enable Banking, desplegament i operació        |
+| Directory        | Contents                                                                                                              |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `src/routes/`    | One folder per resource: routes, page, fragments and schemas                                                          |
+| `src/services/`  | The logic: import, classification, recurring series, forecast, reports                                                |
+| `src/db/schema/` | The Drizzle schema, by aggregate                                                                                      |
+| `src/workers/`   | The scheduler and the five scheduled jobs                                                                             |
+| `htmx-contract/` | The HTMX seam checker, with no imports from `src/`                                                                    |
+| `public/`        | HTMX, ECharts, the compiled stylesheet and the charts file                                                            |
+| `deploy/`        | Docker Compose stacks (production and local), Cloudflare tunnel and backups                                           |
+| `docs/`          | The why (`why.md`), the generated reference (`reference.md`), workspaces, trying it locally, deployment and operation |
 
-**Una sola cosa que córrer.** El servidor genera l'HTML i serveix els seus
-estàtics; no hi ha ni empaquetador, ni API JSON per al navegador, ni estat de
-client. La interactivitat és HTMX: el servidor torna el tros de pàgina que ha
-canviat. Les úniques línies de JavaScript pròpies són les gràfiques d'ECharts,
-que llegeixen les dades d'un `<script type="application/json">` que ha escrit
-el servidor. Detalls i convencions, a [`AGENTS.md`](AGENTS.md).
+**One thing to run.** The server generates the HTML and serves its own static
+files; there is no bundler, no JSON API for the browser and no client state. The
+interactivity is HTMX: the server returns the piece of the page that changed. The
+only lines of JavaScript of our own are the ECharts charts, which read their data
+from a `<script type="application/json">` the server wrote. The house rules are in
+[`AGENTS.md`](AGENTS.md), and the why of each one — with the stories of the bugs
+that made it necessary — in [`docs/why.md`](docs/why.md).
 
-## Com funciona
+## How it works
 
-**Importació.** Un cop al dia, el `worker` demana al banc els moviments des de l'última
-data coneguda menys una setmana de marge. Els apunts es dedupliquen per la referència que
-dona el banc o, si no n'hi ha, per un resum estable de les dades que no canvien. Els
-moviments pendents es reconcilien amb el seu apunt definitiu en comptes de duplicar-se, i
-conserven la categoria que hi haguessis posat.
+**Import.** Once a day, the `worker` asks the bank for the transactions since the
+last known date minus a week of margin. Entries are deduplicated by the reference
+the bank gives or, when there is none, by a stable digest of the data that does
+not change. Pending transactions are reconciled with their booked entry instead of
+being duplicated, and they keep whatever category you had set.
 
-**Comerços.** Un comerç (payee) és la contrapart d'un moviment: on es gasta o
-qui hi ha a l'altra banda. Serveix per a la memòria de categoria en importar;
-no és un recurs de la interfície. El mateix nom és un comerç diferent a cada
-espai.
+**Merchants.** A merchant (payee) is a transaction's counterparty: where the money
+is spent or who is on the other side. It serves the category memory when
+importing; it is not an interface resource. The same name is a different merchant
+in each workspace.
 
-**Classificació.** Dins de cada espai, l'ordre és sempre el mateix, del més barat i explícit
-al més car: el que has decidit tu (que no es toca mai), les regles per prioritat, la memòria
-de comerços i, només per als comerços que no han encaixat enlloc, el model local. La resta
-va a la safata de revisió. Quan corregeixes una categoria, la decisió es recorda per a tot
-el comerç **d'aquell espai**: la sogra classificant a Calella no toca res del teu Personal.
+**Classification.** Within each workspace the order is always the same, from the
+cheapest and most explicit to the most expensive: what you decided (which is never
+touched), the rules by priority, the merchant memory and, only for the merchants
+that fitted nowhere, the local model. The rest goes to the review tray. When you
+correct a category, the decision is remembered for every transaction of that
+merchant **in that workspace**: your mother-in-law classifying in Calella touches
+nothing in your Personal.
 
-**El model local classifica per comerç, no per moviment.** És el que fa viable un NAS sense
-targeta gràfica: en règim normal apareixen pocs comerços nous cada nit, i un cop resolts no
-es tornen a preguntar mai més.
+**The local model classifies by merchant, not by transaction.** That is what makes
+a NAS with no graphics card viable: in normal running, few new merchants appear
+each night, and once resolved they are never asked about again.
 
-**Previsió.** El detector mira l'històric categoritzat i **només proposa** sèries
-(`suggested`). La persona les confirma (`active`) o les descarta a **Recurrents**.
-La previsió de saldo només mira les sèries actives amb `include_in_forecast`;
-no hi ha deriva de despesa variable residual.
+**Forecast.** The detector looks at the categorized history and **only proposes**
+series (`suggested`). The person confirms them (`active`) or dismisses them under
+**Recurrents**. The balance forecast only looks at the active series with
+`include_in_forecast`; there is no residual variable-expense drift.
 
-**Traspassos.** Dins d'un mateix espai, moure diners entre dos comptes seus no és ni ingrés
-ni despesa: els imports oposats dins de tres dies s'aparellen i queden fora dels informes.
-El que arriba **d'un altre espai**, en canvi, sí que compta: per a qui mira Calella, uns
-diners que hi entren són una entrada de debò.
+**Transfers.** Within one workspace, moving money between two of its accounts is
+neither income nor expense: opposite amounts within three days are paired and stay
+out of the reports. What arrives **from another workspace**, on the other hand,
+does count: to whoever looks at Calella, money coming in is a real credit.
 
-## Provar-ho ara mateix
+## Trying it right now
 
-Amb Docker, sense credencials del banc ni túnel:
+With Docker, without bank credentials or a tunnel:
 
 ```bash
-make up      # arrenca-ho tot
-make demo    # 18 mesos de moviments d'exemple
+make up      # start everything
+make demo    # 18 months of sample transactions
 ```
 
-Obre **http://localhost:8080** i entra amb `demo@exemple.cat` / `comptabilitat`.
-Els detalls, i com fer-ho sense Docker, a [`docs/provar-en-local.md`](docs/provar-en-local.md).
+Open **http://localhost:8080** and sign in with `demo@exemple.cat` /
+`comptabilitat`. The details, and how to do it without Docker, are in
+[`docs/provar-en-local.md`](docs/provar-en-local.md) (in Catalan, like the rest of
+the operational guides).
 
-## Posada en marxa de debò
+## Setting it up for real
 
-- **Com funcionen els espais**: [`docs/espais.md`](docs/espais.md)
-- **Al NAS**: [`docs/desplegament.md`](docs/desplegament.md)
+- **How the workspaces work**: [`docs/espais.md`](docs/espais.md)
+- **On the NAS**: [`docs/desplegament.md`](docs/desplegament.md)
 - **Enable Banking**: [`docs/enable-banking.md`](docs/enable-banking.md)
-- **Dia a dia**: [`docs/operacio.md`](docs/operacio.md)
+- **Day to day**: [`docs/operacio.md`](docs/operacio.md)
 
-## Proves
+## Tests
+
+After any change, one command:
 
 ```bash
-bun test              # cal un PostgreSQL accessible
-bun run typecheck     # estricte, sense cap `any`
+bun run ok    # the checks + the round that wants no database. One second
 ```
 
-Les proves volen una base de dades a part; la URL es dona amb `DATABASE_URL`:
+When it fails it says which step failed and what to do.
+
+`bun run test:unit` is `htmx-contract/` and `tests/unit/`: the markup, the
+normalization, the exports and the HTMX contract. They do not touch the database,
+and in CI they run as a job **with no PostgreSQL service at all**, which is what
+keeps the separation honest.
+
+The rest of the tests do want one, separately:
 
 ```bash
 createdb comptabilitat_test
-DATABASE_URL=postgresql://comptabilitat:comptabilitat@127.0.0.1:5432/comptabilitat_test bun test
+export DATABASE_URL=postgresql://comptabilitat:comptabilitat@127.0.0.1:5432/comptabilitat_test
+bun run test:db
 ```
 
-Cap prova no toca res de fora: el banc, el servidor de correu i el model local
-són servidors locals muntats per la prova mateixa.
+**Use `bun run test:db`, not a bare `bun test`.** The migrations are applied on
+importing `src/server.ts`, and ten test files import it: against a freshly created
+database they all start migrating at once and collide. The result is a first pass
+with a dozen failures that have nothing to do with your change. `test:db` does what
+CI does — apply the migrations first and then `SKIP_MIGRATIONS=true` — and then it
+comes out green. With the database already migrated, `bun test` works too.
 
-Les que valen més són les que fixen el comportament que costaria de
-redescobrir: la normalització dels conceptes i les claus de deduplicació es
-comproven contra la sortida gravada de la implementació anterior, i
-`tests/espais.test.ts` comprova que qui no té accés a un espai rep exactament
-la mateixa resposta que si no existís.
+No test touches anything outside: the bank, the mail server and the local model
+are local servers the test itself starts.
+
+The ones worth the most are those pinning behavior that would be expensive to
+rediscover: the normalization of the concepts and the deduplication keys are
+checked against the recorded output of the previous implementation, and
+`tests/workspaces.test.ts` checks that whoever has no access to a workspace gets
+exactly the same response as if it did not exist.
+
+## Language
+
+The code is **English** — identifiers, comments, test names, `AGENTS.md`,
+`docs/why.md` and `docs/reference.md`. Everything that reaches a screen is
+**Catalan**, and so are the URL segments (`/e/:codi/moviments`, `/etiquetes`) and
+the query-string and form field names: they are the wire format, and renaming one
+breaks links that already exist. The operational guides in `docs/` are Catalan
+too — they are for whoever runs the NAS, not for whoever changes the code. The
+rule is stated in full at the top of [`AGENTS.md`](AGENTS.md).

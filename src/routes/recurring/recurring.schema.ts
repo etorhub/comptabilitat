@@ -1,9 +1,9 @@
 /**
- * Esquemes de les series recurrents (schedules).
+ * Schemas of the recurring series (schedules).
  *
- * El detector nomes proposa; des d'aqui es confirmen, descarten, creen a ma
- * o s'edita l'import. La previsio nomes mira les actives amb
- * `include_in_forecast`.
+ * The detector only proposes; from here they are confirmed, dismissed,
+ * created by hand, or their amount edited. The forecast only looks at the
+ * active ones with `include_in_forecast`.
  */
 
 import { z } from "zod/v4";
@@ -27,7 +27,7 @@ export function recurringFiltersToQuery(f: RecurringFilters): string {
   return q ? `?${q}` : "";
 }
 
-export const confirmaSerieSchema = z.object({
+export const confirmSeriesSchema = z.object({
   cadence: cadenceSchema,
   amount_mode: amountModeSchema,
 });
@@ -38,11 +38,11 @@ const importSchema = z
   .regex(/^-?\d+([.,]\d{1,2})?$/, "L'import no es valid")
   .transform((v) => toMoneyString(v.replace(",", ".")));
 
-export const creaSerieSchema = z.object({
+export const createSeriesSchema = z.object({
   label: z.string().trim().min(1, "Cal un nom").max(200),
   category_id: z.coerce.number().int().positive("Cal una categoria"),
   cadence: cadenceSchema,
-  /** Valor absolut; el sentit el marca `sentit`. */
+  /** Absolute value; the direction is given by `sentit`. */
   amount: z
     .string()
     .trim()
@@ -52,8 +52,8 @@ export const creaSerieSchema = z.object({
   next_expected_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "La data ha de ser AAAA-MM-DD"),
 });
 
-export type CreaSerieInput = z.infer<typeof creaSerieSchema>;
+export type CreateSeriesInput = z.infer<typeof createSeriesSchema>;
 
-export const actualitzaImportSchema = z.object({
+export const updateAmountSchema = z.object({
   amount: importSchema,
 });

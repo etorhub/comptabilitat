@@ -1,8 +1,9 @@
 /**
- * Esquemes de les categories.
+ * Category schemas.
  *
- * Es deriven de la taula de Drizzle amb `drizzle-zod` i despres es refinen:
- * la taula es la font de veritat i aixo en surt, no al reves.
+ * They are derived from the Drizzle table with `drizzle-zod` and then
+ * refined: the table is the source of truth and this comes out of it, not the
+ * other way round.
  */
 
 import { createInsertSchema } from "drizzle-zod";
@@ -10,8 +11,8 @@ import { z } from "zod/v4";
 
 import { categories, categoryKindSchema } from "../../db/schema/index.ts";
 
-/** Un enter que ve d'un camp de formulari, on el buit vol dir «cap». */
-const idOpcional = z
+/** An integer coming from a form field, where empty means «none». */
+const optionalId = z
   .union([z.literal(""), z.coerce.number().int().positive()])
   .optional()
   .transform((v) => (v === "" || v === undefined ? null : v));
@@ -23,12 +24,12 @@ const base = createInsertSchema(categories, {
 });
 
 /**
- * Alta. `kind` nomes es fa servir quan no hi ha pare: una subcategoria hereta
- * sempre el tipus del pare, com feia el Python.
+ * Creation. `kind` is only used when there is no parent: a subcategory always
+ * inherits the parent's type, as the Python did.
  */
 export const categoryCreateSchema = base.pick({ name: true }).extend({
   kind: categoryKindSchema,
-  parent_id: idOpcional,
+  parent_id: optionalId,
   color: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/, "El color ha de ser un codi hexadecimal")
@@ -36,12 +37,12 @@ export const categoryCreateSchema = base.pick({ name: true }).extend({
   icon: z.string().max(40).default(""),
 });
 
-/** Canvi de nom des de la fila de la taula. */
+/** Rename from the table row. */
 export const categoryUpdateSchema = z.object({
   name: z.string().trim().min(1, "Cal un nom").max(120, "El nom es massa llarg"),
 });
 
 export const categoryDeleteSchema = z.object({
-  /** A qui van a parar els moviments que hi hagi. */
-  reassign_to: idOpcional,
+  /** Where any transactions it has should go. */
+  reassign_to: optionalId,
 });

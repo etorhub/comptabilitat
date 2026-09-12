@@ -1,10 +1,10 @@
 /**
- * Esquemes del recurs d'etiquetes.
+ * Schemas of the tags resource.
  */
 
 import { z } from "zod/v4";
 
-export const PER_PAGINA = 50;
+export const PER_PAGE = 50;
 
 export const tagDetailQuerySchema = z.object({
   pagina: z.coerce.number().int().min(0).default(0),
@@ -17,14 +17,14 @@ export function tagDetailToQuery(q: TagDetailQuery): string {
   return `?pagina=${q.pagina}`;
 }
 
-/** Nom d'etiqueta a l'adreça (despres de decodeURIComponent). */
-export function nomDeLaRuta(valor: string | undefined): string {
-  const brut = valor ?? "";
-  let decodificat = brut;
+/** Tag name in the URL (after decodeURIComponent). */
+export function nameFromRoute(value: string | undefined): string {
+  const raw = value ?? "";
+  let decoded = raw;
   try {
-    decodificat = decodeURIComponent(brut);
+    decoded = decodeURIComponent(raw);
   } catch {
-    decodificat = brut;
+    decoded = raw;
   }
-  return decodificat.trim().replace(/\s+/g, " ");
+  return decoded.trim().replace(/\s+/g, " ");
 }

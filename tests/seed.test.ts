@@ -1,10 +1,10 @@
 /**
- * El pla de categories.
+ * The category plan.
  *
- * El que es comprova aqui es que els pendents que surten del pla siguin
- * exactament els que el codi busca pel nom. Si algu reanomena una categoria
- * del pla sense pensar-hi, la classificacio i l'aparellament de traspassos
- * deixarien de trobar la seva categoria **en silenci**.
+ * What is checked here is that the slugs coming out of the plan are exactly
+ * the ones the code looks up by name. If somebody renames a category of the
+ * plan without thinking, the classification and the transfer pairing would
+ * stop finding their category **in silence**.
  */
 
 import { beforeAll, describe, expect, test } from "bun:test";
@@ -25,7 +25,7 @@ let ledgerId = 0;
 beforeAll(async () => {
   await db.delete(categories);
   await db.delete(ledgers);
-  const [espai] = await db
+  const [workspace] = await db
     .insert(ledgers)
     .values({
       code: "prova",
@@ -39,50 +39,50 @@ beforeAll(async () => {
       alertRecipients: [],
     })
     .returning();
-  ledgerId = espai?.id ?? 0;
+  ledgerId = workspace?.id ?? 0;
   await seedCategories(ledgerId);
 });
 
-describe("el pla de categories", () => {
-  test("crea les 81 categories del pla", async () => {
-    const totes = await db.select().from(categories).where(eq(categories.ledgerId, ledgerId));
-    expect(totes).toHaveLength(81);
+describe("the category plan", () => {
+  test("creates the 81 categories of the plan", async () => {
+    const all = await db.select().from(categories).where(eq(categories.ledgerId, ledgerId));
+    expect(all).toHaveLength(81);
   });
 
-  test("nomes te dos nivells", async () => {
-    const totes = await db.select().from(categories).where(eq(categories.ledgerId, ledgerId));
-    const perId = new Map(totes.map((c) => [c.id, c]));
-    for (const categoria of totes) {
-      if (categoria.parentId === null) continue;
-      expect(perId.get(categoria.parentId)?.parentId).toBeNull();
+  test("has two levels only", async () => {
+    const all = await db.select().from(categories).where(eq(categories.ledgerId, ledgerId));
+    const perId = new Map(all.map((c) => [c.id, c]));
+    for (const category of all) {
+      if (category.parentId === null) continue;
+      expect(perId.get(category.parentId)?.parentId).toBeNull();
     }
   });
 
-  test("conté els tres pendents dels quals depen el codi", async () => {
-    const totes = await db.select().from(categories).where(eq(categories.ledgerId, ledgerId));
-    const slugs = new Set(totes.map((c) => c.slug));
+  test("contains the three slugs the code depends on", async () => {
+    const all = await db.select().from(categories).where(eq(categories.ledgerId, ledgerId));
+    const slugs = new Set(all.map((c) => c.slug));
 
     expect(slugs).toContain(SLUG_UNCATEGORIZED);
     expect(slugs).toContain(SLUG_INTERNAL_TRANSFER);
     expect(slugs).toContain(SLUG_CASH_WITHDRAWAL);
   });
 
-  test("les categories protegides existeixen i son del sistema", async () => {
+  test("the protected categories exist and are system ones", async () => {
     for (const slug of PROTECTED_SLUGS) {
-      const [categoria] = await db
+      const [category] = await db
         .select()
         .from(categories)
         .where(eq(categories.slug, slug))
         .limit(1);
-      expect(categoria).toBeDefined();
-      expect(categoria?.isSystem).toBe(true);
+      expect(category).toBeDefined();
+      expect(category?.isSystem).toBe(true);
     }
   });
 
-  test("tornar-hi no duplica res", async () => {
-    const creades = await seedCategories(ledgerId);
-    expect(creades).toBe(0);
-    const totes = await db.select().from(categories).where(eq(categories.ledgerId, ledgerId));
-    expect(totes).toHaveLength(81);
+  test("running it again duplicates nothing", async () => {
+    const createdRows = await seedCategories(ledgerId);
+    expect(createdRows).toBe(0);
+    const all = await db.select().from(categories).where(eq(categories.ledgerId, ledgerId));
+    expect(all).toHaveLength(81);
   });
 });

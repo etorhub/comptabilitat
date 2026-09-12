@@ -1,25 +1,25 @@
 /**
- * Feina d'importacio.
+ * The import job.
  */
 
 import { and, eq, isNotNull } from "drizzle-orm";
 
 import { db } from "../../db/client.ts";
 import { bankConnections } from "../../db/schema/index.ts";
-import { comprovaConsentiments } from "../../services/consent.ts";
-import { sincronitzaConnexio } from "../../services/sync.ts";
+import { checkConsents } from "../../services/consent.ts";
+import { syncConnection } from "../../services/sync.ts";
 
-export async function feinaSincronitzacio(
-  opcions: { connectionId?: number | null; daysBack?: number | null } = {},
+export async function syncJob(
+  options: { connectionId?: number | null; daysBack?: number | null } = {},
 ): Promise<string> {
-  const linies: string[] = [];
+  const lines: string[] = [];
 
-  const connexions =
-    opcions.connectionId != null
+  const connections =
+    options.connectionId != null
       ? await db
           .select()
           .from(bankConnections)
-          .where(eq(bankConnections.id, opcions.connectionId))
+          .where(eq(bankConnections.id, options.connectionId))
       : await db
           .select()
           .from(bankConnections)
@@ -27,19 +27,19 @@ export async function feinaSincronitzacio(
             and(eq(bankConnections.status, "active"), isNotNull(bankConnections.ebSessionId)),
           );
 
-  for (const connexio of connexions) {
-    const resultat = await sincronitzaConnexio(connexio, {
-      trigger: opcions.connectionId != null ? "manual" : "scheduled",
-      daysBack: opcions.daysBack ?? null,
+  for (const connection of connections) {
+    const result = await syncConnection(connection, {
+      trigger: options.connectionId != null ? "manual" : "scheduled",
+      daysBack: options.daysBack ?? null,
     });
-    linies.push(
-      `${connexio.aspspName}: ${resultat.inserits} nous, ${resultat.actualitzats} actualitzats` +
-        (resultat.errors.length > 0 ? ` (${resultat.errors.length} errors)` : ""),
+    lines.push(
+      `${connection.aspspName}: ${result.inserted} nous, ${result.updatedCount} actualitzats` +
+        (result.errors.length > 0 ? ` (${result.errors.length} errors)` : ""),
     );
   }
 
-  const consentiments = await comprovaConsentiments();
-  if (consentiments > 0) linies.push(`${consentiments} avisos de consentiment`);
+  const consents = await checkConsents();
+  if (consents > 0) lines.push(`${consents} avisos de consentiment`);
 
-  return linies.length > 0 ? linies.join("\n") : "no hi ha cap connexio activa";
+  return lines.length > 0 ? lines.join("\n") : "no hi ha cap connexio activa";
 }

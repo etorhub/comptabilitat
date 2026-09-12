@@ -1,8 +1,8 @@
 /**
- * Comprovacio de CSRF a tota peticio que canvia alguna cosa.
+ * CSRF check on every request that changes something.
  *
- * Els `GET` i els `HEAD` no s'hi miren perque no han de canviar res; si
- * alguna ruta `GET` canvia alguna cosa, la ruta esta malament.
+ * `GET` and `HEAD` are not checked because they should not change anything; if
+ * some `GET` route does, that route is wrong.
  */
 
 import type { MiddlewareHandler } from "hono";
@@ -17,25 +17,25 @@ import {
 } from "../lib/csrf.ts";
 import { toastOnly } from "../lib/http.ts";
 
-const METODES_SEGURS = new Set(["GET", "HEAD", "OPTIONS"]);
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 /**
- * Rutes exemptes.
+ * Exempt routes.
  *
- * Nomes n'hi ha una: el retorn del banc despres de l'autenticacio forta. Qui
- * hi arriba ve del banc i no pot dur cap testimoni nostre; el que la protegeix
- * es l'`eb_auth_state` d'un sol us que va generar la connexio. A mes es un
- * `GET`, o sigui que ja no hi passaria.
+ * There is only one: the bank's callback after strong authentication. Whoever
+ * arrives there comes from the bank and cannot carry a token of ours; what
+ * protects it is the single-use `eb_auth_state` the connection generated. It
+ * is also a `GET`, so it would not reach here anyway.
  */
-const EXEMPTES: readonly RegExp[] = [/^\/api\/auth\/callback$/];
+const EXEMPT: readonly RegExp[] = [/^\/api\/auth\/callback$/];
 
 export const csrfMiddleware: MiddlewareHandler = async (c, next) => {
-  if (METODES_SEGURS.has(c.req.method)) {
+  if (SAFE_METHODS.has(c.req.method)) {
     return next();
   }
 
-  const cami = new URL(c.req.url).pathname;
-  if (EXEMPTES.some((patro) => patro.test(cami))) {
+  const path = new URL(c.req.url).pathname;
+  if (EXEMPT.some((pattern) => pattern.test(path))) {
     return next();
   }
 
@@ -44,30 +44,30 @@ export const csrfMiddleware: MiddlewareHandler = async (c, next) => {
   }
 
   /**
-   * Amb sessio, la llavor es el resum del testimoni de sessio. Sense (el
-   * formulari d'entrada), es la galeta d'un sol us que va posar el `GET`.
+   * With a session, the seed is the session token's digest. Without one (the
+   * login form), it is the single-use cookie the `GET` set.
    */
-  const llavor = c.get("sessionTokenHash") ?? getCookie(c, CSRF_SEED_COOKIE) ?? null;
-  if (llavor === null) {
+  const seed = c.get("sessionTokenHash") ?? getCookie(c, CSRF_SEED_COOKIE) ?? null;
+  if (seed === null) {
     return toastOnly(c, "La sessio s'ha tancat. Torna a carregar la pagina.", 403);
   }
 
-  // La capçalera la posa `hx-headers` del `<body>`; el camp ocult, els
-  // formularis que no passen per HTMX (l'entrada).
-  let presentat = c.req.header(CSRF_HEADER);
-  if (presentat === undefined) {
-    const tipus = c.req.header("Content-Type") ?? "";
+  // The header comes from the `<body>`'s `hx-headers`; the hidden field comes
+  // from the forms that do not go through htmx (the login form).
+  let presented = c.req.header(CSRF_HEADER);
+  if (presented === undefined) {
+    const type = c.req.header("Content-Type") ?? "";
     if (
-      tipus.includes("application/x-www-form-urlencoded") ||
-      tipus.includes("multipart/form-data")
+      type.includes("application/x-www-form-urlencoded") ||
+      type.includes("multipart/form-data")
     ) {
-      const cos = await c.req.parseBody();
-      const camp = cos[CSRF_FIELD];
-      if (typeof camp === "string") presentat = camp;
+      const body = await c.req.parseBody();
+      const field = body[CSRF_FIELD];
+      if (typeof field === "string") presented = field;
     }
   }
 
-  if (!(await csrfTokenValid(llavor, presentat))) {
+  if (!(await csrfTokenValid(seed, presented))) {
     return toastOnly(c, "El formulari ha caducat. Torna a carregar la pagina.", 403);
   }
 

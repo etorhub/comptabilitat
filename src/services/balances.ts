@@ -1,11 +1,11 @@
 /**
- * Saldos.
+ * Balances.
  *
- * El banc nomes dona el saldo d'avui. La corba historica, doncs, no es
- * consulta: es **reconstrueix cap enrere** restant els moviments de cada dia
- * al saldo conegut.
+ * The bank only gives today's balance. The historical curve, therefore, is
+ * not queried: it is **rebuilt backwards** by subtracting each day's
+ * transactions from the known balance.
  *
- * Traduccio de `backend/app/services/balances.py`.
+ * A translation of `backend/app/services/balances.py`.
  */
 
 import { and, asc, eq, gt, inArray, lte, max, sum } from "drizzle-orm";
@@ -15,26 +15,26 @@ import { accounts, balances, transactions } from "../db/schema/index.ts";
 import { Decimal, money, toMoneyString, type MoneyString } from "../lib/money.ts";
 import { addDays } from "../lib/time.ts";
 
-/** Ordre de preferencia: comptable tancat, disponible, i despres qualsevol. */
+/** Order of preference: closing booked, available, and then any. */
 const BALANCE_TYPE_PRIORITY = ["CLBD", "CLAV", "ITAV", "XPCD", "OTHR"];
 
-export interface SaldoConegut {
+export interface BalanceKnown {
   amount: MoneyString;
   currency: string;
   referenceDate: string;
   balanceType: string;
 }
 
-/** Ultim saldo conegut d'un compte, preferint el saldo comptable. */
-export async function ultimSaldo(accountId: number): Promise<SaldoConegut | null> {
-  const [ultima] = await db
-    .select({ data: max(balances.referenceDate) })
+/** An account's last known balance, preferring the booked balance. */
+export async function lastBalance(accountId: number): Promise<BalanceKnown | null> {
+  const [last] = await db
+    .select({ date: max(balances.referenceDate) })
     .from(balances)
     .where(eq(balances.accountId, accountId));
 
-  if (!ultima?.data) return null;
+  if (!last?.date) return null;
 
-  const candidats = await db
+  const candidates = await db
     .select({
       amount: balances.amount,
       currency: balances.currency,
@@ -42,88 +42,88 @@ export async function ultimSaldo(accountId: number): Promise<SaldoConegut | null
       balanceType: balances.balanceType,
     })
     .from(balances)
-    .where(and(eq(balances.accountId, accountId), eq(balances.referenceDate, ultima.data)));
+    .where(and(eq(balances.accountId, accountId), eq(balances.referenceDate, last.date)));
 
-  if (candidats.length === 0) return null;
+  if (candidates.length === 0) return null;
 
-  const posicio = (tipus: string) => {
-    const i = BALANCE_TYPE_PRIORITY.indexOf(tipus);
+  const position = (type: string) => {
+    const i = BALANCE_TYPE_PRIORITY.indexOf(type);
     return i === -1 ? BALANCE_TYPE_PRIORITY.length : i;
   };
-  candidats.sort((a, b) => posicio(a.balanceType) - posicio(b.balanceType));
+  candidates.sort((a, b) => position(a.balanceType) - position(b.balanceType));
 
-  return candidats[0] ?? null;
+  return candidates[0] ?? null;
 }
 
-export interface SaldoEspai {
+export interface WorkspaceBalance {
   total: MoneyString;
-  /** La data del saldo mes recent que s'ha fet servir. */
-  data: string | null;
+  /** The date of the most recent balance used. */
+  date: string | null;
 }
 
-/** Suma dels ultims saldos coneguts dels comptes actius d'un espai. */
-export async function saldoEspai(ledgerId: number): Promise<SaldoEspai> {
-  const comptes = await db
+/** Sum of the last known balances of a workspace's active accounts. */
+export async function workspaceBalance(ledgerId: number): Promise<WorkspaceBalance> {
+  const accountList = await db
     .select({ id: accounts.id })
     .from(accounts)
     .where(and(eq(accounts.ledgerId, ledgerId), eq(accounts.isActive, true)));
 
   let total = new Decimal(0);
-  let data: string | null = null;
+  let date: string | null = null;
 
-  for (const compte of comptes) {
-    const saldo = await ultimSaldo(compte.id);
-    if (saldo === null) continue;
-    total = total.plus(money(saldo.amount));
-    if (data === null || saldo.referenceDate > data) data = saldo.referenceDate;
+  for (const account of accountList) {
+    const balance = await lastBalance(account.id);
+    if (balance === null) continue;
+    total = total.plus(money(balance.amount));
+    if (date === null || balance.referenceDate > date) date = balance.referenceDate;
   }
 
-  return { total: toMoneyString(total), data };
+  return { total: toMoneyString(total), date };
 }
 
-export interface PuntSaldo {
-  dia: string;
-  saldo: MoneyString;
+export interface BalancePoint {
+  day: string;
+  balance: MoneyString;
 }
 
 /**
- * Evolucio diaria del saldo, reconstruida cap enrere des del saldo d'avui.
+ * Daily evolution of the balance, rebuilt backwards from today's balance.
  */
-export async function serieSaldos(
+export async function balanceSeries(
   ledgerIds: number[],
-  dataDes: string,
-  dataFins: string,
-): Promise<PuntSaldo[]> {
+  dateFrom: string,
+  dateTo: string,
+): Promise<BalancePoint[]> {
   if (ledgerIds.length === 0) return [];
 
   let actual = new Decimal(0);
   for (const ledgerId of ledgerIds) {
-    actual = actual.plus(money((await saldoEspai(ledgerId)).total));
+    actual = actual.plus(money((await workspaceBalance(ledgerId)).total));
   }
 
-  const files = await db
-    .select({ dia: transactions.bookingDate, total: sum(transactions.amount) })
+  const rows = await db
+    .select({ day: transactions.bookingDate, total: sum(transactions.amount) })
     .from(transactions)
     .where(
       and(
         inArray(transactions.ledgerId, ledgerIds),
-        gt(transactions.bookingDate, dataDes),
-        lte(transactions.bookingDate, dataFins),
+        gt(transactions.bookingDate, dateFrom),
+        lte(transactions.bookingDate, dateTo),
       ),
     )
     .groupBy(transactions.bookingDate)
     .orderBy(asc(transactions.bookingDate));
 
-  const perDia = new Map(files.map((f) => [f.dia, money(f.total ?? "0")]));
+  const byDay = new Map(rows.map((f) => [f.day, money(f.total ?? "0")]));
 
-  const serie: PuntSaldo[] = [];
-  let cursor = dataFins;
-  let corrent = actual;
-  while (cursor >= dataDes) {
-    serie.push({ dia: cursor, saldo: toMoneyString(corrent) });
-    corrent = corrent.minus(perDia.get(cursor) ?? new Decimal(0));
+  const series: BalancePoint[] = [];
+  let cursor = dateTo;
+  let running = actual;
+  while (cursor >= dateFrom) {
+    series.push({ day: cursor, balance: toMoneyString(running) });
+    running = running.minus(byDay.get(cursor) ?? new Decimal(0));
     cursor = addDays(cursor, -1);
   }
-  serie.reverse();
-  return serie;
+  series.reverse();
+  return series;
 }

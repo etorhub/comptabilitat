@@ -1,59 +1,59 @@
 /**
- * Resol la contrapart d'un moviment com a comerç (payee).
+ * Resolves a transaction's counterparty as a merchant (payee).
  *
- * Es l'unica porta que escriu `transactions.merchant_id`. Serveix per a la
- * memoria de categoria en importar; no es un recurs de la interficie.
+ * It is the only door that writes `transactions.merchant_id`. It serves the
+ * category memory when importing; it is not an interface resource.
  */
 
 import { db, type Transactor } from "../db/client.ts";
-import { obteOCreaComerc } from "./merchants.ts";
+import { getOrCreateMerchant } from "./merchants.ts";
 import { normalizeDescription } from "./normalization.ts";
 
-export interface DadesContrapart {
+export interface CounterpartyData {
   description: string;
   counterparty: string;
   bookingDate: string | null;
 }
 
-export interface Contrapart {
+export interface Counterparty {
   merchantId: number | null;
-  /** El que s'ha d'escriure a `transactions.normalized_description`. */
+  /** What has to be written to `transactions.normalized_description`. */
   normalizedKey: string;
   displayName: string;
 }
 
-const CONTRAPART_BUIDA: Contrapart = {
+const COUNTERPARTY_EMPTY: Counterparty = {
   merchantId: null,
   normalizedKey: "",
   displayName: "",
 };
 
 /**
- * Obté (o crea) el comerç de la contrapart.
+ * Gets (or creates) the counterparty's merchant.
  *
- * @param incrementaComptador es passa tal qual a `obteOCreaComerc`: fals per
- *   a reassignacions en lot que després recompten.
+ * @param incrementCounter passed straight to `getOrCreateMerchant`: false
+ *   for batch reassignments that recount afterwards.
  */
-export async function resolContrapart(
+export async function resolveCounterparty(
   ledgerId: number,
-  dades: DadesContrapart,
-  connexio: Transactor = db,
-  incrementaComptador = true,
-): Promise<Contrapart> {
-  const [normalitzat, mostrar] = normalizeDescription(dades.description, dades.counterparty);
-  if (!normalitzat) return CONTRAPART_BUIDA;
+  data: CounterpartyData,
+  connection: Transactor = db,
+  incrementCounter = true,
+): Promise<Counterparty> {
+  const [normalized, show] = normalizeDescription(data.description, data.counterparty);
+  if (!normalized) return COUNTERPARTY_EMPTY;
 
-  const comerc = await obteOCreaComerc(
+  const merchant = await getOrCreateMerchant(
     ledgerId,
-    normalitzat,
-    mostrar,
-    dades.bookingDate,
-    connexio,
-    incrementaComptador,
+    normalized,
+    show,
+    data.bookingDate,
+    connection,
+    incrementCounter,
   );
   return {
-    merchantId: comerc?.id ?? null,
-    normalizedKey: normalitzat,
-    displayName: mostrar,
+    merchantId: merchant?.id ?? null,
+    normalizedKey: normalized,
+    displayName: show,
   };
 }

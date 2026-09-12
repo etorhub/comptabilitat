@@ -1,11 +1,11 @@
 /**
- * Rutes de les series recurrents (schedules).
+ * Routes of the recurring series (schedules).
  */
 
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { zodErrors } from "../../components/form.tsx";
+import { zodErrors } from "../../components/form.ts";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { recurringSeries, roleAtLeast } from "../../db/schema/index.ts";
@@ -13,7 +13,7 @@ import { ConflictError } from "../../lib/http.ts";
 import {
   clearToast,
   fragment,
-  idDeLaRuta,
+  idFromRoute,
   page,
   pushUrl,
   toast,
@@ -21,25 +21,25 @@ import {
 } from "../../lib/http.ts";
 import { money, toMoneyString } from "../../lib/money.ts";
 import { currentRole, currentWorkspace, requireEditor } from "../../middleware/workspace.ts";
-import { opcionsCategories } from "../../services/categories.ts";
+import { categoryOptions } from "../../services/categories.ts";
 import {
-  actualitzaImportSerie,
-  confirmaSerie,
-  creaSerieManual,
-  descartaSerie,
+  updateSeriesAmount,
+  confirmSeries,
+  createSeriesManual,
+  dismissSeries,
 } from "../../services/recurring.ts";
 import {
-  llistaSeries,
-  serieDeLespai,
-  vistaSerie,
-  aparicionsSerie,
+  listSeries,
+  seriesInWorkspace,
+  seriesView,
+  seriesOccurrences,
 } from "../../services/recurring-list.ts";
-import { FilaActiva, FormAlta, Taula } from "./recurring.fragment.tsx";
-import { RecurringPage } from "./recurring.page.tsx";
+import { ActiveRow, CreateForm, Table } from "./recurring.fragment.ts";
+import { RecurringPage } from "./recurring.page.ts";
 import {
-  actualitzaImportSchema,
-  confirmaSerieSchema,
-  creaSerieSchema,
+  updateAmountSchema,
+  confirmSeriesSchema,
+  createSeriesSchema,
   recurringFiltersSchema,
   recurringFiltersToQuery,
 } from "./recurring.schema.ts";
@@ -47,15 +47,15 @@ import {
 export const recurringRoutes = new Hono();
 
 recurringRoutes.get("/", async (c) => {
-  const espai = currentWorkspace(c);
+  const workspace = currentWorkspace(c);
   const filters = recurringFiltersSchema.parse(c.req.query());
-  const potEditar = roleAtLeast(currentRole(c), "editor");
-  const [propostes, actives, grups] = await Promise.all([
-    llistaSeries(espai.id, { estats: ["suggested"] }),
-    llistaSeries(espai.id, {
-      estats: filters.inclou_acabades ? ["active", "ended"] : ["active"],
+  const canEdit = roleAtLeast(currentRole(c), "editor");
+  const [proposals, active, groups] = await Promise.all([
+    listSeries(workspace.id, { statuses: ["suggested"] }),
+    listSeries(workspace.id, {
+      statuses: filters.inclou_acabades ? ["active", "ended"] : ["active"],
     }),
-    potEditar ? opcionsCategories(espai.id) : Promise.resolve([]),
+    canEdit ? categoryOptions(workspace.id) : Promise.resolve([]),
   ]);
 
   return page(
@@ -64,99 +64,99 @@ recurringRoutes.get("/", async (c) => {
       c,
       "Recurrents",
       RecurringPage({
-        codi: espai.code,
-        propostes,
-        actives,
+        code: workspace.code,
+        proposals,
+        active,
         filters,
-        potEditar,
-        grups,
+        canEdit,
+        groups,
       }),
     ),
   );
 });
 
 recurringRoutes.get("/fragment/propostes", async (c) => {
-  const espai = currentWorkspace(c);
-  const propostes = await llistaSeries(espai.id, { estats: ["suggested"] });
+  const workspace = currentWorkspace(c);
+  const proposals = await listSeries(workspace.id, { statuses: ["suggested"] });
   return fragment(
     c,
-    Taula({
-      codi: espai.code,
-      series: propostes,
-      potEditar: roleAtLeast(currentRole(c), "editor"),
-      idContenidor: "taula-recurrents-propostes",
-      sonPropostes: true,
-      buit: "No hi ha cap proposta nova.",
+    Table({
+      code: workspace.code,
+      series: proposals,
+      canEdit: roleAtLeast(currentRole(c), "editor"),
+      containerId: "taula-recurrents-propostes",
+      areProposals: true,
+      empty: "No hi ha cap proposta nova.",
     }),
   );
 });
 
 recurringRoutes.get("/fragment/actives", async (c) => {
-  const espai = currentWorkspace(c);
+  const workspace = currentWorkspace(c);
   const filters = recurringFiltersSchema.parse(c.req.query());
-  const actives = await llistaSeries(espai.id, {
-    estats: filters.inclou_acabades ? ["active", "ended"] : ["active"],
+  const active = await listSeries(workspace.id, {
+    statuses: filters.inclou_acabades ? ["active", "ended"] : ["active"],
   });
 
-  pushUrl(c, `/e/${espai.code}/recurrents${recurringFiltersToQuery(filters)}`);
+  pushUrl(c, `/e/${workspace.code}/recurrents${recurringFiltersToQuery(filters)}`);
 
   return fragment(
     c,
-    Taula({
-      codi: espai.code,
-      series: actives,
-      potEditar: roleAtLeast(currentRole(c), "editor"),
-      idContenidor: "taula-recurrents-actives",
-      buit: "Encara no hi ha cap rebut confirmat.",
+    Table({
+      code: workspace.code,
+      series: active,
+      canEdit: roleAtLeast(currentRole(c), "editor"),
+      containerId: "taula-recurrents-actives",
+      empty: "Encara no hi ha cap rebut confirmat.",
     }),
   );
 });
 
 recurringRoutes.get("/:id/fragment/fila", async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquesta serie no existeix");
-  const editant = c.req.query("editant") === "1";
-  const mostra = !editant && c.req.query("mostra") === "1";
-  const potEditar = roleAtLeast(currentRole(c), "editor");
-  const vista = await vistaSerie(id, espai.id);
-  const aparicions = mostra ? await aparicionsSerie(id, espai.id) : null;
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquesta serie no existeix");
+  const editing = c.req.query("editant") === "1";
+  const show = !editing && c.req.query("mostra") === "1";
+  const canEdit = roleAtLeast(currentRole(c), "editor");
+  const view = await seriesView(id, workspace.id);
+  const occurrences = show ? await seriesOccurrences(id, workspace.id) : null;
 
   return fragment(
     c,
-    FilaActiva({
-      codi: espai.code,
-      serie: vista,
-      potEditar,
-      editant: potEditar && editant,
-      aparicions,
+    ActiveRow({
+      code: workspace.code,
+      series: view,
+      canEdit,
+      editing: canEdit && editing,
+      occurrences,
     }),
   );
 });
 
 recurringRoutes.post("/", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const cos = await c.req.parseBody();
-  const parsed = creaSerieSchema.safeParse(cos);
-  const grups = await opcionsCategories(espai.id);
+  const workspace = currentWorkspace(c);
+  const body = await c.req.parseBody();
+  const parsed = createSeriesSchema.safeParse(body);
+  const groups = await categoryOptions(workspace.id);
 
   if (!parsed.success) {
     return fragment(
       c,
       await withOob(
-        FormAlta({
-          codi: espai.code,
-          grups,
-          valors: {
-            label: typeof cos.label === "string" ? cos.label : "",
+        CreateForm({
+          code: workspace.code,
+          groups,
+          values: {
+            label: typeof body.label === "string" ? body.label : "",
             category_id:
-              typeof cos.category_id === "string" && cos.category_id !== ""
-                ? Number(cos.category_id)
+              typeof body.category_id === "string" && body.category_id !== ""
+                ? Number(body.category_id)
                 : undefined,
-            cadence: typeof cos.cadence === "string" ? (cos.cadence as never) : undefined,
-            amount: typeof cos.amount === "string" ? cos.amount : "",
-            sentit: cos.sentit === "in" ? "in" : "out",
+            cadence: typeof body.cadence === "string" ? (body.cadence as never) : undefined,
+            amount: typeof body.amount === "string" ? body.amount : "",
+            sentit: body.sentit === "in" ? "in" : "out",
             next_expected_date:
-              typeof cos.next_expected_date === "string" ? cos.next_expected_date : undefined,
+              typeof body.next_expected_date === "string" ? body.next_expected_date : undefined,
           },
           errors: zodErrors(parsed.error),
         }),
@@ -166,121 +166,121 @@ recurringRoutes.post("/", requireEditor, async (c) => {
     );
   }
 
-  const dades = parsed.data;
-  const signed = dades.sentit === "out" ? money(dades.amount).negated() : money(dades.amount);
+  const data = parsed.data;
+  const signed = data.sentit === "out" ? money(data.amount).negated() : money(data.amount);
 
-  await creaSerieManual(espai.id, {
-    label: dades.label,
-    categoryId: dades.category_id,
-    cadence: dades.cadence,
+  await createSeriesManual(workspace.id, {
+    label: data.label,
+    categoryId: data.category_id,
+    cadence: data.cadence,
     expectedAmount: toMoneyString(signed),
-    nextExpectedDate: dades.next_expected_date,
+    nextExpectedDate: data.next_expected_date,
   });
 
-  const actives = await llistaSeries(espai.id, { estats: ["active"] });
+  const active = await listSeries(workspace.id, { statuses: ["active"] });
   return fragment(
     c,
     await withOob(
-      FormAlta({ codi: espai.code, grups }),
-      Taula({
-        codi: espai.code,
-        series: actives,
-        potEditar: true,
-        idContenidor: "taula-recurrents-actives",
-        buit: "Encara no hi ha cap rebut confirmat.",
+      CreateForm({ code: workspace.code, groups }),
+      Table({
+        code: workspace.code,
+        series: active,
+        canEdit: true,
+        containerId: "taula-recurrents-actives",
+        empty: "Encara no hi ha cap rebut confirmat.",
         oob: true,
       }),
-      toast(`S'ha afegit «${dades.label}»`, "success"),
+      toast(`S'ha afegit «${data.label}»`, "success"),
     ),
   );
 });
 
 recurringRoutes.post("/:id/previsio", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquesta serie no existeix");
-  const serie = await serieDeLespai(id, espai.id);
-  const cos = await c.req.parseBody();
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquesta serie no existeix");
+  const series = await seriesInWorkspace(id, workspace.id);
+  const body = await c.req.parseBody();
 
   await db
     .update(recurringSeries)
-    .set({ includeInForecast: cos.include_in_forecast !== undefined })
-    .where(eq(recurringSeries.id, serie.id));
+    .set({ includeInForecast: body.include_in_forecast !== undefined })
+    .where(eq(recurringSeries.id, series.id));
 
-  const vista = await vistaSerie(id, espai.id);
+  const view = await seriesView(id, workspace.id);
   return fragment(
     c,
     await withOob(
-      FilaActiva({ codi: espai.code, serie: vista, potEditar: true }),
+      ActiveRow({ code: workspace.code, series: view, canEdit: true }),
       clearToast(),
     ),
   );
 });
 
 recurringRoutes.post("/:id/import", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquesta serie no existeix");
-  const serie = await serieDeLespai(id, espai.id);
-  if (serie.status !== "active") {
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquesta serie no existeix");
+  const series = await seriesInWorkspace(id, workspace.id);
+  if (series.status !== "active") {
     throw new ConflictError("Nomes es pot editar l'import d'una serie activa");
   }
 
-  const cos = await c.req.parseBody();
-  const parsed = actualitzaImportSchema.safeParse(cos);
+  const body = await c.req.parseBody();
+  const parsed = updateAmountSchema.safeParse(body);
   if (!parsed.success) {
-    const vista = await vistaSerie(id, espai.id);
+    const view = await seriesView(id, workspace.id);
     return fragment(
       c,
       await withOob(
-        FilaActiva({ codi: espai.code, serie: vista, potEditar: true, editant: true }),
+        ActiveRow({ code: workspace.code, series: view, canEdit: true, editing: true }),
         toast(zodErrors(parsed.error).amount?.[0] ?? "Revisa l'import", "error"),
       ),
       422,
     );
   }
 
-  // Conserva el sentit de la serie; el formulari envia el valor absolut.
-  const signe = money(serie.expectedAmount).isNegative() ? -1 : 1;
-  const nou = money(parsed.data.amount).abs().times(signe);
+  // Keeps the series' direction; the form sends the absolute value.
+  const sign = money(series.expectedAmount).isNegative() ? -1 : 1;
+  const fresh = money(parsed.data.amount).abs().times(sign);
 
-  await actualitzaImportSerie(id, toMoneyString(nou));
+  await updateSeriesAmount(id, toMoneyString(fresh));
 
-  const vista = await vistaSerie(id, espai.id);
+  const view = await seriesView(id, workspace.id);
   return fragment(
     c,
     await withOob(
-      FilaActiva({ codi: espai.code, serie: vista, potEditar: true }),
+      ActiveRow({ code: workspace.code, series: view, canEdit: true }),
       toast("S'ha actualitzat l'import", "success"),
     ),
   );
 });
 
 recurringRoutes.post("/:id/confirma", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquesta serie no existeix");
-  const serie = await serieDeLespai(id, espai.id);
-  if (serie.status !== "suggested") {
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquesta serie no existeix");
+  const series = await seriesInWorkspace(id, workspace.id);
+  if (series.status !== "suggested") {
     throw new ConflictError("Aquesta serie ja no es una proposta");
   }
 
-  const cos = await c.req.parseBody();
-  const dades = confirmaSerieSchema.parse({
-    cadence: cos.cadence,
-    amount_mode: cos.amount_mode,
+  const body = await c.req.parseBody();
+  const data = confirmSeriesSchema.parse({
+    cadence: body.cadence,
+    amount_mode: body.amount_mode,
   });
 
-  await confirmaSerie(id, { cadence: dades.cadence, amountMode: dades.amount_mode });
+  await confirmSeries(id, { cadence: data.cadence, amountMode: data.amount_mode });
 
-  const actives = await llistaSeries(espai.id, { estats: ["active"] });
+  const active = await listSeries(workspace.id, { statuses: ["active"] });
   return fragment(
     c,
     await withOob(
       `<!-- serie-${id} confirmada -->`,
-      Taula({
-        codi: espai.code,
-        series: actives,
-        potEditar: true,
-        idContenidor: "taula-recurrents-actives",
-        buit: "Encara no hi ha cap rebut confirmat.",
+      Table({
+        code: workspace.code,
+        series: active,
+        canEdit: true,
+        containerId: "taula-recurrents-actives",
+        empty: "Encara no hi ha cap rebut confirmat.",
         oob: true,
       }),
       clearToast(),
@@ -289,9 +289,9 @@ recurringRoutes.post("/:id/confirma", requireEditor, async (c) => {
 });
 
 recurringRoutes.post("/:id/descarta", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquesta serie no existeix");
-  await serieDeLespai(id, espai.id);
-  await descartaSerie(id);
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquesta serie no existeix");
+  await seriesInWorkspace(id, workspace.id);
+  await dismissSeries(id);
   return fragment(c, await withOob(`<!-- serie-${id} descartada -->`, clearToast()));
 });

@@ -1,10 +1,10 @@
 /**
- * Rutes del recurs d'etiquetes.
+ * Routes of the tags resource.
  *
- * GET /etiquetes → pagina amb sumes.
- * GET /etiquetes/:nom → detall amb moviments.
- * GET /etiquetes/:nom/fragment/taula → fragment de paginacio.
- * POST /etiquetes/:nom/esborra → treu l'etiqueta de tot l'espai.
+ * GET /etiquetes → page with totals.
+ * GET /etiquetes/:nom → detail with transactions.
+ * GET /etiquetes/:nom/fragment/taula → pagination fragment.
+ * POST /etiquetes/:nom/esborra → removes the tag from the whole workspace.
  */
 
 import { Hono } from "hono";
@@ -13,147 +13,152 @@ import { workspacePage } from "../../components/workspace-page.ts";
 import { roleAtLeast } from "../../db/schema/index.ts";
 import { AppError, fragment, page, pushUrl, redirect, toastOnly } from "../../lib/http.ts";
 import { currentRole, currentWorkspace, requireEditor } from "../../middleware/workspace.ts";
-import { opcionsCategories } from "../../services/categories.ts";
+import { categoryOptions } from "../../services/categories.ts";
 import {
-  esborraEtiquetaDeLespai,
-  etiquetesEspai,
-  llistaEtiquetes,
-  normalitzaEtiqueta,
-  resumEtiqueta,
+  deleteTagFromWorkspace,
+  workspaceTags,
+  listTags,
+  normalizeTag,
+  summaryTag,
 } from "../../services/tags.ts";
-import { llistaMoviments } from "../../services/transactions.ts";
-import { TaulaDetall } from "./tags.fragment.tsx";
-import { TagDetailPage, TagsPage } from "./tags.page.tsx";
+import { listTransactions } from "../../services/transactions.ts";
+import { DetailTable } from "./tags.fragment.ts";
+import { TagDetailPage, TagsPage } from "./tags.page.ts";
 import {
-  nomDeLaRuta,
-  PER_PAGINA,
+  nameFromRoute,
+  PER_PAGE,
   tagDetailQuerySchema,
   tagDetailToQuery,
 } from "./tags.schema.ts";
 
 export const tagsRoutes = new Hono();
 
-function nomValid(valor: string | undefined): string {
-  const nom = nomDeLaRuta(valor);
+function validName(value: string | undefined): string {
+  const name = nameFromRoute(value);
   try {
-    return normalitzaEtiqueta(nom);
+    return normalizeTag(name);
   } catch (err) {
     if (err instanceof AppError) throw err;
     throw new AppError("L'etiqueta no es valida", 422);
   }
 }
 
-async function dadesDetall(ledgerId: number, nom: string, query: Record<string, string>) {
+async function detailData(ledgerId: number, name: string, query: Record<string, string>) {
   const filters = tagDetailQuerySchema.parse(query);
-  const [resum, pagina, grups, etiquetesConegudes] = await Promise.all([
-    resumEtiqueta(ledgerId, nom),
-    llistaMoviments(ledgerId, {
+  const [summary, paged, groups, knownTags] = await Promise.all([
+    summaryTag(ledgerId, name),
+    listTransactions(ledgerId, {
       accountId: null,
-      dataDes: null,
-      dataFins: null,
+      dateFrom: null,
+      dateTo: null,
       categoryIds: [],
       merchantId: null,
-      cerca: "",
-      etiqueta: nom,
-      tipusOperacio: [],
-      targetes: [],
-      nomesRevisio: false,
-      nomesSenseClassificar: false,
-      incloTraspassos: false,
-      limit: PER_PAGINA,
-      offset: filters.pagina * PER_PAGINA,
+      search: "",
+      tag: name,
+      operationType: [],
+      cards: [],
+      onlyReview: false,
+      onlyUnclassified: false,
+      includeTransfers: false,
+      limit: PER_PAGE,
+      offset: filters.pagina * PER_PAGE,
     }),
-    opcionsCategories(ledgerId),
-    etiquetesEspai(ledgerId),
+    categoryOptions(ledgerId),
+    workspaceTags(ledgerId),
   ]);
-  return { filters, resum, pagina, grups, etiquetesConegudes };
+  return { filters, summary, page: paged, groups, knownTags };
 }
 
-// --- Pagina ----------------------------------------------------------------
+// --- Page ------------------------------------------------------------------
 
 tagsRoutes.get("/", async (c) => {
-  const espai = currentWorkspace(c);
-  const potEditar = roleAtLeast(currentRole(c), "editor");
-  const etiquetes = await llistaEtiquetes(espai.id);
+  const workspace = currentWorkspace(c);
+  const canEdit = roleAtLeast(currentRole(c), "editor");
+  const tags = await listTags(workspace.id);
 
   return page(
     c,
-    await workspacePage(c, "Etiquetes", TagsPage({ codi: espai.code, etiquetes, potEditar })),
+    await workspacePage(c, "Etiquetes", TagsPage({ code: workspace.code, tags, canEdit })),
   );
 });
 
-// Fragment abans de :nom perque Hono no confongui «fragment» amb un nom.
+// Fragment before :nom so that Hono does not mistake «fragment» for a name.
 tagsRoutes.get("/:nom/fragment/taula", async (c) => {
-  const espai = currentWorkspace(c);
-  const nom = nomValid(c.req.param("nom"));
-  const { filters, resum, pagina, grups, etiquetesConegudes } = await dadesDetall(
-    espai.id,
-    nom,
-    c.req.query(),
-  );
+  const workspace = currentWorkspace(c);
+  const name = validName(c.req.param("nom"));
+  const {
+    page: paged,
+    filters,
+    summary,
+    groups,
+    knownTags,
+  } = await detailData(workspace.id, name, c.req.query());
 
   pushUrl(
     c,
-    `/e/${espai.code}/etiquetes/${encodeURIComponent(resum.nom)}${tagDetailToQuery(filters)}`,
+    `/e/${workspace.code}/etiquetes/${encodeURIComponent(summary.name)}${tagDetailToQuery(filters)}`,
   );
 
   return fragment(
     c,
-    TaulaDetall({
-      codi: espai.code,
-      nom: resum.nom,
-      pagina,
-      grups,
-      potEditar: roleAtLeast(currentRole(c), "editor"),
+    DetailTable({
+      code: workspace.code,
+      name: summary.name,
+      page: paged,
+      groups,
+      canEdit: roleAtLeast(currentRole(c), "editor"),
       query: filters,
-      etiquetesConegudes,
+      knownTags,
     }),
   );
 });
 
 tagsRoutes.get("/:nom", async (c) => {
-  const espai = currentWorkspace(c);
-  const nom = nomValid(c.req.param("nom"));
-  const { filters, resum, pagina, grups, etiquetesConegudes } = await dadesDetall(
-    espai.id,
-    nom,
-    c.req.query(),
-  );
+  const workspace = currentWorkspace(c);
+  const name = validName(c.req.param("nom"));
+  const {
+    page: paged,
+    filters,
+    summary,
+    groups,
+    knownTags,
+  } = await detailData(workspace.id, name, c.req.query());
 
   return page(
     c,
     await workspacePage(
       c,
-      resum.nom,
+      summary.name,
       TagDetailPage({
-        codi: espai.code,
-        resum,
-        pagina,
-        grups,
-        potEditar: roleAtLeast(currentRole(c), "editor"),
+        code: workspace.code,
+        summary,
+        page: paged,
+        groups,
+        canEdit: roleAtLeast(currentRole(c), "editor"),
         query: filters,
-        etiquetesConegudes,
+        knownTags,
       }),
     ),
   );
 });
 
 /**
- * Treu l'etiqueta de tots els moviments de l'espai i torna a la llista.
+ * Removes the tag from every transaction in the workspace and goes back to
+ * the list.
  *
- * Tant des de l'index com des del detall: la redireccio evita haver de
- * decidir quin tros redibuixar.
+ * From both the index and the detail: the redirect saves having to decide
+ * which piece to redraw.
  */
 tagsRoutes.post("/:nom/esborra", requireEditor, async (c) => {
-  const espai = currentWorkspace(c);
-  let nom: string;
+  const workspace = currentWorkspace(c);
+  let name: string;
   try {
-    nom = nomValid(c.req.param("nom"));
+    name = validName(c.req.param("nom"));
   } catch (err) {
     if (err instanceof AppError) return toastOnly(c, err.message, err.status);
     throw err;
   }
 
-  await esborraEtiquetaDeLespai(espai.id, nom);
-  return redirect(c, `/e/${espai.code}/etiquetes`);
+  await deleteTagFromWorkspace(workspace.id, name);
+  return redirect(c, `/e/${workspace.code}/etiquetes`);
 });

@@ -1,11 +1,14 @@
 /**
- * Configuracio, llegida de variables d'entorn.
+ * Configuration, read from environment variables.
  *
- * Els noms son **exactament** els de `backend/app/config.py`, de manera que el
- * `deploy/.env` que ja hi ha continua servint sense tocar-hi res.
+ * The names are **exactly** those of `backend/app/config.py`, so the existing
+ * `deploy/.env` keeps working untouched.
  *
- * La clau privada d'Enable Banking es llegeix aqui un sol cop i no es registra
- * mai enlloc: vegeu `lib/enablebanking`.
+ * The Enable Banking private key is read here once and is never logged
+ * anywhere: see `lib/enablebanking`.
+ *
+ * The operator-facing messages below stay in Catalan: whoever runs this reads
+ * Catalan.
  */
 
 import { z } from "zod/v4";
@@ -34,12 +37,12 @@ const num = (value: string | undefined, fallback: number): number => {
 const env = process.env;
 
 /**
- * El `DATABASE_URL` del desplegament actual ve amb el prefix de SQLAlchemy
- * (`postgresql+psycopg://`). El driver de Bun no l'enten, i canviar la
- * variable trencaria el contenidor de Python mentre convisquin, aixi que el
- * netegem aqui.
+ * The current deployment's `DATABASE_URL` carries SQLAlchemy's prefix
+ * (`postgresql+psycopg://`). Bun's driver does not understand it, and changing
+ * the variable would break the Python container while the two coexist, so it
+ * is cleaned up here.
  */
-function normalitzaUrl(url: string): string {
+function normalizeUrl(url: string): string {
   return url.replace(/^postgresql\+\w+:\/\//, "postgresql://");
 }
 
@@ -52,12 +55,12 @@ const rawConfig = {
   publicBaseUrl: (env.PUBLIC_BASE_URL ?? "http://localhost:8000").replace(/\/$/, ""),
   port: int(env.PORT, 8000),
 
-  // --- Base de dades ---
-  databaseUrl: normalitzaUrl(
+  // --- Database ---
+  databaseUrl: normalizeUrl(
     env.DATABASE_URL ?? "postgresql://comptabilitat:comptabilitat@127.0.0.1:5432/comptabilitat",
   ),
 
-  // --- Sessions i seguretat ---
+  // --- Sessions and security ---
   secretKey: env.SECRET_KEY ?? "canvia-aquesta-clau-en-produccio",
   sessionCookieName: env.SESSION_COOKIE_NAME ?? "comptabilitat_session",
   sessionMaxAgeDays: int(env.SESSION_MAX_AGE_DAYS, 14),
@@ -82,7 +85,7 @@ const rawConfig = {
   ollamaTimeoutSeconds: int(env.OLLAMA_TIMEOUT_SECONDS, 180),
   ollamaMinConfidence: num(env.OLLAMA_MIN_CONFIDENCE, 0.55),
 
-  // --- Correu ---
+  // --- Mail ---
   smtpHost: env.SMTP_HOST ?? "",
   smtpPort: int(env.SMTP_PORT, 587),
   smtpUser: env.SMTP_USER ?? "",
@@ -91,7 +94,7 @@ const rawConfig = {
   smtpStarttls: bool(env.SMTP_STARTTLS, true),
   alertRecipients: csv(env.ALERT_RECIPIENTS),
 
-  // --- Planificador ---
+  // --- Scheduler ---
   schedulerEnabled: bool(env.SCHEDULER_ENABLED, true),
   syncCronHour: int(env.SYNC_CRON_HOUR, 6),
   syncCronMinute: int(env.SYNC_CRON_MINUTE, 30),
@@ -99,7 +102,7 @@ const rawConfig = {
   analysisCronHour: int(env.ANALYSIS_CRON_HOUR, 4),
   notifyCronHour: int(env.NOTIFY_CRON_HOUR, 8),
 
-  // --- Previsio ---
+  // --- Forecast ---
   forecastHorizonDays: int(env.FORECAST_HORIZON_DAYS, 90),
 } as const;
 
@@ -107,13 +110,16 @@ export type Config = typeof rawConfig;
 
 export const config = rawConfig;
 
-/** URL de retorn del banc. Ha de coincidir carácter per carácter amb la
- * que hi ha configurada al panell d'Enable Banking. */
+/**
+ * The bank's callback URL. It has to match, character for character, the one
+ * configured in the Enable Banking dashboard.
+ */
 export const ebRedirectUrl = `${config.publicBaseUrl}/api/auth/callback`;
 
 /**
- * Es funcio i no constant perque es llegeix quan s'envia, no quan s'importa:
- * aixi les proves poden canviar la configuracio i aixo se n'assabenta.
+ * A function and not a constant because it is read when mail is sent, not when
+ * the module is imported: that way tests can change the configuration and this
+ * notices.
  */
 export function smtpConfigured(): boolean {
   return (
@@ -122,31 +128,31 @@ export function smtpConfigured(): boolean {
 }
 
 /**
- * Comprovacions que nomes tenen sentit quan aixo corre de debò. En
- * desenvolupament avisen; en produccio, aturen l'arrencada, perque una clau de
- * sessio per defecte vol dir que qualsevol pot signar-se una galeta.
+ * Checks that only make sense when this runs for real. In development they
+ * warn; in production they stop startup, because a default session key means
+ * anyone can sign themselves a cookie.
  */
 export function validateConfig(): void {
-  const problemes: string[] = [];
+  const problems: string[] = [];
 
   if (config.secretKey === "canvia-aquesta-clau-en-produccio") {
-    problemes.push("SECRET_KEY es la de per defecte");
+    problems.push("SECRET_KEY es la de per defecte");
   }
   if (config.secretKey.length < 32) {
-    problemes.push("SECRET_KEY hauria de tenir 32 carácters o mes");
+    problems.push("SECRET_KEY hauria de tenir 32 carácters o mes");
   }
   if (!config.cookieSecure) {
-    problemes.push("COOKIE_SECURE es fals: la galeta de sessio viatjara sense HTTPS");
+    problems.push("COOKIE_SECURE es fals: la galeta de sessio viatjara sense HTTPS");
   }
   if (!z.string().url().safeParse(config.publicBaseUrl).success) {
-    problemes.push(`PUBLIC_BASE_URL no es una URL valida: ${config.publicBaseUrl}`);
+    problems.push(`PUBLIC_BASE_URL no es una URL valida: ${config.publicBaseUrl}`);
   }
 
-  if (problemes.length === 0) return;
+  if (problems.length === 0) return;
 
-  const missatge = problemes.map((p) => `  - ${p}`).join("\n");
+  const message = problems.map((p) => `  - ${p}`).join("\n");
   if (config.environment === "production") {
-    throw new Error(`Configuracio insegura per a produccio:\n${missatge}`);
+    throw new Error(`Configuracio insegura per a produccio:\n${message}`);
   }
-  console.warn(`[config] avisos (no son fatals fora de produccio):\n${missatge}`);
+  console.warn(`[config] avisos (no son fatals fora de produccio):\n${message}`);
 }

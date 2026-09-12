@@ -1,13 +1,13 @@
 /**
- * Importacio de moviments.
+ * Transaction import.
  *
- * Traduccio de `backend/tests/test_sync.py`. Es prova contra un client
- * d'Enable Banking de mentida, com feia el Python amb respostes gravades: la
- * bateria no toca cap servei extern.
+ * A translation of `backend/tests/test_sync.py`. It is tested against a fake
+ * Enable Banking client, as the Python did with recorded responses: the suite
+ * touches no external service.
  *
- * El cas que mes importa es el de la reconciliacio: quan un apunt **pendent**
- * es consolida, no ha de duplicar-se, i la categoria que hi hagi posat una
- * persona s'ha de conservar.
+ * The case that matters most is the reconciliation: when a **pending** entry
+ * is booked, it must not be duplicated, and whatever category a person set
+ * has to be kept.
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
@@ -30,12 +30,12 @@ import {
 import { seedCategories } from "../src/services/seed.ts";
 import { dedupKey, parseTransaction } from "../src/lib/enablebanking/parsing.ts";
 
-let espaiId = 0;
-let connexio: BankConnection;
-let compte: Account;
+let workspaceId = 0;
+let connection: BankConnection;
+let account: Account;
 
-/** Un moviment tal com el torna el banc. */
-function crua(over: Record<string, unknown> = {}): Record<string, unknown> {
+/** A transaction as the bank returns it. */
+function raw(over: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     status: "BOOK",
     transaction_amount: { amount: "45.20", currency: "EUR" },
@@ -48,21 +48,21 @@ function crua(over: Record<string, unknown> = {}): Record<string, unknown> {
 }
 
 /**
- * Insereix moviments com ho faria la importacio.
+ * Inserts transactions the way the import would.
  *
- * No es crida `sincronitzaConnexio` perque aixo demanaria una xarxa; el que
- * es prova es la part que decideix, que es `desaMoviments`, a traves del seu
- * efecte a la base de dades.
+ * `sincronitzaConnection` is not called because that would need a network;
+ * what is tested is the part that decides, which is `saveTransactions`,
+ * through its effect on the database.
  */
-async function importa(
+async function importTransactions(
   items: Record<string, unknown>[],
-  llistaIncompleta = false,
+  incompleteList = false,
 ): Promise<void> {
-  const { desaMoviments } = await import("../src/services/import.ts");
-  const analitzats = items
+  const { saveTransactions } = await import("../src/services/import.ts");
+  const analyzed = items
     .map(parseTransaction)
     .filter((x): x is NonNullable<typeof x> => x !== null);
-  await desaMoviments(compte, analitzats, llistaIncompleta);
+  await saveTransactions(account, analyzed, incompleteList);
 }
 
 beforeEach(async () => {
@@ -76,7 +76,7 @@ beforeEach(async () => {
   await db.delete(categories);
   await db.delete(ledgers);
 
-  const [espai] = await db
+  const [workspace] = await db
     .insert(ledgers)
     .values({
       code: "personal",
@@ -90,8 +90,8 @@ beforeEach(async () => {
       alertRecipients: [],
     })
     .returning();
-  espaiId = espai?.id ?? 0;
-  await seedCategories(espaiId);
+  workspaceId = workspace?.id ?? 0;
+  await seedCategories(workspaceId);
 
   const [con] = await db
     .insert(bankConnections)
@@ -105,13 +105,13 @@ beforeEach(async () => {
       lastError: "",
     })
     .returning();
-  connexio = con as BankConnection;
+  connection = con as BankConnection;
 
   const [acc] = await db
     .insert(accounts)
     .values({
-      connectionId: connexio.id,
-      ledgerId: espaiId,
+      connectionId: connection.id,
+      ledgerId: workspaceId,
       ebAccountUid: "uid-sync",
       name: "Compte",
       product: "",
@@ -123,107 +123,113 @@ beforeEach(async () => {
       raw: {},
     })
     .returning();
-  compte = acc as Account;
+  account = acc as Account;
 });
 
-describe("importar", () => {
-  test("desa els moviments nous", async () => {
-    await importa([crua(), crua({ entry_reference: "R2", booking_date: "2026-03-02" })]);
-    const desats = await db.select().from(transactions);
-    expect(desats).toHaveLength(2);
+describe("importing", () => {
+  test("stores the new transactions", async () => {
+    await importTransactions([
+      raw(),
+      raw({ entry_reference: "R2", booking_date: "2026-03-02" }),
+    ]);
+    const savedRows = await db.select().from(transactions);
+    expect(savedRows).toHaveLength(2);
   });
 
-  test("no els duplica si es torna a importar el mateix", async () => {
-    const items = [crua({ entry_reference: "R1" }), crua({ entry_reference: "R2" })];
-    await importa(items);
-    await importa(items);
+  test("does not duplicate them when the same is imported again", async () => {
+    const items = [raw({ entry_reference: "R1" }), raw({ entry_reference: "R2" })];
+    await importTransactions(items);
+    await importTransactions(items);
     expect(await db.select().from(transactions)).toHaveLength(2);
   });
 
-  test("els classifica i els dona un comerç", async () => {
-    await importa([crua({ entry_reference: "R1" })]);
+  test("classifies them and gives them a merchant", async () => {
+    await importTransactions([raw({ entry_reference: "R1" })]);
     const [t] = await db.select().from(transactions);
 
-    // El punt de dins de la sigla es queda; el final se'n va. Es el que fa
-    // el Python i el que hi ha desat a `merchants.normalized_name`.
+    // The dot inside the acronym stays; the final one goes. It is what the
+    // Python does and what is stored in `merchants.normalized_name`.
     expect(t?.normalizedDescription).toBe("MERCADONA S.A");
     expect(t?.merchantId).not.toBeNull();
 
-    const [comerc] = await db.select().from(merchants);
-    expect(comerc?.ledgerId).toBe(espaiId);
-    expect(comerc?.displayName).toBe("Mercadona S.A");
+    const [merchant] = await db.select().from(merchants);
+    expect(merchant?.ledgerId).toBe(workspaceId);
+    expect(merchant?.displayName).toBe("Mercadona S.A");
   });
 
-  test("apunta fins on ha arribat l'historic", async () => {
-    await importa([
-      crua({ entry_reference: "R1", booking_date: "2026-01-15" }),
-      crua({ entry_reference: "R2", booking_date: "2026-03-20" }),
+  test("notes how far back the history got", async () => {
+    await importTransactions([
+      raw({ entry_reference: "R1", booking_date: "2026-01-15" }),
+      raw({ entry_reference: "R2", booking_date: "2026-03-20" }),
     ]);
-    const [actualitzat] = await db.select().from(accounts).where(eq(accounts.id, compte.id));
-    expect(actualitzat?.historyStartDate).toBe("2026-01-15");
-    expect(actualitzat?.lastBookedDate).toBe("2026-03-20");
+    const [updatedOne] = await db.select().from(accounts).where(eq(accounts.id, account.id));
+    expect(updatedOne?.historyStartDate).toBe("2026-01-15");
+    expect(updatedOne?.lastBookedDate).toBe("2026-03-20");
   });
 });
 
-describe("un apunt pendent que es consolida", () => {
-  test("no es duplica: es reaprofita la fila", async () => {
-    await importa([crua({ status: "PDNG", booking_date: "2026-03-01" })]);
+describe("a pending entry that is booked", () => {
+  test("is not duplicated: the row is reused", async () => {
+    await importTransactions([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
 
-    // El mateix import, dos dies mes tard i ja definitiu.
-    await importa([
-      crua({ status: "BOOK", booking_date: "2026-03-03", entry_reference: "R-DEF" }),
+    // The same amount, two days later and already booked.
+    await importTransactions([
+      raw({ status: "BOOK", booking_date: "2026-03-03", entry_reference: "R-DEF" }),
     ]);
 
-    const desats = await db.select().from(transactions);
-    expect(desats).toHaveLength(1);
-    expect(desats[0]?.status).toBe("booked");
-    expect(desats[0]?.entryReference).toBe("R-DEF");
+    const savedRows = await db.select().from(transactions);
+    expect(savedRows).toHaveLength(1);
+    expect(savedRows[0]?.status).toBe("booked");
+    expect(savedRows[0]?.entryReference).toBe("R-DEF");
   });
 
-  test("i conserva la categoria que hi havia posat una persona", async () => {
-    await importa([crua({ status: "PDNG", booking_date: "2026-03-01" })]);
+  test("and keeps the category a person had set", async () => {
+    await importTransactions([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
 
-    const [categoria] = await db
+    const [category] = await db
       .select()
       .from(categories)
       .where(
-        and(eq(categories.ledgerId, espaiId), eq(categories.slug, "alimentacio-supermercat")),
+        and(
+          eq(categories.ledgerId, workspaceId),
+          eq(categories.slug, "alimentacio-supermercat"),
+        ),
       )
       .limit(1);
 
     await db
       .update(transactions)
-      .set({ categoryId: categoria?.id, categorySource: "user", needsReview: false })
-      .where(eq(transactions.accountId, compte.id));
+      .set({ categoryId: category?.id, categorySource: "user", needsReview: false })
+      .where(eq(transactions.accountId, account.id));
 
-    await importa([
-      crua({ status: "BOOK", booking_date: "2026-03-03", entry_reference: "R-DEF" }),
+    await importTransactions([
+      raw({ status: "BOOK", booking_date: "2026-03-03", entry_reference: "R-DEF" }),
     ]);
 
     const [t] = await db.select().from(transactions);
-    expect(t?.categoryId).toBe(categoria?.id ?? 0);
+    expect(t?.categoryId).toBe(category?.id ?? 0);
     expect(t?.categorySource).toBe("user");
   });
 
-  test("massa lluny en el temps, no s'aparella", async () => {
-    await importa([crua({ status: "PDNG", booking_date: "2026-03-01" })]);
-    // Nou dies despres: fora de la finestra de cinc.
-    await importa([
-      crua({ status: "BOOK", booking_date: "2026-03-10", entry_reference: "R-LLUNY" }),
+  test("too far apart in time, no pairing", async () => {
+    await importTransactions([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
+    // Nine days later: outside the five-day window.
+    await importTransactions([
+      raw({ status: "BOOK", booking_date: "2026-03-10", entry_reference: "R-LLUNY" }),
     ]);
     expect(await db.select().from(transactions)).toHaveLength(2);
   });
 
-  test("amb un import diferent, tampoc", async () => {
-    const pendent = crua({ status: "PDNG", booking_date: "2026-03-01" });
-    await importa([pendent]);
+  test("with a different amount, neither", async () => {
+    const pending = raw({ status: "PDNG", booking_date: "2026-03-01" });
+    await importTransactions([pending]);
 
-    // El banc continua reportant el pendent i, a mes, un apunt nou d'un altre
-    // import. Com que no coincideixen, no s'han d'aparellar.
-    await importa([
-      pendent,
-      crua({
+    // The bank keeps reporting the pending one and, on top of that, a new
+    // entry of a different amount. As they do not match, they must not be paired.
+    await importTransactions([
+      pending,
+      raw({
         status: "BOOK",
         booking_date: "2026-03-02",
         entry_reference: "R-ALTRE",
@@ -231,19 +237,19 @@ describe("un apunt pendent que es consolida", () => {
       }),
     ]);
 
-    const desats = await db.select().from(transactions);
-    expect(desats).toHaveLength(2);
-    expect(desats.filter((t) => t.status === "pending")).toHaveLength(1);
+    const savedRows = await db.select().from(transactions);
+    expect(savedRows).toHaveLength(2);
+    expect(savedRows.filter((t) => t.status === "pending")).toHaveLength(1);
   });
 
-  test("un pendent que el banc deixa de reportar desapareix", async () => {
-    await importa([crua({ status: "PDNG", booking_date: "2026-03-01" })]);
+  test("a pending entry the bank stops reporting disappears", async () => {
+    await importTransactions([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
 
-    // Ara el banc nomes reporta un apunt d'un altre import: el pendent que
-    // ja no consta s'esborra, com feia el Python.
-    await importa([
-      crua({
+    // Now the bank only reports an entry of a different amount: the pending
+    // one that is no longer there is deleted, as the Python did.
+    await importTransactions([
+      raw({
         status: "BOOK",
         booking_date: "2026-03-02",
         entry_reference: "R-ALTRE",
@@ -251,21 +257,21 @@ describe("un apunt pendent que es consolida", () => {
       }),
     ]);
 
-    const desats = await db.select().from(transactions);
-    expect(desats).toHaveLength(1);
-    expect(desats[0]?.entryReference).toBe("R-ALTRE");
+    const savedRows = await db.select().from(transactions);
+    expect(savedRows).toHaveLength(1);
+    expect(savedRows[0]?.entryReference).toBe("R-ALTRE");
   });
 
-  test("pero no si la llista del banc ve escapçada", async () => {
-    await importa([crua({ status: "PDNG", booking_date: "2026-03-01" })]);
+  test("but not if the bank's list comes truncated", async () => {
+    await importTransactions([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
 
-    // El mateix cas d'abans, pero el banc ha arribat al limit de pagines: «no
-    // hi es» vol dir «no ha arribat», i esborrar-lo seria perdre'l de debo amb
-    // les notes i la categoria que hi hagues.
-    await importa(
+    // The same case as before, but the bank hit the page limit: «it is not
+    // there» means «it did not arrive», and deleting it would really lose it
+    // along with any notes and category it had.
+    await importTransactions(
       [
-        crua({
+        raw({
           status: "BOOK",
           booking_date: "2026-03-02",
           entry_reference: "R-ALTRE",
@@ -279,11 +285,11 @@ describe("un apunt pendent que es consolida", () => {
   });
 });
 
-describe("els pendents que el banc ja no reporta", () => {
-  test("s'esborren", async () => {
-    await importa([
-      crua({ status: "PDNG", booking_date: "2026-03-01" }),
-      crua({
+describe("the pending entries the bank no longer reports", () => {
+  test("are deleted", async () => {
+    await importTransactions([
+      raw({ status: "PDNG", booking_date: "2026-03-01" }),
+      raw({
         status: "PDNG",
         booking_date: "2026-03-01",
         transaction_amount: { amount: "7.00", currency: "EUR" },
@@ -291,35 +297,35 @@ describe("els pendents que el banc ja no reporta", () => {
     ]);
     expect(await db.select().from(transactions)).toHaveLength(2);
 
-    // La segona vegada el banc nomes en reporta un.
-    await importa([crua({ status: "PDNG", booking_date: "2026-03-01" })]);
+    // The second time the bank only reports one.
+    await importTransactions([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
   });
 });
 
-describe("el que el banc canvia d'un moviment que ja teniem", () => {
-  test("s'actualitza sense duplicar", async () => {
-    await importa([crua({ entry_reference: "R1", booking_date: "2026-03-01" })]);
-    await importa([
-      crua({
+describe("what the bank changes on a transaction we already had", () => {
+  test("is updated without duplicating", async () => {
+    await importTransactions([raw({ entry_reference: "R1", booking_date: "2026-03-01" })]);
+    await importTransactions([
+      raw({
         entry_reference: "R1",
         booking_date: "2026-03-01",
         transaction_amount: { amount: "50.00", currency: "EUR" },
       }),
     ]);
 
-    const desats = await db.select().from(transactions);
-    expect(desats).toHaveLength(1);
-    expect(desats[0]?.amount).toBe("-50.00");
+    const savedRows = await db.select().from(transactions);
+    expect(savedRows).toHaveLength(1);
+    expect(savedRows[0]?.amount).toBe("-50.00");
   });
 });
 
-describe("la clau de deduplicacio", () => {
-  test("la que es desa es la que calcula el parser", async () => {
-    const item = crua({ entry_reference: "R-CLAU" });
-    await importa([item]);
-    const analitzat = parseTransaction(item);
+describe("the deduplication key", () => {
+  test("the one stored is the one the parser computes", async () => {
+    const item = raw({ entry_reference: "R-CLAU" });
+    await importTransactions([item]);
+    const analyzed = parseTransaction(item);
     const [t] = await db.select().from(transactions);
-    expect(t?.dedupKey).toBe(dedupKey(analitzat as NonNullable<typeof analitzat>));
+    expect(t?.dedupKey).toBe(dedupKey(analyzed as NonNullable<typeof analyzed>));
   });
 });

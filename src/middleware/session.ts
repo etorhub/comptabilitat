@@ -1,8 +1,8 @@
 /**
- * Qui ets: resol la sessio de la galeta i la deixa al context.
+ * Who you are: resolves the cookie's session and leaves it on the context.
  *
- * Aquest middleware no fa fora ningu; nomes omple el context. Qui exigeix
- * autenticacio es `requireUser`.
+ * This middleware turns nobody away; it only fills the context. `requireUser`
+ * is what demands authentication.
  */
 
 import type { Context, MiddlewareHandler } from "hono";
@@ -42,7 +42,7 @@ export const sessionMiddleware: MiddlewareHandler = async (c, next) => {
   await next();
 };
 
-/** L'usuari de la peticio, o peta. Fes-la servir despres de `requireUser`. */
+/** The request's user, or it throws. Use it after `requireUser`. */
 export function currentUser(c: Context): User {
   const user = c.get("user");
   if (user === null) {
@@ -52,23 +52,23 @@ export function currentUser(c: Context): User {
 }
 
 /**
- * Exigeix sessio. Si no n'hi ha, porta a l'entrada conservant on volia anar,
- * de manera que despres d'entrar hi torni.
+ * Demands a session. Without one, it sends you to the login page keeping where
+ * you were headed, so that signing in takes you back there.
  */
 export const requireUser: MiddlewareHandler = async (c, next) => {
   if (c.get("user") === null) {
-    const desti = new URL(c.req.url).pathname + new URL(c.req.url).search;
-    const destiSegur = desti.startsWith("/") && !desti.startsWith("//") ? desti : "/";
-    return redirect(c, `/entrada?desti=${encodeURIComponent(destiSegur)}`);
+    const target = new URL(c.req.url).pathname + new URL(c.req.url).search;
+    const safeTarget = target.startsWith("/") && !target.startsWith("//") ? target : "/";
+    return redirect(c, `/entrada?desti=${encodeURIComponent(safeTarget)}`);
   }
   await next();
 };
 
-/** Exigeix ser administrador de la instal·lacio. */
+/** Demands being an administrator of the installation. */
 export const requireAdmin: MiddlewareHandler = async (c, next) => {
   const user = currentUser(c);
   if (!user.isAdmin) {
-    // Igual que amb els espais: qui no ho es, no ha de saber que hi ha aqui.
+    // Same as with workspaces: whoever is not one should not learn what is here.
     return c.notFound();
   }
   await next();

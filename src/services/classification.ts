@@ -1,16 +1,16 @@
 /**
- * Assignacio de categoria als moviments d'un espai.
+ * Assigning a category to a workspace's transactions.
  *
- * L'ordre de resolucio es sempre el mateix, del mes barat i explicit al mes
- * car:
+ * The resolution order is always the same, from the cheapest and most
+ * explicit to the most expensive:
  *
- *   1. **la decisio d'una persona, que no es toca mai**;
- *   2. la memoria de comerços de l'espai;
- *   3. el que queda, pendent de revisar.
+ *   1. **a person's decision, which is never touched**;
+ *   2. the workspace's merchant memory;
+ *   3. whatever is left, pending review.
  *
- * Tot passa dins d'un sol espai: res del que es decideix aqui afecta els
- * altres. Traduccio de `backend/app/services/classification.py` (sense el
- * pas de regles, que s'ha tret del producte).
+ * Everything happens inside a single workspace: nothing decided here affects
+ * the others. A translation of `backend/app/services/classification.py`
+ * (without the rules step, which was dropped from the product).
  */
 
 import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
@@ -24,17 +24,17 @@ import {
 } from "../db/schema/index.ts";
 import { SLUG_INTERNAL_TRANSFER, SLUG_UNCATEGORIZED } from "./slugs.ts";
 
-export interface EstadistiquesClassificacio {
-  perComerc: number;
-  pendents: number;
+export interface ClassificationStats {
+  byMerchant: number;
+  pending: number;
 }
 
-export function resumEstadistiques(s: EstadistiquesClassificacio): string {
-  return `${s.perComerc} per comerç, ${s.pendents} pendents de revisar`;
+export function summaryStats(s: ClassificationStats): string {
+  return `${s.byMerchant} per comerç, ${s.pending} pendents de revisar`;
 }
 
-/** El moviment tal com el necessita la classificacio. */
-interface MovimentClassificable {
+/** The transaction as the classification needs it. */
+interface ClassifiableTransaction {
   id: number;
   ledgerId: number | null;
   merchantId: number | null;
@@ -42,52 +42,52 @@ interface MovimentClassificable {
 }
 
 /**
- * Classifica un moviment. **No toca mai el que ha decidit una persona.**
+ * Classifies a transaction. **It never touches what a person decided.**
  *
- * Retorna d'on ha sortit la categoria. Escriu directament a la base de dades,
- * de manera que es pot cridar dins d'una transaccio.
+ * Returns where the category came from. It writes straight to the database,
+ * so it can be called inside a transaction.
  */
-export async function classificaMoviment(
-  moviment: MovimentClassificable,
-  connexio: Transactor = db,
+export async function classifyTransaction(
+  transaction: ClassifiableTransaction,
+  connection: Transactor = db,
 ): Promise<CategorySource> {
-  if (moviment.categorySource === "user") return "user";
+  if (transaction.categorySource === "user") return "user";
 
-  // Un compte encara sense espai assignat no te categories.
-  if (moviment.ledgerId === null) return "none";
+  // An account with no workspace assigned yet has no categories.
+  if (transaction.ledgerId === null) return "none";
 
-  if (moviment.merchantId !== null) {
-    const [comerc] = await connexio
+  if (transaction.merchantId !== null) {
+    const [merchant] = await connection
       .select()
       .from(merchants)
-      .where(eq(merchants.id, moviment.merchantId))
+      .where(eq(merchants.id, transaction.merchantId))
       .limit(1);
 
-    if (comerc && comerc.defaultCategoryId !== null) {
-      await connexio
+    if (merchant && merchant.defaultCategoryId !== null) {
+      await connection
         .update(transactions)
         .set({
-          categoryId: comerc.defaultCategoryId,
+          categoryId: merchant.defaultCategoryId,
           categorySource: "merchant",
-          // Si el comerç l'ha confirmat una persona, ens en refiem del tot;
-          // si no, es una suposicio i algu l'ha de mirar.
-          categoryConfidence: comerc.isConfirmed ? 1 : 0.8,
-          needsReview: !comerc.isConfirmed,
+          // If a person confirmed the merchant, we trust it completely; if
+          // not, it is a guess and somebody has to look at it.
+          categoryConfidence: merchant.isConfirmed ? 1 : 0.8,
+          needsReview: !merchant.isConfirmed,
         })
-        .where(eq(transactions.id, moviment.id));
+        .where(eq(transactions.id, transaction.id));
       return "merchant";
     }
   }
 
-  await connexio
+  await connection
     .update(transactions)
     .set({ categorySource: "none", needsReview: true })
-    .where(eq(transactions.id, moviment.id));
+    .where(eq(transactions.id, transaction.id));
   return "none";
 }
 
-/** Els camps que la classificacio necessita d'un moviment. */
-const CAMPS_CLASSIFICACIO = {
+/** The fields the classification needs from a transaction. */
+const FIELDS_CLASSIFICATION = {
   id: transactions.id,
   ledgerId: transactions.ledgerId,
   merchantId: transactions.merchantId,
@@ -95,22 +95,22 @@ const CAMPS_CLASSIFICACIO = {
 } as const;
 
 /**
- * Classifica els moviments d'un espai que encara no tenen categoria.
+ * Classifies a workspace's transactions that still have no category.
  *
- * Nomes mira els que venen de `none` o de `merchant`: els que ha posat una
- * persona no es toquen.
+ * It only looks at those coming from `none` or `merchant`: the ones a person
+ * set are not touched.
  */
-export async function classificaPendents(
+export async function classifyPending(
   ledgerId: number,
   limit?: number,
-): Promise<EstadistiquesClassificacio> {
-  const estadistiques: EstadistiquesClassificacio = {
-    perComerc: 0,
-    pendents: 0,
+): Promise<ClassificationStats> {
+  const stats: ClassificationStats = {
+    byMerchant: 0,
+    pending: 0,
   };
 
-  const consulta = db
-    .select(CAMPS_CLASSIFICACIO)
+  const query = db
+    .select(FIELDS_CLASSIFICATION)
     .from(transactions)
     .where(
       and(
@@ -121,41 +121,41 @@ export async function classificaPendents(
     )
     .orderBy(desc(transactions.bookingDate));
 
-  const candidats = limit ? await consulta.limit(limit) : await consulta;
+  const candidates = limit ? await query.limit(limit) : await query;
 
-  for (const moviment of candidats) {
-    const origen = await classificaMoviment(moviment);
-    if (origen === "merchant") estadistiques.perComerc += 1;
-    else estadistiques.pendents += 1;
+  for (const transaction of candidates) {
+    const origin = await classifyTransaction(transaction);
+    if (origin === "merchant") stats.byMerchant += 1;
+    else stats.pending += 1;
   }
 
-  return estadistiques;
+  return stats;
 }
 
-/** Una categoria de l'espai pel seu pendent estable. */
-export async function categoriaPerSlug(
+/** A category of the workspace by its stable slug. */
+export async function categoryBySlug(
   ledgerId: number,
   slug: string,
-  connexio: Transactor = db,
+  connection: Transactor = db,
 ) {
-  const [categoria] = await connexio
+  const [category] = await connection
     .select()
     .from(categories)
     .where(and(eq(categories.ledgerId, ledgerId), eq(categories.slug, slug)))
     .limit(1);
-  return categoria ?? null;
+  return category ?? null;
 }
 
-export async function categoriaSenseClassificar(ledgerId: number, connexio: Transactor = db) {
-  return categoriaPerSlug(ledgerId, SLUG_UNCATEGORIZED, connexio);
+export async function uncategorizedCategory(ledgerId: number, connection: Transactor = db) {
+  return categoryBySlug(ledgerId, SLUG_UNCATEGORIZED, connection);
 }
 
 /**
- * La categoria dels traspassos interns. Si algu l'ha canviat de tipus, no
- * serveix: val mes no aparellar res que aparellar-ho malament.
+ * The category of the internal transfers. If somebody changed its type, it is
+ * no use: better to pair nothing than to pair it wrong.
  */
-export async function categoriaTraspas(ledgerId: number, connexio: Transactor = db) {
-  const categoria = await categoriaPerSlug(ledgerId, SLUG_INTERNAL_TRANSFER, connexio);
-  if (categoria !== null && categoria.kind !== "transfer") return null;
-  return categoria;
+export async function transferCategory(ledgerId: number, connection: Transactor = db) {
+  const category = await categoryBySlug(ledgerId, SLUG_INTERNAL_TRANSFER, connection);
+  if (category !== null && category.kind !== "transfer") return null;
+  return category;
 }

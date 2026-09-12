@@ -1,14 +1,14 @@
 /**
- * Categories, comerços, moviments, regles i suggeriments del model.
+ * Categories, merchants, transactions, rules and the model's suggestions.
  *
- * Van tots en un fitxer perque es referencien en cercle: un moviment apunta a
- * un compte, un espai, un comerç, una categoria i la regla que se li ha
- * aplicat; una regla apunta a la categoria que assigna; un comerç apunta a la
- * seva categoria per defecte. Separar-los obligaria a fer `AnyPgColumn` a
- * gairebé cada clau forana.
+ * They live in one file because they reference each other in a cycle: a
+ * transaction points at an account, a workspace, a merchant, a category and
+ * the rule applied to it; a rule points at the category it assigns; a merchant
+ * points at its default category. Splitting them would force `AnyPgColumn` on
+ * nearly every foreign key.
  *
- * Tot plegat penja d'un espai: les categories, els comerços i les regles d'un
- * espai no toquen mai els d'un altre.
+ * All of it hangs off a workspace: one workspace's categories, merchants and
+ * rules never touch another's.
  */
 
 import {
@@ -40,8 +40,8 @@ import { ledgers } from "./ledgers.ts";
 import { users } from "./users.ts";
 
 /**
- * Pla de categories de l'espai. Nomes dos nivells: una categoria amb pare no
- * en pot tenir de filles.
+ * The workspace's category plan. Two levels only: a category with a parent
+ * cannot have children of its own.
  */
 export const categories = pgTable(
   "categories",
@@ -49,13 +49,13 @@ export const categories = pgTable(
     id: serial().notNull(),
     ledgerId: integer("ledger_id").notNull(),
     parentId: integer("parent_id"),
-    /** Identificador estable dins de l'espai; hi ha codi que en depen. */
+    /** A stable identifier within the workspace; some code depends on it. */
     slug: varchar({ length: 80 }).notNull(),
     name: varchar({ length: 120 }).notNull(),
     kind: domainEnum<CategoryKind>().notNull(),
     color: varchar({ length: 9 }).notNull(),
     icon: varchar({ length: 40 }).notNull(),
-    /** Ve del pla que es crea amb l'espai; no s'esborra alegrement. */
+    /** Comes from the plan created with the workspace; not deleted lightly. */
     isSystem: boolean("is_system").notNull(),
     position: integer().notNull(),
     ...timestamps,
@@ -79,12 +79,13 @@ export const categories = pgTable(
 );
 
 /**
- * Memoria de comerços (payees), **per espai i a proposit**. El mateix
- * Mercadona es un comerç diferent a cada espai: si es compartissin, confirmar
- * una categoria a Calella canviaria com es classifica al Personal.
+ * Merchant (payee) memory, **per workspace and on purpose**. The same
+ * Mercadona is a different merchant in each workspace: were they shared,
+ * confirming a category in Calella would change how things are classified in
+ * Personal.
  *
- * Serveix nomes per inferir la categoria per defecte en importar. No es un
- * recurs de la interficie: no hi ha pagina de Comerços.
+ * It exists only to infer the default category when importing. It is not an
+ * interface resource: there is no Merchants page.
  */
 export const merchants = pgTable(
   "merchants",
@@ -95,10 +96,10 @@ export const merchants = pgTable(
     displayName: varchar("display_name", { length: 200 }).notNull(),
     defaultCategoryId: integer("default_category_id"),
     categorySource: domainEnum<CategorySource>("category_source").notNull(),
-    /** Confirmat per una persona: el model ja no el torna a preguntar. */
+    /** Confirmed by a person: the model does not ask about it again. */
     isConfirmed: boolean("is_confirmed").notNull(),
     transactionCount: integer("transaction_count").notNull(),
-    /** Es una data, no una marca de temps, tot i el nom. */
+    /** A date, not a timestamp, despite the name. */
     lastSeenAt: date("last_seen_at"),
     ...timestamps,
   },
@@ -121,8 +122,8 @@ export const merchants = pgTable(
 );
 
 /**
- * Regles de classificacio de l'espai. Les condicions son una llista JSON de
- * `{field, operator, value}` que es compleixen totes alhora.
+ * The workspace's classification rules. The conditions are a JSON list of
+ * `{field, operator, value}` that all have to hold at once.
  */
 export const rules = pgTable(
   "rules",
@@ -130,7 +131,7 @@ export const rules = pgTable(
     id: serial().notNull(),
     name: varchar({ length: 160 }).notNull(),
     ledgerId: integer("ledger_id").notNull(),
-    /** Numero mes baix, abans. */
+    /** Lower number, applied first. */
     priority: integer().notNull(),
     isActive: boolean("is_active").notNull(),
     conditions: jsonb().notNull().$type<unknown>(),
@@ -156,9 +157,9 @@ export const rules = pgTable(
       foreignColumns: [ledgers.id],
     }).onDelete("cascade"),
     /**
-     * Compte: aqui es CASCADE, no SET NULL. Esborrar una categoria **esborra
-     * les regles que l'assignen**, mentre que als moviments nomes els deixa
-     * sense categoria. Es aixi a l'esquema viu i s'ha de mantenir.
+     * Careful: this is CASCADE, not SET NULL. Deleting a category **deletes
+     * the rules that assign it**, while it merely leaves transactions without
+     * a category. That is how the live schema is, and it has to stay.
      */
     foreignKey({
       name: "fk_rules_set_category_id_categories",
@@ -178,20 +179,20 @@ export const transactions = pgTable(
   {
     id: serial().notNull(),
     accountId: integer("account_id").notNull(),
-    /** Desnormalitzat del compte per poder filtrar sense fer join. */
+    /** Denormalised from the account so filtering needs no join. */
     ledgerId: integer("ledger_id"),
     entryReference: varchar("entry_reference", { length: 128 }),
     transactionId: varchar("transaction_id", { length: 128 }),
-    /** Clau estable per no duplicar entre sincronitzacions. */
+    /** A stable key, so nothing is duplicated between syncs. */
     dedupKey: varchar("dedup_key", { length: 64 }).notNull(),
     source: domainEnum<TransactionSource>().notNull(),
     bookingDate: date("booking_date").notNull(),
     valueDate: date("value_date"),
-    /** Amb signe: negatiu = diners que surten. */
+    /** Signed: negative means money going out. */
     amount: money().notNull(),
     currency: varchar({ length: 3 }).notNull(),
     status: domainEnum<TransactionStatus>().notNull(),
-    /** Concepte del banc. Si el moviment esta emmascarat, no ha de sortir. */
+    /** The bank's description. When the transaction is masked, it must not be shown. */
     description: text().notNull(),
     normalizedDescription: varchar("normalized_description", { length: 200 }).notNull(),
     counterparty: varchar({ length: 200 }).notNull(),
@@ -202,23 +203,23 @@ export const transactions = pgTable(
     categoryConfidence: doublePrecision("category_confidence"),
     needsReview: boolean("needs_review").notNull(),
     appliedRuleId: integer("applied_rule_id"),
-    /** Aparella les dues potes d'un traspas dins del mateix espai. */
+    /** Pairs the two legs of a transfer within the same workspace. */
     transferGroupId: varchar("transfer_group_id", { length: 64 }),
     notes: text().notNull(),
     tags: varchar({ length: 40 }).array().notNull(),
     isExcluded: boolean("is_excluded").notNull(),
     /**
-     * Resposta sencera del banc: noms, contraparts, referencies. **No es
-     * renderitza mai.** Les consultes que alimenten una plantilla han de
-     * demanar columnes explicites, no la fila sencera.
+     * The bank's whole response: names, counterparties, references. **Never
+     * rendered.** Queries that feed a template must ask for explicit columns,
+     * not the whole row.
      */
     raw: jsonb().notNull().$type<Record<string, unknown>>(),
     ...timestamps,
     /**
-     * Afegida per la migracio `b2c3d4e5f6a7`. Quan te valor, el moviment esta
-     * **emmascarat**: aquest text substitueix el concepte del banc, i el
-     * comerç i la contrapart no es mostren ni es poden cercar. Es una funcio
-     * de privadesa i s'aplica a `toTransactionView`, mai a la plantilla.
+     * Added by migration `b2c3d4e5f6a7`. When set, the transaction is
+     * **masked**: this text replaces the bank's description, and the merchant
+     * and counterparty are neither shown nor searchable. It is a privacy
+     * feature and is applied in `toTransactionView`, never in the template.
      */
     displayDescription: varchar("display_description", { length: 200 }),
   },
@@ -227,11 +228,11 @@ export const transactions = pgTable(
     index("ix_transactions_account_id").on(t.accountId),
     index("ix_transactions_booking_date").on(t.bookingDate),
     index("ix_transactions_category_id").on(t.categoryId),
-    // Sosté la pagina de moviments.
+    // Backs the transactions page.
     index("ix_transactions_ledger_booking").on(t.ledgerId, t.bookingDate),
     index("ix_transactions_ledger_id").on(t.ledgerId),
     index("ix_transactions_merchant_id").on(t.merchantId),
-    // Sosté la safata de revisio.
+    // Backs the review queue.
     index("ix_transactions_review").on(t.needsReview, t.ledgerId),
     index("ix_transactions_transfer_group_id").on(t.transferGroupId),
     foreignKey({
@@ -264,9 +265,9 @@ export const transactions = pgTable(
 );
 
 /**
- * Cada proposta del model local queda registrada, tant si s'aplica com si no.
- * `accepted` te tres estats: `null` = ningu no ho ha revisat encara.
- * Sense `TimestampMixin`.
+ * Every proposal from the local model is recorded, whether it is applied or
+ * not. `accepted` has three states: `null` = nobody has reviewed it yet. No
+ * `TimestampMixin`.
  */
 export const llmSuggestions = pgTable(
   "llm_suggestions",

@@ -1,13 +1,13 @@
 /**
- * Errors d'Enable Banking.
+ * Enable Banking errors.
  *
- * Es distingeixen perque la sincronitzacio hi reacciona diferent: un
- * consentiment caducat vol dir avisar i marcar la connexio, i una finestra de
- * dates rebutjada vol dir tornar-ho a provar amb una de mes curta.
+ * They are told apart because the sync reacts differently to each: an expired
+ * consent means raising an alert and flagging the connection, while a rejected
+ * date window means retrying with a shorter one.
  */
 
-/** Camps de la resposta del banc que poden dur dades personals. */
-const CAMPS_SENSIBLES = [
+/** Fields of the bank's response that may carry personal data. */
+const SENSITIVE_FIELDS = [
   "psu",
   "account",
   "accounts",
@@ -35,40 +35,40 @@ export class EnableBankingError extends Error {
     this.name = "EnableBankingError";
     this.statusCode = options.statusCode ?? null;
     this.code = options.code ?? null;
-    this.payload = netejaPayload(options.payload ?? {});
+    this.payload = cleanPayload(options.payload ?? {});
   }
 }
 
-/** El consentiment ha caducat: cal tornar a autoritzar amb autenticacio forta. */
+/** The consent has expired: strong authentication is needed again. */
 export class SessionExpiredError extends EnableBankingError {
   override readonly name = "SessionExpiredError";
 }
 
-/** El banc no accepta la finestra de dates demanada. */
+/** The bank will not accept the date window asked for. */
 export class DateRangeError extends EnableBankingError {
   override readonly name = "DateRangeError";
 }
 
-/** Falta l'identificador d'aplicacio o la clau privada. */
+/** The application id or the private key is missing. */
 export class MissingCredentialsError extends EnableBankingError {
   override readonly name = "MissingCredentialsError";
 }
 
 /**
- * Treu del cos de l'error tot el que pugui dur dades personals.
+ * Strips anything from the error body that might carry personal data.
  *
- * El `payload` d'un error pot acabar a `#toast` o al registre, i la resposta
- * del banc hi pot dur noms, IBAN i contraparts. Aixo es una xarxa, no una
- * excusa per ensenyar-lo: el que arriba a la pantalla es el missatge.
+ * An error's `payload` can end up in `#toast` or in the log, and the bank's
+ * response can carry names, IBANs and counterparties. This is a safety net,
+ * not an excuse to show it: what reaches the screen is the message.
  */
-function netejaPayload(payload: Record<string, unknown>): Record<string, unknown> {
-  const net: Record<string, unknown> = {};
-  for (const [clau, valor] of Object.entries(payload)) {
-    const minuscula = clau.toLowerCase();
-    if (CAMPS_SENSIBLES.some((sensible) => minuscula.includes(sensible))) continue;
-    if (typeof valor === "string" || typeof valor === "number" || typeof valor === "boolean") {
-      net[clau] = valor;
+function cleanPayload(payload: Record<string, unknown>): Record<string, unknown> {
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    const lower = key.toLowerCase();
+    if (SENSITIVE_FIELDS.some((field) => lower.includes(field))) continue;
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      cleaned[key] = value;
     }
   }
-  return net;
+  return cleaned;
 }

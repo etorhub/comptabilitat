@@ -1,15 +1,15 @@
 /**
- * Moviments: consulta, vista i emmascarament.
+ * Transactions: query, view and masking.
  *
- * **L'emmascarament es una funcio de privadesa i s'aplica aqui, no a la
- * plantilla.** Quan un moviment te `display_description`, aquell text
- * substitueix el concepte del banc, i el comerç i la contrapart no es mostren
- * ni es poden cercar.
+ * **Masking is a privacy feature and is applied here, not in the template.**
+ * When a transaction has `display_description`, that text replaces the bank's
+ * concept, and the merchant and the counterparty are neither shown nor
+ * searchable.
  *
- * En una arquitectura de fragments aixo es un risc real: qualsevol plantilla
- * nova que dibuixes una fila crua se'l saltaria sense que ningu se n'adones.
- * Per aixo tot passa per `vistaMoviment()` i **de `routes/` no s'importa mai
- * el tipus de la fila sencera**.
+ * In a fragment architecture this is a real risk: any new template that drew
+ * a raw row would skip it without anyone noticing. That is why everything
+ * goes through `transactionView()` and **the type of the whole row is never
+ * imported from `routes/`**.
  */
 
 import {
@@ -30,8 +30,8 @@ import {
   type SQL,
 } from "drizzle-orm";
 
-import { parsejaConcepte, type TipusOperacio } from "./concepte.ts";
-import { teEtiqueta } from "./tags.ts";
+import { parseDescription, type OperationType } from "./concept.ts";
+import { hasTag } from "./tags.ts";
 
 import { db } from "../db/client.ts";
 import {
@@ -48,12 +48,12 @@ import { NotFoundError } from "../lib/http.ts";
 import type { MoneyString } from "../lib/money.ts";
 
 /**
- * Un moviment tal com es pot ensenyar.
+ * A transaction as it can be shown.
  *
- * No hi ha ni `raw`, ni `dedupKey`, ni `entryReference`, ni el concepte del
- * banc quan esta emmascarat. Es l'unic tipus que les plantilles accepten.
+ * There is no `raw`, no `dedupKey`, no `entryReference`, and no bank concept
+ * when it is masked. It is the only type the templates accept.
  */
-export interface MovimentVista {
+export interface TransactionView {
   id: number;
   accountId: number;
   accountName: string | null;
@@ -63,22 +63,22 @@ export interface MovimentVista {
   currency: string;
   status: TransactionStatus;
   /**
-   * El text que es pot ensenyar: l'alias si n'hi ha; si no, el concepte del
-   * banc ja parsejat (sense targeta ni comissio).
+   * The text that can be shown: the alias if there is one; otherwise the
+   * bank's concept already parsed (without card or commission).
    */
   description: string;
   /**
-   * Text bancari sense PAN/targeta/comissio, per al `title` del boto.
-   * Null quan hi ha alias (la dada del banc no s'ensenya).
+   * Bank text without PAN/card/commission, for the button's `title`.
+   * Null when there is an alias (the bank's data is not shown).
    */
   descriptionHint: string | null;
-  /** Darrers 4 digits de la targeta, o null. Mai amb alias. */
-  darrers4: string | null;
+  /** Last 4 digits of the card, or null. Never with an alias. */
+  last4: string | null;
   /**
-   * Tipus d'operacio deduit del concepte. Null quan hi ha alias (no ensenyem
-   * metadades del banc).
+   * Operation type deduced from the concept. Null when there is an alias (we
+   * do not show the bank's metadata).
    */
-  tipusOperacio: TipusOperacio | null;
+  operationType: OperationType | null;
   counterparty: string;
   merchantId: number | null;
   merchantName: string | null;
@@ -91,18 +91,18 @@ export interface MovimentVista {
   notes: string;
   tags: string[];
   isExcluded: boolean;
-  /** Cert si algu n'ha amagat el concepte del banc. */
+  /** True if someone has hidden the bank's concept. */
   isMasked: boolean;
-  /** Serie recurrent enllaçada via `recurring_occurrences`, si n'hi ha. */
-  serieId: number | null;
-  serieLabel: string | null;
+  /** Recurring series linked via `recurring_occurrences`, if any. */
+  seriesId: number | null;
+  seriesLabel: string | null;
 }
 
 /**
- * Columnes explicites. Mai `select()` a seques sobre `transactions`: la fila
- * sencera duu `raw`, que es la resposta del banc amb noms i IBAN.
+ * Explicit columns. Never a bare `select()` over `transactions`: the whole
+ * row carries `raw`, which is the bank's response with names and IBAN.
  */
-const CAMPS = {
+const Fields = {
   id: transactions.id,
   accountId: transactions.accountId,
   accountName: accounts.name,
@@ -126,16 +126,16 @@ const CAMPS = {
   notes: transactions.notes,
   tags: transactions.tags,
   isExcluded: transactions.isExcluded,
-  serieId: recurringSeries.id,
-  serieLabel: recurringSeries.label,
+  seriesId: recurringSeries.id,
+  seriesLabel: recurringSeries.label,
 } as const;
 
 /**
- * La fila tal com surt de la consulta. Les columnes que venen d'un `left
- * join` poden ser nul·les, de manera que s'escriu a ma en lloc de deduir-la
- * de `CAMPS`: deduir-la amagaria justament aquesta nul·litat.
+ * The row as it comes out of the query. Columns coming from a `left join`
+ * can be null, so it is written by hand instead of being derived from
+ * `CAMPS`: deriving it would hide exactly that nullability.
  */
-interface FilaCrua {
+interface RawRow {
   id: number;
   accountId: number;
   accountName: string | null;
@@ -159,262 +159,262 @@ interface FilaCrua {
   notes: string;
   tags: string[];
   isExcluded: boolean;
-  serieId: number | null;
-  serieLabel: string | null;
+  seriesId: number | null;
+  seriesLabel: string | null;
 }
 
 /**
- * Converteix una fila en el que es pot ensenyar, aplicant l'emmascarament.
+ * Turns a row into what can be shown, applying the masking.
  *
- * **Es l'unica porta.** Si un moviment esta emmascarat, aqui es on el
- * concepte del banc, la contrapart i el comerç desapareixen. Si no, el
- * concepte es parseja nomes per mostrar (sense tocar la BD).
+ * **It is the only door.** If a transaction is masked, this is where the
+ * bank's concept, the counterparty and the merchant disappear. If it is not,
+ * the concept is parsed for display only (without touching the DB).
  */
-export function vistaMoviment(fila: FilaCrua): MovimentVista {
-  const emmascarat = fila.displayDescription !== null && fila.displayDescription !== "";
+export function transactionView(row: RawRow): TransactionView {
+  const masked = row.displayDescription !== null && row.displayDescription !== "";
 
-  if (emmascarat) {
+  if (masked) {
     return {
-      id: fila.id,
-      accountId: fila.accountId,
-      accountName: fila.accountName,
-      bookingDate: fila.bookingDate,
-      valueDate: fila.valueDate,
-      amount: fila.amount,
-      currency: fila.currency,
-      status: fila.status,
-      description: fila.displayDescription ?? "",
+      id: row.id,
+      accountId: row.accountId,
+      accountName: row.accountName,
+      bookingDate: row.bookingDate,
+      valueDate: row.valueDate,
+      amount: row.amount,
+      currency: row.currency,
+      status: row.status,
+      description: row.displayDescription ?? "",
       descriptionHint: null,
-      darrers4: null,
-      tipusOperacio: null,
+      last4: null,
+      operationType: null,
       counterparty: "",
-      merchantId: fila.merchantId,
+      merchantId: row.merchantId,
       merchantName: null,
-      categoryId: fila.categoryId,
-      categoryName: fila.categoryName,
-      categorySource: fila.categorySource,
-      categoryConfidence: fila.categoryConfidence,
-      needsReview: fila.needsReview,
-      transferGroupId: fila.transferGroupId,
-      notes: fila.notes,
-      tags: fila.tags,
-      isExcluded: fila.isExcluded,
+      categoryId: row.categoryId,
+      categoryName: row.categoryName,
+      categorySource: row.categorySource,
+      categoryConfidence: row.categoryConfidence,
+      needsReview: row.needsReview,
+      transferGroupId: row.transferGroupId,
+      notes: row.notes,
+      tags: row.tags,
+      isExcluded: row.isExcluded,
       isMasked: true,
-      serieId: fila.serieId,
-      serieLabel: fila.serieLabel,
+      seriesId: row.seriesId,
+      seriesLabel: row.seriesLabel,
     };
   }
 
-  const parsejat = parsejaConcepte(fila.description);
-  const hint = parsejat.originalNetejat !== parsejat.titol ? parsejat.originalNetejat : null;
+  const parsed = parseDescription(row.description);
+  const hint = parsed.cleanedOriginal !== parsed.title ? parsed.cleanedOriginal : null;
 
   return {
-    id: fila.id,
-    accountId: fila.accountId,
-    accountName: fila.accountName,
-    bookingDate: fila.bookingDate,
-    valueDate: fila.valueDate,
-    amount: fila.amount,
-    currency: fila.currency,
-    status: fila.status,
-    description: parsejat.titol,
+    id: row.id,
+    accountId: row.accountId,
+    accountName: row.accountName,
+    bookingDate: row.bookingDate,
+    valueDate: row.valueDate,
+    amount: row.amount,
+    currency: row.currency,
+    status: row.status,
+    description: parsed.title,
     descriptionHint: hint,
-    darrers4: parsejat.darrers4,
-    tipusOperacio: parsejat.tipus,
-    counterparty: fila.counterparty,
-    merchantId: fila.merchantId,
-    merchantName: fila.merchantName,
-    categoryId: fila.categoryId,
-    categoryName: fila.categoryName,
-    categorySource: fila.categorySource,
-    categoryConfidence: fila.categoryConfidence,
-    needsReview: fila.needsReview,
-    transferGroupId: fila.transferGroupId,
-    notes: fila.notes,
-    tags: fila.tags,
-    isExcluded: fila.isExcluded,
+    last4: parsed.last4,
+    operationType: parsed.type,
+    counterparty: row.counterparty,
+    merchantId: row.merchantId,
+    merchantName: row.merchantName,
+    categoryId: row.categoryId,
+    categoryName: row.categoryName,
+    categorySource: row.categorySource,
+    categoryConfidence: row.categoryConfidence,
+    needsReview: row.needsReview,
+    transferGroupId: row.transferGroupId,
+    notes: row.notes,
+    tags: row.tags,
+    isExcluded: row.isExcluded,
     isMasked: false,
-    serieId: fila.serieId,
-    serieLabel: fila.serieLabel,
+    seriesId: row.seriesId,
+    seriesLabel: row.seriesLabel,
   };
 }
 
-export interface FiltresMoviments {
+export interface TransactionsFilters {
   accountId: number | null;
-  dataDes: string | null;
-  dataFins: string | null;
+  dateFrom: string | null;
+  dateTo: string | null;
   categoryIds: number[];
   merchantId: number | null;
-  cerca: string;
-  /** Filtre per etiqueta (insensible a majuscules). Null = sense filtre. */
-  etiqueta: string | null;
-  /** Tipus d'operacio (OR). Buit = tots. */
-  tipusOperacio: TipusOperacio[];
-  /** Darrers 4 digits de targeta (OR). Buit = totes. */
-  targetes: string[];
-  nomesRevisio: boolean;
-  nomesSenseClassificar: boolean;
-  incloTraspassos: boolean;
+  search: string;
+  /** Tag filter (case-insensitive). Null = no filter. */
+  tag: string | null;
+  /** Operation type (OR). Empty = all. */
+  operationType: OperationType[];
+  /** Last 4 digits of the card (OR). Empty = all. */
+  cards: string[];
+  onlyReview: boolean;
+  onlyUnclassified: boolean;
+  includeTransfers: boolean;
   limit: number;
   offset: number;
 }
 
-/** Predicat SQL alineat amb `detectaTipusOperacio` (sobre el concepte cru). */
-function predicatTipus(tipus: TipusOperacio): SQL {
-  const concepte = transactions.description;
-  switch (tipus) {
+/** SQL predicate aligned with `detectOperationType` (over the raw concept). */
+function typePredicate(type: OperationType): SQL {
+  const description = transactions.description;
+  switch (type) {
     case "targeta":
       return sql`(
-        ${concepte} ~* '^(COMPRA|PAGO[[:space:]]+(MOVIL|CON[[:space:]]+MOVIL|TARJETA|EN)[[:space:]])'
-        OR ${concepte} ~* '\\yTARJ'
+        ${description} ~* '^(COMPRA|PAGO[[:space:]]+(MOVIL|CON[[:space:]]+MOVIL|TARJETA|EN)[[:space:]])'
+        OR ${description} ~* '\\yTARJ'
       )`;
     case "transferencia":
       return sql`(
-        ${concepte} ILIKE 'TRANSFERENCIA%'
-        OR ${concepte} ILIKE 'TRANSF %'
-        OR ${concepte} ILIKE 'TRANSF.%'
+        ${description} ILIKE 'TRANSFERENCIA%'
+        OR ${description} ILIKE 'TRANSF %'
+        OR ${description} ILIKE 'TRANSF.%'
       )`;
     case "bizum":
       return sql`(
-        ${concepte} ILIKE 'BIZUM%'
-        OR ${concepte} ILIKE 'ENVIO BIZUM%'
+        ${description} ILIKE 'BIZUM%'
+        OR ${description} ILIKE 'ENVIO BIZUM%'
       )`;
     case "rebut":
       return sql`(
-        ${concepte} ILIKE 'RECIBO%'
-        OR ${concepte} ILIKE 'ADEUDO%'
+        ${description} ILIKE 'RECIBO%'
+        OR ${description} ILIKE 'ADEUDO%'
       )`;
     case "altres": {
-      // `or()` es tipa com a opcional perque accepta zero arguments; aqui n'hi
-      // van quatre de fixos, aixi que no pot ser indefinit. Es comprova en
-      // lloc d'afirmar-ho amb un `!`.
-      const algun = or(
-        predicatTipus("targeta"),
-        predicatTipus("transferencia"),
-        predicatTipus("bizum"),
-        predicatTipus("rebut"),
+      // `or()` is typed as optional because it accepts zero arguments; here it
+      // gets four fixed ones, so it cannot be undefined. It is checked instead
+      // of being asserted with a `!`.
+      const some = or(
+        typePredicate("targeta"),
+        typePredicate("transferencia"),
+        typePredicate("bizum"),
+        typePredicate("rebut"),
       );
-      if (algun === undefined) throw new Error("predicatTipus: cap predicat");
-      return not(algun);
+      if (some === undefined) throw new Error("predicatTipus: cap predicat");
+      return not(some);
     }
   }
 }
 
-function clausulaTipus(tipus: TipusOperacio[]): SQL | undefined {
-  if (tipus.length === 0) return undefined;
-  // Si hi ha tots els tipus, no cal filtrar.
-  if (tipus.length === 5) return undefined;
-  return or(...tipus.map(predicatTipus));
+function typeClause(type: OperationType[]): SQL | undefined {
+  if (type.length === 0) return undefined;
+  // If every type is selected, there is nothing to filter.
+  if (type.length === 5) return undefined;
+  return or(...type.map(typePredicate));
 }
 
-/** El concepte conte aquests 4 digits com a bloc (no enganxats a mes digits). */
-function predicatTargeta(v: string): SQL {
+/** The concept contains these 4 digits as a block (not glued to more digits). */
+function cardPredicate(v: string): SQL {
   return sql`${transactions.description} ~ ('(^|[^0-9])' || ${v} || '($|[^0-9])')`;
 }
 
-function clausulaTargetes(targetes: string[]): SQL | undefined {
-  if (targetes.length === 0) return undefined;
-  return and(predicatTipus("targeta"), or(...targetes.map(predicatTargeta)));
+function cardClause(cards: string[]): SQL | undefined {
+  if (cards.length === 0) return undefined;
+  return and(typePredicate("targeta"), or(...cards.map(cardPredicate)));
 }
 
 /**
- * Darrers 4 digits de cada targeta feta servir en un compte (o tot el
- * ledger si no se'n dona cap). Es dedueix del concepte, igual que
- * `darrers4` a `vistaMoviment()`: no hi ha cap columna a la BD.
+ * Last 4 digits of every card used in an account (or in the whole ledger if
+ * none is given). It is deduced from the concept, just like `darrers4` in
+ * `transactionView()`: there is no column in the DB.
  */
-export async function targetesDisponibles(
+export async function cardsAvailable(
   ledgerId: number,
   accountId: number | null,
 ): Promise<string[]> {
   const on = and(
     eq(transactions.ledgerId, ledgerId),
     accountId !== null ? eq(transactions.accountId, accountId) : undefined,
-    predicatTipus("targeta"),
-    // Un moviment emmascarat no es pot cercar pel concepte bancari
-    // (vistaMoviment): tampoc ha de revelar-hi la targeta.
+    typePredicate("targeta"),
+    // A masked transaction cannot be searched by the bank's concept
+    // (transactionView): it must not reveal the card there either.
     or(isNull(transactions.displayDescription), eq(transactions.displayDescription, "")),
   );
-  const files = await db
+  const rows = await db
     .selectDistinct({ description: transactions.description })
     .from(transactions)
     .where(on);
 
-  const trobades = new Set<string>();
-  for (const f of files) {
-    const { darrers4 } = parsejaConcepte(f.description);
-    if (darrers4) trobades.add(darrers4);
+  const found = new Set<string>();
+  for (const f of rows) {
+    const { last4 } = parseDescription(f.description);
+    if (last4) found.add(last4);
   }
-  return [...trobades].toSorted();
+  return [...found].toSorted();
 }
 
 /**
- * Cerca sobre el text **visible**.
+ * Search over the **visible** text.
  *
- * Un moviment emmascarat no es pot trobar pel concepte del banc ni per la
- * contrapart: nomes per l'alias que hi ha posat una persona i per les notes.
- * Si no fos aixi, es podria endevinar el que s'ha amagat provant paraules.
+ * A masked transaction cannot be found by the bank's concept or by the
+ * counterparty: only by the alias a person has set and by the notes.
+ * Otherwise what has been hidden could be guessed by trying words.
  */
-function clausulaCerca(patro: string): SQL | undefined {
+function searchClause(pattern: string): SQL | undefined {
   return or(
     and(
       isNotNull(transactions.displayDescription),
-      or(ilike(transactions.displayDescription, patro), ilike(transactions.notes, patro)),
+      or(ilike(transactions.displayDescription, pattern), ilike(transactions.notes, pattern)),
     ),
     and(
       isNull(transactions.displayDescription),
       or(
-        ilike(transactions.description, patro),
-        ilike(transactions.normalizedDescription, patro),
-        ilike(transactions.counterparty, patro),
-        ilike(transactions.notes, patro),
+        ilike(transactions.description, pattern),
+        ilike(transactions.normalizedDescription, pattern),
+        ilike(transactions.counterparty, pattern),
+        ilike(transactions.notes, pattern),
       ),
     ),
   );
 }
 
-function condicions(ledgerId: number, f: FiltresMoviments): SQL | undefined {
+function conditions(ledgerId: number, f: TransactionsFilters): SQL | undefined {
   const parts: (SQL | undefined)[] = [eq(transactions.ledgerId, ledgerId)];
 
   if (f.accountId !== null) parts.push(eq(transactions.accountId, f.accountId));
-  if (f.dataDes) parts.push(gte(transactions.bookingDate, f.dataDes));
-  if (f.dataFins) parts.push(lte(transactions.bookingDate, f.dataFins));
+  if (f.dateFrom) parts.push(gte(transactions.bookingDate, f.dateFrom));
+  if (f.dateTo) parts.push(lte(transactions.bookingDate, f.dateTo));
   if (f.categoryIds.length > 0) parts.push(inArray(transactions.categoryId, f.categoryIds));
   if (f.merchantId !== null) parts.push(eq(transactions.merchantId, f.merchantId));
-  if (f.cerca.trim()) parts.push(clausulaCerca(`%${f.cerca.trim()}%`));
-  if (f.etiqueta) parts.push(teEtiqueta(f.etiqueta));
-  parts.push(clausulaTipus(f.tipusOperacio));
-  parts.push(clausulaTargetes(f.targetes));
-  if (f.nomesRevisio) parts.push(eq(transactions.needsReview, true));
-  if (f.nomesSenseClassificar) parts.push(isNull(transactions.categoryId));
-  // Els traspassos entre comptes propis no son ni ingres ni despesa: per
-  // defecte no surten.
-  if (!f.incloTraspassos) parts.push(isNull(transactions.transferGroupId));
+  if (f.search.trim()) parts.push(searchClause(`%${f.search.trim()}%`));
+  if (f.tag) parts.push(hasTag(f.tag));
+  parts.push(typeClause(f.operationType));
+  parts.push(cardClause(f.cards));
+  if (f.onlyReview) parts.push(eq(transactions.needsReview, true));
+  if (f.onlyUnclassified) parts.push(isNull(transactions.categoryId));
+  // Transfers between the owner's own accounts are neither income nor
+  // expense: by default they are not listed.
+  if (!f.includeTransfers) parts.push(isNull(transactions.transferGroupId));
 
   return and(...parts);
 }
 
-export interface PaginaMoviments {
-  items: MovimentVista[];
+export interface TransactionsPage {
+  items: TransactionView[];
   total: number;
-  /** Suma dels moviments que encaixen amb els filtres, no nomes de la pagina. */
-  totalImport: MoneyString;
+  /** Sum of the transactions matching the filters, not just of the page. */
+  totalAmount: MoneyString;
   limit: number;
   offset: number;
 }
 
-export async function llistaMoviments(
+export async function listTransactions(
   ledgerId: number,
-  filtres: FiltresMoviments,
-): Promise<PaginaMoviments> {
-  const on = condicions(ledgerId, filtres);
+  filters: TransactionsFilters,
+): Promise<TransactionsPage> {
+  const on = conditions(ledgerId, filters);
 
-  const [resum] = await db
+  const [summary] = await db
     .select({ n: count(), total: sum(transactions.amount) })
     .from(transactions)
     .where(on);
 
-  const files = await db
-    .select(CAMPS)
+  const rows = await db
+    .select(Fields)
     .from(transactions)
     .leftJoin(accounts, eq(accounts.id, transactions.accountId))
     .leftJoin(merchants, eq(merchants.id, transactions.merchantId))
@@ -423,22 +423,25 @@ export async function llistaMoviments(
     .leftJoin(recurringSeries, eq(recurringSeries.id, recurringOccurrences.seriesId))
     .where(on)
     .orderBy(desc(transactions.bookingDate), desc(transactions.id))
-    .limit(filtres.limit)
-    .offset(filtres.offset);
+    .limit(filters.limit)
+    .offset(filters.offset);
 
   return {
-    items: files.map(vistaMoviment),
-    total: resum?.n ?? 0,
-    totalImport: resum?.total ?? "0.00",
-    limit: filtres.limit,
-    offset: filtres.offset,
+    items: rows.map(transactionView),
+    total: summary?.n ?? 0,
+    totalAmount: summary?.total ?? "0.00",
+    limit: filters.limit,
+    offset: filters.offset,
   };
 }
 
-/** Un moviment d'aquest espai, ja llest per ensenyar, o 404. */
-export async function movimentDeLespai(id: number, ledgerId: number): Promise<MovimentVista> {
-  const [fila] = await db
-    .select(CAMPS)
+/** A transaction of this workspace, ready to show, or 404. */
+export async function transactionInWorkspace(
+  id: number,
+  ledgerId: number,
+): Promise<TransactionView> {
+  const [row] = await db
+    .select(Fields)
     .from(transactions)
     .leftJoin(accounts, eq(accounts.id, transactions.accountId))
     .leftJoin(merchants, eq(merchants.id, transactions.merchantId))
@@ -448,13 +451,13 @@ export async function movimentDeLespai(id: number, ledgerId: number): Promise<Mo
     .where(and(eq(transactions.id, id), eq(transactions.ledgerId, ledgerId)))
     .limit(1);
 
-  if (!fila) throw new NotFoundError("Aquest moviment no existeix");
-  return vistaMoviment(fila);
+  if (!row) throw new NotFoundError("Aquest moviment no existeix");
+  return transactionView(row);
 }
 
-/** La fila crua, nomes per als serveis. No arriba mai a cap plantilla. */
-export async function filaMoviment(id: number, ledgerId: number) {
-  const [fila] = await db
+/** The raw row, for the services only. It never reaches any template. */
+export async function transactionRow(id: number, ledgerId: number) {
+  const [row] = await db
     .select({
       id: transactions.id,
       ledgerId: transactions.ledgerId,
@@ -470,15 +473,15 @@ export async function filaMoviment(id: number, ledgerId: number) {
     .where(and(eq(transactions.id, id), eq(transactions.ledgerId, ledgerId)))
     .limit(1);
 
-  if (!fila) throw new NotFoundError("Aquest moviment no existeix");
-  return fila;
+  if (!row) throw new NotFoundError("Aquest moviment no existeix");
+  return row;
 }
 
-// --- Safata de revisio -------------------------------------------------------
+// --- Review tray -------------------------------------------------------------
 
-/** Un moviment per revisar, amb la proposta del model local si n'hi ha. */
-export interface ItemRevisio {
-  moviment: MovimentVista;
+/** A transaction to review, with the local model's proposal if there is one. */
+export interface ReviewItem {
+  transaction: TransactionView;
   suggestedCategoryId: number | null;
   suggestedCategoryName: string | null;
   confidence: number | null;
@@ -486,23 +489,23 @@ export interface ItemRevisio {
 }
 
 /**
- * La cua de revisio.
+ * The review queue.
  *
- * El model local **no confirma res pel seu compte**: quan proposa una
- * categoria, el moviment queda marcat per revisar amb la seva confiança i la
- * seva justificacio, i qui decideix es una persona.
+ * The local model **confirms nothing on its own**: when it proposes a
+ * category, the transaction is marked for review with its confidence and its
+ * justification, and a person is the one who decides.
  */
-export async function safataRevisio(
+export async function reviewQueue(
   ledgerId: number,
   limit = 50,
   offset = 0,
-): Promise<{ items: ItemRevisio[]; total: number }> {
+): Promise<{ items: ReviewItem[]; total: number }> {
   const on = and(eq(transactions.ledgerId, ledgerId), eq(transactions.needsReview, true));
 
-  const [resum] = await db.select({ n: count() }).from(transactions).where(on);
+  const [summary] = await db.select({ n: count() }).from(transactions).where(on);
 
-  const files = await db
-    .select(CAMPS)
+  const rows = await db
+    .select(Fields)
     .from(transactions)
     .leftJoin(accounts, eq(accounts.id, transactions.accountId))
     .leftJoin(merchants, eq(merchants.id, transactions.merchantId))
@@ -514,12 +517,12 @@ export async function safataRevisio(
     .limit(limit)
     .offset(offset);
 
-  const comercIds = [
-    ...new Set(files.map((f) => f.merchantId).filter((x): x is number => x !== null)),
+  const merchantIds = [
+    ...new Set(rows.map((f) => f.merchantId).filter((x): x is number => x !== null)),
   ];
 
-  // La proposta mes recent de cada comerç.
-  const propostes = new Map<
+  // The most recent proposal of each merchant.
+  const proposals = new Map<
     number,
     {
       categoryId: number | null;
@@ -528,9 +531,9 @@ export async function safataRevisio(
       rationale: string;
     }
   >();
-  if (comercIds.length > 0) {
+  if (merchantIds.length > 0) {
     const { llmSuggestions } = await import("../db/schema/index.ts");
-    const suggeriments = await db
+    const suggestions = await db
       .select({
         merchantId: llmSuggestions.merchantId,
         categoryId: llmSuggestions.suggestedCategoryId,
@@ -540,12 +543,12 @@ export async function safataRevisio(
       })
       .from(llmSuggestions)
       .leftJoin(categories, eq(categories.id, llmSuggestions.suggestedCategoryId))
-      .where(inArray(llmSuggestions.merchantId, comercIds))
+      .where(inArray(llmSuggestions.merchantId, merchantIds))
       .orderBy(llmSuggestions.createdAt);
 
-    for (const s of suggeriments) {
+    for (const s of suggestions) {
       if (s.merchantId === null) continue;
-      propostes.set(s.merchantId, {
+      proposals.set(s.merchantId, {
         categoryId: s.categoryId,
         categoryName: s.categoryName,
         confidence: s.confidence,
@@ -554,24 +557,24 @@ export async function safataRevisio(
     }
   }
 
-  const items = files.map((fila) => {
-    const moviment = vistaMoviment(fila);
-    // Si el moviment esta emmascarat, la proposta tambe s'amaga: parla del
-    // comerç, que es justament el que no s'ha de veure.
-    const proposta = moviment.isMasked
+  const items = rows.map((row) => {
+    const transaction = transactionView(row);
+    // If the transaction is masked, the proposal is hidden too: it talks about
+    // the merchant, which is exactly what must not be seen.
+    const proposal = transaction.isMasked
       ? undefined
-      : fila.merchantId !== null
-        ? propostes.get(fila.merchantId)
+      : row.merchantId !== null
+        ? proposals.get(row.merchantId)
         : undefined;
 
     return {
-      moviment,
-      suggestedCategoryId: proposta?.categoryId ?? null,
-      suggestedCategoryName: proposta?.categoryName ?? null,
-      confidence: proposta?.confidence ?? null,
-      rationale: proposta?.rationale ?? "",
+      transaction,
+      suggestedCategoryId: proposal?.categoryId ?? null,
+      suggestedCategoryName: proposal?.categoryName ?? null,
+      confidence: proposal?.confidence ?? null,
+      rationale: proposal?.rationale ?? "",
     };
   });
 
-  return { items, total: resum?.n ?? 0 };
+  return { items, total: summary?.n ?? 0 };
 }

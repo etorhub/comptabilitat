@@ -1,16 +1,16 @@
 /**
- * Feina programada: enviament dels avisos per correu.
+ * Scheduled job: sending the alerts by mail.
  *
- * Traduccio de `backend/app/workers/jobs/notify.py`.
+ * Translated from `backend/app/workers/jobs/notify.py`.
  */
 
-import { notificaPendents } from "../../services/notify.ts";
+import { notifyPending } from "../../services/notify.ts";
 
-export function feinaAvisos(): Promise<string> {
-  return notificaPendents(false);
+export function alertsJob(): Promise<string> {
+  return notifyPending(false);
 }
 
-/** Nomes els urgents. Es crida cada hora; el resum sencer, un cop al dia. */
-export function feinaAvisosUrgents(): Promise<string> {
-  return notificaPendents(true);
+/** The urgent ones only. Called hourly; the full summary, once a day. */
+export function urgentAlertsJob(): Promise<string> {
+  return notifyPending(true);
 }

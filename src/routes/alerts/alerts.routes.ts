@@ -1,23 +1,23 @@
 /**
- * Rutes dels avisos.
+ * Alert routes.
  *
- * Es el primer recurs d'espai que es migra i, per tant, el que estrena tres
- * coses: el middleware que comprova l'acces a l'espai, la separacio entre
- * pagina i fragment, i els intercanvis fora de banda.
+ * This is the first workspace resource to be migrated and therefore the one
+ * that introduces three things: the middleware that checks workspace access,
+ * the split between page and fragment, and out-of-band swaps.
  *
- * NOTA SOBRE PERMISOS. A l'aplicacio de Python, marcar un avis com a llegit i
- * descartar-lo els podia fer **qualsevol membre de l'espai, fins i tot un
- * `viewer`** (`backend/app/api/routes/alerts.py:39,47`), a diferencia de la
- * resta d'endpoints que canvien alguna cosa, que demanen `editor`. Sembla un
- * descuit mes que una decisio. Es conserva tal com era, perque endurir-ho es
- * un canvi de comportament que no toca fer de tapadillo; queda anotat aqui i
- * a `AGENTS.md` per decidir-ho a part.
+ * NOTE ON PERMISSIONS. In the Python application, marking an alert as read
+ * and dismissing it could be done by **any member of the workspace, even a
+ * `viewer`** (`backend/app/api/routes/alerts.py:39,47`), unlike the rest of
+ * the endpoints that change something, which require `editor`. It looks like
+ * an oversight rather than a decision. It is kept as it was, because
+ * tightening it is a behavior change that should not be slipped in; it is
+ * noted here and in `AGENTS.md` to be decided separately.
  */
 
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { ComptadorAvisos } from "../../components/layout.tsx";
+import { AlertCounter } from "../../components/layout.ts";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { alerts } from "../../db/schema/index.ts";
@@ -25,124 +25,124 @@ import {
   NotFoundError,
   clearToast,
   fragment,
-  idDeLaRuta,
+  idFromRoute,
   page,
   pushUrl,
   withOob,
 } from "../../lib/http.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
-import { comptaAvisosNous } from "../../services/comptadors.ts";
-import { LlistaAvisos, TargetaAvis } from "./alerts.fragment.tsx";
-import { AlertsPage } from "./alerts.page.tsx";
+import { countNewAlerts } from "../../services/counters.ts";
+import { AlertsList, AlertCard } from "./alerts.fragment.ts";
+import { AlertsPage } from "./alerts.page.ts";
 import { alertFiltersSchema, alertFiltersToQuery } from "./alerts.schema.ts";
 
 export const alertsRoutes = new Hono();
 
-/** Els avisos de l'espai, els mes nous primer. */
-async function llegeixAvisos(ledgerId: number, descartats: boolean, limit: number) {
-  const estats = descartats
+/** The workspace's alerts, newest first. */
+async function readAlerts(ledgerId: number, descartats: boolean, limit: number) {
+  const statuses = descartats
     ? (["new", "read", "dismissed"] as const)
     : (["new", "read"] as const);
 
   return db
     .select()
     .from(alerts)
-    .where(and(eq(alerts.ledgerId, ledgerId), inArray(alerts.status, [...estats])))
+    .where(and(eq(alerts.ledgerId, ledgerId), inArray(alerts.status, [...statuses])))
     .orderBy(desc(alerts.createdAt))
     .limit(limit);
 }
 
 /**
- * Un avis d'aquest espai, o 404.
+ * An alert of this workspace, or 404.
  *
- * Comprovar-ho aqui es el que impedeix descartar l'avis d'un altre espai
- * endevinant-ne l'identificador.
+ * Checking it here is what stops someone dismissing another workspace's
+ * alert by guessing its id.
  */
-async function avisDeLespai(id: number, ledgerId: number) {
-  const [avis] = await db
+async function alertInWorkspace(id: number, ledgerId: number) {
+  const [alert] = await db
     .select()
     .from(alerts)
     .where(and(eq(alerts.id, id), eq(alerts.ledgerId, ledgerId)))
     .limit(1);
-  if (!avis) throw new NotFoundError("Aquest avis no existeix");
-  return avis;
+  if (!alert) throw new NotFoundError("Aquest avis no existeix");
+  return alert;
 }
 
-// --- Pagina ----------------------------------------------------------------
+// --- Page ------------------------------------------------------------------
 
 alertsRoutes.get("/", async (c) => {
-  const espai = currentWorkspace(c);
+  const workspace = currentWorkspace(c);
   const filters = alertFiltersSchema.parse(c.req.query());
-  const avisos = await llegeixAvisos(espai.id, filters.descartats, filters.limit);
+  const alertList = await readAlerts(workspace.id, filters.descartats, filters.limit);
 
   return page(
     c,
-    await workspacePage(c, "Avisos", AlertsPage({ codi: espai.code, avisos, filters })),
+    await workspacePage(c, "Avisos", AlertsPage({ code: workspace.code, alertList, filters })),
   );
 });
 
 // --- Fragments -------------------------------------------------------------
 
 alertsRoutes.get("/fragment/llista", async (c) => {
-  const espai = currentWorkspace(c);
+  const workspace = currentWorkspace(c);
   const filters = alertFiltersSchema.parse(c.req.query());
-  const avisos = await llegeixAvisos(espai.id, filters.descartats, filters.limit);
+  const alertList = await readAlerts(workspace.id, filters.descartats, filters.limit);
 
-  // L'adreça que ha de quedar a la barra i a l'historial es la de la pagina.
-  pushUrl(c, `/e/${espai.code}/avisos${alertFiltersToQuery(filters)}`);
+  // The URL that should stay in the address bar and the history is the page's.
+  pushUrl(c, `/e/${workspace.code}/avisos${alertFiltersToQuery(filters)}`);
 
-  return fragment(c, LlistaAvisos({ codi: espai.code, avisos, filters }));
+  return fragment(c, AlertsList({ code: workspace.code, alertList, filters }));
 });
 
-// --- Mutacions -------------------------------------------------------------
+// --- Mutations -------------------------------------------------------------
 
 alertsRoutes.post("/:id/llegit", async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquest avis no existeix");
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquest avis no existeix");
 
-  const avis = await avisDeLespai(id, espai.id);
+  const alert = await alertInWorkspace(id, workspace.id);
 
-  // Nomes te sentit sobre un avis nou; si ja estava llegit, no toquem res.
-  const actualitzat =
-    avis.status === "new"
+  // Only makes sense on a new alert; if it was already read, we touch nothing.
+  const updatedOne =
+    alert.status === "new"
       ? ((
           await db.update(alerts).set({ status: "read" }).where(eq(alerts.id, id)).returning()
-        )[0] ?? avis)
-      : avis;
+        )[0] ?? alert)
+      : alert;
 
   return fragment(
     c,
-    // El tros que ha canviat, el comptador de la barra lateral fora de banda,
-    // i el `#toast` net per esborrar l'error que hi pogues haver.
+    // The piece that changed, the sidebar counter out of band, and a clean
+    // `#toast` to wipe any error that might be there.
     await withOob(
-      TargetaAvis({
-        codi: espai.code,
-        avis: actualitzat,
+      AlertCard({
+        code: workspace.code,
+        alert: updatedOne,
         filters: alertFiltersSchema.parse(c.req.query()),
       }),
-      ComptadorAvisos(await comptaAvisosNous(espai.id), true),
+      AlertCounter(await countNewAlerts(workspace.id), true),
       clearToast(),
     ),
   );
 });
 
 alertsRoutes.post("/:id/descarta", async (c) => {
-  const espai = currentWorkspace(c);
-  const id = idDeLaRuta(c.req.param("id"), "Aquest avis no existeix");
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquest avis no existeix");
 
-  await avisDeLespai(id, espai.id);
+  await alertInWorkspace(id, workspace.id);
   await db.update(alerts).set({ status: "dismissed" }).where(eq(alerts.id, id));
 
-  // La llista sencera i no nomes la targeta: descartar l'ultim avis pendent
-  // ha de deixar veure que no en queda cap.
-  const filtres = alertFiltersSchema.parse(c.req.query());
-  const avisos = await llegeixAvisos(espai.id, filtres.descartats, filtres.limit);
+  // The whole list and not just the card: dismissing the last pending alert
+  // has to show that none are left.
+  const filters = alertFiltersSchema.parse(c.req.query());
+  const alertList = await readAlerts(workspace.id, filters.descartats, filters.limit);
 
   return fragment(
     c,
     await withOob(
-      LlistaAvisos({ codi: espai.code, avisos, filters: filtres }),
-      ComptadorAvisos(await comptaAvisosNous(espai.id), true),
+      AlertsList({ code: workspace.code, alertList, filters: filters }),
+      AlertCounter(await countNewAlerts(workspace.id), true),
       clearToast(),
     ),
   );

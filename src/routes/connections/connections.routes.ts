@@ -1,26 +1,27 @@
 /**
- * Connexions bancaries. Nomes per a administradors de la instal·lacio.
+ * Bank connections. Installation administrators only.
  *
- * DECISIO SOBRE LA SINCRONITZACIO. A l'aplicacio de Python, prémer
- * «Sincronitza» feia la importacio sencera **dins de la peticio HTTP**, sense
- * cap limit de temps (`routes/connections.py:127`). Amb el
- * `proxy_read_timeout 300s` de l'nginx que hi ha al davant, una primera
- * importacio de 24 mesos d'historic es un 502 esperant a passar.
+ * DECISION ABOUT SYNCHRONIZATION. In the Python application, pressing
+ * «Sincronitza» ran the whole import **inside the HTTP request**, with no
+ * time limit at all (`routes/connections.py:127`). With the
+ * `proxy_read_timeout 300s` of the nginx sitting in front, a first import of
+ * 24 months of history is a 502 waiting to happen.
  *
- * Aqui la feina arrenca en segon pla i la ruta contesta de seguida amb la fila
- * de `sync_runs` en estat «running». El fragment que torna porta
- * `hx-trigger="every 2s"` sobre una ruta d'estat i, quan la feina acaba, el
- * fragment nou ja no en porta: el sondeig s'atura sol. **Es un dels dos
- * sondejos de l'aplicacio** (amb el d'en curs a `/feines`) i esta acotat.
+ * Here the job starts in the background and the route answers straight away
+ * with the `sync_runs` row in the «running» state. The fragment it returns
+ * polls a status route and, when the job finishes, the new fragment no longer
+ * carries a trigger: the poll stops by itself. If the job never finishes, the
+ * attempt counter stops it. **It is one of the application's two polls** (the
+ * other being the one for jobs in progress at `/feines`).
  *
- * No hi ha cua ni intermediari perque no calen: aixo es una instal·lacio d'una
- * sola maquina i el banc nomes deixa unes quantes crides al dia.
+ * There is no queue and no broker because neither is needed: this is a
+ * single-machine installation and the bank only allows a few calls a day.
  */
 
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { Layout } from "../../components/layout.tsx";
+import { Layout } from "../../components/layout.ts";
 import { db } from "../../db/client.ts";
 import {
   accounts,
@@ -34,7 +35,7 @@ import {
   AppError,
   NotFoundError,
   fragment,
-  idDeLaRuta,
+  idFromRoute,
   page,
   redirect,
   toast,
@@ -44,12 +45,13 @@ import {
 import { daysBetween, todayLocal } from "../../lib/time.ts";
 import { currentUser } from "../../middleware/session.ts";
 import { myWorkspaces } from "../../middleware/workspace.ts";
-import { mouCompteDEspai, type ResumMoviment } from "../../services/accounts.ts";
-import { ultimSaldo } from "../../services/balances.ts";
-import { acabaAutoritzacio, comencaAutoritzacio } from "../../services/consent.ts";
-import { jaSincronitza, obreImportacio, portaLaImportacio } from "../../services/sync.ts";
-import { EstatSync, FilaCompte, Llista, type ConnexioVista } from "./connections.fragment.tsx";
-import { ConnectionsPage } from "./connections.page.tsx";
+import { moveAccountToWorkspace, type TransactionSummary } from "../../services/accounts.ts";
+import { lastBalance } from "../../services/balances.ts";
+import { finishAuthorization, beginAuthorization } from "../../services/consent.ts";
+import { alreadySyncing, openImport, runTheImport } from "../../services/sync.ts";
+import { SyncState, AccountRow, List, type ConnectionView } from "./connections.fragment.ts";
+import { ConnectionsPage } from "./connections.page.ts";
+import { attemptFromQuery, ATTEMPT_PARAM } from "../../lib/polling.ts";
 import {
   assignSchema,
   authorizeSchema,
@@ -59,102 +61,104 @@ import {
 
 export const connectionsRoutes = new Hono();
 
-/** L'IBAN nomes surt emmascarat. */
-function ibanEmmascarat(iban: string): string {
+/** The IBAN is only ever shown masked. */
+function maskedIban(iban: string): string {
   if (iban.length <= 8) return iban ? "····" : "";
   return `${iban.slice(0, 4)}····${iban.slice(-4)}`;
 }
 
-async function llistaConnexions(): Promise<ConnexioVista[]> {
-  const connexions = await db
+async function listConnections(): Promise<ConnectionView[]> {
+  const connections = await db
     .select()
     .from(bankConnections)
     .orderBy(desc(bankConnections.createdAt));
 
-  const avui = todayLocal();
-  const resultat: ConnexioVista[] = [];
+  const today = todayLocal();
+  const result: ConnectionView[] = [];
 
-  for (const connexio of connexions) {
-    const comptes = await db
+  for (const connection of connections) {
+    const accountList = await db
       .select()
       .from(accounts)
-      .where(eq(accounts.connectionId, connexio.id))
+      .where(eq(accounts.connectionId, connection.id))
       .orderBy(accounts.name);
 
-    resultat.push({
-      id: connexio.id,
-      name: connexio.name,
-      aspspName: connexio.aspspName,
-      status: connexio.status,
-      validUntil: connexio.validUntil,
-      lastSyncAt: connexio.lastSyncAt,
-      lastError: connexio.lastError,
-      diesPerCaducar:
-        connexio.validUntil === null
+    result.push({
+      id: connection.id,
+      name: connection.name,
+      aspspName: connection.aspspName,
+      status: connection.status,
+      validUntil: connection.validUntil,
+      lastSyncAt: connection.lastSyncAt,
+      lastError: connection.lastError,
+      daysToExpiry:
+        connection.validUntil === null
           ? null
-          : daysBetween(avui, connexio.validUntil.toISOString().slice(0, 10)),
-      comptes: await Promise.all(
-        comptes.map(async (compte) => ({
-          id: compte.id,
-          name: compte.name || compte.product || ibanEmmascarat(compte.iban),
-          ibanMasked: ibanEmmascarat(compte.iban),
-          currency: compte.currency,
-          ledgerId: compte.ledgerId,
-          saldo: (await ultimSaldo(compte.id))?.amount ?? null,
-          isActive: compte.isActive,
+          : daysBetween(today, connection.validUntil.toISOString().slice(0, 10)),
+      accountList: await Promise.all(
+        accountList.map(async (account) => ({
+          id: account.id,
+          name: account.name || account.product || maskedIban(account.iban),
+          ibanMasked: maskedIban(account.iban),
+          currency: account.currency,
+          ledgerId: account.ledgerId,
+          balance: (await lastBalance(account.id))?.amount ?? null,
+          isActive: account.isActive,
         })),
       ),
     });
   }
 
-  return resultat;
+  return result;
 }
 
-const espaisActius = () =>
+const activeWorkspaces = () =>
   db.select().from(ledgers).where(eq(ledgers.isActive, true)).orderBy(ledgers.position);
 
-// --- Pagina ----------------------------------------------------------------
+// --- Page ------------------------------------------------------------------
 
 connectionsRoutes.get("/", async (c) => {
   const user = currentUser(c);
-  const [connexions, espais, meus] = await Promise.all([
-    llistaConnexions(),
-    espaisActius(),
+  const [connections, workspaces, mine] = await Promise.all([
+    listConnections(),
+    activeWorkspaces(),
     myWorkspaces(user.id),
   ]);
 
-  const estat = c.req.query("estat");
-  const retorn =
-    estat === undefined ? undefined : { ok: estat === "ok", motiu: c.req.query("motiu") ?? "" };
+  const state = c.req.query("estat");
+  const callbackResult =
+    state === undefined
+      ? undefined
+      : { ok: state === "ok", reason: c.req.query("motiu") ?? "" };
 
   return page(
     c,
     Layout({
-      titol: "Connexions",
+      title: "Connexions",
       user,
       csrfToken: c.get("csrfToken") ?? "",
-      ruta: c.req.path,
-      espais: meus,
-      children: ConnectionsPage({ connexions, espais, retorn }),
+      path: c.req.path,
+      workspaces: mine,
+      children: ConnectionsPage({ connections, workspaces, callbackResult }),
     }),
   );
 });
 
-// --- Autoritzacio ----------------------------------------------------------
+// --- Authorization ---------------------------------------------------------
 
 /**
- * Comença l'autoritzacio.
+ * Starts the authorization.
  *
- * Es un formulari normal, no HTMX: la resposta es una redireccio **cap al
- * banc**, i un `hx-post` acabaria enganxant la pagina del banc dins d'un
- * `<div>`. `redirect()` ja se'n cuida si arribes per HTMX.
+ * This is an ordinary form, not HTMX: the response is a redirect **to the
+ * bank**, and an `hx-post` would end up pasting the bank's page inside a
+ * `<div>`. `redirect()` already takes care of it if you arrive over HTMX.
  */
 connectionsRoutes.post("/autoritza", async (c) => {
   const user = currentUser(c);
   const parsed = authorizeSchema.safeParse(await c.req.parseBody());
   if (!parsed.success) throw new AppError("Peticio no valida", 422);
 
-  const { authorizationUrl } = await comencaAutoritzacio({
+  const { authorizationUrl } = await beginAuthorization({
     aspspName: parsed.data.aspsp_name,
     aspspCountry: parsed.data.aspsp_country,
     psuType: parsed.data.psu_type,
@@ -166,12 +170,12 @@ connectionsRoutes.post("/autoritza", async (c) => {
 });
 
 /**
- * El retorn del banc.
+ * The return from the bank.
  *
- * **Aquesta ruta no va autenticada i esta exempta de CSRF**, perque qui hi
- * arriba ve del banc i no duu cap testimoni nostre. El que la protegeix es
- * l'`eb_auth_state` d'un sol us que va generar la connexio. Vegeu
- * `middleware/csrf.ts`.
+ * **This route is unauthenticated and exempt from CSRF**, because whoever
+ * arrives here comes from the bank and carries no token of ours. What
+ * protects it is the single-use `eb_auth_state` that created the connection.
+ * See `middleware/csrf.ts`.
  */
 export const callbackRoute = new Hono();
 
@@ -180,116 +184,119 @@ callbackRoute.get("/api/auth/callback", async (c) => {
   const base = `${config.publicBaseUrl}/connexions`;
 
   if (!parsed.success || parsed.data.error || !parsed.data.code || !parsed.data.state) {
-    const motiu = encodeURIComponent(parsed.success ? (parsed.data.error ?? "") : "");
-    return c.redirect(`${base}?estat=error&motiu=${motiu}`, 303);
+    const reason = encodeURIComponent(parsed.success ? (parsed.data.error ?? "") : "");
+    return c.redirect(`${base}?estat=error&motiu=${reason}`, 303);
   }
 
   try {
-    await acabaAutoritzacio(parsed.data.code, parsed.data.state);
+    await finishAuthorization(parsed.data.code, parsed.data.state);
     return c.redirect(`${base}?estat=ok`, 303);
   } catch (error) {
-    const motiu = encodeURIComponent(error instanceof Error ? error.message : "desconegut");
-    return c.redirect(`${base}?estat=error&motiu=${motiu}`, 303);
+    const reason = encodeURIComponent(error instanceof Error ? error.message : "desconegut");
+    return c.redirect(`${base}?estat=error&motiu=${reason}`, 303);
   }
 });
 
-// --- Sincronitzacio --------------------------------------------------------
+// --- Synchronization -------------------------------------------------------
 
-async function ultimaExecucio(connexioId: number): Promise<SyncRun | null> {
-  const [execucio] = await db
+async function lastRun(connectionId: number): Promise<SyncRun | null> {
+  const [run] = await db
     .select()
     .from(syncRuns)
-    .where(eq(syncRuns.connectionId, connexioId))
+    .where(eq(syncRuns.connectionId, connectionId))
     .orderBy(desc(syncRuns.startedAt))
     .limit(1);
-  return execucio ?? null;
+  return run ?? null;
 }
 
 connectionsRoutes.post("/:id/sincronitza", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"), "Aquesta connexio no existeix");
+  const id = idFromRoute(c.req.param("id"), "Aquesta connexio no existeix");
   const parsed = syncSchema.safeParse(await c.req.parseBody());
 
-  const [connexio] = await db
+  const [connection] = await db
     .select()
     .from(bankConnections)
     .where(eq(bankConnections.id, id))
     .limit(1);
-  if (!connexio) throw new NotFoundError("Aquesta connexio no existeix");
+  if (!connection) throw new NotFoundError("Aquesta connexio no existeix");
 
-  if (connexio.status !== "active") {
+  if (connection.status !== "active") {
     return toastOnly(c, "Aquesta connexio no esta activa", 422);
   }
 
-  // Sota PSD2 el banc limita les consultes sense l'usuari present, i dues
-  // importacions alhora de la mateixa connexio se les gasten per duplicat.
-  // Si ja n'hi ha una de viva, s'ensenya aquella.
-  if (await jaSincronitza(id)) {
-    return fragment(c, EstatSync({ connexioId: id, execucio: await ultimaExecucio(id) }));
+  // Under PSD2 the bank limits queries made without the user present, and two
+  // imports of the same connection at once spend them twice over. If one is
+  // already alive, that is the one shown.
+  if (await alreadySyncing(id)) {
+    return fragment(c, SyncState({ connectionId: id, run: await lastRun(id) }));
   }
 
-  // La fila es crea **abans** de contestar, de manera que el fragment ja pot
-  // dur el sondeig; la feina de debo va en segon pla, perque la primera
-  // importacio pot trigar mes del que aguanta cap intermediari.
-  const execucio = await obreImportacio(connexio, "manual");
+  // The row is created **before** answering, so the fragment can already carry
+  // the poll; the real work goes in the background, because the first import
+  // can take longer than any proxy will wait.
+  const run = await openImport(connection, "manual");
 
-  void portaLaImportacio(connexio, execucio, {
+  void runTheImport(connection, run, {
     daysBack: parsed.success ? parsed.data.days_back : null,
   }).catch((error: unknown) => {
     console.error("[sync] la importacio ha fallat:", error);
   });
 
-  return fragment(c, EstatSync({ connexioId: id, execucio: execucio ?? null }));
+  return fragment(c, SyncState({ connectionId: id, run: run ?? null }));
 });
 
-/** L'estat d'una importacio. El fragment s'atura sol quan la feina acaba. */
+/** The state of an import. The fragment stops by itself when the job ends. */
 connectionsRoutes.get("/:id/fragment/sync", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"), "Aquesta connexio no existeix");
-  return fragment(c, EstatSync({ connexioId: id, execucio: await ultimaExecucio(id) }));
+  const id = idFromRoute(c.req.param("id"), "Aquesta connexio no existeix");
+  // The attempt counter comes in the URL: the poll has a limit and the server
+  // holds it, not the client. See `lib/polling.ts`.
+  const attempt = attemptFromQuery(c.req.query(ATTEMPT_PARAM));
+  return fragment(c, SyncState({ connectionId: id, run: await lastRun(id), attempt }));
 });
 
-// --- Comptes ---------------------------------------------------------------
+// --- Accounts --------------------------------------------------------------
 
 /**
- * Assigna un compte a un espai.
+ * Assigns an account to a workspace.
  *
- * La feina la fa `mouCompteDEspai()`: es prou delicada —toca l'historial
- * sencer del compte— per no viure dins d'un gestor de ruta.
+ * The work is done by `moveAccountToWorkspace()`: it is delicate enough —it
+ * touches the account's whole history— not to live inside a route handler.
  */
 connectionsRoutes.post("/comptes/:id/espai", async (c) => {
-  const id = idDeLaRuta(c.req.param("id"), "Aquesta connexio no existeix");
+  const id = idFromRoute(c.req.param("id"), "Aquesta connexio no existeix");
   const parsed = assignSchema.safeParse(await c.req.parseBody());
   if (!parsed.success) throw new AppError("Peticio no valida", 422);
 
-  const resum = await mouCompteDEspai(id, parsed.data.ledger_id);
+  const summary = await moveAccountToWorkspace(id, parsed.data.ledger_id);
 
-  const [espais, connexions] = await Promise.all([espaisActius(), llistaConnexions()]);
-  const vista = connexions
-    .flatMap((con) => con.comptes)
-    .find((compteVista) => compteVista.id === id);
+  const [workspaces, connections] = await Promise.all([activeWorkspaces(), listConnections()]);
+  const view = connections
+    .flatMap((con) => con.accountList)
+    .find((accountView) => accountView.id === id);
 
-  if (!vista) throw new NotFoundError("Aquest compte no existeix");
+  if (!view) throw new NotFoundError("Aquest compte no existeix");
 
   return fragment(
     c,
     await withOob(
-      FilaCompte({ compte: vista, espais }),
-      toast(missatgeDelTrasllat(parsed.data.ledger_id, resum), "success"),
+      AccountRow({ account: view, workspaces }),
+      toast(moveMessage(parsed.data.ledger_id, summary), "success"),
     ),
   );
 });
 
-/** Que ha passat, dit en una linia. */
-function missatgeDelTrasllat(nouEspai: number | null, resum: ResumMoviment): string {
-  if (nouEspai === null) return "El compte ja no pertany a cap espai";
+/** What happened, said in one line. */
+function moveMessage(newWorkspace: number | null, summary: TransactionSummary): string {
+  if (newWorkspace === null) return "El compte ja no pertany a cap espai";
 
-  const trossos = [`${resum.moguts} moviments moguts`];
-  if (resum.conservades > 0) {
-    trossos.push(`${resum.conservades} amb la categoria que hi havies posat`);
+  const parts = [`${summary.moved} moviments moguts`];
+  if (summary.kept > 0) {
+    parts.push(`${summary.kept} amb la categoria que hi havies posat`);
   }
-  if (resum.traspassosDesfets > 0) {
-    trossos.push(`${resum.traspassosDesfets} traspassos desfets a l'espai anterior`);
+  if (summary.undoneTransfers > 0) {
+    parts.push(`${summary.undoneTransfers} traspassos desfets a l'espai anterior`);
   }
-  return trossos.join(", ");
+  return parts.join(", ");
 }
 
-export { Llista };
+export { List };

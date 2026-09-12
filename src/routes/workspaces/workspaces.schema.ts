@@ -1,5 +1,5 @@
 /**
- * Esquemes dels espais de treball.
+ * Workspace schemas.
  */
 
 import { createInsertSchema } from "drizzle-zod";
@@ -10,7 +10,7 @@ import { ledgers } from "../../db/schema/index.ts";
 const base = createInsertSchema(ledgers);
 
 export const workspaceCreateSchema = base.pick({ name: true }).extend({
-  /** Va a l'adreça (`/e/<codi>`), aixi que nomes lletres, numeros i guions. */
+  /** Goes in the URL (`/e/<codi>`), so letters, numbers and hyphens only. */
   code: z
     .string()
     .trim()
@@ -30,15 +30,15 @@ export const workspaceUpdateSchema = z.object({
   description: z.string().trim().max(500).default(""),
   color: z.string().regex(/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/, "Color no valid"),
   /**
-   * Per sota d'aquest saldo previst salta l'avis. Si un compte te linia de
-   * credit, hi va el numero negatiu que correspongui.
+   * Below this forecast balance the alert fires. If an account has a credit
+   * line, the matching negative number goes here.
    */
   overdraft_threshold: z
     .string()
     .trim()
     .regex(/^-?\d+([.,]\d{1,2})?$/, "Ha de ser un import")
     .transform((v) => v.replace(",", ".")),
-  /** Destinataris dels avisos d'aquest espai; buit vol dir els generals. */
+  /** Recipients of this workspace's alerts; empty means the general ones. */
   alert_recipients: z
     .string()
     .trim()

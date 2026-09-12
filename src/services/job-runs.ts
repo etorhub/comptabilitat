@@ -1,9 +1,9 @@
 /**
- * Historial i execució de les feines del planificador.
+ * History and execution of the scheduler's jobs.
  *
- * Totes les vies (cron, UI, CLI) passen per `executaFeina`, que deixa una
- * fila a `job_runs`. Les passades compostes creen fills amb `executaPas`
- * gràcies a un `AsyncLocalStorage`.
+ * Every route (cron, UI, CLI) goes through `runJob`, which leaves a row in
+ * `job_runs`. Composite passes create children with `runStep` thanks to an
+ * `AsyncLocalStorage`.
  */
 
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -21,32 +21,32 @@ import {
 } from "../db/schema/index.ts";
 
 const ERROR_MAX = 2000;
-const HORES_FINS_A_DONAR_PER_MORTA = 2;
+const HOURS_UNTIL_PRESUMED_DEAD = 2;
 
-interface ContextExecucio {
-  /** Identificador de la fila pare (la passada o la feina de primer nivell). */
+interface RunContext {
+  /** Id of the parent row (the pass or the top-level job). */
   parentId: number;
   trigger: JobTrigger;
 }
 
-const context = new AsyncLocalStorage<ContextExecucio>();
+const context = new AsyncLocalStorage<RunContext>();
 
-/** Heurística: el resum de sync marca errors per connexió sense llançar. */
-function semblaParcial(resum: string): boolean {
-  return /\(\d+ errors?\)/.test(resum);
+/** Heuristic: the sync summary marks errors per connection without throwing. */
+function looksPartial(summary: string): boolean {
+  return /\(\d+ errors?\)/.test(summary);
 }
 
-function truncarError(error: unknown): string {
-  const missatge = error instanceof Error ? error.message : String(error);
-  return missatge.slice(0, ERROR_MAX);
+function truncateError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.slice(0, ERROR_MAX);
 }
 
-async function obreExecucio(
+async function openRun(
   jobName: string,
   trigger: JobTrigger,
   parentId: number | null,
 ): Promise<JobRun> {
-  const [fila] = await db
+  const [row] = await db
     .insert(jobRuns)
     .values({
       jobName,
@@ -58,11 +58,11 @@ async function obreExecucio(
       error: "",
     })
     .returning();
-  if (fila === undefined) throw new Error("No s'ha pogut obrir l'execució de la feina");
-  return fila;
+  if (row === undefined) throw new Error("No s'ha pogut obrir l'execució de la feina");
+  return row;
 }
 
-async function tancaExecucio(
+async function closeRun(
   id: number,
   status: JobStatus,
   summary: string,
@@ -79,43 +79,43 @@ async function tancaExecucio(
     .where(eq(jobRuns.id, id));
 }
 
-async function correITanca(run: JobRun, fn: () => Promise<string>): Promise<string> {
+async function runAndClose(run: JobRun, fn: () => Promise<string>): Promise<string> {
   try {
-    const resum = await fn();
-    const status: JobStatus = semblaParcial(resum) ? "partial" : "success";
-    await tancaExecucio(run.id, status, resum, "");
-    return resum;
+    const summary = await fn();
+    const status: JobStatus = looksPartial(summary) ? "partial" : "success";
+    await closeRun(run.id, status, summary, "");
+    return summary;
   } catch (error) {
-    await tancaExecucio(run.id, "failed", "", truncarError(error));
+    await closeRun(run.id, "failed", "", truncateError(error));
     throw error;
   }
 }
 
 /**
- * Executa una feina de primer nivell (o un pas fill si ja hi ha context) i
- * deixa el resultat a `job_runs`. Espera que acabi.
+ * Runs a top-level job (or a child step if there is already a context) and
+ * leaves the result in `job_runs`. It waits for it to finish.
  */
-export async function executaFeina(
+export async function runJob(
   jobName: string,
   trigger: JobTrigger,
   fn: () => Promise<string>,
 ): Promise<string> {
   const store = context.getStore();
   if (store !== undefined) {
-    // Crida niuada accidental: tracta-la com a pas del pare actual.
-    return executaPas(jobName, fn);
+    // Accidental nested call: treat it as a step of the current parent.
+    return runStep(jobName, fn);
   }
 
-  const run = await obreExecucio(jobName, trigger, null);
-  return context.run({ parentId: run.id, trigger }, () => correITanca(run, fn));
+  const run = await openRun(jobName, trigger, null);
+  return context.run({ parentId: run.id, trigger }, () => runAndClose(run, fn));
 }
 
 /**
- * Com `executaFeina`, pero torna quan la fila `running` ja existeix i deixa
- * la feina en segon pla. Per a la UI: cal poder redibuixar l'historial abans
- * que acabi (i sense esperar una sincronitzacio llarga).
+ * Like `runJob`, but returns once the `running` row exists and leaves the job
+ * in the background. For the UI: the history has to be redrawable before it
+ * finishes (and without waiting for a long synchronization).
  */
-export async function engegaFeina(
+export async function startJob(
   jobName: string,
   trigger: JobTrigger,
   fn: () => Promise<string>,
@@ -124,13 +124,13 @@ export async function engegaFeina(
     throw new Error("engegaFeina no es pot cridar dins d'una altra feina");
   }
 
-  const run = await obreExecucio(jobName, trigger, null);
-  const començat = Date.now();
+  const run = await openRun(jobName, trigger, null);
+  const startedAt = Date.now();
   void context.run({ parentId: run.id, trigger }, async () => {
     try {
-      const resum = await correITanca(run, fn);
+      const summary = await runAndClose(run, fn);
       console.info(
-        `[${jobName}] fet en ${Math.round((Date.now() - començat) / 1000)}s\n${resum}`,
+        `[${jobName}] fet en ${Math.round((Date.now() - startedAt) / 1000)}s\n${summary}`,
       );
     } catch (error) {
       console.error(`[${jobName}] ha fallat:`, error);
@@ -140,25 +140,25 @@ export async function engegaFeina(
 }
 
 /**
- * Pas d'una passada: crea un fill amb el `parent_id` del context actual.
- * Dins del pas el context apunta a la fila nova, així una passada niuada
- * (p.ex. `totes` → `passada-diaria` → `sync`) encadena els avisos correctament.
- * Fora de context (no hauria de passar) només executa la funció.
+ * A step of a pass: creates a child with the current context's `parent_id`.
+ * Inside the step the context points at the new row, so a nested pass
+ * (e.g. `totes` → `passada-diaria` → `sync`) chains the notices correctly.
+ * Outside a context (which should not happen) it just runs the function.
  */
-export async function executaPas(jobName: string, fn: () => Promise<string>): Promise<string> {
+export async function runStep(jobName: string, fn: () => Promise<string>): Promise<string> {
   const store = context.getStore();
   if (store === undefined) {
     return fn();
   }
 
-  const run = await obreExecucio(jobName, store.trigger, store.parentId);
-  return context.run({ parentId: run.id, trigger: store.trigger }, () => correITanca(run, fn));
+  const run = await openRun(jobName, store.trigger, store.parentId);
+  return context.run({ parentId: run.id, trigger: store.trigger }, () => runAndClose(run, fn));
 }
 
-/** Hi ha una execució de primer nivell amb aquest nom encara corrent? */
-export async function feinaEnCurs(jobName: string): Promise<boolean> {
-  const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
-  const [viva] = await db
+/** Is there a top-level run with this name still going? */
+export async function jobRunning(jobName: string): Promise<boolean> {
+  const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
+  const [alive] = await db
     .select({ id: jobRuns.id })
     .from(jobRuns)
     .where(
@@ -170,21 +170,21 @@ export async function feinaEnCurs(jobName: string): Promise<boolean> {
       ),
     )
     .limit(1);
-  return viva !== undefined;
+  return alive !== undefined;
 }
 
-/** Conjunt de noms de feines (pare o fill) que ara mateix estan `running`. */
-export async function nomsEnCurs(): Promise<Set<string>> {
-  const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
-  const files = await db
+/** Set of job names (parent or child) that are `running` right now. */
+export async function runningJobNames(): Promise<Set<string>> {
+  const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
+  const rows = await db
     .select({ jobName: jobRuns.jobName })
     .from(jobRuns)
     .where(and(eq(jobRuns.status, "running"), gte(jobRuns.startedAt, limit)));
-  return new Set(files.map((f) => f.jobName));
+  return new Set(rows.map((f) => f.jobName));
 }
 
-export async function llegeixEnCurs(): Promise<JobRun[]> {
-  const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
+export async function readRunning(): Promise<JobRun[]> {
+  const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
   return db
     .select()
     .from(jobRuns)
@@ -198,55 +198,55 @@ export async function llegeixEnCurs(): Promise<JobRun[]> {
     .orderBy(asc(jobRuns.startedAt));
 }
 
-export interface FiltresHistorial {
-  feina?: string;
-  estat?: JobStatus;
-  origen?: JobTrigger;
-  desDe?: Date;
-  finsA?: Date;
-  /** Pàgina 0-indexada. */
-  pagina: number;
+export interface HistoryFilters {
+  job?: string;
+  state?: JobStatus;
+  origin?: JobTrigger;
+  from?: Date;
+  until?: Date;
+  /** 0-indexed page. */
+  page: number;
   limit: number;
 }
 
-export interface PaginaHistorial {
+export interface HistoryPage {
   items: JobRun[];
   total: number;
-  pagina: number;
+  page: number;
   limit: number;
-  /** Fills indexats pel `parent_id`, només dels items de la pàgina. */
-  fills: Map<number, JobRun[]>;
+  /** Children indexed by `parent_id`, only for the items on the page. */
+  children: Map<number, JobRun[]>;
 }
 
-function clausFiltres(filtres: FiltresHistorial) {
+function filterKeys(filters: HistoryFilters) {
   const parts = [isNull(jobRuns.parentId)];
-  if (filtres.feina) parts.push(eq(jobRuns.jobName, filtres.feina));
-  if (filtres.estat) parts.push(eq(jobRuns.status, filtres.estat));
-  if (filtres.origen) parts.push(eq(jobRuns.trigger, filtres.origen));
-  if (filtres.desDe) parts.push(gte(jobRuns.startedAt, filtres.desDe));
-  if (filtres.finsA) parts.push(lte(jobRuns.startedAt, filtres.finsA));
+  if (filters.job) parts.push(eq(jobRuns.jobName, filters.job));
+  if (filters.state) parts.push(eq(jobRuns.status, filters.state));
+  if (filters.origin) parts.push(eq(jobRuns.trigger, filters.origin));
+  if (filters.from) parts.push(gte(jobRuns.startedAt, filters.from));
+  if (filters.until) parts.push(lte(jobRuns.startedAt, filters.until));
   return and(...parts);
 }
 
 /**
- * Historial de primer nivell amb els fills carregats per a l'expansió.
- * Si es filtra per una feina que pot ser pas (`sync`, …), també es mostren
- * les files fills que hi encaixen (sense amagar-les sota el filtre de pare).
+ * Top-level history with the children loaded for the expansion.
+ * If it is filtered by a job that can be a step (`sync`, …), the matching
+ * child rows are shown too (without hiding them under the parent filter).
  */
-export async function llegeixHistorial(filtres: FiltresHistorial): Promise<PaginaHistorial> {
-  const nomesFills =
-    filtres.feina !== undefined &&
-    !["passada-diaria", "passada-nocturna", "totes"].includes(filtres.feina);
+export async function readHistory(filters: HistoryFilters): Promise<HistoryPage> {
+  const onlyChildren =
+    filters.job !== undefined &&
+    !["passada-diaria", "passada-nocturna", "totes"].includes(filters.job);
 
-  const where = nomesFills
+  const where = onlyChildren
     ? and(
-        ...(filtres.feina ? [eq(jobRuns.jobName, filtres.feina)] : []),
-        ...(filtres.estat ? [eq(jobRuns.status, filtres.estat)] : []),
-        ...(filtres.origen ? [eq(jobRuns.trigger, filtres.origen)] : []),
-        ...(filtres.desDe ? [gte(jobRuns.startedAt, filtres.desDe)] : []),
-        ...(filtres.finsA ? [lte(jobRuns.startedAt, filtres.finsA)] : []),
+        ...(filters.job ? [eq(jobRuns.jobName, filters.job)] : []),
+        ...(filters.state ? [eq(jobRuns.status, filters.state)] : []),
+        ...(filters.origin ? [eq(jobRuns.trigger, filters.origin)] : []),
+        ...(filters.from ? [gte(jobRuns.startedAt, filters.from)] : []),
+        ...(filters.until ? [lte(jobRuns.startedAt, filters.until)] : []),
       )
-    : clausFiltres(filtres);
+    : filterKeys(filters);
 
   const [{ total } = { total: 0 }] = await db
     .select({ total: count() })
@@ -258,34 +258,34 @@ export async function llegeixHistorial(filtres: FiltresHistorial): Promise<Pagin
     .from(jobRuns)
     .where(where)
     .orderBy(desc(jobRuns.startedAt))
-    .limit(filtres.limit)
-    .offset(filtres.pagina * filtres.limit);
+    .limit(filters.limit)
+    .offset(filters.page * filters.limit);
 
-  const fills = new Map<number, JobRun[]>();
-  if (!nomesFills && items.length > 0) {
+  const children = new Map<number, JobRun[]>();
+  if (!onlyChildren && items.length > 0) {
     const ids = items.map((i) => i.id);
-    const fillsFiles = await db
+    const childRows = await db
       .select()
       .from(jobRuns)
       .where(inArray(jobRuns.parentId, ids))
       .orderBy(asc(jobRuns.startedAt));
-    for (const fill of fillsFiles) {
-      if (fill.parentId === null) continue;
-      const llista = fills.get(fill.parentId) ?? [];
-      llista.push(fill);
-      fills.set(fill.parentId, llista);
+    for (const child of childRows) {
+      if (child.parentId === null) continue;
+      const list = children.get(child.parentId) ?? [];
+      list.push(child);
+      children.set(child.parentId, list);
     }
   }
 
-  return { items, total: Number(total), pagina: filtres.pagina, limit: filtres.limit, fills };
+  return { items, total: Number(total), page: filters.page, limit: filters.limit, children };
 }
 
-export async function llegeixExecucio(id: number): Promise<JobRun | null> {
-  const [fila] = await db.select().from(jobRuns).where(eq(jobRuns.id, id)).limit(1);
-  return fila ?? null;
+export async function readRun(id: number): Promise<JobRun | null> {
+  const [row] = await db.select().from(jobRuns).where(eq(jobRuns.id, id)).limit(1);
+  return row ?? null;
 }
 
-export async function llegeixFills(parentId: number): Promise<JobRun[]> {
+export async function readChildren(parentId: number): Promise<JobRun[]> {
   return db
     .select()
     .from(jobRuns)
@@ -293,39 +293,39 @@ export async function llegeixFills(parentId: number): Promise<JobRun[]> {
     .orderBy(asc(jobRuns.startedAt));
 }
 
-/** Darrera execució de primer nivell per a cada `job_name` demanat. */
-export async function darreresPerFeina(noms: string[]): Promise<Map<string, JobRun>> {
-  const mapa = new Map<string, JobRun>();
-  if (noms.length === 0) return mapa;
+/** Last top-level run for each `job_name` asked for. */
+export async function lastRunPerJob(names: string[]): Promise<Map<string, JobRun>> {
+  const map = new Map<string, JobRun>();
+  if (names.length === 0) return map;
 
-  // Una consulta per nom: la taula és petita i evitem DISTINCT ON específic
-  // de Postgres amb sintaxi fràgil a Drizzle.
+  // One query per name: the table is small and it saves us a Postgres-specific
+  // DISTINCT ON with fragile syntax in Drizzle.
   await Promise.all(
-    noms.map(async (nom) => {
-      const [fila] = await db
+    names.map(async (name) => {
+      const [row] = await db
         .select()
         .from(jobRuns)
-        .where(and(eq(jobRuns.jobName, nom), isNull(jobRuns.parentId)))
+        .where(and(eq(jobRuns.jobName, name), isNull(jobRuns.parentId)))
         .orderBy(desc(jobRuns.startedAt))
         .limit(1);
-      if (fila) mapa.set(nom, fila);
+      if (row) map.set(name, row);
     }),
   );
-  return mapa;
+  return map;
 }
 
-export interface ResumSalut {
-  enCurs: number;
-  fallades24h: number;
-  darreraPassadaDiaria: JobRun | null;
+export interface HealthSummary {
+  running: number;
+  failed24h: number;
+  lastDailyPass: JobRun | null;
 }
 
-export async function resumSalut(): Promise<ResumSalut> {
-  const fa24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
+export async function summaryHealth(): Promise<HealthSummary> {
+  const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
 
-  const [{ enCurs } = { enCurs: 0 }] = await db
-    .select({ enCurs: count() })
+  const [{ running } = { running: 0 }] = await db
+    .select({ running: count() })
     .from(jobRuns)
     .where(
       and(
@@ -335,18 +335,18 @@ export async function resumSalut(): Promise<ResumSalut> {
       ),
     );
 
-  const [{ fallades24h } = { fallades24h: 0 }] = await db
-    .select({ fallades24h: count() })
+  const [{ failed24h } = { failed24h: 0 }] = await db
+    .select({ failed24h: count() })
     .from(jobRuns)
     .where(
       and(
         eq(jobRuns.status, "failed"),
         isNull(jobRuns.parentId),
-        gte(jobRuns.startedAt, fa24h),
+        gte(jobRuns.startedAt, last24h),
       ),
     );
 
-  const [darreraPassadaDiaria = null] = await db
+  const [lastDailyPass = null] = await db
     .select()
     .from(jobRuns)
     .where(and(eq(jobRuns.jobName, "passada-diaria"), isNull(jobRuns.parentId)))
@@ -354,32 +354,32 @@ export async function resumSalut(): Promise<ResumSalut> {
     .limit(1);
 
   return {
-    enCurs: Number(enCurs),
-    fallades24h: Number(fallades24h),
-    darreraPassadaDiaria,
+    running: Number(running),
+    failed24h: Number(failed24h),
+    lastDailyPass,
   };
 }
 
-/** Importacions bancàries solapades amb una execució de sync. */
-export async function syncRunsDeLExecucio(execucio: JobRun): Promise<SyncRun[]> {
-  if (execucio.jobName !== "sync") return [];
-  const inici = execucio.startedAt;
-  const fi = execucio.finishedAt ?? new Date();
-  // Una mica de marge: la feina comença abans d'obrir el primer sync_run.
-  const desDe = new Date(inici.getTime() - 5_000);
-  const fins = new Date(fi.getTime() + 5_000);
+/** Bank imports overlapping with a sync run. */
+export async function syncRunsForRun(run: JobRun): Promise<SyncRun[]> {
+  if (run.jobName !== "sync") return [];
+  const start = run.startedAt;
+  const fi = run.finishedAt ?? new Date();
+  // A little margin: the job starts before opening the first sync_run.
+  const from = new Date(start.getTime() - 5_000);
+  const to = new Date(fi.getTime() + 5_000);
   return db
     .select()
     .from(syncRuns)
-    .where(and(gte(syncRuns.startedAt, desDe), lte(syncRuns.startedAt, fins)))
+    .where(and(gte(syncRuns.startedAt, from), lte(syncRuns.startedAt, to)))
     .orderBy(asc(syncRuns.startedAt));
 }
 
-/** Marca com a fallides les feines `running` de més de 2 h. */
-export async function tancaFeinesPenjades(): Promise<number> {
-  const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
+/** Marks `running` jobs older than 2 h as failed. */
+export async function closeStuckJobs(): Promise<number> {
+  const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
 
-  const tancades = await db
+  const closed = await db
     .update(jobRuns)
     .set({
       status: "failed",
@@ -389,8 +389,8 @@ export async function tancaFeinesPenjades(): Promise<number> {
     .where(and(eq(jobRuns.status, "running"), lt(jobRuns.startedAt, limit)))
     .returning({ id: jobRuns.id });
 
-  if (tancades.length > 0) {
-    console.warn(`[feines] ${tancades.length} execucions penjades donades per fallides`);
+  if (closed.length > 0) {
+    console.warn(`[feines] ${closed.length} execucions penjades donades per fallides`);
   }
-  return tancades.length;
+  return closed.length;
 }

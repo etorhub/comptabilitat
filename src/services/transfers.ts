@@ -1,30 +1,30 @@
 /**
- * Aparellament de traspassos entre comptes propis.
+ * Pairing of transfers between the owner's own accounts.
  *
- * Moure diners entre dos comptes **del mateix espai** no es ni ingres ni
- * despesa: nomes canvia de lloc. Quan una sortida i una entrada iguals
- * s'aparellen, queden fora dels informes.
+ * Moving money between two accounts **of the same workspace** is neither
+ * income nor expense: it only changes place. When an equal debit and credit
+ * are paired, they stay out of the reports.
  *
- * El que arriba **d'un altre espai**, en canvi, si que compta: per a qui mira
- * Calella, uns diners que hi entren son una entrada de debò, i d'on venen no
- * es cosa seva. Per aixo tot aixo passa dins d'un sol espai.
+ * What arrives **from another workspace**, on the other hand, does count: to
+ * whoever looks at Calella, money coming in is a real credit, and where it
+ * comes from is not their business. That is why all of this happens inside a
+ * single workspace.
  *
- * Traduccio de `backend/app/services/transfers.py`.
  */
 
 import { asc, eq } from "drizzle-orm";
 
-import { movimentsComptables } from "./filtres.ts";
+import { countableTransactions } from "./filters.ts";
 import { db } from "../db/client.ts";
 import { transactions } from "../db/schema/index.ts";
 import { money } from "../lib/money.ts";
 import { addDays, daysBetween, todayLocal } from "../lib/time.ts";
-import { categoriaTraspas } from "./classification.ts";
+import { transferCategory } from "./classification.ts";
 
-/** Marge de dies entre la sortida d'un compte i l'entrada a l'altre. */
+/** Margin in days between the debit of one account and the credit of the other. */
 const MATCH_WINDOW_DAYS = 3;
 
-interface Candidat {
+interface Candidate {
   id: number;
   accountId: number;
   bookingDate: string;
@@ -32,11 +32,11 @@ interface Candidat {
   categorySource: string;
 }
 
-/** Aparella sortides i entrades equivalents entre comptes del mateix espai. */
-export async function detectaTraspassos(ledgerId: number, lookbackDays = 120): Promise<number> {
+/** Pairs equivalent debits and credits between accounts of the same workspace. */
+export async function detectTransfers(ledgerId: number, lookbackDays = 120): Promise<number> {
   const des = addDays(todayLocal(), -lookbackDays);
 
-  const candidats = await db
+  const candidates = await db
     .select({
       id: transactions.id,
       accountId: transactions.accountId,
@@ -45,92 +45,93 @@ export async function detectaTraspassos(ledgerId: number, lookbackDays = 120): P
       categorySource: transactions.categorySource,
     })
     .from(transactions)
-    // El mateix filtre que fan servir els informes. L'`is_excluded` d'aqui no
-    // es un detall: aparellar un moviment exclos escriuria el grup **a l'altra
-    // cama** i la trauria dels informes sense que ningu ho hagues demanat.
-    .where(movimentsComptables({ espais: ledgerId, des }))
+    // The same filter the reports use. The `is_excluded` here is not a detail:
+    // pairing an excluded transaction would write the group **on the other
+    // leg** and take it out of the reports without anyone asking.
+    .where(countableTransactions({ workspaces: ledgerId, des }))
     .orderBy(asc(transactions.bookingDate), asc(transactions.id));
 
-  const sortides = candidats.filter((c) => money(c.amount).isNegative());
-  const entrades = candidats.filter((c) => money(c.amount).isPositive());
-  if (sortides.length === 0 || entrades.length === 0) return 0;
+  const debits = candidates.filter((c) => money(c.amount).isNegative());
+  const entries = candidates.filter((c) => money(c.amount).isPositive());
+  if (debits.length === 0 || entries.length === 0) return 0;
 
-  const categoria = await categoriaTraspas(ledgerId);
-  const gastades = new Set<number>();
-  let parelles = 0;
+  const category = await transferCategory(ledgerId);
+  const spent = new Set<number>();
+  let pairs = 0;
 
-  for (const sortida of sortides) {
-    if (gastades.has(sortida.id)) continue;
+  for (const output of debits) {
+    if (spent.has(output.id)) continue;
 
-    const contrapart = trobaContrapart(sortida, entrades, gastades);
-    if (contrapart === null) continue;
+    const counterparty = findCounterparty(output, entries, spent);
+    if (counterparty === null) continue;
 
-    const grup = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
+    const group = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
 
-    // **Les dues cames, o cap.** Si nomes se n'etiqueta una, els informes
-    // deixen fora la sortida i continuen comptant l'entrada: el mes surt
-    // malament per l'import sencer i sembla correcte. I ja no es repara sol,
-    // perque la cama orfe te `transfer_group_id` i aquesta consulta nomes mira
-    // les que el tenen buit.
+    // **Both legs, or neither.** If only one is labelled, the reports leave
+    // the debit out and go on counting the credit: the month comes out wrong
+    // by the whole amount and looks right. And it no longer repairs itself,
+    // because the orphan leg has a `transfer_group_id` and this query only
+    // looks at those with an empty one.
     await db.transaction(async (tx) => {
-      for (const item of [sortida, contrapart]) {
-        // Tipat amb la taula: aixi una errada al nom d'un camp no compila, en
-        // lloc d'escriure's en silenci.
-        const canvis: Partial<typeof transactions.$inferInsert> = { transferGroupId: grup };
+      for (const item of [output, counterparty]) {
+        // Typed with the table: that way a mistake in a field name does not
+        // compile, instead of being written silently.
+        const changes: Partial<typeof transactions.$inferInsert> = { transferGroupId: group };
 
-        // La categoria d'un traspas no la tria ningu cada vegada, pero si una
-        // persona n'hi ha posat una, es respecta.
-        if (categoria !== null && item.categorySource !== "user") {
-          canvis.categoryId = categoria.id;
-          canvis.categorySource = "rule";
-          canvis.categoryConfidence = 1;
-          canvis.needsReview = false;
+        // Nobody picks the category of a transfer every time, but if a person
+        // has set one, it is respected.
+        if (category !== null && item.categorySource !== "user") {
+          changes.categoryId = category.id;
+          changes.categorySource = "rule";
+          changes.categoryConfidence = 1;
+          changes.needsReview = false;
         }
 
-        await tx.update(transactions).set(canvis).where(eq(transactions.id, item.id));
+        await tx.update(transactions).set(changes).where(eq(transactions.id, item.id));
       }
     });
 
-    gastades.add(sortida.id);
-    gastades.add(contrapart.id);
-    parelles += 1;
+    spent.add(output.id);
+    spent.add(counterparty.id);
+    pairs += 1;
   }
 
-  if (parelles > 0) {
-    console.info(`[traspassos] ${parelles} aparellats dins de l'espai ${ledgerId}`);
+  if (pairs > 0) {
+    console.info(`[traspassos] ${pairs} aparellats dins de l'espai ${ledgerId}`);
   }
-  return parelles;
+  return pairs;
 }
 
 /**
- * L'entrada que fa parella amb una sortida.
+ * The credit leg that pairs with a given debit leg.
  *
- * Ha de ser d'un **altre compte**, del mateix import canviat de signe i dins
- * de la finestra; si n'hi ha mes d'una, guanya la mes propera en el temps.
+ * It has to be on a **different account**, for the same amount with the sign
+ * flipped, and inside the window; if there is more than one, the closest in
+ * time wins.
  */
-function trobaContrapart(
-  sortida: Candidat,
-  entrades: Candidat[],
-  gastades: Set<number>,
-): Candidat | null {
-  const objectiu = money(sortida.amount).negated();
-  let millor: Candidat | null = null;
-  let millorDistancia = MATCH_WINDOW_DAYS + 1;
+function findCounterparty(
+  debit: Candidate,
+  credits: Candidate[],
+  used: Set<number>,
+): Candidate | null {
+  const target = money(debit.amount).negated();
+  let best: Candidate | null = null;
+  let bestDistance = MATCH_WINDOW_DAYS + 1;
 
-  for (const entrada of entrades) {
-    if (gastades.has(entrada.id) || entrada.id === sortida.id) continue;
-    // Del mateix compte no es un traspas.
-    if (entrada.accountId === sortida.accountId) continue;
-    if (!money(entrada.amount).equals(objectiu)) continue;
+  for (const credit of credits) {
+    if (used.has(credit.id) || credit.id === debit.id) continue;
+    // Within the same account it is not a transfer.
+    if (credit.accountId === debit.accountId) continue;
+    if (!money(credit.amount).equals(target)) continue;
 
-    const distancia = Math.abs(daysBetween(sortida.bookingDate, entrada.bookingDate));
-    if (distancia > MATCH_WINDOW_DAYS) continue;
+    const distance = Math.abs(daysBetween(debit.bookingDate, credit.bookingDate));
+    if (distance > MATCH_WINDOW_DAYS) continue;
 
-    if (distancia < millorDistancia) {
-      millor = entrada;
-      millorDistancia = distancia;
+    if (distance < bestDistance) {
+      best = credit;
+      bestDistance = distance;
     }
   }
 
-  return millor;
+  return best;
 }

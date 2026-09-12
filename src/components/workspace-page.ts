@@ -1,41 +1,41 @@
 /**
- * Munta una pagina de dins d'un espai.
+ * Builds a page from inside a workspace.
  *
- * Totes les pagines d'espai passen per aqui, de manera que la barra lateral,
- * el selector d'espais i els dos comptadors surten sempre igual i ningu no se
- * n'ha de recordar.
+ * Every workspace page goes through here, so the sidebar, the workspace picker
+ * and the two counters always come out the same without anyone having to
+ * remember.
  */
 
 import type { Context } from "hono";
 
-import { Layout } from "./layout.tsx";
+import { Layout } from "./layout.ts";
 import type { Html } from "../lib/html.ts";
-import { comptadors } from "../services/comptadors.ts";
+import { counters } from "../services/counters.ts";
 import { currentUser } from "../middleware/session.ts";
 import { currentWorkspace, myWorkspaces } from "../middleware/workspace.ts";
 
 export async function workspacePage(
   c: Context,
-  titol: string,
+  title: string,
   children: unknown,
 ): Promise<Html> {
   const user = currentUser(c);
-  const espai = currentWorkspace(c);
+  const workspace = currentWorkspace(c);
 
-  const [espais, { perRevisar, avisosNous }] = await Promise.all([
+  const [workspaces, { toReview, newAlerts }] = await Promise.all([
     myWorkspaces(user.id),
-    comptadors(espai.id),
+    counters(workspace.id),
   ]);
 
   return Layout({
-    titol,
+    title,
     user,
     csrfToken: c.get("csrfToken") ?? "",
-    ruta: c.req.path,
-    espais,
-    espai,
-    perRevisar,
-    avisosNous,
+    path: c.req.path,
+    workspaces,
+    workspace,
+    toReview,
+    newAlerts,
     children,
   });
 }

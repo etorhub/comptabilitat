@@ -1,8 +1,8 @@
 /**
- * Connexio a PostgreSQL.
+ * The PostgreSQL connection.
  *
- * Una sola piscina per proces, com feia `app/db.py`. El servidor web i el
- * planificador son processos separats i cadascun te la seva.
+ * One pool per process, as `app/db.py` had. The web server and the scheduler
+ * are separate processes and each has its own.
  */
 
 import type { ExtractTablesWithRelations } from "drizzle-orm";
@@ -14,9 +14,9 @@ import { config } from "../lib/config.ts";
 import * as schema from "./schema/index.ts";
 
 /**
- * `max: 10` cobreix les 5 connexions + 5 de desbordament que tenia la piscina
- * de SQLAlchemy. `prepare: false` no cal aqui perque no hi ha cap PgBouncer
- * al mig, pero deixem la piscina petita a proposit: aixo corre en un NAS.
+ * `max: 10` covers the 5 connections + 5 overflow the SQLAlchemy pool had.
+ * `prepare: false` is not needed here because there is no PgBouncer in the
+ * middle, but the pool is kept small on purpose: this runs on a NAS.
  */
 const client = postgres(config.databaseUrl, {
   max: 10,
@@ -30,19 +30,19 @@ export const db = drizzle(client, { schema, casing: "snake_case" });
 export type Db = typeof db;
 
 /**
- * La piscina **o** una transaccio en curs.
+ * The pool **or** a transaction in progress.
  *
- * Es el tipus que ha de demanar tota funcio que escrigui, perque el qui la
- * crida pugui ficar-la dins d'un `db.transaction()` seu.
+ * This is the type every writing function should ask for, so its caller can
+ * put it inside a `db.transaction()` of their own.
  *
- * No serveix el `Db` de sobre: `drizzle()` retorna
- * `PostgresJsDatabase & { $client }`, i el `tx` que dona `db.transaction()` es
- * un `PgTransaction`, que no te `$client` i per tant no hi encaixa. Tots dos,
- * pero, hereten de `PgDatabase`, que es el que hi ha aqui. Mentre aixo va ser
- * `typeof db`, el parametre `connexio` de mitja dotzena de serveis era
- * decoratiu: no hi havia manera de passar-hi cap transaccio, i per aixo
- * `esborraCategoria()` va haver d'escriure totes les consultes a ma en lloc de
- * reaprofitar els ajudants que ja hi havia.
+ * The `Db` above will not do: `drizzle()` returns
+ * `PostgresJsDatabase & { $client }`, while the `tx` that `db.transaction()`
+ * hands you is a `PgTransaction`, which has no `$client` and therefore does
+ * not fit. Both, however, extend `PgDatabase`, which is what is here. While
+ * this was `typeof db`, the connection parameter of half a dozen services was
+ * decorative: there was no way to pass a transaction into it, which is why
+ * `deleteCategory()` had to write every query by hand instead of reusing the
+ * helpers that already existed.
  */
 export type Transactor = PgDatabase<
   PostgresJsQueryResultHKT,
@@ -50,7 +50,7 @@ export type Transactor = PgDatabase<
   ExtractTablesWithRelations<typeof schema>
 >;
 
-/** Tanca la piscina. Nomes per a scripts i proves. */
+/** Closes the pool. Only for scripts and tests. */
 export async function closeDb(): Promise<void> {
   await client.end({ timeout: 5 });
 }

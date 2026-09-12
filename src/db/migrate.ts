@@ -1,20 +1,21 @@
 /**
- * Migracions.
+ * Migrations.
  *
- * Aixo s'executa en arrencar, abans d'acceptar cap peticio.
+ * This runs at startup, before any request is accepted.
  *
- * EL CAS DELICAT ES EL PRIMER COP. La base de dades de produccio ja existeix i
- * la va fer Alembic; la migracio `0000` de Drizzle **descriu aquesta mateixa
- * base de dades**, de manera que executar-la voldria dir crear unes taules que
- * ja hi son i petar.
+ * THE DELICATE CASE IS THE FIRST TIME. The production database already exists
+ * and Alembic built it; Drizzle's `0000` migration **describes that same
+ * database**, so running it would mean creating tables that are already there,
+ * and blowing up.
  *
- * Per aixo, quan es troba una base de dades que ja te l'esquema d'Alembic al
- * seu cap (`b2c3d4e5f6a7`) i encara no te historial de Drizzle, la `0000` es
- * marca com a **ja aplicada** sense executar-la. A partir d'aqui, les
- * migracions segueixen el cami normal.
+ * So when a database is found that is already at Alembic's head
+ * (`b2c3d4e5f6a7`) and has no Drizzle history yet, `0000` is marked as
+ * **already applied** without running it. From there on, migrations take the
+ * normal path.
  *
- * Que `0000` i l'esquema d'Alembic son la mateixa cosa no es una suposicio:
- * es comprova comparant els dos `pg_dump`, i han de sortir identics.
+ * That `0000` and the Alembic schema are the same thing is not an assumption:
+ * it is checked by comparing the two `pg_dump`s, and they have to come out
+ * identical.
  */
 
 import { sql } from "drizzle-orm";
@@ -22,30 +23,33 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 
 import { db } from "./client.ts";
 
-/** El cap d'Alembic quan es va canviar de pila. */
+/** Alembic's head at the time of the stack change. */
 const CAP_ALEMBIC = "b2c3d4e5f6a7";
 
-async function existeix(taula: string): Promise<boolean> {
-  const resultat = await db.execute<{ existeix: boolean }>(
-    sql`select to_regclass(${`public.${taula}`}) is not null as existeix`,
+async function exists(table: string): Promise<boolean> {
+  const result = await db.execute<{ present: boolean }>(
+    // The alias has to match the generic exactly: `execute<T>` is an assertion,
+    // not a check, so a mismatch compiles and returns `undefined`. Not `exists`:
+    // that is a reserved word in Postgres.
+    sql`select to_regclass(${`public.${table}`}) is not null as present`,
   );
-  return Boolean(resultat[0]?.existeix);
+  return Boolean(result[0]?.present);
 }
 
 /**
- * Marca la primera migracio com a aplicada sense executar-la.
+ * Marks the first migration as applied without running it.
  *
- * Es escriu directament a la taula d'historial de Drizzle, que es el mateix
- * que faria el migrador si l'hagues executada.
+ * It writes straight into Drizzle's history table, which is what the migrator
+ * would have done had it run it.
  */
-async function baseline(motiu: string): Promise<void> {
+async function baseline(reason: string): Promise<void> {
   const journal = await Bun.file("drizzle/meta/_journal.json").json();
-  const primera = journal.entries?.[0];
-  if (!primera) throw new Error("No hi ha cap migracio a drizzle/meta/_journal.json");
+  const first = journal.entries?.[0];
+  if (!first) throw new Error("No hi ha cap migracio a drizzle/meta/_journal.json");
 
-  const sqlPrimera = await Bun.file(`drizzle/${primera.tag}.sql`).text();
-  // El migrador identifica cada migracio pel resum del seu SQL.
-  const resum = new Bun.CryptoHasher("sha256").update(sqlPrimera).digest("hex");
+  const firstSql = await Bun.file(`drizzle/${first.tag}.sql`).text();
+  // The migrator identifies each migration by the digest of its SQL.
+  const summary = new Bun.CryptoHasher("sha256").update(firstSql).digest("hex");
 
   await db.execute(sql`create schema if not exists drizzle`);
   await db.execute(sql`
@@ -56,52 +60,52 @@ async function baseline(motiu: string): Promise<void> {
     )
   `);
   await db.execute(
-    sql`insert into drizzle."__drizzle_migrations" (hash, created_at) values (${resum}, ${primera.when})`,
+    sql`insert into drizzle."__drizzle_migrations" (hash, created_at) values (${summary}, ${first.when})`,
   );
 
   console.info(
-    `[migracions] base de dades existent (${motiu}): la migracio ${primera.tag} ` +
+    `[migracions] base de dades existent (${reason}): la migracio ${first.tag} ` +
       "es marca com a aplicada sense executar-la.",
   );
 }
 
-export async function aplicaMigracions(): Promise<void> {
-  const teAlembic = await existeix("alembic_version");
+export async function applyMigrations(): Promise<void> {
+  const teAlembic = await exists("alembic_version");
 
   /**
-   * Ha passat ja per una migracio de Drizzle?
+   * Has this been through a Drizzle migration already?
    *
-   * Es mira si l'historial te **files**, no nomes si la taula hi es: un intent
-   * que ha petat a mitges pot haver deixat la taula creada i buida, i llavors
-   * mirar-ne nomes l'existencia faria saltar la base i tornariem a provar de
-   * crear unes taules que ja hi son.
+   * What is checked is whether the history has **rows**, not merely whether
+   * the table exists: an attempt that broke halfway can leave the table
+   * created and empty, and then checking only for existence would skip the
+   * baseline and we would try again to create tables that are already there.
    */
-  const teHistorialDrizzle = await db
+  const hasDrizzleHistory = await db
     .execute<{ n: number }>(sql`select count(*)::int as n from drizzle."__drizzle_migrations"`)
-    .then((files) => Number(files[0]?.n ?? 0) > 0)
+    .then((rows) => Number(rows[0]?.n ?? 0) > 0)
     .catch(() => false);
 
-  // Nomes es fa la base la primera vegada: si ja hi ha historial de Drizzle,
-  // aquesta base de dades ja ha passat pel canvi de pila.
-  if (!teHistorialDrizzle) {
+  // The baseline is only taken the first time: if there is Drizzle history
+  // already, this database has been through the stack change.
+  if (!hasDrizzleHistory) {
     if (teAlembic) {
       const cap = await db
         .execute<{ version_num: string }>(sql`select version_num from alembic_version limit 1`)
         .catch(() => []);
-      const versio = cap[0]?.version_num;
+      const version = cap[0]?.version_num;
 
-      if (versio !== CAP_ALEMBIC) {
+      if (version !== CAP_ALEMBIC) {
         throw new Error(
-          `La base de dades esta a la migracio d'Alembic ${versio ?? "desconeguda"} i s'esperava ` +
+          `La base de dades esta a la migracio d'Alembic ${version ?? "desconeguda"} i s'esperava ` +
             `${CAP_ALEMBIC}. Posa-la al dia amb Alembic abans de canviar de pila.`,
         );
       }
 
       await baseline("ve d'Alembic");
-    } else if (await existeix("ledgers")) {
-      // L'esquema ja hi es pero no l'ha posat ningu que en deixi constancia:
-      // per exemple, algu que ha aplicat el DDL a ma. Es fa la base igual, que
-      // es millor que petar intentant crear unes taules que ja hi son.
+    } else if (await exists("ledgers")) {
+      // The schema is there but nobody who leaves a record put it there —
+      // somebody who applied the DDL by hand, say. Take the baseline anyway,
+      // which beats blowing up trying to create tables that already exist.
       await baseline("l'esquema ja hi era");
     }
   }
@@ -110,12 +114,11 @@ export async function aplicaMigracions(): Promise<void> {
   console.info("[migracions] al dia.");
 }
 
-// Executable directament, per als desplegaments i per a la integracio
-// continua: `bun run src/db/migrate.ts`.
+// Runnable directly, for deployments and for CI: `bun run src/db/migrate.ts`.
 if (import.meta.main) {
   const { closeDb } = await import("./client.ts");
   try {
-    await aplicaMigracions();
+    await applyMigrations();
   } finally {
     await closeDb();
   }

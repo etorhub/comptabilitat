@@ -1,2 +1,31 @@
 # Passada de format a tot el codi; no hi ha cap canvi de comportament.
 4096ab4b67d8b983ab4a32b1b0957ed2c2c01b01
+
+# Els .tsx passen a .ts (no hi havia JSX enlloc); no hi ha cap canvi de comportament.
+ac0421e9568adf49a8751058a8d21776ae8e94f7
+
+# El codi passa del catala a l'angles. Son passades mecaniques: canvia el nom o
+# l'idioma, no el comportament. Sense aquestes linies, el `git blame` de gairebe
+# qualsevol linia s'atura en una traduccio en lloc del canvi que la va escriure.
+
+# Els identificadors, en quatre passades amb el servei de llenguatge de TypeScript.
+20a373331a40588272cf29194f8e38a20c43cc59
+2f57cabe3e78995ee5f9d448644ae048ba627ad1
+8688f2411c0eb45fab66875c54719b9349323449
+87769c753e1a2c9a4197acf60ec855661f7367f2
+
+# Els comentaris i el JSDoc, per capes.
+71fb949ac7137054240fe67fd9f8c3a9b01893e9
+309e6a719baa97054d66120454e4f6ea676d5899
+58eb4590fecb9871fd8e11917181afb2ec1b85e3
+1549125b69d0b05ead2c616c0c38cc75e3af55e2
+cabd1a3809c63d809b362e0342cc413f31d41b7b
+
+# Els noms de les proves.
+c0eeef60d0c409862b5c0cf83de67693e9c4f4ba
+
+# Els noms de fitxer i les ordres del package.json.
+8e19ef91116855e068b9374e43835aad73acb7eb
+
+# La passada que va trobar els 246 que la llista de paraules no veia.
+b6dd7abf601f91c72dd1a9ce592d6a42ba3007c1

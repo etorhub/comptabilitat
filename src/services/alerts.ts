@@ -1,12 +1,12 @@
 /**
- * Creacio d'avisos.
+ * Alert creation.
  *
- * Un avis nomes es crea si no n'hi ha cap amb la mateixa clau de
- * deduplicacio, **encara que el que hi ha estigui descartat**: si algu l'ha
- * descartat, no ha de tornar. La clau inclou el periode, de manera que la
- * mateixa condicio no avisa cada dia.
+ * An alert is only created if there is none with the same deduplication key,
+ * **even if the existing one is dismissed**: if someone dismissed it, it must
+ * not come back. The key includes the period, so the same condition does not
+ * warn every day.
  *
- * Traduccio de `backend/app/services/alerts.py`.
+ * A translation of `backend/app/services/alerts.py`.
  */
 
 import { eq } from "drizzle-orm";
@@ -14,7 +14,7 @@ import { eq } from "drizzle-orm";
 import { db, type Transactor } from "../db/client.ts";
 import { alerts, type Alert, type AlertSeverity, type AlertType } from "../db/schema/index.ts";
 
-export interface AvisNou {
+export interface AlertNew {
   type: AlertType;
   ledgerId: number | null;
   dedupKey: string;
@@ -24,33 +24,33 @@ export interface AvisNou {
   payload?: Record<string, unknown>;
 }
 
-/** Crea l'avis, o retorna `null` si ja n'hi havia un d'igual. */
-export async function creaAvis(
-  avis: AvisNou,
-  connexio: Transactor = db,
+/** Creates the alert, or returns `null` if there was already an equal one. */
+export async function createAlert(
+  alert: AlertNew,
+  connection: Transactor = db,
 ): Promise<Alert | null> {
-  const [existent] = await connexio
+  const [existing] = await connection
     .select({ id: alerts.id })
     .from(alerts)
-    .where(eq(alerts.dedupKey, avis.dedupKey))
+    .where(eq(alerts.dedupKey, alert.dedupKey))
     .limit(1);
 
-  if (existent) return null;
+  if (existing) return null;
 
-  const [creat] = await connexio
+  const [createdOne] = await connection
     .insert(alerts)
     .values({
-      ledgerId: avis.ledgerId,
-      type: avis.type,
-      severity: avis.severity ?? "warning",
+      ledgerId: alert.ledgerId,
+      type: alert.type,
+      severity: alert.severity ?? "warning",
       status: "new",
-      dedupKey: avis.dedupKey.slice(0, 200),
-      title: avis.title.slice(0, 250),
-      body: avis.body ?? "",
-      payload: avis.payload ?? {},
+      dedupKey: alert.dedupKey.slice(0, 200),
+      title: alert.title.slice(0, 250),
+      body: alert.body ?? "",
+      payload: alert.payload ?? {},
       notifiedAt: null,
     })
     .returning();
 
-  return creat ?? null;
+  return createdOne ?? null;
 }

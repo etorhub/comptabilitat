@@ -1,5 +1,5 @@
 /**
- * Esquemes de les connexions bancaries.
+ * Bank connection schemas.
  */
 
 import { z } from "zod/v4";
@@ -8,14 +8,14 @@ export const authorizeSchema = z.object({
   aspsp_name: z.string().trim().max(120).default(""),
   aspsp_country: z.string().trim().length(2).default("ES"),
   psu_type: z.enum(["personal", "business"]).default("personal"),
-  /** Si ve, es una renovacio del consentiment d'aquesta connexio. */
+  /** If present, this is a renewal of that connection's consent. */
   connection_id: z
     .union([z.literal(""), z.coerce.number().int().positive()])
     .optional()
     .transform((v) => (v === "" || v === undefined ? null : v)),
 });
 
-/** El retorn del banc. No va autenticat: el secret es l'`estat`. */
+/** The return from the bank. Unauthenticated: the secret is the `estat`. */
 export const callbackSchema = z.object({
   code: z.string().optional(),
   state: z.string().optional(),

@@ -1,9 +1,9 @@
 /**
- * Etiquetes dels moviments.
+ * Transaction tags.
  *
- * Son textos lliures a `transactions.tags` (varchar(40)[]): no hi ha taula
- * de catàleg. Les regles ja hi escriuen via `setTags`; aixo cobreix l'alta
- * manual, el llistat amb sumes i l'esborrat.
+ * They are free text in `transactions.tags` (varchar(40)[]): there is no
+ * catalogue table. The rules already write there via `setTags`; this covers
+ * the manual add, the listing with totals and the deletion.
  */
 
 import { and, eq, inArray, sql } from "drizzle-orm";
@@ -13,268 +13,274 @@ import { transactions } from "../db/schema/index.ts";
 import { AppError, NotFoundError } from "../lib/http.ts";
 import { money, toMoneyString, type MoneyString } from "../lib/money.ts";
 
-const LONGITUD_MAX = 40;
+const MAX_LENGTH = 40;
 
 /**
- * Neteja el text que ha escrit una persona.
+ * Cleans the text a person wrote.
  *
- * - espais exteriors fora, interiors col·lapsats;
- * - sense comes (el CSV uneix amb coma);
- * - 1–40 caracters.
+ * - outer spaces removed, inner ones collapsed;
+ * - no commas (the CSV joins with a comma);
+ * - 1–40 characters.
  *
- * No canvia majuscules: l'ortografia canònica de l'espai la decideix
- * `ortografiaEspai()`.
+ * It does not change case: the workspace's canonical spelling is decided by
+ * `workspaceSpelling()`.
  */
-export function normalitzaEtiqueta(bruta: string): string {
-  const net = bruta.trim().replace(/\s+/g, " ");
-  if (net.length === 0) {
+export function normalizeTag(raw: string): string {
+  const cleaned = raw.trim().replace(/\s+/g, " ");
+  if (cleaned.length === 0) {
     throw new AppError("Cal un nom d'etiqueta", 422);
   }
-  if (net.length > LONGITUD_MAX) {
-    throw new AppError(`L'etiqueta pot tenir com a molt ${LONGITUD_MAX} caracters`, 422);
+  if (cleaned.length > MAX_LENGTH) {
+    throw new AppError(`L'etiqueta pot tenir com a molt ${MAX_LENGTH} caracters`, 422);
   }
-  if (net.includes(",")) {
+  if (cleaned.includes(",")) {
     throw new AppError("L'etiqueta no pot dur comes", 422);
   }
-  return net;
+  return cleaned;
 }
 
-/** Comparacio sense majuscules ni accents de longitud. */
-export function mateixaEtiqueta(a: string, b: string): boolean {
+/** Case- and accent-insensitive comparison. */
+export function sameTag(a: string, b: string): boolean {
   return a.toLocaleLowerCase("ca") === b.toLocaleLowerCase("ca");
 }
 
 /**
- * Si l'espai ja te una etiqueta amb el mateix nom (ignorant majuscules),
- * reutilitza aquella ortografia. Si no, torna el text normalitzat.
+ * If the workspace already has a tag with the same name (ignoring case), that
+ * spelling is reused. Otherwise the normalized text is returned.
  */
-export async function ortografiaEspai(ledgerId: number, nom: string): Promise<string> {
-  const net = normalitzaEtiqueta(nom);
-  const conegudes = await etiquetesEspai(ledgerId);
-  const existent = conegudes.find((t) => mateixaEtiqueta(t, net));
-  return existent ?? net;
+export async function workspaceSpelling(ledgerId: number, name: string): Promise<string> {
+  const cleaned = normalizeTag(name);
+  const known = await workspaceTags(ledgerId);
+  const existing = known.find((t) => sameTag(t, cleaned));
+  return existing ?? cleaned;
 }
 
-/** Totes les etiquetes distintes de l'espai, ordenades. */
-export async function etiquetesEspai(ledgerId: number): Promise<string[]> {
-  const files = await db.execute<{ etiqueta: string }>(sql`
-    select distinct t.etiqueta
+/** All the workspace's distinct tags, sorted. */
+export async function workspaceTags(ledgerId: number): Promise<string[]> {
+  const rows = await db.execute<{ tag: string }>(sql`
+    select distinct t.tag
     from transactions,
-      lateral unnest(tags) as t(etiqueta)
+      lateral unnest(tags) as t(tag)
     where ledger_id = ${ledgerId}
       and cardinality(tags) > 0
-    order by t.etiqueta
+    order by t.tag
   `);
-  return [...files].map((f) => f.etiqueta);
+  return [...rows].map((f) => f.tag);
 }
 
-export interface ResumEtiqueta {
-  nom: string;
-  moviments: number;
-  ingressos: MoneyString;
-  despeses: MoneyString;
+export interface TagSummary {
+  name: string;
+  transactionCount: number;
+  income: MoneyString;
+  expenses: MoneyString;
   net: MoneyString;
 }
 
 /**
- * Llista d'etiquetes amb sumes.
+ * List of tags with totals.
  *
- * Mateix criteri que el llistat de moviments per defecte: sense traspassos
- * entre comptes propis. No filtra `is_excluded` ni `status` com els
- * informes: l'etiqueta es una etiqueta de gestio, no un tros d'informe.
+ * Same criterion as the default transaction listing: without transfers
+ * between the owner's own accounts. It does not filter `is_excluded` or
+ * `status` as the reports do: a tag is a management tag, not a piece of a report.
  */
-export async function llistaEtiquetes(ledgerId: number): Promise<ResumEtiqueta[]> {
-  const files = await db.execute<{
-    nom: string;
-    moviments: number;
-    ingressos: string | null;
-    despeses: string | null;
+export async function listTags(ledgerId: number): Promise<TagSummary[]> {
+  const rows = await db.execute<{
+    name: string;
+    transactionCount: number;
+    income: string | null;
+    expenses: string | null;
     net: string | null;
   }>(sql`
     select
-      t.etiqueta as nom,
-      count(*)::int as moviments,
-      coalesce(sum(case when amount > 0 then amount else 0 end), 0) as ingressos,
-      coalesce(sum(case when amount < 0 then abs(amount) else 0 end), 0) as despeses,
+      t.tag as name,
+      count(*)::int as "transactionCount",
+      coalesce(sum(case when amount > 0 then amount else 0 end), 0) as income,
+      coalesce(sum(case when amount < 0 then abs(amount) else 0 end), 0) as expenses,
       coalesce(sum(amount), 0) as net
     from transactions,
-      lateral unnest(tags) as t(etiqueta)
+      lateral unnest(tags) as t(tag)
     where ledger_id = ${ledgerId}
       and transfer_group_id is null
-    group by t.etiqueta
-    order by t.etiqueta
+    group by t.tag
+    order by t.tag
   `);
 
-  return [...files].map((f) => ({
-    nom: f.nom,
-    moviments: Number(f.moviments),
-    ingressos: toMoneyString(money(f.ingressos)),
-    despeses: toMoneyString(money(f.despeses)),
+  return [...rows].map((f) => ({
+    name: f.name,
+    transactionCount: Number(f.transactionCount),
+    income: toMoneyString(money(f.income)),
+    expenses: toMoneyString(money(f.expenses)),
     net: toMoneyString(money(f.net)),
   }));
 }
 
-/** Resum d'una etiqueta (insensible a majuscules), o zeros si no n'hi ha. */
-export async function resumEtiqueta(ledgerId: number, nom: string): Promise<ResumEtiqueta> {
-  const net = normalitzaEtiqueta(nom);
-  const totes = await llistaEtiquetes(ledgerId);
-  const trobada = totes.find((e) => mateixaEtiqueta(e.nom, net));
-  if (trobada) return trobada;
+/** Summary of a tag (case-insensitive), or zeros if there is none. */
+export async function summaryTag(ledgerId: number, name: string): Promise<TagSummary> {
+  const cleaned = normalizeTag(name);
+  const all = await listTags(ledgerId);
+  const found = all.find((e) => sameTag(e.name, cleaned));
+  if (found) return found;
   return {
-    nom: net,
-    moviments: 0,
-    ingressos: "0.00",
-    despeses: "0.00",
+    name: cleaned,
+    transactionCount: 0,
+    income: "0.00",
+    expenses: "0.00",
     net: "0.00",
   };
 }
 
-/** Condicio SQL: el moviment duu aquesta etiqueta (ignorant majuscules). */
-export function teEtiqueta(nom: string) {
-  const net = normalitzaEtiqueta(nom);
+/** SQL condition: the transaction carries this tag (ignoring case). */
+export function hasTag(name: string) {
+  const cleaned = normalizeTag(name);
   return sql`exists (
     select 1 from unnest(${transactions.tags}) as e(t)
-    where lower(e.t) = lower(${net})
+    where lower(e.t) = lower(${cleaned})
   )`;
 }
 
 /**
- * Afegeix una etiqueta a un moviment de l'espai.
+ * Adds a tag to a transaction of the workspace.
  *
- * Retorna les etiquetes finals. Si ja la tenia (mateix nom sense majuscules),
- * no duplica.
+ * Returns the final tags. If it already had it (same name ignoring case), it
+ * does not duplicate.
  */
-export async function afegeixEtiqueta(
-  movimentId: number,
+export async function addTag(
+  transactionId: number,
   ledgerId: number,
-  nomBrut: string,
+  rawName: string,
 ): Promise<string[]> {
-  const [fila] = await db
+  const [row] = await db
     .select({ id: transactions.id, tags: transactions.tags })
     .from(transactions)
-    .where(and(eq(transactions.id, movimentId), eq(transactions.ledgerId, ledgerId)))
+    .where(and(eq(transactions.id, transactionId), eq(transactions.ledgerId, ledgerId)))
     .limit(1);
-  if (!fila) throw new NotFoundError("Aquest moviment no existeix");
+  if (!row) throw new NotFoundError("Aquest moviment no existeix");
 
-  const canònica = await ortografiaEspai(ledgerId, nomBrut);
-  const actuals = fila.tags ?? [];
-  if (actuals.some((t) => mateixaEtiqueta(t, canònica))) {
-    return actuals.toSorted();
+  const canonical = await workspaceSpelling(ledgerId, rawName);
+  const current = row.tags ?? [];
+  if (current.some((t) => sameTag(t, canonical))) {
+    return current.toSorted();
   }
 
-  const noves = [...actuals, canònica].toSorted();
-  await db.update(transactions).set({ tags: noves }).where(eq(transactions.id, movimentId));
-  return noves;
+  const newOnes = [...current, canonical].toSorted();
+  await db
+    .update(transactions)
+    .set({ tags: newOnes })
+    .where(eq(transactions.id, transactionId));
+  return newOnes;
 }
 
-/** Treu una etiqueta d'un moviment (insensible a majuscules). */
-export async function treuEtiqueta(
-  movimentId: number,
+/** Removes a tag from a transaction (case-insensitive). */
+export async function removeTag(
+  transactionId: number,
   ledgerId: number,
-  nomBrut: string,
+  rawName: string,
 ): Promise<string[]> {
-  const net = normalitzaEtiqueta(nomBrut);
-  const [fila] = await db
+  const cleaned = normalizeTag(rawName);
+  const [row] = await db
     .select({ id: transactions.id, tags: transactions.tags })
     .from(transactions)
-    .where(and(eq(transactions.id, movimentId), eq(transactions.ledgerId, ledgerId)))
+    .where(and(eq(transactions.id, transactionId), eq(transactions.ledgerId, ledgerId)))
     .limit(1);
-  if (!fila) throw new NotFoundError("Aquest moviment no existeix");
+  if (!row) throw new NotFoundError("Aquest moviment no existeix");
 
-  const noves = (fila.tags ?? []).filter((t) => !mateixaEtiqueta(t, net)).toSorted();
-  await db.update(transactions).set({ tags: noves }).where(eq(transactions.id, movimentId));
-  return noves;
+  const newOnes = (row.tags ?? []).filter((t) => !sameTag(t, cleaned)).toSorted();
+  await db
+    .update(transactions)
+    .set({ tags: newOnes })
+    .where(eq(transactions.id, transactionId));
+  return newOnes;
 }
 
 /**
- * Afegeix la mateixa etiqueta a un lot de moviments de l'espai.
+ * Adds the same tag to a batch of the workspace's transactions.
  *
- * **Tot o res:** si algun id no es de l'espai, no se'n toca cap.
+ * **All or nothing:** if any id is not from the workspace, none is touched.
  */
-export async function afegeixEtiquetaEnBloc(
+export async function addTagBulk(
   ids: number[],
   ledgerId: number,
-  nomBrut: string,
+  rawName: string,
 ): Promise<number> {
-  const demanats = [...new Set(ids)];
-  if (demanats.length === 0) throw new AppError("No hi ha cap moviment triat", 422);
+  const requested = [...new Set(ids)];
+  if (requested.length === 0) throw new AppError("No hi ha cap moviment triat", 422);
 
-  const meus = await db
+  const mine = await db
     .select({ id: transactions.id, tags: transactions.tags })
     .from(transactions)
-    .where(and(eq(transactions.ledgerId, ledgerId), inArray(transactions.id, demanats)));
+    .where(and(eq(transactions.ledgerId, ledgerId), inArray(transactions.id, requested)));
 
-  if (meus.length !== demanats.length) {
+  if (mine.length !== requested.length) {
     throw new NotFoundError("No s'ha trobat");
   }
 
-  const canònica = await ortografiaEspai(ledgerId, nomBrut);
-  let tocats = 0;
-  for (const fila of meus) {
-    const actuals = fila.tags ?? [];
-    if (actuals.some((t) => mateixaEtiqueta(t, canònica))) continue;
-    const noves = [...actuals, canònica].toSorted();
-    await db.update(transactions).set({ tags: noves }).where(eq(transactions.id, fila.id));
-    tocats += 1;
+  const canonical = await workspaceSpelling(ledgerId, rawName);
+  let touched = 0;
+  for (const row of mine) {
+    const current = row.tags ?? [];
+    if (current.some((t) => sameTag(t, canonical))) continue;
+    const newOnes = [...current, canonical].toSorted();
+    await db.update(transactions).set({ tags: newOnes }).where(eq(transactions.id, row.id));
+    touched += 1;
   }
-  return tocats;
+  return touched;
 }
 
 /**
- * Treu l'etiqueta de **tots** els moviments de l'espai.
+ * Removes the tag from **all** the workspace's transactions.
  *
- * Retorna quants n'han quedat afectats.
+ * Returns how many were affected.
  */
-export async function esborraEtiquetaDeLespai(
+export async function deleteTagFromWorkspace(
   ledgerId: number,
-  nomBrut: string,
+  rawName: string,
 ): Promise<number> {
-  const net = normalitzaEtiqueta(nomBrut);
+  const cleaned = normalizeTag(rawName);
 
-  const afectats = await db.execute<{ id: number }>(sql`
+  const affected = await db.execute<{ id: number }>(sql`
     select id from transactions
     where ledger_id = ${ledgerId}
       and exists (
         select 1 from unnest(tags) as e(t)
-        where lower(e.t) = lower(${net})
+        where lower(e.t) = lower(${cleaned})
       )
   `);
 
-  const quants = [...afectats].length;
-  if (quants === 0) return 0;
+  const howManyOf = [...affected].length;
+  if (howManyOf === 0) return 0;
 
   await db.execute(sql`
     update transactions
     set tags = coalesce((
       select array_agg(e.t order by e.t)
       from unnest(tags) as e(t)
-      where lower(e.t) <> lower(${net})
+      where lower(e.t) <> lower(${cleaned})
     ), '{}'::varchar[])
     where ledger_id = ${ledgerId}
       and exists (
         select 1 from unnest(tags) as e(t)
-        where lower(e.t) = lower(${net})
+        where lower(e.t) = lower(${cleaned})
       )
   `);
 
-  return quants;
+  return howManyOf;
 }
 
-/** Parseja una llista separada per comes (formulari de regles). */
-export function parsejaLlistaEtiquetes(bruta: string): string[] {
-  if (!bruta.trim()) return [];
-  const vistes = new Set<string>();
-  const resultat: string[] = [];
-  for (const tros of bruta.split(",")) {
-    const net = tros.trim().replace(/\s+/g, " ");
-    if (!net) continue;
-    if (net.length > LONGITUD_MAX) {
-      throw new AppError(`Cada etiqueta pot tenir com a molt ${LONGITUD_MAX} caracters`, 422);
+/** Parses a comma-separated list (rules form). */
+export function parseTagList(raw: string): string[] {
+  if (!raw.trim()) return [];
+  const views = new Set<string>();
+  const result: string[] = [];
+  for (const part of raw.split(",")) {
+    const cleaned = part.trim().replace(/\s+/g, " ");
+    if (!cleaned) continue;
+    if (cleaned.length > MAX_LENGTH) {
+      throw new AppError(`Cada etiqueta pot tenir com a molt ${MAX_LENGTH} caracters`, 422);
     }
-    const clau = net.toLocaleLowerCase("ca");
-    if (vistes.has(clau)) continue;
-    vistes.add(clau);
-    resultat.push(net);
+    const key = cleaned.toLocaleLowerCase("ca");
+    if (views.has(key)) continue;
+    views.add(key);
+    result.push(cleaned);
   }
-  return resultat.toSorted();
+  return result.toSorted();
 }

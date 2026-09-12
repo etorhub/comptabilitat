@@ -1,29 +1,29 @@
 /**
- * Feina d'analisi: recurrents, rebuts que falten i previsio de descobert.
+ * The analysis job: recurring series, missing bills and the overdraft forecast.
  */
 
 import { eq } from "drizzle-orm";
 
 import { db } from "../../db/client.ts";
 import { ledgers } from "../../db/schema/index.ts";
-import { comprovaDescoberts } from "../../services/forecast.ts";
+import { checkOverdrafts } from "../../services/forecast.ts";
 import {
-  comprovaRebutsQueFalten,
-  detectaRecurrents,
-  resumRecurrents,
+  checkMissingBills,
+  detectRecurring,
+  summaryRecurring,
 } from "../../services/recurring.ts";
 
-export async function feinaAnalisi(): Promise<string> {
-  const linies: string[] = [];
+export async function analysisJob(): Promise<string> {
+  const lines: string[] = [];
 
-  for (const espai of await db.select().from(ledgers).where(eq(ledgers.isActive, true))) {
-    const recurrents = await detectaRecurrents(espai.id);
-    const falten = await comprovaRebutsQueFalten(espai.id);
-    const descoberts = await comprovaDescoberts(espai);
-    linies.push(
-      `${espai.name}: ${resumRecurrents(recurrents)}, ${falten} rebuts que falten, ${descoberts} avisos de descobert`,
+  for (const workspace of await db.select().from(ledgers).where(eq(ledgers.isActive, true))) {
+    const recurring = await detectRecurring(workspace.id);
+    const missing = await checkMissingBills(workspace.id);
+    const overdrafts = await checkOverdrafts(workspace);
+    lines.push(
+      `${workspace.name}: ${summaryRecurring(recurring)}, ${missing} rebuts que falten, ${overdrafts} avisos de descobert`,
     );
   }
 
-  return linies.join("\n") || "no hi ha cap espai actiu";
+  return lines.join("\n") || "no hi ha cap espai actiu";
 }

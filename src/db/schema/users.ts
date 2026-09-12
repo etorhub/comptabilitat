@@ -1,9 +1,9 @@
 /**
- * Usuaris i sessions.
+ * Users and sessions.
  *
- * De la sessio, a la base de dades nomes hi ha el **resum** del testimoni
- * (`token_hash`), mai el testimoni en clar: qui llegeixi la taula no pot
- * suplantar ningu.
+ * Of the session, the database holds only the token's **digest**
+ * (`token_hash`), never the token itself: whoever reads the table cannot
+ * impersonate anyone.
  */
 
 import {
@@ -26,9 +26,9 @@ export const users = pgTable(
     id: serial().notNull(),
     email: varchar({ length: 255 }).notNull(),
     fullName: varchar("full_name", { length: 255 }).notNull(),
-    /** argon2id. Mai surt d'aqui ni arriba a cap plantilla. */
+    /** argon2id. It never leaves here and never reaches a template. */
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
-    /** Administrador de la instal·lacio: gestiona bancs i usuaris. */
+    /** Administrator of the installation: manages banks and users. */
     isAdmin: boolean("is_admin").notNull(),
     isActive: boolean("is_active").notNull(),
     lastLoginAt: tz("last_login_at"),
@@ -41,19 +41,19 @@ export const users = pgTable(
 );
 
 /**
- * Aquesta taula no porta `TimestampMixin`: `created_at` no te cap valor per
- * defecte a la base de dades i l'ha de posar qui insereix.
+ * This table carries no `TimestampMixin`: `created_at` has no default in the
+ * database and whoever inserts has to set it.
  */
 export const userSessions = pgTable(
   "user_sessions",
   {
     id: serial().notNull(),
     userId: integer("user_id").notNull(),
-    /** SHA-256 del testimoni de la galeta, en hexadecimal. */
+    /** SHA-256 of the cookie's token, in hex. */
     tokenHash: varchar("token_hash", { length: 64 }).notNull(),
     expiresAt: tz("expires_at").notNull(),
     createdAt: tz("created_at").notNull(),
-    /** S'escriu com a molt un cop cada 300 s, per no fer un UPDATE per peticio. */
+    /** Written at most once every 300 s, to avoid an UPDATE per request. */
     lastSeenAt: tz("last_seen_at").notNull(),
     userAgent: varchar("user_agent", { length: 255 }).notNull(),
   },

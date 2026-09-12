@@ -1,23 +1,24 @@
 /**
- * Feina programada: classificacio nocturna amb el model local, espai per espai.
+ * Scheduled job: the nightly classification with the local model, one
+ * workspace at a time.
  *
- * Es fa de nit perque en un NAS sense targeta grafica cada pregunta triga
- * segons. Traduccio de `backend/app/workers/jobs/llm.py`.
+ * It runs at night because on a NAS without a graphics card each question
+ * takes seconds. Translated from `backend/app/workers/jobs/llm.py`.
  */
 
 import { eq } from "drizzle-orm";
 
 import { db } from "../../db/client.ts";
 import { ledgers } from "../../db/schema/index.ts";
-import { classificaComercos, resumLlm } from "../../services/llm-classification.ts";
+import { classifyMerchants, summaryLlm } from "../../services/llm-classification.ts";
 
-export async function feinaModelLocal(limit = 50): Promise<string> {
-  const linies: string[] = [];
+export async function localModelJob(limit = 50): Promise<string> {
+  const lines: string[] = [];
 
-  for (const espai of await db.select().from(ledgers).where(eq(ledgers.isActive, true))) {
-    const estadistiques = await classificaComercos(espai.id, { limit });
-    linies.push(`${espai.name}: ${resumLlm(estadistiques)}`);
+  for (const workspace of await db.select().from(ledgers).where(eq(ledgers.isActive, true))) {
+    const stats = await classifyMerchants(workspace.id, { limit });
+    lines.push(`${workspace.name}: ${summaryLlm(stats)}`);
   }
 
-  return linies.join("\n") || "no hi ha cap espai actiu";
+  return lines.join("\n") || "no hi ha cap espai actiu";
 }

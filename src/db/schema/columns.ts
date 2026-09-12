@@ -1,33 +1,33 @@
 /**
- * Peces de columna compartides, equivalents a `backend/app/models/base.py`.
+ * Shared column pieces, the equivalent of `backend/app/models/base.py`.
  *
- * Dues coses que no s'han de tocar sense pensar-hi:
+ * Two things not to touch without thinking:
  *
- * - Els diners son sempre `numeric(14,2)`, mai coma flotant. Drizzle els
- *   retorna com a `string` i han de continuar sent-ho fins a `lib/money`.
- * - `updatedAt` s'actualitza des del client (`$onUpdate`), com feia el
- *   `onupdate` de SQLAlchemy. A la base de dades no hi ha cap disparador.
+ * - Money is always `numeric(14,2)`, never floating point. Drizzle returns it
+ *   as a `string` and it has to stay one until `lib/money`.
+ * - `updatedAt` is set from the client (`$onUpdate`), as SQLAlchemy's
+ *   `onupdate` did. There is no trigger in the database.
  */
 
 import { numeric, timestamp, varchar } from "drizzle-orm/pg-core";
 
-/** Import monetari: `numeric(14,2)`, sempre `string` a la banda de TypeScript. */
+/** A monetary amount: `numeric(14,2)`, always a `string` on the TypeScript side. */
 export const money = (name?: string) =>
   name ? numeric(name, { precision: 14, scale: 2 }) : numeric({ precision: 14, scale: 2 });
 
 /**
- * Enumeracio del domini: `varchar(32)` amb el tipus estret des de TypeScript.
- * La base de dades no en comprova el valor (no hi ha CHECK), de manera que
- * el tipus i el Zod corresponent son l'unica xarxa.
+ * A domain enum: `varchar(32)` with the type narrowed from TypeScript. The
+ * database does not check the value (there is no CHECK), so the type and the
+ * matching Zod schema are the only safety net.
  */
 export const domainEnum = <T extends string>(name?: string) =>
   (name ? varchar(name, { length: 32 }) : varchar({ length: 32 })).$type<T>();
 
 /**
- * `created_at` / `updated_at` amb `DEFAULT now()` a la base de dades.
- * Nomes les taules que el Python marcava amb `TimestampMixin` el porten;
- * `user_sessions`, `balances`, `sync_runs`, `llm_suggestions` i
- * `recurring_occurrences` **no**, i per aixo no fan servir aixo.
+ * `created_at` / `updated_at` with `DEFAULT now()` in the database. Only the
+ * tables Python marked with `TimestampMixin` carry it; `user_sessions`,
+ * `balances`, `sync_runs`, `llm_suggestions` and `recurring_occurrences` do
+ * **not**, which is why they do not use this.
  */
 export const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
@@ -39,5 +39,5 @@ export const timestamps = {
     .$onUpdate(() => new Date()),
 };
 
-/** Marca de temps amb zona, sense cap valor per defecte a la base de dades. */
+/** A timestamp with zone, with no default in the database. */
 export const tz = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });

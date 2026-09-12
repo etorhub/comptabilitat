@@ -1,14 +1,18 @@
 /**
- * Instruccions per al model local.
+ * Instructions for the local model.
  *
- * Es classifica **per comerç**, no per moviment: en regim normal apareixen
- * molt pocs comerços nous cada dia, i aixi un NAS sense targeta grafica en te
- * prou.
+ * Classification happens **per merchant**, not per transaction: in normal
+ * operation very few new merchants appear each day, which is what makes a NAS
+ * without a graphics card enough.
  *
- * Traduccio de `backend/app/integrations/ollama/prompts.py`.
+ * **The prompt itself stays in Catalan.** It is not a comment: it is input to
+ * the model, and it classifies Catalan and Spanish merchants. Translating it
+ * would change what the model answers.
+ *
+ * Translated from `backend/app/integrations/ollama/prompts.py`.
  */
 
-/** Cal pujar-la quan canviï el text: queda desada a cada suggeriment. */
+/** Bump this when the text changes: it is stored with every suggestion. */
 export const PROMPT_VERSION = "1";
 
 export const SYSTEM_PROMPT =
@@ -17,7 +21,7 @@ export const SYSTEM_PROMPT =
   "Respons nomes amb JSON valid, sense cap text addicional. " +
   "Si no estas segur, tria la categoria mes generica i baixa la confianca.";
 
-/** Esquema que Ollama fa complir a la resposta. */
+/** The schema Ollama enforces on the response. */
 export const RESPONSE_SCHEMA = {
   type: "object",
   properties: {
@@ -29,26 +33,26 @@ export const RESPONSE_SCHEMA = {
   required: ["category_slug", "confidence"],
 } as const;
 
-/** El que sap el sistema d'un comerç abans de preguntar al model. */
-export interface ContextComerc {
+/** What the system knows about a merchant before asking the model. */
+export interface MerchantContext {
   normalizedName: string;
   sampleDescriptions: string[];
   typicalAmount: string;
-  /** «despesa» o «ingres». */
+  /** `despesa` (expense) or `ingres` (income). */
   direction: string;
   occurrences: number;
 }
 
-/** Una categoria fulla tal com la veu el model: el slug i el nom complet. */
-export interface CategoriaCatalog {
+/** A leaf category as the model sees it: the slug and the full name. */
+export interface CategoryCatalog {
   slug: string;
   name: string;
 }
 
-/** Munta la pregunta amb la llista de categories permeses. */
-export function construeixPrompt(
-  context: ContextComerc,
-  categories: readonly CategoriaCatalog[],
+/** Builds the question, with the list of allowed categories. */
+export function buildPrompt(
+  context: MerchantContext,
+  categories: readonly CategoryCatalog[],
 ): string {
   const catalog = categories.map((c) => `- ${c.slug}: ${c.name}`).join("\n");
   const samples = context.sampleDescriptions

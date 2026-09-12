@@ -1,30 +1,29 @@
 /**
- * Els identificadors estables de les categories.
+ * The stable identifiers of the categories.
  *
- * Traduccio de la part de `backend/app/services/seed.py` de la qual depen codi
- * d'arreu. Els tres pendents de sota **no es poden canviar**: hi ha logica que
- * els busca pel nom.
+ * A translation of the part of `backend/app/services/seed.py` that code
+ * everywhere depends on. The three slugs below **cannot be changed**: there
+ * is logic that looks them up by name.
  */
 
-/** On van a parar els moviments que no ha encaixat ningu. */
+/** Where the transactions nobody has matched end up. */
 export const SLUG_UNCATEGORIZED = "altres-despeses-sense-classificar";
-/** Els traspassos entre dos comptes del mateix espai. */
+/** Transfers between two accounts of the same workspace. */
 export const SLUG_INTERNAL_TRANSFER = "traspassos-traspas-entre-comptes-propis";
-/** Diners trets d'un caixer. */
+/** Money taken out of a cash machine. */
 export const SLUG_CASH_WITHDRAWAL = "altres-despeses-efectiu-retirat";
 
 /**
- * Categories del sistema que no es poden esborrar de cap manera: hi ha codi
- * que hi compta (la classificacio i l'aparellament de traspassos).
+ * System categories that cannot be deleted under any circumstances: there is
+ * code that counts on them (the classification and the transfer pairing).
  */
 export const PROTECTED_SLUGS: readonly string[] = [SLUG_UNCATEGORIZED, SLUG_INTERNAL_TRANSFER];
 
 /**
- * Mateix resultat que el `slugify` del Python: normalitza en NFKD, llença el
- * que no sigui ASCII, i uneix amb guions el que quedi d'alfanumeric.
+ * Same result as the Python's `slugify`: it normalizes in NFKD, throws away
+ * anything that is not ASCII, and joins what is left of the alphanumerics with hyphens.
  *
- * Ha de coincidir exactament, perque els pendents de dalt son literals que ja
- * hi ha desats a la base de dades.
+ * It has to match exactly, because the slugs above are literals already stored.
  */
 export function slugify(value: string): string {
   const ascii = value

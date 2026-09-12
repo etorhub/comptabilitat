@@ -1,8 +1,8 @@
 /**
- * Categories: el pla de dos nivells i l'esborrat amb reassignacio.
+ * Categories: the two-level plan and deletion with reassignment.
  *
- * Traduccio de `backend/tests/test_categories.py`. El cas important es el
- * 409: esborrar una categoria que te moviments no ha de perdre'ls mai.
+ * A translation of `backend/tests/test_categories.py`. The important case is
+ * the 409: deleting a category that has transactions must never lose them.
  */
 
 import { beforeAll, describe, expect, test } from "bun:test";
@@ -22,20 +22,20 @@ import {
 } from "../src/db/schema/index.ts";
 import { AppError, ConflictError } from "../src/lib/http.ts";
 import {
-  categoriaDeLespai,
-  creaCategoria,
-  esborraCategoria,
-  opcionsCategories,
+  categoryInWorkspace,
+  createCategory,
+  deleteCategory,
+  categoryOptions,
 } from "../src/services/categories.ts";
 import { seedCategories } from "../src/services/seed.ts";
 import { SLUG_UNCATEGORIZED } from "../src/services/slugs.ts";
 import { hashPassword } from "../src/lib/auth.ts";
 
 let ledgerId = 0;
-let altreLedgerId = 0;
+let otherLedgerId = 0;
 let accountId = 0;
 
-async function categoriaPerSlug(slug: string, ledger = ledgerId) {
+async function categoryBySlug(slug: string, ledger = ledgerId) {
   const [c] = await db
     .select()
     .from(categories)
@@ -56,7 +56,7 @@ beforeAll(async () => {
   await db.delete(users);
   await db.delete(ledgers);
 
-  const espais = await db
+  const workspaces = await db
     .insert(ledgers)
     .values(
       ["personal", "calella"].map((code, i) => ({
@@ -73,12 +73,12 @@ beforeAll(async () => {
     )
     .returning();
 
-  ledgerId = espais.find((e) => e.code === "personal")?.id ?? 0;
-  altreLedgerId = espais.find((e) => e.code === "calella")?.id ?? 0;
+  ledgerId = workspaces.find((e) => e.code === "personal")?.id ?? 0;
+  otherLedgerId = workspaces.find((e) => e.code === "calella")?.id ?? 0;
   await seedCategories(ledgerId);
-  await seedCategories(altreLedgerId);
+  await seedCategories(otherLedgerId);
 
-  const [usuari] = await db
+  const [user] = await db
     .insert(users)
     .values({
       email: "pau@exemple.cat",
@@ -90,9 +90,9 @@ beforeAll(async () => {
     .returning();
   await db
     .insert(userLedgerPermissions)
-    .values({ userId: usuari?.id ?? 0, ledgerId, role: "admin" });
+    .values({ userId: user?.id ?? 0, ledgerId, role: "admin" });
 
-  const [connexio] = await db
+  const [connection] = await db
     .insert(bankConnections)
     .values({
       name: "Prova",
@@ -104,10 +104,10 @@ beforeAll(async () => {
     })
     .returning();
 
-  const [compte] = await db
+  const [account] = await db
     .insert(accounts)
     .values({
-      connectionId: connexio?.id ?? 0,
+      connectionId: connection?.id ?? 0,
       ledgerId,
       ebAccountUid: "uid-proves",
       name: "Compte",
@@ -120,52 +120,52 @@ beforeAll(async () => {
       raw: {},
     })
     .returning();
-  accountId = compte?.id ?? 0;
+  accountId = account?.id ?? 0;
 });
 
-describe("crear categories", () => {
-  test("una subcategoria hereta el tipus del pare", async () => {
-    const pare = await categoriaPerSlug("ingressos-del-treball");
-    const filla = await creaCategoria(ledgerId, {
+describe("creating categories", () => {
+  test("a subcategory inherits the parent's type", async () => {
+    const parent = await categoryBySlug("ingressos-del-treball");
+    const child = await createCategory(ledgerId, {
       name: "Bonus",
-      // A posta el contrari del pare: s'ha d'ignorar.
+      // Deliberately the opposite of the parent's: it has to be ignored.
       kind: "expense",
-      parentId: pare.id,
+      parentId: parent.id,
       color: "#94a3b8",
       icon: "",
     });
 
-    expect(filla.kind).toBe("income");
-    expect(filla.slug).toBe("ingressos-del-treball-bonus");
-    expect(filla.isSystem).toBe(false);
+    expect(child.kind).toBe("income");
+    expect(child.slug).toBe("ingressos-del-treball-bonus");
+    expect(child.isSystem).toBe(false);
   });
 
-  test("no s'admet un tercer nivell", async () => {
-    const filla = await categoriaPerSlug("ingressos-del-treball-bonus");
+  test("a third level is not allowed", async () => {
+    const child = await categoryBySlug("ingressos-del-treball-bonus");
     await expect(
-      creaCategoria(ledgerId, {
+      createCategory(ledgerId, {
         name: "Massa endins",
         kind: "income",
-        parentId: filla.id,
+        parentId: child.id,
         color: "#94a3b8",
         icon: "",
       }),
     ).rejects.toThrow(AppError);
   });
 
-  test("dos noms iguals donen pendents diferents", async () => {
-    const pare = await categoriaPerSlug("rendes");
-    const a = await creaCategoria(ledgerId, {
+  test("two equal names give different slugs", async () => {
+    const parent = await categoryBySlug("rendes");
+    const a = await createCategory(ledgerId, {
       name: "Extra",
       kind: "income",
-      parentId: pare.id,
+      parentId: parent.id,
       color: "#94a3b8",
       icon: "",
     });
-    const b = await creaCategoria(ledgerId, {
+    const b = await createCategory(ledgerId, {
       name: "Extra",
       kind: "income",
-      parentId: pare.id,
+      parentId: parent.id,
       color: "#94a3b8",
       icon: "",
     });
@@ -174,13 +174,13 @@ describe("crear categories", () => {
     expect(b.slug).toBe("rendes-extra-2");
   });
 
-  test("no es pot penjar d'un pare d'un altre espai", async () => {
-    const forana = await categoriaPerSlug("habitatge", altreLedgerId);
+  test("it cannot hang off a parent of another workspace", async () => {
+    const foreign = await categoryBySlug("habitatge", otherLedgerId);
     await expect(
-      creaCategoria(ledgerId, {
+      createCategory(ledgerId, {
         name: "Intrusa",
         kind: "expense",
-        parentId: forana.id,
+        parentId: foreign.id,
         color: "#94a3b8",
         icon: "",
       }),
@@ -188,32 +188,32 @@ describe("crear categories", () => {
   });
 });
 
-describe("esborrar categories", () => {
-  test("una de buida se'n va sense mes", async () => {
-    const c = await creaCategoria(ledgerId, {
+describe("deleting categories", () => {
+  test("an empty one goes without more ado", async () => {
+    const c = await createCategory(ledgerId, {
       name: "Efimera",
       kind: "expense",
       parentId: null,
       color: "#94a3b8",
       icon: "",
     });
-    await esborraCategoria(c.id, ledgerId, null);
-    await expect(categoriaDeLespai(c.id, ledgerId)).rejects.toThrow();
+    await deleteCategory(c.id, ledgerId, null);
+    await expect(categoryInWorkspace(c.id, ledgerId)).rejects.toThrow();
   });
 
-  test("les del sistema protegides no es poden esborrar", async () => {
-    const c = await categoriaPerSlug(SLUG_UNCATEGORIZED);
-    await expect(esborraCategoria(c.id, ledgerId, null)).rejects.toThrow(AppError);
-    expect(await categoriaDeLespai(c.id, ledgerId)).toBeDefined();
+  test("the protected system ones cannot be deleted", async () => {
+    const c = await categoryBySlug(SLUG_UNCATEGORIZED);
+    await expect(deleteCategory(c.id, ledgerId, null)).rejects.toThrow(AppError);
+    expect(await categoryInWorkspace(c.id, ledgerId)).toBeDefined();
   });
 
-  test("una amb subcategories demana que primer les moguis", async () => {
-    const pare = await categoriaPerSlug("habitatge");
-    await expect(esborraCategoria(pare.id, ledgerId, null)).rejects.toThrow(AppError);
+  test("one with subcategories asks you to move them first", async () => {
+    const parent = await categoryBySlug("habitatge");
+    await expect(deleteCategory(parent.id, ledgerId, null)).rejects.toThrow(AppError);
   });
 
-  test("una amb moviments i sense desti es un 409", async () => {
-    const c = await categoriaPerSlug("restauracio-restaurants");
+  test("one with transactions and no destination is a 409", async () => {
+    const c = await categoryBySlug("restauracio-restaurants");
     await db.insert(transactions).values({
       accountId,
       ledgerId,
@@ -236,55 +236,55 @@ describe("esborrar categories", () => {
       raw: {},
     });
 
-    await expect(esborraCategoria(c.id, ledgerId, null)).rejects.toThrow(ConflictError);
-    // I sobretot: el moviment continua sent-hi.
-    const queden = await db
+    await expect(deleteCategory(c.id, ledgerId, null)).rejects.toThrow(ConflictError);
+    // And above all: the transaction is still there.
+    const remain = await db
       .select()
       .from(transactions)
       .where(eq(transactions.categoryId, c.id));
-    expect(queden).toHaveLength(1);
+    expect(remain).toHaveLength(1);
   });
 
-  test("amb desti, els moviments hi van i no se'n perd cap", async () => {
-    const origen = await categoriaPerSlug("restauracio-restaurants");
-    const desti = await categoriaPerSlug("restauracio-bars-i-cafeteries");
+  test("with a destination, the transactions go there and none is lost", async () => {
+    const origin = await categoryBySlug("restauracio-restaurants");
+    const target = await categoryBySlug("restauracio-bars-i-cafeteries");
 
-    // Una regla que assigna la categoria d'origen: la clau forana es CASCADE,
-    // o sigui que si s'esborres primer la categoria, la regla desapareixeria.
+    // A rule that assigns the source category: the foreign key is CASCADE, so
+    // if the category were deleted first, the rule would disappear.
     await db.insert(rules).values({
       name: "Regla de prova",
       ledgerId,
       priority: 100,
       isActive: true,
       conditions: [{ field: "description", operator: "contains", value: "SOPAR" }],
-      setCategoryId: origen.id,
+      setCategoryId: origin.id,
       setTags: [],
       source: "user",
       matchCount: 0,
     });
 
-    await esborraCategoria(origen.id, ledgerId, desti.id);
+    await deleteCategory(origin.id, ledgerId, target.id);
 
-    const moguts = await db
+    const moved = await db
       .select()
       .from(transactions)
-      .where(eq(transactions.categoryId, desti.id));
-    expect(moguts).toHaveLength(1);
+      .where(eq(transactions.categoryId, target.id));
+    expect(moved).toHaveLength(1);
 
-    const orfes = await db
+    const orphans = await db
       .select()
       .from(transactions)
       .where(eq(transactions.ledgerId, ledgerId));
-    expect(orfes.every((t) => t.categoryId !== null)).toBe(true);
+    expect(orphans.every((t) => t.categoryId !== null)).toBe(true);
 
-    // La regla s'ha reassignat, no esborrat.
-    const regles = await db.select().from(rules).where(eq(rules.ledgerId, ledgerId));
-    expect(regles).toHaveLength(1);
-    expect(regles[0]?.setCategoryId).toBe(desti.id);
+    // The rule was reassigned, not deleted.
+    const kept = await db.select().from(rules).where(eq(rules.ledgerId, ledgerId));
+    expect(kept).toHaveLength(1);
+    expect(kept[0]?.setCategoryId).toBe(target.id);
   });
 
-  test("no es pot reassignar a una categoria d'un altre espai", async () => {
-    const c = await creaCategoria(ledgerId, {
+  test("it cannot be reassigned to a category of another workspace", async () => {
+    const c = await createCategory(ledgerId, {
       name: "Amb moviment",
       kind: "expense",
       parentId: null,
@@ -313,39 +313,39 @@ describe("esborrar categories", () => {
       raw: {},
     });
 
-    const forana = await categoriaPerSlug("habitatge", altreLedgerId);
-    await expect(esborraCategoria(c.id, ledgerId, forana.id)).rejects.toThrow();
+    const foreign = await categoryBySlug("habitatge", otherLedgerId);
+    await expect(deleteCategory(c.id, ledgerId, foreign.id)).rejects.toThrow();
 
-    // Ni s'ha esborrat ni s'ha mogut res.
-    expect(await categoriaDeLespai(c.id, ledgerId)).toBeDefined();
+    // Nothing was deleted and nothing was moved.
+    expect(await categoryInWorkspace(c.id, ledgerId)).toBeDefined();
   });
 });
 
-describe("les opcions del selector", () => {
-  test("van en grups de dos nivells", async () => {
-    const grups = await opcionsCategories(ledgerId);
-    expect(grups.length).toBeGreaterThan(0);
-    for (const grup of grups) {
-      expect(grup.opcions.length).toBeGreaterThan(0);
+describe("the picker's options", () => {
+  test("they go in two-level groups", async () => {
+    const groups = await categoryOptions(ledgerId);
+    expect(groups.length).toBeGreaterThan(0);
+    for (const group of groups) {
+      expect(group.options.length).toBeGreaterThan(0);
     }
   });
 
-  test("es poden excloure categories", async () => {
-    const c = await categoriaPerSlug("habitatge");
-    const grups = await opcionsCategories(ledgerId, [c.id]);
-    const ids = grups.flatMap((g) => g.opcions.map((o) => o.valor));
+  test("categories can be excluded", async () => {
+    const c = await categoryBySlug("habitatge");
+    const groups = await categoryOptions(ledgerId, [c.id]);
+    const ids = groups.flatMap((g) => g.options.map((o) => o.value));
     expect(ids).not.toContain(c.id);
   });
 
-  test("nomes hi surten les d'aquest espai", async () => {
-    const grups = await opcionsCategories(ledgerId);
-    const ids = grups.flatMap((g) => g.opcions.map((o) => o.valor));
-    const foranes = await db
+  test("only this workspace's appear", async () => {
+    const groups = await categoryOptions(ledgerId);
+    const ids = groups.flatMap((g) => g.options.map((o) => o.value));
+    const foreignKeys = await db
       .select({ id: categories.id })
       .from(categories)
-      .where(eq(categories.ledgerId, altreLedgerId));
-    for (const forana of foranes) {
-      expect(ids).not.toContain(forana.id);
+      .where(eq(categories.ledgerId, otherLedgerId));
+    for (const foreign of foreignKeys) {
+      expect(ids).not.toContain(foreign.id);
     }
   });
 });

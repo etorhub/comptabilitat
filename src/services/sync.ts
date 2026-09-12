@@ -1,12 +1,12 @@
 /**
- * Orquestracio d'una importacio.
+ * Orchestration of an import.
  *
- * Aqui nomes hi ha qui mana a qui i el registre del que ha passat: cada intent
- * queda a `sync_runs`, amb quants moviments s'han inserit i actualitzat i quin
- * error hi ha hagut. Aixo es el que permet veure si el limit de crides del
- * banc s'esta atansant.
+ * Here there is only who commands whom and the record of what happened: every
+ * attempt is left in `sync_runs`, with how many transactions were inserted and
+ * updated and what error there was. That is what lets you see whether the
+ * bank's call limit is getting close.
  *
- * El consentiment es a `consent.ts` i la feina de debo, a `import.ts`.
+ * The consent is in `consent.ts` and the real work in `import.ts`.
  */
 
 import { and, eq, gte, lt } from "drizzle-orm";
@@ -24,45 +24,50 @@ import { config } from "../lib/config.ts";
 import { EnableBankingClient } from "../lib/enablebanking/client.ts";
 import { SessionExpiredError } from "../lib/enablebanking/errors.ts";
 import { addDays, todayLocal } from "../lib/time.ts";
-import { creaAvis } from "./alerts.ts";
-import { baixaMoviments, dataInicialFaMesos, desaMoviments, desaSaldos } from "./import.ts";
+import { createAlert } from "./alerts.ts";
+import {
+  removeTransactions,
+  startDateMonthsAgo,
+  saveTransactions,
+  saveBalances,
+} from "./import.ts";
 
-/** Passades aquestes hores, una importacio «en marxa» no ho esta pas. */
-const HORES_FINS_A_DONAR_PER_MORTA = 2;
+/** Past these hours, an «in progress» import is nothing of the sort. */
+const HOURS_UNTIL_PRESUMED_DEAD = 2;
 
-export interface ResultatSync {
+export interface SyncResult {
   connectionId: number;
-  comptes: number;
-  inserits: number;
-  actualitzats: number;
+  accountList: number;
+  inserted: number;
+  updatedCount: number;
   errors: string[];
 }
 
-export async function sincronitzaConnexio(
-  connexio: BankConnection,
-  opcions: { trigger?: SyncTrigger; daysBack?: number | null } = {},
-): Promise<ResultatSync> {
-  const execucio = await obreImportacio(connexio, opcions.trigger ?? "scheduled");
-  return portaLaImportacio(connexio, execucio, opcions);
+export async function syncConnection(
+  connection: BankConnection,
+  options: { trigger?: SyncTrigger; daysBack?: number | null } = {},
+): Promise<SyncResult> {
+  const run = await openImport(connection, options.trigger ?? "scheduled");
+  return runTheImport(connection, run, options);
 }
 
 /**
- * Obre la fila de `sync_runs` i prou.
+ * Opens the `sync_runs` row and nothing else.
  *
- * Va a part perque qui llança la importacio en segon pla pugui tenir la fila
- * **abans** de contestar. Si no, no hi ha manera de dibuixar l'estat sense
- * endevinar quan hi sera: aixo abans es resolia amb una espera de 150 ms i una
- * creuada de dits, i si la inserció trigava mes, el fragment sortia sense el
- * `hx-trigger` i el sondeig no arrencava mai.
+ * It is separate so that whoever launches the import in the background can
+ * have the row **before** answering. Otherwise there is no way to draw the
+ * state without guessing when it will be there: this used to be solved with a
+ * 150 ms wait and crossed fingers, and if the insert took longer, the fragment
+ * came out without the `hx-trigger` and the poll never started.
  */
-export async function obreImportacio(
-  connexio: BankConnection,
+export async function openImport(
+  connection: BankConnection,
   trigger: SyncTrigger,
 ): Promise<SyncRun | undefined> {
-  const [execucio] = await db
+  const [run] = await db
     .insert(syncRuns)
     .values({
-      connectionId: connexio.id,
+      connectionId: connection.id,
       trigger,
       status: "running",
       startedAt: new Date(),
@@ -73,135 +78,135 @@ export async function obreImportacio(
       error: "",
     })
     .returning();
-  return execucio;
+  return run;
 }
 
-/** La importacio de debo, sobre una fila de `sync_runs` que ja existeix. */
-export async function portaLaImportacio(
-  connexio: BankConnection,
-  execucio: SyncRun | undefined,
-  opcions: { daysBack?: number | null } = {},
-): Promise<ResultatSync> {
-  const resultat: ResultatSync = {
-    connectionId: connexio.id,
-    comptes: 0,
-    inserits: 0,
-    actualitzats: 0,
+/** The real import, over a `sync_runs` row that already exists. */
+export async function runTheImport(
+  connection: BankConnection,
+  run: SyncRun | undefined,
+  options: { daysBack?: number | null } = {},
+): Promise<SyncResult> {
+  const result: SyncResult = {
+    connectionId: connection.id,
+    accountList: 0,
+    inserted: 0,
+    updatedCount: 0,
     errors: [],
   };
 
-  const acaba = async (estat: "success" | "partial" | "failed", error = "") => {
-    if (execucio) {
+  const finish = async (state: "success" | "partial" | "failed", error = "") => {
+    if (run) {
       await db
         .update(syncRuns)
         .set({
-          status: estat,
+          status: state,
           finishedAt: new Date(),
-          accountsSynced: resultat.comptes,
-          transactionsInserted: resultat.inserits,
-          transactionsUpdated: resultat.actualitzats,
+          accountsSynced: result.accountList,
+          transactionsInserted: result.inserted,
+          transactionsUpdated: result.updatedCount,
           error: error.slice(0, 2000),
         })
-        .where(eq(syncRuns.id, execucio.id));
+        .where(eq(syncRuns.id, run.id));
     }
   };
 
   try {
     const client = new EnableBankingClient();
 
-    const comptes = await db
+    const accountList = await db
       .select()
       .from(accounts)
-      .where(and(eq(accounts.connectionId, connexio.id), eq(accounts.isActive, true)));
+      .where(and(eq(accounts.connectionId, connection.id), eq(accounts.isActive, true)));
 
-    for (const compte of comptes) {
+    for (const account of accountList) {
       try {
-        const dataDes =
-          opcions.daysBack != null
-            ? addDays(todayLocal(), -opcions.daysBack)
-            : compte.lastBookedDate !== null
-              ? addDays(compte.lastBookedDate, -config.ebResyncOverlapDays)
-              : dataInicialFaMesos(config.ebInitialHistoryMonths);
+        const dateFrom =
+          options.daysBack != null
+            ? addDays(todayLocal(), -options.daysBack)
+            : account.lastBookedDate !== null
+              ? addDays(account.lastBookedDate, -config.ebResyncOverlapDays)
+              : startDateMonthsAgo(config.ebInitialHistoryMonths);
 
-        const { items, truncat } = await baixaMoviments(client, compte, dataDes);
-        const parcial = await desaMoviments(compte, items, truncat);
-        await desaSaldos(client, compte);
+        const { items, truncated } = await removeTransactions(client, account, dateFrom);
+        const partial = await saveTransactions(account, items, truncated);
+        await saveBalances(client, account);
 
-        resultat.comptes += 1;
-        resultat.inserits += parcial.inserits;
-        resultat.actualitzats += parcial.actualitzats;
+        result.accountList += 1;
+        result.inserted += partial.inserted;
+        result.updatedCount += partial.updatedCount;
       } catch (error) {
         if (error instanceof SessionExpiredError) throw error;
-        const missatge = error instanceof Error ? error.message : String(error);
-        resultat.errors.push(`compte ${compte.id}: ${missatge}`);
+        const message = error instanceof Error ? error.message : String(error);
+        result.errors.push(`compte ${account.id}: ${message}`);
       }
     }
 
     await db
       .update(bankConnections)
-      .set({ lastSyncAt: new Date(), lastError: resultat.errors.join("; ").slice(0, 2000) })
-      .where(eq(bankConnections.id, connexio.id));
+      .set({ lastSyncAt: new Date(), lastError: result.errors.join("; ").slice(0, 2000) })
+      .where(eq(bankConnections.id, connection.id));
 
-    await acaba(resultat.errors.length > 0 ? "partial" : "success", resultat.errors.join("; "));
-    return resultat;
+    await finish(result.errors.length > 0 ? "partial" : "success", result.errors.join("; "));
+    return result;
   } catch (error) {
-    const missatge = error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : String(error);
 
     if (error instanceof SessionExpiredError) {
-      // El consentiment ha caducat: cal tornar a autoritzar amb SCA.
+      // The consent has expired: it has to be authorized again with SCA.
       await db
         .update(bankConnections)
-        .set({ status: "expired", lastError: missatge })
-        .where(eq(bankConnections.id, connexio.id));
+        .set({ status: "expired", lastError: message })
+        .where(eq(bankConnections.id, connection.id));
 
-      await creaAvis({
+      await createAlert({
         type: "consent_expired",
         ledgerId: null,
-        dedupKey: `consent-expired:${connexio.id}:${todayLocal()}`,
-        title: `${connexio.aspspName}: el consentiment ha caducat`,
+        dedupKey: `consent-expired:${connection.id}:${todayLocal()}`,
+        title: `${connection.aspspName}: el consentiment ha caducat`,
         body: "Cal tornar a autoritzar el banc des de Connexions per continuar important moviments.",
         severity: "critical",
-        payload: { connection_id: connexio.id },
+        payload: { connection_id: connection.id },
       });
     } else {
       await db
         .update(bankConnections)
-        .set({ status: "error", lastError: missatge })
-        .where(eq(bankConnections.id, connexio.id));
+        .set({ status: "error", lastError: message })
+        .where(eq(bankConnections.id, connection.id));
 
-      await creaAvis({
+      await createAlert({
         type: "sync_failed",
         ledgerId: null,
-        dedupKey: `sync-failed:${connexio.id}:${todayLocal()}`,
-        title: `${connexio.aspspName}: la sincronitzacio ha fallat`,
-        body: missatge,
+        dedupKey: `sync-failed:${connection.id}:${todayLocal()}`,
+        title: `${connection.aspspName}: la sincronitzacio ha fallat`,
+        body: message,
         severity: "warning",
-        payload: { connection_id: connexio.id },
+        payload: { connection_id: connection.id },
       });
     }
 
-    resultat.errors.push(missatge);
-    await acaba("failed", missatge);
-    return resultat;
+    result.errors.push(message);
+    await finish("failed", message);
+    return result;
   }
 }
 
 /**
- * Tanca les importacions que van quedar penjades.
+ * Closes the imports that were left hanging.
  *
- * La importacio corre en segon pla dins del proces del servidor. Si el
- * contenidor es reinicia enmig, la fila de `sync_runs` es queda en `running`
- * per sempre —no hi ha ningu que la pugui acabar— i la pagina de connexions es
- * queda **sondejant cada dos segons, per sempre i per a tothom qui la miri**,
- * perque el fragment nomes s'atura quan l'estat es terminal.
+ * The import runs in the background inside the server process. If the
+ * container restarts halfway, the `sync_runs` row stays `running` forever
+ * —there is nobody who can finish it— and the connections page is left
+ * **polling every two seconds, forever and for everyone who looks at it**,
+ * because the fragment only stops when the state is terminal.
  *
- * Tambe serveix de porta: mentre n'hi hagi una de viva, no se'n comença cap
- * altra de la mateixa connexio.
+ * It also serves as a gate: while there is a live one, no other import of the
+ * same connection is started.
  */
-export async function tancaImportacionsPenjades(): Promise<number> {
-  const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
+export async function closeStuckImports(): Promise<number> {
+  const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
 
-  const tancades = await db
+  const closed = await db
     .update(syncRuns)
     .set({
       status: "failed",
@@ -211,38 +216,38 @@ export async function tancaImportacionsPenjades(): Promise<number> {
     .where(and(eq(syncRuns.status, "running"), lt(syncRuns.startedAt, limit)))
     .returning({ id: syncRuns.id });
 
-  if (tancades.length > 0) {
-    console.warn(`[sync] ${tancades.length} importacions penjades donades per fallides`);
+  if (closed.length > 0) {
+    console.warn(`[sync] ${closed.length} importacions penjades donades per fallides`);
   }
-  return tancades.length;
+  return closed.length;
 }
 
-/** Si ja n'hi ha una de viva per a aquesta connexio, no se'n comença cap altra. */
-export async function jaSincronitza(connexioId: number): Promise<boolean> {
-  const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
-  const [viva] = await db
+/** If there is already a live one for this connection, no other is started. */
+export async function alreadySyncing(connectionId: number): Promise<boolean> {
+  const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
+  const [alive] = await db
     .select({ id: syncRuns.id })
     .from(syncRuns)
     .where(
       and(
-        eq(syncRuns.connectionId, connexioId),
+        eq(syncRuns.connectionId, connectionId),
         eq(syncRuns.status, "running"),
         gte(syncRuns.startedAt, limit),
       ),
     )
     .limit(1);
-  return viva !== undefined;
+  return alive !== undefined;
 }
 
 /**
- * Tanca ara mateix les importacions obertes d'aquest proces.
+ * Closes this process's open imports right now.
  *
- * La crida l'aturada endreçada del servidor: si s'atura mentre n'hi ha una en
- * marxa, val mes deixar-la marcada com a fallida que no pas en `running`, on
- * es quedaria fent sondejar la pagina fins que passes el manteniment.
+ * It is called by the server's orderly shutdown: if it stops while one is
+ * going, better to leave it marked as failed than as `running`, where it
+ * would keep the page polling until maintenance went by.
  */
-export async function tancaImportacionsObertes(): Promise<number> {
-  const tancades = await db
+export async function closeOpenImports(): Promise<number> {
+  const closed = await db
     .update(syncRuns)
     .set({
       status: "failed",
@@ -252,8 +257,8 @@ export async function tancaImportacionsObertes(): Promise<number> {
     .where(eq(syncRuns.status, "running"))
     .returning({ id: syncRuns.id });
 
-  if (tancades.length > 0) {
-    console.info(`[sync] ${tancades.length} importacions marcades com a interrompudes`);
+  if (closed.length > 0) {
+    console.info(`[sync] ${closed.length} importacions marcades com a interrompudes`);
   }
-  return tancades.length;
+  return closed.length;
 }

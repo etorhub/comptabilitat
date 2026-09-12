@@ -1,10 +1,10 @@
 /**
- * El tipus del marcatge.
+ * The markup type.
  *
- * L'etiqueta `html` de Hono retorna `HtmlEscapedString` o una promesa, segons
- * si el que hi ha dins es asincron. A la practica no importa —tot dos es
- * renderitzen igual— pero cal dir-ho un cop i no anar-ho repetint ni fent
- * conversions a cada component.
+ * Hono's `html` tag returns `HtmlEscapedString` or a promise of one, depending
+ * on whether what is inside it is asynchronous. In practice it does not matter
+ * — both render the same way — but it needs saying once instead of repeating
+ * it, or casting, in every component.
  */
 
 import type { HtmlEscapedString } from "hono/utils/html";

@@ -1,17 +1,17 @@
 /**
- * Conversio de les respostes d'Enable Banking al model intern.
+ * Converting Enable Banking's responses into the internal model.
  *
- * La peça important es `dedupKey()`: es el que fa que sincronitzar dues
- * vegades no dupliqui l'historic. Ha de donar **exactament** el mateix que la
- * de Python, perque a `transactions.dedup_key` ja n'hi ha de desades.
+ * The important piece is `dedupKey()`: it is what stops a second sync from
+ * duplicating the history. It has to produce **exactly** what the Python one
+ * produced, because `transactions.dedup_key` already holds saved values.
  *
- * Traduccio de `backend/app/integrations/enablebanking/parsing.py`.
+ * Translated from `backend/app/integrations/enablebanking/parsing.py`.
  */
 
 import type { TransactionStatus } from "../../db/schema/index.ts";
 import { Decimal } from "../money.ts";
 
-/** Estats que pot tornar el banc. La resta (rebutjats, cancel·lats) s'ignoren. */
+/** Statuses the bank can return. The rest (rejected, cancelled) are ignored. */
 const STATUS_MAP: Record<string, TransactionStatus> = {
   BOOK: "booked",
   BOOKED: "booked",
@@ -19,32 +19,32 @@ const STATUS_MAP: Record<string, TransactionStatus> = {
   PENDING: "pending",
 };
 
-function comObjecte(valor: unknown): Record<string, unknown> {
-  return typeof valor === "object" && valor !== null ? (valor as Record<string, unknown>) : {};
+function asObject(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
 }
 
-function decimal(valor: unknown): Decimal | null {
-  if (valor === null || valor === undefined) return null;
+function decimal(value: unknown): Decimal | null {
+  if (value === null || value === undefined) return null;
   try {
-    return new Decimal(String(valor));
+    return new Decimal(String(value));
   } catch {
     return null;
   }
 }
 
-/** Data de calendari `AAAA-MM-DD`, o `null`. */
-function data(valor: unknown): string | null {
-  if (!valor) return null;
-  const text = String(valor).slice(0, 10);
+/** A `YYYY-MM-DD` calendar date, or `null`. */
+function date(value: unknown): string | null {
+  if (!value) return null;
+  const text = String(value).slice(0, 10);
   return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
 }
 
-function primeraIdentificacio(cru: Record<string, unknown>, scheme = "IBAN"): string {
-  const accountId = comObjecte(cru.account_id);
+function firstIdentification(raw: Record<string, unknown>, scheme = "IBAN"): string {
+  const accountId = asObject(raw.account_id);
   if (typeof accountId.iban === "string" && accountId.iban) return accountId.iban;
 
-  for (const item of Array.isArray(cru.all_account_ids) ? cru.all_account_ids : []) {
-    const obj = comObjecte(item);
+  for (const item of Array.isArray(raw.all_account_ids) ? raw.all_account_ids : []) {
+    const obj = asObject(item);
     if (String(obj.scheme_name ?? "").toUpperCase() === scheme) {
       return String(obj.identification ?? "");
     }
@@ -52,7 +52,7 @@ function primeraIdentificacio(cru: Record<string, unknown>, scheme = "IBAN"): st
   return "";
 }
 
-export interface CompteAnalitzat {
+export interface AccountAnalyzed {
   ebAccountUid: string;
   name: string;
   product: string;
@@ -63,47 +63,47 @@ export interface CompteAnalitzat {
   raw: Record<string, unknown>;
 }
 
-/** Camps d'un compte tal com els desem a `accounts`. */
-export function parseAccount(cru: Record<string, unknown>): CompteAnalitzat {
+/** An account's fields as they are stored in `accounts`. */
+export function parseAccount(raw: Record<string, unknown>): AccountAnalyzed {
   return {
-    ebAccountUid: String(cru.uid ?? ""),
-    name: String(cru.name ?? cru.details ?? ""),
-    product: String(cru.product ?? ""),
-    iban: primeraIdentificacio(cru),
-    currency: String(cru.currency ?? "EUR"),
-    cashAccountType: String(cru.cash_account_type ?? ""),
-    usage: String(cru.usage ?? ""),
-    raw: cru,
+    ebAccountUid: String(raw.uid ?? ""),
+    name: String(raw.name ?? raw.details ?? ""),
+    product: String(raw.product ?? ""),
+    iban: firstIdentification(raw),
+    currency: String(raw.currency ?? "EUR"),
+    cashAccountType: String(raw.cash_account_type ?? ""),
+    usage: String(raw.usage ?? ""),
+    raw: raw,
   };
 }
 
-export interface SaldoAnalitzat {
+export interface BalanceAnalyzed {
   balanceType: string;
   amount: string;
   currency: string;
   referenceDate: string | null;
 }
 
-export function parseBalance(cru: Record<string, unknown>): SaldoAnalitzat | null {
-  const bloc = comObjecte(cru.balance_amount);
-  const quantitat = decimal(bloc.amount);
-  if (quantitat === null) return null;
+export function parseBalance(raw: Record<string, unknown>): BalanceAnalyzed | null {
+  const bulk = asObject(raw.balance_amount);
+  const amount = decimal(bulk.amount);
+  if (amount === null) return null;
 
   return {
-    balanceType: String(cru.balance_type ?? cru.name ?? "OTHR"),
-    amount: quantitat.toFixed(2),
-    currency: String(bloc.currency ?? "EUR"),
-    referenceDate: data(cru.reference_date) ?? data(cru.last_change_date_time),
+    balanceType: String(raw.balance_type ?? raw.name ?? "OTHR"),
+    amount: amount.toFixed(2),
+    currency: String(bulk.currency ?? "EUR"),
+    referenceDate: date(raw.reference_date) ?? date(raw.last_change_date_time),
   };
 }
 
-function nomDePart(cru: Record<string, unknown>, clau: string): string {
-  const part = comObjecte(cru[clau]);
+function partName(raw: Record<string, unknown>, key: string): string {
+  const part = asObject(raw[key]);
   return String(part.name ?? "");
 }
 
-function remesa(cru: Record<string, unknown>): string {
-  const info = cru.remittance_information;
+function batch(raw: Record<string, unknown>): string {
+  const info = raw.remittance_information;
   if (Array.isArray(info)) {
     return info
       .filter(Boolean)
@@ -115,18 +115,18 @@ function remesa(cru: Record<string, unknown>): string {
   return "";
 }
 
-function codiBanc(cru: Record<string, unknown>): string {
-  const bloc = comObjecte(cru.bank_transaction_code);
-  const trossos = [bloc.code, bloc.sub_code].filter(Boolean).map(String);
-  return trossos.length > 0 ? trossos.join("/") : String(bloc.description ?? "");
+function bankCode(raw: Record<string, unknown>): string {
+  const bulk = asObject(raw.bank_transaction_code);
+  const parts = [bulk.code, bulk.sub_code].filter(Boolean).map(String);
+  return parts.length > 0 ? parts.join("/") : String(bulk.description ?? "");
 }
 
-export interface MovimentAnalitzat {
+export interface TransactionAnalyzed {
   entryReference: string | null;
   transactionId: string | null;
   bookingDate: string;
   valueDate: string | null;
-  /** Amb signe: negatiu = diners que surten. */
+  /** Signed: negative means money going out. */
   amount: string;
   currency: string;
   status: TransactionStatus;
@@ -137,83 +137,83 @@ export interface MovimentAnalitzat {
 }
 
 /**
- * Clau estable per no duplicar moviments entre sincronitzacions.
+ * A stable key, so transactions are not duplicated between syncs.
  *
- * Si el banc dona una referencia d'apunt, es fa servir tal qual. Si no, es
- * calcula un resum de les dades que no canvien del moviment.
+ * When the bank gives an entry reference, it is used as-is. Otherwise a digest
+ * is computed over the parts of the transaction that do not change.
  *
- * **Ha de coincidir amb la de Python**: a la base de dades ja n'hi ha de
- * desades, i si canviés, la propera sincronitzacio duplicaria tot l'historic.
+ * **It has to match the Python one**: the database already holds saved values,
+ * and if this changed, the next sync would duplicate the whole history.
  */
-export function dedupKey(moviment: MovimentAnalitzat): string {
-  if (moviment.entryReference) {
-    return `ref:${moviment.entryReference}`.slice(0, 64);
+export function dedupKey(transaction: TransactionAnalyzed): string {
+  if (transaction.entryReference) {
+    return `ref:${transaction.entryReference}`.slice(0, 64);
   }
 
   const parts = [
-    moviment.bookingDate,
-    new Decimal(moviment.amount).toFixed(2),
-    moviment.currency,
-    moviment.description.trim().toLowerCase(),
-    moviment.counterparty.trim().toLowerCase(),
+    transaction.bookingDate,
+    new Decimal(transaction.amount).toFixed(2),
+    transaction.currency,
+    transaction.description.trim().toLowerCase(),
+    transaction.counterparty.trim().toLowerCase(),
   ].join("|");
 
-  const resum = new Bun.CryptoHasher("sha256").update(parts).digest("hex");
-  return `h:${resum}`.slice(0, 64);
+  const summary = new Bun.CryptoHasher("sha256").update(parts).digest("hex");
+  return `h:${summary}`.slice(0, 64);
 }
 
-/** Converteix un moviment de l'API. Retorna `null` si no s'ha de desar. */
-export function parseTransaction(cru: Record<string, unknown>): MovimentAnalitzat | null {
-  const estat = STATUS_MAP[String(cru.status ?? "BOOK").toUpperCase()];
-  if (estat === undefined) return null;
+/** Converts a transaction from the API. Returns `null` when it should not be stored. */
+export function parseTransaction(raw: Record<string, unknown>): TransactionAnalyzed | null {
+  const state = STATUS_MAP[String(raw.status ?? "BOOK").toUpperCase()];
+  if (state === undefined) return null;
 
-  const bloc = comObjecte(cru.transaction_amount);
-  let quantitat = decimal(bloc.amount);
-  if (quantitat === null) return null;
+  const bulk = asObject(raw.transaction_amount);
+  let amount = decimal(bulk.amount);
+  if (amount === null) return null;
 
-  quantitat = quantitat.abs();
-  // El banc dona l'import sempre en positiu i el sentit a part.
-  if (String(cru.credit_debit_indicator ?? "").toUpperCase() !== "CRDT") {
-    quantitat = quantitat.negated();
+  amount = amount.abs();
+  // The bank always gives the amount as a positive number, with the direction separately.
+  if (String(raw.credit_debit_indicator ?? "").toUpperCase() !== "CRDT") {
+    amount = amount.negated();
   }
 
   const bookingDate =
-    data(cru.booking_date) ?? data(cru.value_date) ?? data(cru.transaction_date);
+    date(raw.booking_date) ?? date(raw.value_date) ?? date(raw.transaction_date);
   if (bookingDate === null) return null;
 
-  const creditor = nomDePart(cru, "creditor");
-  const debtor = nomDePart(cru, "debtor");
-  // La contrapart es qui rep el diner en una despesa i qui l'envia en un ingres.
-  const counterparty = quantitat.isNegative() ? creditor : debtor;
+  const creditor = partName(raw, "creditor");
+  const debtor = partName(raw, "debtor");
+  // The counterparty is whoever receives the money on an expense and whoever sends it on income.
+  const counterparty = amount.isNegative() ? creditor : debtor;
 
-  const trossos = [
-    remesa(cru),
+  const parts = [
+    batch(raw),
     counterparty,
-    String(cru.note ?? ""),
-    String(comObjecte(cru.bank_transaction_code).description ?? ""),
+    String(raw.note ?? ""),
+    String(asObject(raw.bank_transaction_code).description ?? ""),
   ];
 
-  const vistos = new Set<string>();
-  const descripcio: string[] = [];
-  for (const tros of trossos) {
-    const net = tros.split(/\s+/).filter(Boolean).join(" ");
-    if (net && !vistos.has(net.toLowerCase())) {
-      vistos.add(net.toLowerCase());
-      descripcio.push(net);
+  const seen = new Set<string>();
+  const description: string[] = [];
+  for (const part of parts) {
+    const cleaned = part.split(/\s+/).filter(Boolean).join(" ");
+    if (cleaned && !seen.has(cleaned.toLowerCase())) {
+      seen.add(cleaned.toLowerCase());
+      description.push(cleaned);
     }
   }
 
   return {
-    entryReference: cru.entry_reference ? String(cru.entry_reference) : null,
-    transactionId: cru.transaction_id ? String(cru.transaction_id) : null,
+    entryReference: raw.entry_reference ? String(raw.entry_reference) : null,
+    transactionId: raw.transaction_id ? String(raw.transaction_id) : null,
     bookingDate,
-    valueDate: data(cru.value_date),
-    amount: quantitat.toFixed(2),
-    currency: String(bloc.currency ?? "EUR"),
-    status: estat,
-    description: descripcio.join(" · ").slice(0, 1000),
+    valueDate: date(raw.value_date),
+    amount: amount.toFixed(2),
+    currency: String(bulk.currency ?? "EUR"),
+    status: state,
+    description: description.join(" · ").slice(0, 1000),
     counterparty: counterparty.slice(0, 200),
-    bankTransactionCode: codiBanc(cru).slice(0, 60),
-    raw: cru,
+    bankTransactionCode: bankCode(raw).slice(0, 60),
+    raw: raw,
   };
 }

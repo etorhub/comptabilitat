@@ -1,9 +1,9 @@
 /**
- * Cicle de vida d'un compte bancari dins dels espais.
+ * Life cycle of a bank account inside the workspaces.
  *
- * L'unica cosa que hi ha aqui es moure un compte d'espai, i es prou delicada
- * per tenir modul propi: toca l'historial sencer del compte i abans vivia dins
- * d'un gestor de ruta de noranta linies.
+ * The only thing here is moving an account between workspaces, and it is
+ * delicate enough to have its own module: it touches the account's whole
+ * history and used to live inside a ninety-line route handler.
  */
 
 import { and, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
@@ -11,108 +11,108 @@ import { and, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { accounts, categories, ledgers, transactions } from "../db/schema/index.ts";
 import { NotFoundError } from "../lib/http.ts";
-import { classificaPendents } from "./classification.ts";
-import { obteOCreaComerc } from "./merchants.ts";
+import { classifyPending } from "./classification.ts";
+import { getOrCreateMerchant } from "./merchants.ts";
 import { normalizeDescription } from "./normalization.ts";
 
-export interface ResumMoviment {
-  /** Moviments que han canviat d'espai. */
-  moguts: number;
-  /** Als quals s'ha pogut conservar la categoria que havia triat una persona. */
-  conservades: number;
-  /** Traspassos de l'espai vell que s'han hagut de desfer. */
-  traspassosDesfets: number;
+export interface TransactionSummary {
+  /** Transactions that changed workspace. */
+  moved: number;
+  /** Of those, the ones whose person-chosen category could be kept. */
+  kept: number;
+  /** Transfers of the old workspace that had to be undone. */
+  undoneTransfers: number;
 }
 
 /**
- * Mou un compte —i tot el seu historial— a un altre espai.
+ * Moves an account —and all its history— to another workspace.
  *
- * **No es una operacio per fer sovint.** Les categories, els comerços i les
- * regles son de cada espai, aixi que els identificadors de l'espai vell no
- * volen dir res al nou i la classificacio s'ha de refer.
+ * **This is not an operation to do often.** Categories, merchants and rules
+ * belong to each workspace, so the old workspace's ids mean nothing in the
+ * new one and the classification has to be redone.
  *
- * El que **si** que es conserva es el que ha decidit una persona. Tots els
- * espais es sembren amb el mateix pla de categories, de manera que el *slug*
- * («alimentacio-supermercat») si que vol dir el mateix a banda i banda: els
- * moviments amb `category_source = "user"` es tornen a lligar per slug a
- * l'espai nou. Els que no hi encaixen —una categoria que nomes existia a
- * l'espai vell— van a la safata de revisio, com la resta.
+ * What **is** kept is what a person decided. Every workspace is seeded with
+ * the same category plan, so the *slug* («alimentacio-supermercat») does mean
+ * the same on both sides: transactions with `category_source = "user"` are
+ * re-linked by slug in the new workspace. Those that do not fit —a category
+ * that only existed in the old workspace— go to the review tray, like the
+ * rest.
  *
- * La part estructural va dins d'una transaccio. La reclassificacio final, no:
- * es idempotent i es pot tornar a executar, i si falles el pitjor que passa es
- * que uns quants moviments es quedin per revisar, que es l'estat segur.
+ * The structural part goes inside a transaction. The final reclassification
+ * does not: it is idempotent and can be run again, and if it fails the worst
+ * that happens is that a few transactions stay pending review, which is the
  */
-export async function mouCompteDEspai(
-  compteId: number,
-  nouEspai: number | null,
-): Promise<ResumMoviment> {
-  const [compte] = await db.select().from(accounts).where(eq(accounts.id, compteId)).limit(1);
-  if (!compte) throw new NotFoundError("Aquest compte no existeix");
+export async function moveAccountToWorkspace(
+  accountId: number,
+  newWorkspace: number | null,
+): Promise<TransactionSummary> {
+  const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId)).limit(1);
+  if (!account) throw new NotFoundError("Aquest compte no existeix");
 
-  if (nouEspai !== null) {
-    const [espai] = await db
+  if (newWorkspace !== null) {
+    const [workspace] = await db
       .select({ id: ledgers.id })
       .from(ledgers)
-      .where(eq(ledgers.id, nouEspai))
+      .where(eq(ledgers.id, newWorkspace))
       .limit(1);
-    if (!espai) throw new NotFoundError("Aquest espai no existeix");
+    if (!workspace) throw new NotFoundError("Aquest espai no existeix");
   }
 
-  if (nouEspai === compte.ledgerId) {
-    return { moguts: 0, conservades: 0, traspassosDesfets: 0 };
+  if (newWorkspace === account.ledgerId) {
+    return { moved: 0, kept: 0, undoneTransfers: 0 };
   }
 
-  const resum = await db.transaction(async (tx) => {
-    // --- El que s'ha de recordar abans d'esborrar-ho ---
+  const summary = await db.transaction(async (tx) => {
+    // --- What has to be remembered before deleting it ---
 
-    // Les decisions d'una persona, apuntades pel slug, que es el que vol dir
-    // el mateix a tots els espais.
+    // A person's decisions, noted by slug, which is what means the same in
+    // every workspace.
     const decisions = await tx
-      .select({ movimentId: transactions.id, slug: categories.slug })
+      .select({ transactionId: transactions.id, slug: categories.slug })
       .from(transactions)
       .innerJoin(categories, eq(categories.id, transactions.categoryId))
       .where(
-        and(eq(transactions.accountId, compteId), eq(transactions.categorySource, "user")),
+        and(eq(transactions.accountId, accountId), eq(transactions.categorySource, "user")),
       );
 
-    // Els traspassos on aquest compte era una de les dues cames. L'altra es
-    // queda a l'espai vell, i si no li traiem el grup es queda apuntant a un
-    // aparellament que ja no existeix: fora dels informes per sempre, sense
-    // res amb que tornar a aparellar-se.
-    const grups = (
+    // The transfers where this account was one of the two legs. The other one
+    // stays in the old workspace, and if we do not remove its group it is left
+    // pointing at a pairing that no longer exists: out of the reports forever,
+    // with nothing to pair up with again.
+    const groups = (
       await tx
-        .selectDistinct({ grup: transactions.transferGroupId })
+        .selectDistinct({ group: transactions.transferGroupId })
         .from(transactions)
         .where(
-          and(eq(transactions.accountId, compteId), isNotNull(transactions.transferGroupId)),
+          and(eq(transactions.accountId, accountId), isNotNull(transactions.transferGroupId)),
         )
     )
-      .map((f) => f.grup)
+      .map((f) => f.group)
       .filter((g): g is string => g !== null);
 
-    let traspassosDesfets = 0;
-    if (grups.length > 0) {
-      const orfes = await tx
+    let undoneTransfers = 0;
+    if (groups.length > 0) {
+      const orphans = await tx
         .update(transactions)
         .set({ transferGroupId: null })
         .where(
           and(
-            inArray(transactions.transferGroupId, grups),
-            ne(transactions.accountId, compteId),
+            inArray(transactions.transferGroupId, groups),
+            ne(transactions.accountId, accountId),
           ),
         )
         .returning({ id: transactions.id });
-      traspassosDesfets = orfes.length;
+      undoneTransfers = orphans.length;
     }
 
-    // --- El trasllat ---
+    // --- The move ---
 
-    await tx.update(accounts).set({ ledgerId: nouEspai }).where(eq(accounts.id, compteId));
+    await tx.update(accounts).set({ ledgerId: newWorkspace }).where(eq(accounts.id, accountId));
 
-    const moguts = await tx
+    const moved = await tx
       .update(transactions)
       .set({
-        ledgerId: nouEspai,
+        ledgerId: newWorkspace,
         merchantId: null,
         categoryId: null,
         categorySource: "none",
@@ -121,89 +121,90 @@ export async function mouCompteDEspai(
         transferGroupId: null,
         needsReview: true,
       })
-      .where(eq(transactions.accountId, compteId))
+      .where(eq(transactions.accountId, accountId))
       .returning({ id: transactions.id });
 
-    let conservades = 0;
-    if (nouEspai !== null) {
-      // --- El que es recupera ---
-      conservades = await tornaLesDecisions(tx, nouEspai, decisions);
-      await refesLesContraparts(tx, compteId, nouEspai);
+    let kept = 0;
+    if (newWorkspace !== null) {
+      // --- What is recovered ---
+      kept = await returnsLesDecisions(tx, newWorkspace, decisions);
+      await redoCounterparties(tx, accountId, newWorkspace);
     }
 
-    // Els comerços dels **dos** espais queden desquadrats: els de l'espai nou
-    // perque `obteOCreaComerc` puja el comptador d'un en un i aqui s'ha cridat
-    // un cop per grup, i els de l'espai vell perque compten moviments que ja
-    // no hi son.
-    await requadraElsComptadors(tx, [compte.ledgerId, nouEspai]);
+    // The merchants of **both** workspaces are left out of true: those of the
+    // new one because `getOrCreateMerchant` raises the counter one by one and
+    // here it has been called once per group, and those of the old one because
+    // they count transactions that are no longer there.
+    await boxTheCounters(tx, [account.ledgerId, newWorkspace]);
 
-    return { moguts: moguts.length, conservades, traspassosDesfets };
+    return { moved: moved.length, kept, undoneTransfers };
   });
 
-  // Fora de la transaccio a posta: `classificaPendents` obre les seves
-  // consultes i no veuria res del que encara no s'ha desat.
-  if (nouEspai !== null) await classificaPendents(nouEspai);
+  // Outside the transaction on purpose: `classifyPending` opens its own
+  // queries and would see nothing of what has not been committed yet.
+  if (newWorkspace !== null) await classifyPending(newWorkspace);
 
-  return resum;
+  return summary;
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /**
- * Torna a posar les categories que havia triat una persona, lligant-les pel
- * slug a l'espai nou. Retorna quantes se n'han pogut recuperar.
+ * Puts back the categories a person had chosen, linking them by slug in the
+ * new workspace. Returns how many could be recovered.
  */
-async function tornaLesDecisions(
+async function returnsLesDecisions(
   tx: Tx,
-  nouEspai: number,
-  decisions: { movimentId: number; slug: string }[],
+  newWorkspace: number,
+  decisions: { transactionId: number; slug: string }[],
 ): Promise<number> {
   if (decisions.length === 0) return 0;
 
   const slugs = [...new Set(decisions.map((d) => d.slug))];
-  const destins = await tx
+  const targets = await tx
     .select({ id: categories.id, slug: categories.slug })
     .from(categories)
-    .where(and(eq(categories.ledgerId, nouEspai), inArray(categories.slug, slugs)));
+    .where(and(eq(categories.ledgerId, newWorkspace), inArray(categories.slug, slugs)));
 
-  const perSlug = new Map(destins.map((c) => [c.slug, c.id]));
+  const perSlug = new Map(targets.map((c) => [c.slug, c.id]));
 
-  // Un `update` per categoria de desti, no per moviment.
-  const perCategoria = new Map<number, number[]>();
-  for (const decisio of decisions) {
-    const categoriaId = perSlug.get(decisio.slug);
-    if (categoriaId === undefined) continue;
-    perCategoria.set(categoriaId, [
-      ...(perCategoria.get(categoriaId) ?? []),
-      decisio.movimentId,
-    ]);
+  // One `update` per destination category, not per transaction.
+  const byCategory = new Map<number, number[]>();
+  for (const decision of decisions) {
+    const categoryId = perSlug.get(decision.slug);
+    if (categoryId === undefined) continue;
+    byCategory.set(categoryId, [...(byCategory.get(categoryId) ?? []), decision.transactionId]);
   }
 
-  let conservades = 0;
-  for (const [categoriaId, ids] of perCategoria) {
+  let kept = 0;
+  for (const [categoryId, ids] of byCategory) {
     await tx
       .update(transactions)
       .set({
-        categoryId: categoriaId,
+        categoryId: categoryId,
         categorySource: "user",
         categoryConfidence: 1,
         needsReview: false,
       })
       .where(inArray(transactions.id, ids));
-    conservades += ids.length;
+    kept += ids.length;
   }
 
-  return conservades;
+  return kept;
 }
 
 /**
- * Torna a crear els comerços dins de l'espai nou i hi lliga els moviments.
+ * Recreates the merchants inside the new workspace and links the transactions to them.
  *
- * Va per grup i no per moviment: un compte amb tres mil apunts sol tenir
- * unes desenes de contraparts, i la diferencia son milers de consultes.
+ * It goes by group and not by transaction: an account with three thousand
+ * entries usually has a few dozen counterparties, and the difference is thousands of queries.
  */
-async function refesLesContraparts(tx: Tx, compteId: number, nouEspai: number): Promise<void> {
-  const seus = await tx
+async function redoCounterparties(
+  tx: Tx,
+  accountId: number,
+  newWorkspace: number,
+): Promise<void> {
+  const own = await tx
     .select({
       id: transactions.id,
       description: transactions.description,
@@ -211,63 +212,64 @@ async function refesLesContraparts(tx: Tx, compteId: number, nouEspai: number): 
       bookingDate: transactions.bookingDate,
     })
     .from(transactions)
-    .where(and(eq(transactions.accountId, compteId), isNull(transactions.merchantId)));
+    .where(and(eq(transactions.accountId, accountId), isNull(transactions.merchantId)));
 
-  interface Grup {
-    normalitzat: string;
-    mostrar: string;
-    ultimDia: string | null;
+  interface Group {
+    normalized: string;
+    show: string;
+    lastDay: string | null;
     ids: number[];
   }
-  const perClau = new Map<string, Grup>();
+  const byKey = new Map<string, Group>();
 
-  for (const moviment of seus) {
-    const [normalitzat, mostrar] = normalizeDescription(
-      moviment.description,
-      moviment.counterparty,
+  for (const transaction of own) {
+    const [normalized, show] = normalizeDescription(
+      transaction.description,
+      transaction.counterparty,
     );
-    if (!normalitzat) continue;
+    if (!normalized) continue;
 
-    const clau = normalitzat.slice(0, 200);
-    const grup = perClau.get(clau);
-    if (grup === undefined) {
-      perClau.set(clau, {
-        normalitzat: clau,
-        mostrar,
-        ultimDia: moviment.bookingDate,
-        ids: [moviment.id],
+    const key = normalized.slice(0, 200);
+    const group = byKey.get(key);
+    if (group === undefined) {
+      byKey.set(key, {
+        normalized: key,
+        show,
+        lastDay: transaction.bookingDate,
+        ids: [transaction.id],
       });
     } else {
-      grup.ids.push(moviment.id);
-      if (moviment.bookingDate > (grup.ultimDia ?? "")) grup.ultimDia = moviment.bookingDate;
+      group.ids.push(transaction.id);
+      if (transaction.bookingDate > (group.lastDay ?? ""))
+        group.lastDay = transaction.bookingDate;
     }
   }
 
-  for (const grup of perClau.values()) {
-    const comerc = await obteOCreaComerc(
-      nouEspai,
-      grup.normalitzat,
-      grup.mostrar,
-      grup.ultimDia,
+  for (const group of byKey.values()) {
+    const merchant = await getOrCreateMerchant(
+      newWorkspace,
+      group.normalized,
+      group.show,
+      group.lastDay,
       tx,
     );
     await tx
       .update(transactions)
-      .set({ normalizedDescription: grup.normalitzat, merchantId: comerc?.id ?? null })
-      .where(inArray(transactions.id, grup.ids));
+      .set({ normalizedDescription: group.normalized, merchantId: merchant?.id ?? null })
+      .where(inArray(transactions.id, group.ids));
   }
 }
 
 /**
- * Torna a comptar els moviments de cada comerç dels espais que s'indiquin.
+ * Recounts the transactions of every merchant in the given workspaces.
  *
- * El comptador s'anava pujant d'un en un a mesura que apareixien moviments, i
- * aixo nomes val mentre no se'n mogui cap. Recomptar es igual de barat i no
- * pot anar-se'n de mare: es el que es veu a la llista de comerços i el que
- * ordena la cua del model local.
+ * The counter was raised one by one as transactions appeared, and that only
+ * holds while none of them move. Recounting is just as cheap and cannot drift:
+ * it is what is shown in the merchant list and what orders the local model's
+ * queue.
  */
-async function requadraElsComptadors(tx: Tx, espais: (number | null)[]): Promise<void> {
-  const ids = [...new Set(espais.filter((e): e is number => e !== null))];
+async function boxTheCounters(tx: Tx, workspaces: (number | null)[]): Promise<void> {
+  const ids = [...new Set(workspaces.filter((e): e is number => e !== null))];
   if (ids.length === 0) return;
 
   await tx.execute(sql`

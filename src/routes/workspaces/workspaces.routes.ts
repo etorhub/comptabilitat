@@ -1,15 +1,15 @@
 /**
- * Configuracio de l'espai.
+ * Workspace configuration.
  *
- * Nomes els administradors de la instal·lacio hi arriben (guarda a
- * `routes/index.ts`). Dins, nomes els administradors **d'aquest espai** el
- * poden canviar; la resta d'admins de la instal·lacio amb acces el veuen.
+ * Only installation administrators get here (guard in `routes/index.ts`).
+ * Inside, only the administrators **of this workspace** can change it; the
+ * rest of the installation admins with access can see it.
  */
 
 import { asc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { zodErrors } from "../../components/form.tsx";
+import { zodErrors } from "../../components/form.ts";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { ledgers, roleAtLeast, userLedgerPermissions, users } from "../../db/schema/index.ts";
@@ -19,14 +19,14 @@ import {
   currentWorkspace,
   requireWorkspaceAdmin,
 } from "../../middleware/workspace.ts";
-import { FormEspai, type MembreVista } from "./workspaces.fragment.tsx";
-import { WorkspacePage } from "./workspaces.page.tsx";
+import { WorkspaceForm, type MemberView } from "./workspaces.fragment.ts";
+import { WorkspacePage } from "./workspaces.page.ts";
 import { workspaceUpdateSchema } from "./workspaces.schema.ts";
 
 export const workspacesRoutes = new Hono();
 
-async function membres(ledgerId: number): Promise<MembreVista[]> {
-  const files = await db
+async function members(ledgerId: number): Promise<MemberView[]> {
+  const rows = await db
     .select({
       userId: users.id,
       email: users.email,
@@ -37,11 +37,11 @@ async function membres(ledgerId: number): Promise<MembreVista[]> {
     .innerJoin(users, eq(users.id, userLedgerPermissions.userId))
     .where(eq(userLedgerPermissions.ledgerId, ledgerId))
     .orderBy(asc(users.email));
-  return files;
+  return rows;
 }
 
 workspacesRoutes.get("/", async (c) => {
-  const espai = currentWorkspace(c);
+  const workspace = currentWorkspace(c);
 
   return page(
     c,
@@ -49,30 +49,30 @@ workspacesRoutes.get("/", async (c) => {
       c,
       "Espai",
       WorkspacePage({
-        espai,
-        membres: await membres(espai.id),
-        potConfigurar: roleAtLeast(currentRole(c), "admin"),
+        workspace,
+        members: await members(workspace.id),
+        canConfigure: roleAtLeast(currentRole(c), "admin"),
       }),
     ),
   );
 });
 
 workspacesRoutes.post("/", requireWorkspaceAdmin, async (c) => {
-  const espai = currentWorkspace(c);
+  const workspace = currentWorkspace(c);
   const parsed = workspaceUpdateSchema.safeParse(await c.req.parseBody());
 
   if (!parsed.success) {
     return fragment(
       c,
       await withOob(
-        FormEspai({ espai, errors: zodErrors(parsed.error) }),
+        WorkspaceForm({ workspace, errors: zodErrors(parsed.error) }),
         toast("Revisa el formulari"),
       ),
       422,
     );
   }
 
-  const [actualitzat] = await db
+  const [updatedOne] = await db
     .update(ledgers)
     .set({
       name: parsed.data.name,
@@ -81,13 +81,13 @@ workspacesRoutes.post("/", requireWorkspaceAdmin, async (c) => {
       overdraftThreshold: parsed.data.overdraft_threshold,
       alertRecipients: parsed.data.alert_recipients,
     })
-    .where(eq(ledgers.id, espai.id))
+    .where(eq(ledgers.id, workspace.id))
     .returning();
 
   return fragment(
     c,
     await withOob(
-      FormEspai({ espai: actualitzat ?? espai, fet: true }),
+      WorkspaceForm({ workspace: updatedOne ?? workspace, done: true }),
       toast("Configuracio desada", "success"),
     ),
   );

@@ -1,5 +1,7 @@
 /**
- * Llançar les feines a ma.
+ * Running the jobs by hand.
+ *
+ * The command names stay Catalan: they are the operator's interface.
  *
  *   bun run src/workers/cli.ts sync [--connexio 1] [--dies 30]
  *   bun run src/workers/cli.ts classify
@@ -9,60 +11,60 @@
  *   bun run src/workers/cli.ts maintenance
  *   bun run src/workers/cli.ts reassign-normalization [--espai 1]
  *
- * Equival al `python -m app.cli sync|classify|analyze|notify` d'abans.
- * Les feines amb historial passen per `executaFeina` (origen `cli`).
+ * The equivalent of the old `python -m app.cli sync|classify|analyze|notify`.
+ * Jobs with a history go through `runJob` (trigger `cli`).
  */
 
 import { closeDb } from "../db/client.ts";
-import { executaFeina } from "../services/job-runs.ts";
-import { reassignaNormalitzacio } from "../services/merchants.ts";
-import { feinaAnalisi } from "./jobs/analyze.ts";
-import { feinaClassificacio } from "./jobs/classify.ts";
-import { feinaModelLocal } from "./jobs/llm.ts";
-import { feinaManteniment } from "./jobs/maintenance.ts";
-import { feinaAvisos, feinaAvisosUrgents } from "./jobs/notify.ts";
-import { feinaSincronitzacio } from "./jobs/sync.ts";
+import { runJob } from "../services/job-runs.ts";
+import { reassignNormalization } from "../services/merchants.ts";
+import { analysisJob } from "./jobs/analyze.ts";
+import { classificationJob } from "./jobs/classify.ts";
+import { localModelJob } from "./jobs/llm.ts";
+import { maintenanceJob } from "./jobs/maintenance.ts";
+import { alertsJob, urgentAlertsJob } from "./jobs/notify.ts";
+import { syncJob } from "./jobs/sync.ts";
 
-function arg(nom: string): string | undefined {
-  const i = process.argv.indexOf(`--${nom}`);
+function arg(name: string): string | undefined {
+  const i = process.argv.indexOf(`--${name}`);
   return i === -1 ? undefined : process.argv[i + 1];
 }
 
-const enter = (nom: string): number | null => {
-  const valor = Number.parseInt(arg(nom) ?? "", 10);
-  return Number.isNaN(valor) ? null : valor;
+const enter = (name: string): number | null => {
+  const value = Number.parseInt(arg(name) ?? "", 10);
+  return Number.isNaN(value) ? null : value;
 };
 
-const feines: Record<string, () => Promise<string>> = {
+const jobs: Record<string, () => Promise<string>> = {
   sync: () =>
-    executaFeina("sync", "cli", () =>
-      feinaSincronitzacio({ connectionId: enter("connexio"), daysBack: enter("dies") }),
+    runJob("sync", "cli", () =>
+      syncJob({ connectionId: enter("connexio"), daysBack: enter("dies") }),
     ),
-  classify: () => executaFeina("classify", "cli", feinaClassificacio),
-  llm: () => executaFeina("llm", "cli", () => feinaModelLocal(enter("limit") ?? 50)),
-  analyze: () => executaFeina("analyze", "cli", feinaAnalisi),
+  classify: () => runJob("classify", "cli", classificationJob),
+  llm: () => runJob("llm", "cli", () => localModelJob(enter("limit") ?? 50)),
+  analyze: () => runJob("analyze", "cli", analysisJob),
   notify: () =>
-    executaFeina(process.argv.includes("--urgents") ? "notify-urgents" : "notify", "cli", () =>
-      process.argv.includes("--urgents") ? feinaAvisosUrgents() : feinaAvisos(),
+    runJob(process.argv.includes("--urgents") ? "notify-urgents" : "notify", "cli", () =>
+      process.argv.includes("--urgents") ? urgentAlertsJob() : alertsJob(),
     ),
-  maintenance: () => executaFeina("maintenance", "cli", feinaManteniment),
+  maintenance: () => runJob("maintenance", "cli", maintenanceJob),
   "reassign-normalization": async () => {
-    const espai = enter("espai");
-    const r = await reassignaNormalitzacio(espai ?? undefined);
-    return `${r.canviats} de ${r.revisats} moviments reassignats`;
+    const workspace = enter("espai");
+    const r = await reassignNormalization(workspace ?? undefined);
+    return `${r.changed} de ${r.reviewed} moviments reassignats`;
   },
 };
 
-const ordre = process.argv[2];
-const feina = ordre === undefined ? undefined : feines[ordre];
+const order = process.argv[2];
+const job = order === undefined ? undefined : jobs[order];
 
-if (feina === undefined) {
-  console.error(`Feines: ${Object.keys(feines).join(", ")}`);
+if (job === undefined) {
+  console.error(`Feines: ${Object.keys(jobs).join(", ")}`);
   process.exit(1);
 }
 
 try {
-  console.log(await feina());
+  console.log(await job());
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;
