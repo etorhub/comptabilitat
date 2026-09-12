@@ -80,8 +80,8 @@ describe("the category plan", () => {
   });
 
   test("running it again duplicates nothing", async () => {
-    const creades = await seedCategories(ledgerId);
-    expect(creades).toBe(0);
+    const createdRows = await seedCategories(ledgerId);
+    expect(createdRows).toBe(0);
     const all = await db.select().from(categories).where(eq(categories.ledgerId, ledgerId));
     expect(all).toHaveLength(81);
   });

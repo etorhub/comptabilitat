@@ -34,8 +34,8 @@ export interface DashboardPageProps {
   workspaceColor: string;
   balance: string;
   balanceDate: string | null;
-  mesActual: IncomeAndExpenses;
-  perRevisar: number;
+  currentMonth: IncomeAndExpenses;
+  toReview: number;
   unclassified: number;
   activeAlerts: number;
   /** The alerts link only makes sense for installation administrators. */
@@ -52,8 +52,8 @@ export function DashboardPage(props: DashboardPageProps): Html {
     workspaceColor,
     balance,
     balanceDate,
-    mesActual,
-    perRevisar,
+    currentMonth,
+    toReview,
     unclassified,
     activeAlerts,
     canSeeAlerts,
@@ -74,14 +74,14 @@ export function DashboardPage(props: DashboardPageProps): Html {
       ${HeaderBalance({ balance, date: balanceDate })}
       ${Stat({
         tag: "Aquest mes",
-        value: formatMoney(mesActual.cleaned),
-        to: mesActual.cleaned.startsWith("-") ? "negatiu" : "positiu",
-        detail: html`${formatMoney(mesActual.income)} entren ·
-        ${formatMoney(mesActual.expenses)} surten`,
+        value: formatMoney(currentMonth.cleaned),
+        to: currentMonth.cleaned.startsWith("-") ? "negatiu" : "positiu",
+        detail: html`${formatMoney(currentMonth.income)} entren ·
+        ${formatMoney(currentMonth.expenses)} surten`,
       })}
       ${Stat({
         tag: "Per revisar",
-        value: String(perRevisar),
+        value: String(toReview),
         href: `/e/${code}/moviments/revisio`,
         detail: unclassified > 0 ? `${unclassified} sense classificar` : "",
       })}
@@ -147,13 +147,13 @@ export function ReportsPage(props: ReportsPageProps): Html {
         <select name="mesos">
           ${[6, 12, 24, 36].map(
             (m) =>
-              html`<option value="${m}" ${m === filters.mesos ? "selected" : ""}>${m}</option>`,
+              html`<option value="${m}" ${m === filters.months ? "selected" : ""}>${m}</option>`,
           )}
         </select>
       </label>
 
       <span class="descarregues">
-        <a class="boto boto-discret" href="/e/${code}/informes/informe.xlsx?mesos=${filters.mesos}">
+        <a class="boto boto-discret" href="/e/${code}/informes/informe.xlsx?mesos=${filters.months}">
           Excel
         </a>
         <a class="boto boto-discret" href="/e/${code}/informes/informe.pdf">PDF</a>
@@ -223,7 +223,7 @@ export function ForecastContent({
   forecast: Forecast;
 }): Html {
   const last = forecast.points[forecast.points.length - 1];
-  const finalBalance = last?.esperat ?? forecast.openingBalance;
+  const finalBalance = last?.expected ?? forecast.openingBalance;
   const difference = money(finalBalance).minus(money(forecast.openingBalance));
   const differenceText = `${difference.isPositive() ? "+" : ""}${formatMoney(difference)}`;
 
@@ -245,7 +245,7 @@ export function ForecastContent({
               Amb aquest ritme, el saldo baixaria a
               <strong>${formatMoney(forecast.firstOverdraftAmount)}</strong> el
               <strong>${formatDate(forecast.firstOverdraft)}</strong>, per sota del
-              llindar de ${formatMoney(forecast.llindar)}.
+              llindar de ${formatMoney(forecast.threshold)}.
             </p>`
             : ""
         }
@@ -273,7 +273,7 @@ export function ForecastContent({
 
       <div class="xifres previsio-xifres">
         ${Stat({ tag: "Saldo d'avui", value: formatMoney(forecast.openingBalance) })}
-        ${Stat({ tag: "Llindar de descobert", value: formatMoney(forecast.llindar) })}
+        ${Stat({ tag: "Llindar de descobert", value: formatMoney(forecast.threshold) })}
         ${Stat({
           tag: `D'aqui a ${forecast.horizonDays} dies`,
           value: formatMoney(finalBalance),

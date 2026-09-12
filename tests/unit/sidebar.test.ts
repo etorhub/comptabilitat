@@ -46,37 +46,37 @@ async function bar(path: string): Promise<string> {
 }
 
 /** The `href` of the link marked as the current page. */
-function marcat(page: string): string[] {
+function marked(page: string): string[] {
   return [...page.matchAll(/<a href="([^"]+)" aria-current="page">/g)].map((m) => m[1] ?? "");
 }
 
 describe("aria-current in the sidebar", () => {
   test("marks the page being viewed, and only one", async () => {
-    expect(marcat(await bar("/e/personal/moviments"))).toEqual(["/e/personal/moviments"]);
+    expect(marked(await bar("/e/personal/moviments"))).toEqual(["/e/personal/moviments"]);
     // And those of the configuration group, which the master moved aside.
-    expect(marcat(await bar("/e/personal/etiquetes"))).toEqual(["/e/personal/etiquetes"]);
-    expect(marcat(await bar("/e/personal/categories"))).toEqual(["/e/personal/categories"]);
+    expect(marked(await bar("/e/personal/etiquetes"))).toEqual(["/e/personal/etiquetes"]);
+    expect(marked(await bar("/e/personal/categories"))).toEqual(["/e/personal/categories"]);
   });
 
   test("the longest path wins, not the first that matches", async () => {
     // «Panell» is `/e/personal`, which is the start of all the others.
-    expect(marcat(await bar("/e/personal/avisos"))).toEqual(["/e/personal/avisos"]);
+    expect(marked(await bar("/e/personal/avisos"))).toEqual(["/e/personal/avisos"]);
     // And «Moviments» is the start of «Per revisar».
-    expect(marcat(await bar("/e/personal/moviments/revisio"))).toEqual([
+    expect(marked(await bar("/e/personal/moviments/revisio"))).toEqual([
       "/e/personal/moviments/revisio",
     ]);
     // The dashboard, on its own page, is marked.
-    expect(marcat(await bar("/e/personal"))).toEqual(["/e/personal"]);
+    expect(marked(await bar("/e/personal"))).toEqual(["/e/personal"]);
   });
 
   test("also on the administration screens", async () => {
-    expect(marcat(await bar("/usuaris"))).toEqual(["/usuaris"]);
-    expect(marcat(await bar("/connexions"))).toEqual(["/connexions"]);
-    expect(marcat(await bar("/feines"))).toEqual(["/feines"]);
+    expect(marked(await bar("/usuaris"))).toEqual(["/usuaris"]);
+    expect(marked(await bar("/connexions"))).toEqual(["/connexions"]);
+    expect(marked(await bar("/feines"))).toEqual(["/feines"]);
   });
 
   test("a URL belonging to no link marks none", async () => {
-    expect(marcat(await bar("/contrasenya"))).toEqual([]);
+    expect(marked(await bar("/contrasenya"))).toEqual([]);
   });
 
   test("any page is born with the live region", async () => {

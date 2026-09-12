@@ -35,15 +35,15 @@ export async function countNewAlerts(ledgerId: number): Promise<number> {
 }
 
 export interface Counters {
-  perRevisar: number;
+  toReview: number;
   newAlerts: number;
 }
 
 /** Both at once, for drawing a whole page. */
 export async function counters(ledgerId: number): Promise<Counters> {
-  const [perRevisar, newAlerts] = await Promise.all([
+  const [toReview, newAlerts] = await Promise.all([
     countToReview(ledgerId),
     countNewAlerts(ledgerId),
   ]);
-  return { perRevisar, newAlerts };
+  return { toReview, newAlerts };
 }

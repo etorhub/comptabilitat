@@ -245,11 +245,11 @@ function capitalize(word: string): string {
 
 /** Strips the given characters from both ends, like `strip(" .")`. */
 function stripEnds(text: string, chars: string): string {
-  let inici = 0;
+  let start = 0;
   let fi = text.length;
-  while (inici < fi && chars.includes(text[inici] as string)) inici += 1;
-  while (fi > inici && chars.includes(text[fi - 1] as string)) fi -= 1;
-  return text.slice(inici, fi);
+  while (start < fi && chars.includes(text[start] as string)) start += 1;
+  while (fi > start && chars.includes(text[fi - 1] as string)) fi -= 1;
+  return text.slice(start, fi);
 }
 
 /**
@@ -299,14 +299,14 @@ export function normalizeDescription(description: string, counterparty = ""): [s
     }
   }
 
-  let haTretPrefix = false;
+  let prefixRemoved = false;
   for (const pattern of PREFIX_PATTERNS) {
     const replaced = text.replace(pattern, "");
     if (replaced !== text) {
       text = replaced;
       // With a known prefix, what comes after a comma is usually the town.
       text = text.split(",")[0] ?? "";
-      haTretPrefix = true;
+      prefixRemoved = true;
       break;
     }
   }
@@ -339,7 +339,7 @@ export function normalizeDescription(description: string, counterparty = ""): [s
   if (!normalized) {
     // If there was only the operation prefix, we do not recycle it as a
     // merchant name: every empty «PAGO MOVIL EN» would end up in the same place.
-    if (haTretPrefix) return ["", ""];
+    if (prefixRemoved) return ["", ""];
     // With no prefix: better some key than leaving the transaction nameless.
     const fallback = stripAccents(source)
       .toUpperCase()

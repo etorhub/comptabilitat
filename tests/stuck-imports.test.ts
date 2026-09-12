@@ -18,18 +18,18 @@ import { maintenanceJob } from "../src/workers/jobs/maintenance.ts";
 
 let connectionId = 0;
 
-function faHores(hores: number): Date {
-  return new Date(Date.now() - hores * 60 * 60 * 1000);
+function hoursAgo(hours: number): Date {
+  return new Date(Date.now() - hours * 60 * 60 * 1000);
 }
 
-async function run(state: "running" | "success", començada: Date): Promise<number> {
+async function run(state: "running" | "success", startedAt: Date): Promise<number> {
   const [row] = await db
     .insert(syncRuns)
     .values({
       connectionId: connectionId,
       trigger: "manual",
       status: state,
-      startedAt: començada,
+      startedAt: startedAt,
       finishedAt: state === "running" ? null : new Date(),
       accountsSynced: 0,
       transactionsInserted: 0,
@@ -60,55 +60,55 @@ beforeEach(async () => {
 
 describe("the maintenance", () => {
   test("closes those that have not moved for hours", async () => {
-    const morta = await run("running", faHores(5));
+    const dead = await run("running", hoursAgo(5));
 
     expect(await closeStuckImports()).toBe(1);
 
-    const [row] = await db.select().from(syncRuns).where(eq(syncRuns.id, morta));
+    const [row] = await db.select().from(syncRuns).where(eq(syncRuns.id, dead));
     expect(row?.status).toBe("failed");
     expect(row?.finishedAt).not.toBeNull();
     expect(row?.error).toContain("a mitges");
   });
 
   test("but does not touch those that have just started", async () => {
-    const viva = await run("running", faHores(0));
+    const alive = await run("running", hoursAgo(0));
 
     expect(await closeStuckImports()).toBe(0);
 
-    const [row] = await db.select().from(syncRuns).where(eq(syncRuns.id, viva));
+    const [row] = await db.select().from(syncRuns).where(eq(syncRuns.id, alive));
     expect(row?.status).toBe("running");
   });
 
   test("and the maintenance job says so", async () => {
-    await run("running", faHores(5));
+    await run("running", hoursAgo(5));
     expect(await maintenanceJob()).toContain("1 importacions penjades");
   });
 });
 
 describe("two imports at once", () => {
   test("with a live one, no other is started", async () => {
-    await run("running", faHores(0));
+    await run("running", hoursAgo(0));
     expect(await alreadySyncing(connectionId)).toBe(true);
   });
 
   test("a hung one does not block forever", async () => {
-    await run("running", faHores(5));
+    await run("running", hoursAgo(5));
     expect(await alreadySyncing(connectionId)).toBe(false);
   });
 
   test("nor does one that has already finished", async () => {
-    await run("success", faHores(0));
+    await run("success", hoursAgo(0));
     expect(await alreadySyncing(connectionId)).toBe(false);
   });
 });
 
 describe("the server's shutdown", () => {
   test("marks any open ones as interrupted", async () => {
-    const oberta = await run("running", faHores(0));
+    const open = await run("running", hoursAgo(0));
 
     expect(await closeOpenImports()).toBe(1);
 
-    const [row] = await db.select().from(syncRuns).where(eq(syncRuns.id, oberta));
+    const [row] = await db.select().from(syncRuns).where(eq(syncRuns.id, open));
     expect(row?.status).toBe("failed");
     expect(row?.error).toContain("s'ha aturat");
   });

@@ -115,10 +115,10 @@ describe("f5b8e9b — the table saved the category to the wrong row", () => {
     // The application's type filter is five checkboxes named `tipus` inside the
     // filter form. That is how HTML spells "several values for one field", and
     // this rule flagged every one of them until it learned the difference.
-    const caselles = ["ingres", "despesa", "transferencia", "targeta", "altres"]
+    const checkboxes = ["ingres", "despesa", "transferencia", "targeta", "altres"]
       .map((v) => `<input type="checkbox" name="tipus" value="${v}">`)
       .join("");
-    const found = await checkDocument(`<form>${caselles}</form>`, { fragment: true });
+    const found = await checkDocument(`<form>${checkboxes}</form>`, { fragment: true });
     expect(rules(found)).not.toContain("duplicate-field-in-form");
   });
 

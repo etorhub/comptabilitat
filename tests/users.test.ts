@@ -273,11 +273,11 @@ describe("deactivating a user", () => {
     });
     expect(res.status).toBe(422);
 
-    const [encara] = await db
+    const [still] = await db
       .select()
       .from(users)
       .where(eq(users.id, root?.id ?? 0));
-    expect(encara?.isActive).toBe(true);
+    expect(still?.isActive).toBe(true);
   });
 });
 
@@ -298,12 +298,12 @@ describe("editing a user", () => {
     });
     expect(res.status).toBe(200);
 
-    const [actualitzat] = await db
+    const [updatedOne] = await db
       .select()
       .from(users)
       .where(eq(users.id, pau?.id ?? 0));
-    expect(actualitzat?.fullName).toBe("Pau Actualitzat");
-    expect(actualitzat?.isAdmin).toBe(true);
+    expect(updatedOne?.fullName).toBe("Pau Actualitzat");
+    expect(updatedOne?.isAdmin).toBe(true);
   });
 
   test("an administrator cannot take admin away from themselves", async () => {
@@ -322,11 +322,11 @@ describe("editing a user", () => {
     });
     expect(res.status).toBe(422);
 
-    const [encara] = await db
+    const [still] = await db
       .select()
       .from(users)
       .where(eq(users.id, root?.id ?? 0));
-    expect(encara?.isAdmin).toBe(true);
+    expect(still?.isAdmin).toBe(true);
   });
 });
 

@@ -62,7 +62,7 @@ export async function beginAuthorization(options: {
       .set({ ebAuthState: state })
       .where(eq(bankConnections.id, connection.id));
   } else {
-    const [creada] = await db
+    const [created] = await db
       .insert(bankConnections)
       .values({
         name: aspspName,
@@ -78,7 +78,7 @@ export async function beginAuthorization(options: {
         createdById: options.userId,
       })
       .returning();
-    connection = creada;
+    connection = created;
   }
 
   if (!connection) throw new Error("No s'ha pogut crear la connexio");
@@ -121,7 +121,7 @@ export async function finishAuthorization(
 
   const validUntil = session.access?.valid_until ? new Date(session.access.valid_until) : null;
 
-  const [actualitzada] = await db
+  const [updated] = await db
     .update(bankConnections)
     .set({
       ebSessionId: session.session_id ?? null,
@@ -179,7 +179,7 @@ export async function finishAuthorization(
     }
   }
 
-  return actualitzada ?? connection;
+  return updated ?? connection;
 }
 
 /**
@@ -212,7 +212,7 @@ export async function checkConsents(): Promise<number> {
 
     if (![7, 3, 1].includes(days)) continue;
 
-    const creat = await createAlert({
+    const createdOne = await createAlert({
       type: "consent_expiring",
       ledgerId: null,
       dedupKey: `consent-expiring:${connection.id}:${days}`,
@@ -221,7 +221,7 @@ export async function checkConsents(): Promise<number> {
       severity: days <= 1 ? "critical" : "warning",
       payload: { connection_id: connection.id, days_left: days },
     });
-    if (creat) created += 1;
+    if (createdOne) created += 1;
   }
 
   return created;

@@ -22,7 +22,7 @@ export interface ParsedDescription {
   /** Clean text for the Concept column. */
   title: string;
   /** Last 4 digits of the card, or null if there are none. */
-  darrers4: string | null;
+  last4: string | null;
   /** Bank text without PAN/card/commission: for the button's `title`. */
   cleanedOriginal: string;
   /** Operation type for the label and the filter. */
@@ -66,13 +66,13 @@ const PREFIXOS: RegExp[] = [
  * Accepts `TARJ. :*484017`, `TARJETA 5489010385484017` and bare labelled PANs
  * of 13–19 digits. It never leaves a block of 13–19 digits in the title.
  */
-function removeCard(text: string): { text: string; darrers4: string | null } {
-  let darrers4: string | null = null;
+function removeCard(text: string): { text: string; last4: string | null } {
+  let last4: string | null = null;
   let cleaned = text;
 
   const mark = (digits: string) => {
-    const nets = digits.replace(/\D/g, "");
-    if (nets.length >= 4) darrers4 = nets.slice(-4);
+    const netValues = digits.replace(/\D/g, "");
+    if (netValues.length >= 4) last4 = netValues.slice(-4);
   };
 
   // TARJ. / TARJETA + digits (with or without * and :).
@@ -103,11 +103,11 @@ function removeCard(text: string): { text: string; darrers4: string | null } {
   // Residual masked forms: *484017 or ****4017
   cleaned = cleaned.replace(/\*{1,}\d{2,6}\b/g, (m) => {
     const digits = m.replace(/\D/g, "");
-    if (digits.length >= 4 && !darrers4) darrers4 = digits.slice(-4);
+    if (digits.length >= 4 && !last4) last4 = digits.slice(-4);
     return " ";
   });
 
-  return { text: cleaned, darrers4 };
+  return { text: cleaned, last4 };
 }
 
 function stripFee(text: string): string {
@@ -118,8 +118,8 @@ function stripFee(text: string): string {
  * Human part of a `concepto:`: pieces separated by `/`, discarding the land
  * registry reference and instalments (`Q.IBI 95,25`).
  */
-function descriptionParts(despres: string): string {
-  const parts = despres
+function descriptionParts(after: string): string {
+  const parts = after
     .split("/")
     .map((p) => p.trim())
     .filter(Boolean);
@@ -255,7 +255,7 @@ function readableTitle(upper: string): string {
  * Capitalizes only if the text comes in all capitals (typical of purchases).
  * Transfer names with accents or lower case are left as they are.
  */
-function presenta(text: string): string {
+function present(text: string): string {
   const cleaned = text.trim();
   if (!cleaned) return cleaned;
   // Keeps the bank's casing if it already has lower case.
@@ -297,23 +297,23 @@ function presenta(text: string): string {
 export function parseDescription(text: string): ParsedDescription {
   const raw = text.trim();
   if (!raw) {
-    return { title: "", darrers4: null, cleanedOriginal: "", type: "altres" };
+    return { title: "", last4: null, cleanedOriginal: "", type: "altres" };
   }
 
   const type = detectOperationType(raw);
-  const { text: withoutCard, darrers4 } = removeCard(raw);
+  const { text: withoutCard, last4 } = removeCard(raw);
   const withoutFee = stripFee(withoutCard);
   const cleanedOriginal = collapseSpaces(withoutFee);
 
   // «concepto:» — the title is what comes after.
   const matchDescription = /(?:^|[,;]\s*)concepto\s*:\s*(.*)$/i.exec(cleanedOriginal);
   if (matchDescription) {
-    const despres = (matchDescription[1] ?? "").trim();
-    const humans = descriptionParts(despres);
-    const title = presenta(humans || despres);
+    const after = (matchDescription[1] ?? "").trim();
+    const humans = descriptionParts(after);
+    const title = present(humans || after);
     return {
       title: title || cleanedOriginal,
-      darrers4,
+      last4,
       cleanedOriginal,
       type,
     };
@@ -333,10 +333,10 @@ export function parseDescription(text: string): ParsedDescription {
   body = body.replace(/\b\d{13,19}\b/g, " ");
   body = collapseSpaces(body);
 
-  const title = presenta(body);
+  const title = present(body);
   return {
     title: title || cleanedOriginal,
-    darrers4,
+    last4,
     cleanedOriginal,
     type,
   };

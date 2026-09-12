@@ -6,18 +6,18 @@ import { html } from "hono/html";
 
 import type { Ledger } from "../../db/schema/index.ts";
 import type { Html } from "../../lib/html.ts";
-import { FormConnecta, List, type ConnectionView } from "./connections.fragment.ts";
+import { ConnectForm, List, type ConnectionView } from "./connections.fragment.ts";
 
 export interface ConnectionsPageProps {
   connections: ConnectionView[];
   workspaces: Ledger[];
-  retorn?: { ok: boolean; reason: string } | undefined;
+  callbackResult?: { ok: boolean; reason: string } | undefined;
 }
 
 export function ConnectionsPage({
   connections,
   workspaces,
-  retorn,
+  callbackResult,
 }: ConnectionsPageProps): Html {
   return html`
     <header class="capçalera">
@@ -29,18 +29,18 @@ export function ConnectionsPage({
     </header>
 
     ${
-      retorn
-        ? retorn.ok
+      callbackResult
+        ? callbackResult.ok
           ? html`<p class="form-ok" role="status">
             El banc s'ha connectat. Assigna cada compte al seu espai i despres
             prem «Sincronitza».
           </p>`
           : html`<p class="form-error" role="alert">
-            El banc no ha completat l'autoritzacio${retorn.reason ? html`: ${retorn.reason}` : ""}.
+            El banc no ha completat l'autoritzacio${callbackResult.reason ? html`: ${callbackResult.reason}` : ""}.
           </p>`
         : ""
     }
 
-    ${FormConnecta()} ${List({ connections, workspaces })}
+    ${ConnectForm()} ${List({ connections, workspaces })}
   ` as Html;
 }

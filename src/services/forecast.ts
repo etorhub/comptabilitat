@@ -25,9 +25,9 @@ export interface EventExpected {
 
 export interface ForecastPoint {
   day: string;
-  esperat: MoneyString;
+  expected: MoneyString;
   optimista: MoneyString;
-  pessimista: MoneyString;
+  pessimistic: MoneyString;
   /** Least-squares line over `esperat`: the overall trend. */
   trend: MoneyString;
 }
@@ -37,12 +37,12 @@ export interface Forecast {
   ledgerName: string;
   currency: string;
   openingBalance: MoneyString;
-  llindar: MoneyString;
+  threshold: MoneyString;
   horizonDays: number;
   /** Always zero: kept in the type so as not to break the charts' UI. */
   dailySpend: MoneyString;
   /** Real balance rebuilt backwards (same width as the horizon). */
-  historic: BalancePoint[];
+  history: BalancePoint[];
   points: ForecastPoint[];
   events: EventExpected[];
   firstOverdraft: string | null;
@@ -53,9 +53,9 @@ export interface Forecast {
 export async function eventsExpected(
   ledgerId: number,
   horitzo: string,
-  inici?: string,
+  start?: string,
 ): Promise<EventExpected[]> {
-  const begin = inici ?? todayLocal();
+  const begin = start ?? todayLocal();
   const events: EventExpected[] = [];
 
   const activeSeries = await db
@@ -95,14 +95,14 @@ export async function buildForecast(
   horizonDays?: number,
 ): Promise<Forecast> {
   const days = horizonDays ?? config.forecastHorizonDays;
-  const inici = todayLocal();
-  const horitzo = addDays(inici, days);
+  const start = todayLocal();
+  const horitzo = addDays(start, days);
 
-  const [{ total: balance }, events, historic] = await Promise.all([
+  const [{ total: balance }, events, history] = await Promise.all([
     workspaceBalance(workspace.id),
-    eventsExpected(workspace.id, horitzo, inici),
+    eventsExpected(workspace.id, horitzo, start),
     // Same width to the left and to the right of the chart.
-    balanceSeries([workspace.id], addDays(inici, -days), inici),
+    balanceSeries([workspace.id], addDays(start, -days), start),
   ]);
 
   const byDay = new Map<string, Decimal>();
@@ -110,36 +110,36 @@ export async function buildForecast(
     byDay.set(e.day, (byDay.get(e.day) ?? new Decimal(0)).plus(money(e.amount)));
   }
 
-  const llindar = money(workspace.overdraftThreshold);
+  const threshold = money(workspace.overdraftThreshold);
 
   const pointsWithoutTrend: Omit<ForecastPoint, "trend">[] = [];
-  let corrent = money(balance);
+  let running = money(balance);
   let firstOverdraft: string | null = null;
   let firstOverdraftAmount: MoneyString | null = null;
 
   for (let offset = 0; offset <= days; offset += 1) {
-    const day = addDays(inici, offset);
-    corrent = corrent.plus(byDay.get(day) ?? new Decimal(0));
-    const esperat = corrent.toDecimalPlaces(2);
+    const day = addDays(start, offset);
+    running = running.plus(byDay.get(day) ?? new Decimal(0));
+    const expected = running.toDecimalPlaces(2);
 
     // With no residual expense, the bands coincide with the expected value.
     pointsWithoutTrend.push({
       day,
-      esperat: toMoneyString(esperat),
-      optimista: toMoneyString(esperat),
-      pessimista: toMoneyString(esperat),
+      expected: toMoneyString(expected),
+      optimista: toMoneyString(expected),
+      pessimistic: toMoneyString(expected),
     });
 
-    if (firstOverdraft === null && esperat.lt(llindar)) {
+    if (firstOverdraft === null && expected.lt(threshold)) {
       firstOverdraft = day;
-      firstOverdraftAmount = toMoneyString(esperat);
+      firstOverdraftAmount = toMoneyString(expected);
     }
   }
 
-  const tendencias = leastSquaresLine(pointsWithoutTrend.map((p) => money(p.esperat)));
+  const trendLine = leastSquaresLine(pointsWithoutTrend.map((p) => money(p.expected)));
   const points: ForecastPoint[] = pointsWithoutTrend.map((p, i) => ({
     ...p,
-    trend: toMoneyString(tendencias[i] ?? ZERO),
+    trend: toMoneyString(trendLine[i] ?? ZERO),
   }));
 
   return {
@@ -147,10 +147,10 @@ export async function buildForecast(
     ledgerName: workspace.name,
     currency: workspace.currency,
     openingBalance: balance,
-    llindar: workspace.overdraftThreshold,
+    threshold: workspace.overdraftThreshold,
     horizonDays: days,
     dailySpend: "0.00",
-    historic,
+    history,
     points,
     events,
     firstOverdraft,
@@ -178,26 +178,26 @@ export function leastSquaresLine(values: Decimal[]): Decimal[] {
   }
 
   const nDec = new Decimal(n);
-  const denominador = nDec.times(sumXX).minus(sumX.times(sumX));
-  if (denominador.isZero()) {
-    const mitjana = sumY.dividedBy(nDec);
-    return values.map(() => mitjana.toDecimalPlaces(2));
+  const denominator = nDec.times(sumXX).minus(sumX.times(sumX));
+  if (denominator.isZero()) {
+    const average = sumY.dividedBy(nDec);
+    return values.map(() => average.toDecimalPlaces(2));
   }
 
-  const slope = nDec.times(sumXY).minus(sumX.times(sumY)).dividedBy(denominador);
+  const slope = nDec.times(sumXY).minus(sumX.times(sumY)).dividedBy(denominator);
   const origin = sumY.minus(slope.times(sumX)).dividedBy(nDec);
 
   return values.map((_, i) => origin.plus(slope.times(i)).toDecimalPlaces(2));
 }
 
-function setmanaIso(isoDate: string): string {
+function isoWeek(isoDate: string): string {
   const [y, m, d] = isoDate.split("-").map(Number);
   const date = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
   const day = date.getUTCDay() || 7;
   date.setUTCDate(date.getUTCDate() + 4 - day);
-  const inici = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  const setmana = Math.ceil(((date.getTime() - inici.getTime()) / 86_400_000 + 1) / 7);
-  return `${date.getUTCFullYear()}-${setmana}`;
+  const start = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((date.getTime() - start.getTime()) / 86_400_000 + 1) / 7);
+  return `${date.getUTCFullYear()}-${week}`;
 }
 
 export async function checkOverdrafts(
@@ -218,10 +218,10 @@ export async function checkOverdrafts(
     `${forecast.firstOverdraft}.`;
   if (cause) body += ` El primer rebut important previst es ${cause.label}.`;
 
-  const creat = await createAlert({
+  const createdOne = await createAlert({
     type: "projected_overdraft",
     ledgerId: workspace.id,
-    dedupKey: `overdraft:${workspace.id}:${setmanaIso(forecast.firstOverdraft)}`,
+    dedupKey: `overdraft:${workspace.id}:${isoWeek(forecast.firstOverdraft)}`,
     title: `${workspace.name}: possible descobert d'aqui a ${viewDays} dies`,
     body: body,
     severity: viewDays <= 14 ? "critical" : "warning",
@@ -233,5 +233,5 @@ export async function checkOverdrafts(
     },
   });
 
-  return creat ? 1 : 0;
+  return createdOne ? 1 : 0;
 }

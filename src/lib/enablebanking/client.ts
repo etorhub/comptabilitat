@@ -79,8 +79,8 @@ export class EnableBankingClient {
   }
 
   private async jwt(): Promise<string> {
-    const ara = Date.now() / 1000;
-    if (this.token !== null && ara < this.tokenExpiresAt - JWT_REFRESH_MARGIN) {
+    const now = Date.now() / 1000;
+    if (this.token !== null && now < this.tokenExpiresAt - JWT_REFRESH_MARGIN) {
       return this.token;
     }
     if (!this.applicationId) {
@@ -90,16 +90,16 @@ export class EnableBankingClient {
     this.privateKeyPem ??= await readPrivateKey();
     const key = await importPKCS8(this.privateKeyPem, "RS256");
 
-    const emes = Math.floor(ara);
+    const issued = Math.floor(now);
     this.token = await new SignJWT({})
       .setProtectedHeader({ alg: "RS256", kid: this.applicationId, typ: "JWT" })
       .setIssuer("enablebanking.com")
       .setAudience("api.enablebanking.com")
-      .setIssuedAt(emes)
-      .setExpirationTime(emes + JWT_TTL_SECONDS)
+      .setIssuedAt(issued)
+      .setExpirationTime(issued + JWT_TTL_SECONDS)
       .sign(key);
 
-    this.tokenExpiresAt = emes + JWT_TTL_SECONDS;
+    this.tokenExpiresAt = issued + JWT_TTL_SECONDS;
     return this.token;
   }
 

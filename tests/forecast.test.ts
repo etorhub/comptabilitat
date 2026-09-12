@@ -119,7 +119,7 @@ beforeEach(async () => {
   await db.delete(categories);
   await db.delete(ledgers);
 
-  const [creat] = await db
+  const [createdOne] = await db
     .insert(ledgers)
     .values({
       code: "personal",
@@ -133,7 +133,7 @@ beforeEach(async () => {
       alertRecipients: [],
     })
     .returning();
-  workspace = creat as Ledger;
+  workspace = createdOne as Ledger;
   await seedCategories(workspace.id);
 
   const [connection] = await db
@@ -184,25 +184,22 @@ describe("the projection", () => {
 
     const forecast = await buildForecast(workspace, 30);
     expect(forecast.points).toHaveLength(31);
-    expect(Number(forecast.points[0]?.esperat)).toBeCloseTo(1000, 1);
-    expect(Number(forecast.points[30]?.esperat)).toBeCloseTo(1000, 1);
+    expect(Number(forecast.points[0]?.expected)).toBeCloseTo(1000, 1);
+    expect(Number(forecast.points[30]?.expected)).toBeCloseTo(1000, 1);
     expect(forecast.dailySpend).toBe("0.00");
     expect(forecast.firstOverdraft).toBeNull();
     // Same width on the left (real) and the right (forecast), with today on both.
-    expect(forecast.historic.length).toBe(31);
-    expect(forecast.historic[forecast.historic.length - 1]?.day).toBe(todayLocal());
-    expect(Number(forecast.historic[forecast.historic.length - 1]?.balance)).toBeCloseTo(
-      1000,
-      1,
-    );
+    expect(forecast.history.length).toBe(31);
+    expect(forecast.history[forecast.history.length - 1]?.day).toBe(todayLocal());
+    expect(Number(forecast.history[forecast.history.length - 1]?.balance)).toBeCloseTo(1000, 1);
   });
 
   test("with no residual expense, the bands coincide with the expected value", async () => {
     const forecast = await buildForecast(workspace, 30);
     const last = forecast.points[30];
 
-    expect(last?.optimista).toBe(last?.esperat);
-    expect(last?.pessimista).toBe(last?.esperat);
+    expect(last?.optimista).toBe(last?.expected);
+    expect(last?.pessimistic).toBe(last?.expected);
   });
 
   test("a suggested series does not lower the balance; a confirmed one does", async () => {
@@ -246,7 +243,7 @@ describe("the projection", () => {
     await detectRecurring(workspace.id);
 
     const unconfirmed = await buildForecast(workspace, 40);
-    expect(Number(unconfirmed.points[40]?.esperat)).toBeCloseTo(1000, 1);
+    expect(Number(unconfirmed.points[40]?.expected)).toBeCloseTo(1000, 1);
 
     const [proposal] = await db
       .select()
@@ -257,7 +254,7 @@ describe("the projection", () => {
     await confirmSeries(proposal.id, { cadence: "monthly", amountMode: "exact" });
 
     const withConfirm = await buildForecast(workspace, 40);
-    expect(money(withConfirm.points[40]?.esperat).lt(money("1000"))).toBe(true);
+    expect(money(withConfirm.points[40]?.expected).lt(money("1000"))).toBe(true);
   });
 
   test("an active yearly series appears in the expected events", async () => {
@@ -290,7 +287,7 @@ describe("the projection", () => {
 
     const forecast = await buildForecast(workspace, 400);
     const withBill = forecast.points.find((p) =>
-      money(p.esperat).lt(money(forecast.points[0]?.esperat ?? "0")),
+      money(p.expected).lt(money(forecast.points[0]?.expected ?? "0")),
     );
     expect(withBill).toBeDefined();
   });
@@ -361,8 +358,8 @@ describe("the overdraft alert", () => {
     });
 
     await checkOverdrafts(workspace, 60);
-    const segon = await checkOverdrafts(workspace, 60);
-    expect(segon).toBe(0);
+    const second = await checkOverdrafts(workspace, 60);
+    expect(second).toBe(0);
   });
 
   test("does not fire if the balance holds", async () => {

@@ -57,13 +57,13 @@ analyticsRoutes.get("/", async (c) => {
   const { days } = dashboardSchema.parse(c.req.query());
 
   const today = todayLocal();
-  const [inici] = monthBounds(today);
+  const [start] = monthBounds(today);
   const monthlyFrom = addDays(today, -365);
 
   const [
     balance,
-    mesActual,
-    perRevisar,
+    currentMonth,
+    toReview,
     unclassified,
     alertCount,
     monthly,
@@ -71,7 +71,7 @@ analyticsRoutes.get("/", async (c) => {
     balances,
   ] = await Promise.all([
     workspaceBalance(workspace.id),
-    incomeAndExpenses([workspace.id], inici, today),
+    incomeAndExpenses([workspace.id], start, today),
     countPendingReview([workspace.id]),
     countUnclassified([workspace.id]),
     activeAlerts(workspace.id),
@@ -91,8 +91,8 @@ analyticsRoutes.get("/", async (c) => {
         workspaceColor: workspace.color,
         balance: balance.total,
         balanceDate: balance.date,
-        mesActual,
-        perRevisar,
+        currentMonth,
+        toReview,
         unclassified,
         activeAlerts: alertCount,
         canSeeAlerts: currentUser(c).isAdmin,
@@ -109,7 +109,7 @@ analyticsRoutes.get("/", async (c) => {
 async function reportData(ledgerId: number, query: Record<string, string>) {
   const filters = reportFiltersSchema.parse(query);
   const today = todayLocal();
-  const des = filters.des ?? addDays(today, -filters.mesos * 31);
+  const des = filters.des ?? addDays(today, -filters.months * 31);
   const to = filters.to ?? today;
 
   const [totals, monthly, expensesPerCategory, incomeByCategory, merchantList] =

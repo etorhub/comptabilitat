@@ -19,17 +19,17 @@ import { CSRF_FIELD } from "../../lib/csrf.ts";
 export interface LoginFormProps {
   /** Single-use token for the sign-in form (see `auth.routes.ts`). */
   csrfToken: string;
-  desti?: string;
+  target?: string;
   email?: string;
   errors?: FieldErrors | undefined;
 }
 
 export function LoginForm(props: LoginFormProps): Html {
-  const { csrfToken, desti = "/", email = "", errors } = props;
+  const { csrfToken, target = "/", email = "", errors } = props;
 
   return html`<form method="post" action="/entrada" class="form">
     <input type="hidden" name="${raw(CSRF_FIELD)}" value="${csrfToken}" />
-    <input type="hidden" name="desti" value="${desti}" />
+    <input type="hidden" name="desti" value="${target}" />
 
     ${FormError(errors)}
     ${Field({
@@ -38,7 +38,7 @@ export function LoginForm(props: LoginFormProps): Html {
       type: "email",
       value: email,
       errors,
-      requerit: true,
+      required: true,
       autocomplete: "username",
       autofocus: true,
     })}
@@ -47,7 +47,7 @@ export function LoginForm(props: LoginFormProps): Html {
       tag: "Contrasenya",
       type: "password",
       errors,
-      requerit: true,
+      required: true,
       autocomplete: "current-password",
     })}
 
@@ -57,7 +57,7 @@ export function LoginForm(props: LoginFormProps): Html {
 
 export interface PasswordFormProps {
   errors?: FieldErrors | undefined;
-  fet?: boolean;
+  done?: boolean;
 }
 
 /**
@@ -65,7 +65,7 @@ export interface PasswordFormProps {
  * and is redrawn with the errors or with the confirmation.
  */
 export function PasswordForm(props: PasswordFormProps): Html {
-  const { errors, fet = false } = props;
+  const { errors, done = false } = props;
 
   return html`<form
     id="form-contrasenya"
@@ -75,7 +75,7 @@ export function PasswordForm(props: PasswordFormProps): Html {
     hx-swap="outerHTML"
   >
     ${
-      fet
+      done
         ? html`<p class="form-ok" role="status">
           La contrasenya s'ha canviat. Les altres sessions s'han tancat.
         </p>`
@@ -87,7 +87,7 @@ export function PasswordForm(props: PasswordFormProps): Html {
       tag: "Contrasenya actual",
       type: "password",
       errors,
-      requerit: true,
+      required: true,
       autocomplete: "current-password",
     })}
     ${Field({
@@ -95,7 +95,7 @@ export function PasswordForm(props: PasswordFormProps): Html {
       tag: "Contrasenya nova",
       type: "password",
       errors,
-      requerit: true,
+      required: true,
       autocomplete: "new-password",
       help: "Com a minim 10 carácters.",
     })}
@@ -104,7 +104,7 @@ export function PasswordForm(props: PasswordFormProps): Html {
       tag: "Repeteix la contrasenya nova",
       type: "password",
       errors,
-      requerit: true,
+      required: true,
       autocomplete: "new-password",
     })}
 

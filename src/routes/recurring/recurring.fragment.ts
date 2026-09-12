@@ -15,7 +15,7 @@ import type { OccurrenceView, SeriesView } from "../../services/recurring-list.t
 import type { CreateSeriesInput, RecurringFilters } from "./recurring.schema.ts";
 import { oobAttributes, type OobId } from "../../lib/oob.ts";
 
-const CADENCIES: Record<Cadence, string> = {
+const CADENCES: Record<Cadence, string> = {
   weekly: "setmanal",
   biweekly: "quinzenal",
   monthly: "mensual",
@@ -30,9 +30,9 @@ const MODES: Record<AmountMode, string> = {
   average: "mitjana recent",
 };
 
-const dateCurta = new Intl.DateTimeFormat("ca-ES", { day: "2-digit", month: "short" });
+const dateShort = new Intl.DateTimeFormat("ca-ES", { day: "2-digit", month: "short" });
 
-const iconLlapis = html`<svg
+const iconPencil = html`<svg
   xmlns="http://www.w3.org/2000/svg"
   width="14"
   height="14"
@@ -86,7 +86,7 @@ export function Table({
 }: TableProps & { oob?: boolean }): Html {
   return html`<div ${oobAttributes(containerId, oob)}>
     ${DataTable({
-      columnes: areProposals
+      columns: areProposals
         ? (html`<th>Proposta</th>
             <th>Cadencia</th>
             <th class="dreta">Import</th>
@@ -131,7 +131,7 @@ export function ProposalRow({
       }
       <br /><small class="text-suau">${String(series.occurrencesCount)} aparicions</small>
     </td>
-    <td>${CADENCIES[series.cadence]}</td>
+    <td>${CADENCES[series.cadence]}</td>
     <td class="dreta">${formatMoney(series.expectedAmount)}</td>
     <td>
       ${
@@ -156,9 +156,9 @@ export function ProposalRow({
               name: "cadence",
               tag: "Cadencia",
               value: series.cadence,
-              options: (Object.keys(CADENCIES) as Cadence[]).map((c) => ({
+              options: (Object.keys(CADENCES) as Cadence[]).map((c) => ({
                 value: c,
-                text: CADENCIES[c],
+                text: CADENCES[c],
               })),
             })}
             ${Select({
@@ -191,20 +191,20 @@ export function ActiveRow({
   code,
   series,
   canEdit,
-  editant = false,
+  editing = false,
   occurrences = null,
 }: {
   code: string;
   series: SeriesView;
   canEdit: boolean;
   /** Edit mode: amount + Dismiss. */
-  editant?: boolean;
+  editing?: boolean;
   /** If not null, the real linked transactions are shown. */
   occurrences?: OccurrenceView[] | null;
 }): Html {
   const base = `/e/${code}/recurrents/${series.id}`;
-  const importAbsolut = money(series.expectedAmount).abs().toFixed(2);
-  const mostrant = occurrences !== null;
+  const absoluteAmount = money(series.expectedAmount).abs().toFixed(2);
+  const showing = occurrences !== null;
 
   return html`<tr id="serie-${series.id}" class="${series.status === "ended" ? "inactiva" : ""}">
     <td>
@@ -221,7 +221,7 @@ export function ActiveRow({
           : ""
       }
       ${
-        mostrant
+        showing
           ? html`<ul class="llista-aparicions">
             ${
               occurrences.length === 0
@@ -230,7 +230,7 @@ export function ActiveRow({
                     (a) =>
                       html`<li>
                         <time datetime="${a.bookingDate}">
-                          ${dateCurta.format(new Date(`${a.bookingDate}T00:00:00`))}
+                          ${dateShort.format(new Date(`${a.bookingDate}T00:00:00`))}
                         </time>
                         <span>${a.description}</span>
                         <span class="dreta">${formatMoney(a.amount)}</span>
@@ -241,10 +241,10 @@ export function ActiveRow({
           : ""
       }
     </td>
-    <td>${CADENCIES[series.cadence]}</td>
+    <td>${CADENCES[series.cadence]}</td>
     <td class="dreta">
       ${
-        canEdit && editant && series.status === "active"
+        canEdit && editing && series.status === "active"
           ? html`<form
             class="fila-accions"
             hx-post="${base}/import"
@@ -257,7 +257,7 @@ export function ActiveRow({
                 type="text"
                 name="amount"
                 inputmode="decimal"
-                value="${importAbsolut}"
+                value="${absoluteAmount}"
                 aria-label="Import de ${series.label}"
               />
             </label>
@@ -298,8 +298,8 @@ export function ActiveRow({
         code,
         series,
         canEdit,
-        editant,
-        mostrant,
+        editing,
+        showing,
       })}
     </td>
   </tr>` as Html;
@@ -309,29 +309,29 @@ function SeriesActions({
   code,
   series,
   canEdit,
-  editant,
-  mostrant,
+  editing,
+  showing,
 }: {
   code: string;
   series: SeriesView;
   canEdit: boolean;
-  editant: boolean;
-  mostrant: boolean;
+  editing: boolean;
+  showing: boolean;
 }): Html {
   const base = `/e/${code}/recurrents/${series.id}`;
   const buttonShow = html`<button
     type="button"
     class="boto-icona"
-    aria-label="${mostrant ? "Amaga" : "Mostra"} els moviments de ${series.label}"
-    title="${mostrant ? "Amaga els moviments" : "Mostra els moviments"}"
-    hx-get="${base}/fragment/fila${mostrant ? "" : "?mostra=1"}"
+    aria-label="${showing ? "Amaga" : "Mostra"} els moviments de ${series.label}"
+    title="${showing ? "Amaga els moviments" : "Mostra els moviments"}"
+    hx-get="${base}/fragment/fila${showing ? "" : "?mostra=1"}"
     hx-target="#serie-${series.id}"
     hx-swap="outerHTML"
   >
     ${iconUll}
   </button>`;
 
-  if (canEdit && series.status === "active" && editant) {
+  if (canEdit && series.status === "active" && editing) {
     return html`<div class="fila-accions">
       <button
         type="button"
@@ -366,7 +366,7 @@ function SeriesActions({
         hx-target="#serie-${series.id}"
         hx-swap="outerHTML"
       >
-        ${iconLlapis}
+        ${iconPencil}
       </button>
       ${buttonShow}
     </div>` as Html;
@@ -391,7 +391,7 @@ export function FilterBar({ code, filters }: FilterBarProps): Html {
     ${Checkbox({
       name: "inclou_acabades",
       tag: "Inclou les acabades",
-      marcat: filters.inclou_acabades,
+      marked: filters.inclou_acabades,
       value: "1",
       attributes: 'onchange="this.form.requestSubmit()"',
     })}
@@ -419,7 +419,7 @@ export function CreateForm({ code, groups, values = {}, errors }: CreateFormProp
       tag: "Nom",
       value: values.label ?? "",
       errors,
-      requerit: true,
+      required: true,
       maxlength: 200,
     })}
     ${Select({
@@ -437,9 +437,9 @@ export function CreateForm({ code, groups, values = {}, errors }: CreateFormProp
       name: "cadence",
       tag: "Cadencia",
       value: values.cadence ?? "monthly",
-      options: (Object.keys(CADENCIES) as Cadence[]).map((c) => ({
+      options: (Object.keys(CADENCES) as Cadence[]).map((c) => ({
         value: c,
-        text: CADENCIES[c],
+        text: CADENCES[c],
       })),
       errors,
     })}
@@ -448,7 +448,7 @@ export function CreateForm({ code, groups, values = {}, errors }: CreateFormProp
       tag: "Import",
       value: values.amount ?? "",
       errors,
-      requerit: true,
+      required: true,
       step: "0.01",
       placeholder: "12.99",
     })}
@@ -468,7 +468,7 @@ export function CreateForm({ code, groups, values = {}, errors }: CreateFormProp
       type: "date",
       value: values.next_expected_date ?? todayLocal(),
       errors,
-      requerit: true,
+      required: true,
     })}
     <button type="submit" class="boto boto-primari">Afegeix</button>
   </form>` as Html;

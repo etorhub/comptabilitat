@@ -8,7 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { reportToPdf, transactionsToCsv, resumAXlsx } from "../../src/services/export.ts";
+import { reportToPdf, transactionsToCsv, summaryToXlsx } from "../../src/services/export.ts";
 import type { TransactionView } from "../../src/services/transactions.ts";
 
 const normal: TransactionView = {
@@ -22,7 +22,7 @@ const normal: TransactionView = {
   status: "booked",
   description: "Clinica Discreta",
   descriptionHint: "COMPRA TARJ. CLINICA DISCRETA",
-  darrers4: null,
+  last4: null,
   operationType: "targeta",
   counterparty: "Clinica Discreta SL",
   merchantId: 3,
@@ -42,12 +42,12 @@ const normal: TransactionView = {
 };
 
 /** The same transaction, already through `transactionView()` with an alias. */
-const amagat: TransactionView = {
+const hidden: TransactionView = {
   ...normal,
   id: 2,
   description: "Despesa personal",
   descriptionHint: null,
-  darrers4: null,
+  last4: null,
   counterparty: "",
   merchantName: null,
   operationType: null,
@@ -71,7 +71,7 @@ describe("CSV", () => {
   });
 
   test("a masked transaction comes out hidden", () => {
-    const csv = textCsv(transactionsToCsv([amagat]));
+    const csv = textCsv(transactionsToCsv([hidden]));
     expect(csv).toContain("Despesa personal");
     expect(csv).not.toContain("CLINICA DISCRETA");
     expect(csv).not.toContain("Clinica Discreta");
@@ -82,7 +82,7 @@ describe("CSV", () => {
       ...normal,
       description: "Amazon",
       descriptionHint: "COMPRA WWW.AMAZON, LUXEMBOURG",
-      darrers4: "4017",
+      last4: "4017",
     };
     const csv = textCsv(transactionsToCsv([withPan]));
     expect(csv).toContain("Amazon");
@@ -90,12 +90,12 @@ describe("CSV", () => {
   });
 
   test("quotes and semicolons in the text do not break the columns", () => {
-    const complicat: TransactionView = {
+    const tricky: TransactionView = {
       ...normal,
       description: 'Ell va dir "hola"; i prou',
       notes: "linia 1\nlinia 2",
     };
-    const csv = textCsv(transactionsToCsv([complicat]));
+    const csv = textCsv(transactionsToCsv([tricky]));
     const rows = csv.replace("﻿", "").split("\r\n").filter(Boolean);
     // The header and one row; the newline inside goes in quotes.
     expect(csv).toContain('"Ell va dir ""hola""; i prou"');
@@ -105,7 +105,7 @@ describe("CSV", () => {
 
 describe("XLSX", () => {
   test("the summary carries both sheets", async () => {
-    const bytes = await resumAXlsx(
+    const bytes = await summaryToXlsx(
       [
         {
           periode: "2026-01",
@@ -162,8 +162,8 @@ describe("PDF", () => {
       ],
     });
 
-    const capçalera = new TextDecoder().decode(bytes.slice(0, 8));
-    expect(capçalera).toBe("%PDF-1.3");
+    const header = new TextDecoder().decode(bytes.slice(0, 8));
+    expect(header).toBe("%PDF-1.3");
     expect(bytes.byteLength).toBeGreaterThan(1000);
   });
 

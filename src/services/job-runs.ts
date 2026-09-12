@@ -32,7 +32,7 @@ interface RunContext {
 const context = new AsyncLocalStorage<RunContext>();
 
 /** Heuristic: the sync summary marks errors per connection without throwing. */
-function semblaParcial(summary: string): boolean {
+function looksPartial(summary: string): boolean {
   return /\(\d+ errors?\)/.test(summary);
 }
 
@@ -82,7 +82,7 @@ async function closeRun(
 async function runAndClose(run: JobRun, fn: () => Promise<string>): Promise<string> {
   try {
     const summary = await fn();
-    const status: JobStatus = semblaParcial(summary) ? "partial" : "success";
+    const status: JobStatus = looksPartial(summary) ? "partial" : "success";
     await closeRun(run.id, status, summary, "");
     return summary;
   } catch (error) {
@@ -125,12 +125,12 @@ export async function startJob(
   }
 
   const run = await openRun(jobName, trigger, null);
-  const començat = Date.now();
+  const startedAt = Date.now();
   void context.run({ parentId: run.id, trigger }, async () => {
     try {
       const summary = await runAndClose(run, fn);
       console.info(
-        `[${jobName}] fet en ${Math.round((Date.now() - començat) / 1000)}s\n${summary}`,
+        `[${jobName}] fet en ${Math.round((Date.now() - startedAt) / 1000)}s\n${summary}`,
       );
     } catch (error) {
       console.error(`[${jobName}] ha fallat:`, error);
@@ -158,7 +158,7 @@ export async function runStep(jobName: string, fn: () => Promise<string>): Promi
 /** Is there a top-level run with this name still going? */
 export async function jobRunning(jobName: string): Promise<boolean> {
   const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
-  const [viva] = await db
+  const [alive] = await db
     .select({ id: jobRuns.id })
     .from(jobRuns)
     .where(
@@ -170,7 +170,7 @@ export async function jobRunning(jobName: string): Promise<boolean> {
       ),
     )
     .limit(1);
-  return viva !== undefined;
+  return alive !== undefined;
 }
 
 /** Set of job names (parent or child) that are `running` right now. */
@@ -295,8 +295,8 @@ export async function readChildren(parentId: number): Promise<JobRun[]> {
 
 /** Last top-level run for each `job_name` asked for. */
 export async function lastRunPerJob(names: string[]): Promise<Map<string, JobRun>> {
-  const mapa = new Map<string, JobRun>();
-  if (names.length === 0) return mapa;
+  const map = new Map<string, JobRun>();
+  if (names.length === 0) return map;
 
   // One query per name: the table is small and it saves us a Postgres-specific
   // DISTINCT ON with fragile syntax in Drizzle.
@@ -308,24 +308,24 @@ export async function lastRunPerJob(names: string[]): Promise<Map<string, JobRun
         .where(and(eq(jobRuns.jobName, name), isNull(jobRuns.parentId)))
         .orderBy(desc(jobRuns.startedAt))
         .limit(1);
-      if (row) mapa.set(name, row);
+      if (row) map.set(name, row);
     }),
   );
-  return mapa;
+  return map;
 }
 
 export interface HealthSummary {
-  enCurs: number;
-  fallades24h: number;
-  darreraPassadaDiaria: JobRun | null;
+  running: number;
+  failed24h: number;
+  lastDailyPass: JobRun | null;
 }
 
 export async function summaryHealth(): Promise<HealthSummary> {
-  const fa24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
 
-  const [{ enCurs } = { enCurs: 0 }] = await db
-    .select({ enCurs: count() })
+  const [{ running } = { running: 0 }] = await db
+    .select({ running: count() })
     .from(jobRuns)
     .where(
       and(
@@ -335,18 +335,18 @@ export async function summaryHealth(): Promise<HealthSummary> {
       ),
     );
 
-  const [{ fallades24h } = { fallades24h: 0 }] = await db
-    .select({ fallades24h: count() })
+  const [{ failed24h } = { failed24h: 0 }] = await db
+    .select({ failed24h: count() })
     .from(jobRuns)
     .where(
       and(
         eq(jobRuns.status, "failed"),
         isNull(jobRuns.parentId),
-        gte(jobRuns.startedAt, fa24h),
+        gte(jobRuns.startedAt, last24h),
       ),
     );
 
-  const [darreraPassadaDiaria = null] = await db
+  const [lastDailyPass = null] = await db
     .select()
     .from(jobRuns)
     .where(and(eq(jobRuns.jobName, "passada-diaria"), isNull(jobRuns.parentId)))
@@ -354,19 +354,19 @@ export async function summaryHealth(): Promise<HealthSummary> {
     .limit(1);
 
   return {
-    enCurs: Number(enCurs),
-    fallades24h: Number(fallades24h),
-    darreraPassadaDiaria,
+    running: Number(running),
+    failed24h: Number(failed24h),
+    lastDailyPass,
   };
 }
 
 /** Bank imports overlapping with a sync run. */
 export async function syncRunsForRun(run: JobRun): Promise<SyncRun[]> {
   if (run.jobName !== "sync") return [];
-  const inici = run.startedAt;
+  const start = run.startedAt;
   const fi = run.finishedAt ?? new Date();
   // A little margin: the job starts before opening the first sync_run.
-  const from = new Date(inici.getTime() - 5_000);
+  const from = new Date(start.getTime() - 5_000);
   const to = new Date(fi.getTime() + 5_000);
   return db
     .select()
@@ -379,7 +379,7 @@ export async function syncRunsForRun(run: JobRun): Promise<SyncRun[]> {
 export async function closeStuckJobs(): Promise<number> {
   const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
 
-  const tancades = await db
+  const closed = await db
     .update(jobRuns)
     .set({
       status: "failed",
@@ -389,8 +389,8 @@ export async function closeStuckJobs(): Promise<number> {
     .where(and(eq(jobRuns.status, "running"), lt(jobRuns.startedAt, limit)))
     .returning({ id: jobRuns.id });
 
-  if (tancades.length > 0) {
-    console.warn(`[feines] ${tancades.length} execucions penjades donades per fallides`);
+  if (closed.length > 0) {
+    console.warn(`[feines] ${closed.length} execucions penjades donades per fallides`);
   }
-  return tancades.length;
+  return closed.length;
 }

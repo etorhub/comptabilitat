@@ -47,7 +47,7 @@ const Session = {
 };
 
 /** The `config` is `as const` for the type, but the fields can be touched. */
-const ajustos = config as {
+const settings = config as {
   ebApplicationId: string;
   ebPrivateKey: string;
   ebApiOrigin: string;
@@ -59,7 +59,7 @@ let calellaId = 0;
 let adminSession = { cookie: "", csrf: "" };
 
 async function keyRsaPem(): Promise<string> {
-  const parell = await crypto.subtle.generateKey(
+  const pair = await crypto.subtle.generateKey(
     {
       name: "RSASSA-PKCS1-v1_5",
       modulusLength: 2048,
@@ -69,14 +69,14 @@ async function keyRsaPem(): Promise<string> {
     true,
     ["sign", "verify"],
   );
-  const pkcs8 = await crypto.subtle.exportKey("pkcs8", parell.privateKey);
+  const pkcs8 = await crypto.subtle.exportKey("pkcs8", pair.privateKey);
   const base64 = Buffer.from(pkcs8)
     .toString("base64")
     .replace(/(.{64})/g, "$1\n");
   return `-----BEGIN PRIVATE KEY-----\n${base64}\n-----END PRIVATE KEY-----\n`;
 }
 
-async function autoritza(
+async function authorize(
   session: { cookie: string; csrf: string },
   body: Record<string, string>,
 ): Promise<Response> {
@@ -112,9 +112,9 @@ beforeAll(async () => {
     },
   });
 
-  ajustos.ebApplicationId = "app-de-proves";
-  ajustos.ebPrivateKey = await keyRsaPem();
-  ajustos.ebApiOrigin = `http://127.0.0.1:${bank.port}`;
+  settings.ebApplicationId = "app-de-proves";
+  settings.ebPrivateKey = await keyRsaPem();
+  settings.ebApiOrigin = `http://127.0.0.1:${bank.port}`;
 });
 
 afterAll(async () => {
@@ -171,7 +171,7 @@ beforeEach(async () => {
 
 describe("the authorization flow", () => {
   test("creates the accounts, with no workspace assigned", async () => {
-    const res = await autoritza(adminSession, { aspsp_name: "Santander" });
+    const res = await authorize(adminSession, { aspsp_name: "Santander" });
 
     // For HTMX, a redirect is a 204 with `HX-Redirect`: the bank's page cannot
     // go inside a `<div>`.
@@ -183,9 +183,9 @@ describe("the authorization flow", () => {
     const state = pending?.ebAuthState ?? "";
     expect(state).not.toBe("");
 
-    const retorn = await bankCallback({ code: "codi-1", state: state });
-    expect(retorn.status).toBe(303);
-    expect(retorn.headers.get("location")).toContain("estat=ok");
+    const callbackResult = await bankCallback({ code: "codi-1", state: state });
+    expect(callbackResult.status).toBe(303);
+    expect(callbackResult.headers.get("location")).toContain("estat=ok");
 
     const active = await connection();
     expect(active?.status).toBe("active");
@@ -200,22 +200,22 @@ describe("the authorization flow", () => {
   });
 
   test("an unknown state creates no session", async () => {
-    const retorn = await bankCallback({ code: "codi-1", state: "inventat" });
+    const callbackResult = await bankCallback({ code: "codi-1", state: "inventat" });
 
-    expect(retorn.status).toBe(303);
-    expect(retorn.headers.get("location")).toContain("estat=error");
+    expect(callbackResult.status).toBe(303);
+    expect(callbackResult.headers.get("location")).toContain("estat=error");
     expect(await connection()).toBeUndefined();
   });
 
   test("the bank may return an error", async () => {
-    const retorn = await bankCallback({ error: "access_denied" });
+    const callbackResult = await bankCallback({ error: "access_denied" });
 
-    expect(retorn.status).toBe(303);
-    expect(retorn.headers.get("location")).toContain("estat=error");
+    expect(callbackResult.status).toBe(303);
+    expect(callbackResult.headers.get("location")).toContain("estat=error");
   });
 
   test("renewing the consent keeps the accounts and their workspace", async () => {
-    await autoritza(adminSession, { aspsp_name: "Santander" });
+    await authorize(adminSession, { aspsp_name: "Santander" });
     const first = await connection();
     await bankCallback({ code: "codi-1", state: first?.ebAuthState ?? "" });
 
@@ -225,9 +225,9 @@ describe("the authorization flow", () => {
       .where(eq(accounts.ebAccountUid, "uid-1"));
 
     // A second authorization over the same connection, as when the consent expires.
-    await autoritza(adminSession, { connection_id: String(first?.id ?? 0) });
-    const segona = await connection();
-    await bankCallback({ code: "codi-2", state: segona?.ebAuthState ?? "" });
+    await authorize(adminSession, { connection_id: String(first?.id ?? 0) });
+    const secondOne = await connection();
+    await bankCallback({ code: "codi-2", state: secondOne?.ebAuthState ?? "" });
 
     const accountList = await db.select().from(accounts);
     expect(accountList.length).toBe(2);
@@ -245,7 +245,7 @@ describe("who can manage the connections", () => {
     expect(
       (await app.request("/connexions", { headers: { Cookie: anna.cookie } })).status,
     ).toBe(404);
-    expect((await autoritza(anna, {})).status).toBe(404);
+    expect((await authorize(anna, {})).status).toBe(404);
     expect(await connection()).toBeUndefined();
   });
 });

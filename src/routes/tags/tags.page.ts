@@ -8,7 +8,7 @@ import type { Html } from "../../lib/html.ts";
 import type { CategoryGroup } from "../../services/categories.ts";
 import type { TagSummary } from "../../services/tags.ts";
 import type { TransactionsPage } from "../../services/transactions.ts";
-import { CapAleraDetail, TagsList, DetailTable } from "./tags.fragment.ts";
+import { DetailHeader, TagsList, DetailTable } from "./tags.fragment.ts";
 import type { TagDetailQuery } from "./tags.schema.ts";
 
 export function TagsPage({
@@ -51,7 +51,7 @@ export function TagDetailPage({
   knownTags: string[];
 }): Html {
   return html`
-    ${CapAleraDetail({ code, summary, canEdit })}
+    ${DetailHeader({ code, summary, canEdit })}
     ${DetailTable({
       code,
       name: summary.name,

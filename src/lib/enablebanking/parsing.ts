@@ -193,12 +193,12 @@ export function parseTransaction(raw: Record<string, unknown>): TransactionAnaly
     String(asObject(raw.bank_transaction_code).description ?? ""),
   ];
 
-  const vistos = new Set<string>();
+  const seen = new Set<string>();
   const description: string[] = [];
   for (const part of parts) {
     const cleaned = part.split(/\s+/).filter(Boolean).join(" ");
-    if (cleaned && !vistos.has(cleaned.toLowerCase())) {
-      vistos.add(cleaned.toLowerCase());
+    if (cleaned && !seen.has(cleaned.toLowerCase())) {
+      seen.add(cleaned.toLowerCase());
       description.push(cleaned);
     }
   }

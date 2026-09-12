@@ -32,14 +32,14 @@ function Chart({
   title,
   description,
   data,
-  alçada = 260,
+  height = 260,
 }: {
   type: string;
   id: string;
   title: string;
   description: string;
   data: unknown;
-  alçada?: number;
+  height?: number;
 }): Html {
   return html`<section class="superficie targeta">
     <h2>${title}</h2>
@@ -47,7 +47,7 @@ function Chart({
       data-grafic="${type}"
       id="${id}"
       class="grafic"
-      style="--alçada:${String(alçada)}px"
+      style="--alçada:${String(height)}px"
       role="img"
       aria-label="${description}"
     >
@@ -117,7 +117,7 @@ export function MerchantChart(data: MerchantPart[]): Html {
       merchantName: d.merchantName,
       amount: toChartNumber(d.amount),
     })),
-    alçada: 320,
+    height: 320,
   });
 }
 
@@ -129,22 +129,22 @@ export function ForecastChart(forecast: Forecast): Html {
     title: "Saldo previst",
     description: `Saldo real dels darrers ${forecast.horizonDays} dies i projeccio a ${forecast.horizonDays} dies`,
     data: {
-      historic: forecast.historic.map((p) => ({
+      history: forecast.history.map((p) => ({
         day: p.day,
         balance: toChartNumber(p.balance),
       })),
       points: forecast.points.map((p) => ({
         day: p.day,
-        esperat: toChartNumber(p.esperat),
+        expected: toChartNumber(p.expected),
         optimista: toChartNumber(p.optimista),
-        pessimista: toChartNumber(p.pessimista),
+        pessimistic: toChartNumber(p.pessimistic),
         trend: toChartNumber(p.trend),
       })),
-      llindar: toChartNumber(forecast.llindar),
+      threshold: toChartNumber(forecast.threshold),
       firstOverdraft: forecast.firstOverdraft,
       billDays,
     },
-    alçada: 320,
+    height: 320,
   });
 }
 
@@ -178,7 +178,7 @@ export function Stat({ tag, value, detail, to = "", href }: StatProps): Html {
  */
 export function CategoriesTable(data: CategoryPart[]): Html {
   return DataTable({
-    columnes: html`<th>Categoria</th>
+    columns: html`<th>Categoria</th>
       <th class="dreta">Import</th>
       <th class="dreta">Part</th>
       <th class="dreta">Moviments</th>` as Html,
@@ -200,7 +200,7 @@ export function CategoriesTable(data: CategoryPart[]): Html {
 
 export function EventsTable(forecast: Forecast): Html {
   return DataTable({
-    columnes: html`<th>Dia</th>
+    columns: html`<th>Dia</th>
       <th>Rebut</th>
       <th class="dreta">Import</th>` as Html,
     rows: forecast.events.map(

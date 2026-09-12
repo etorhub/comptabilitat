@@ -24,7 +24,7 @@ export const loginSchema = z.object({
    * path is accepted: otherwise this would be an open redirect and would serve
    * to take someone somewhere else from a link that looks like ours.
    */
-  desti: z
+  target: z
     .string()
     .optional()
     .transform((v) => (v && v.startsWith("/") && !v.startsWith("//") ? v : "/")),

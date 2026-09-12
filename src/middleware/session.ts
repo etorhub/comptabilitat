@@ -57,9 +57,9 @@ export function currentUser(c: Context): User {
  */
 export const requireUser: MiddlewareHandler = async (c, next) => {
   if (c.get("user") === null) {
-    const desti = new URL(c.req.url).pathname + new URL(c.req.url).search;
-    const destiSegur = desti.startsWith("/") && !desti.startsWith("//") ? desti : "/";
-    return redirect(c, `/entrada?desti=${encodeURIComponent(destiSegur)}`);
+    const target = new URL(c.req.url).pathname + new URL(c.req.url).search;
+    const safeTarget = target.startsWith("/") && !target.startsWith("//") ? target : "/";
+    return redirect(c, `/entrada?desti=${encodeURIComponent(safeTarget)}`);
   }
   await next();
 };

@@ -121,9 +121,9 @@ export async function classifyPending(
     )
     .orderBy(desc(transactions.bookingDate));
 
-  const candidats = limit ? await query.limit(limit) : await query;
+  const candidates = limit ? await query.limit(limit) : await query;
 
-  for (const transaction of candidats) {
+  for (const transaction of candidates) {
     const origin = await classifyTransaction(transaction);
     if (origin === "merchant") stats.byMerchant += 1;
     else stats.pending += 1;

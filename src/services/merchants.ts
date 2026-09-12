@@ -31,7 +31,7 @@ import { classifyTransaction } from "./classification.ts";
 import { resolveCounterparty } from "./contraparts.ts";
 
 /** Special buckets that used to swallow purchases with «COMISION» at the end. */
-const CUBELLS_ESPECIALS = new Set([
+const SPECIAL_BUCKETS = new Set([
   "COMISSIO BANCARIA",
   "REINTEGRO EFECTIU",
   "TRASPAS ENTRE COMPTES",
@@ -70,8 +70,10 @@ function conditions(ledgerId: number, filters: MerchantsFilters): SQL | undefine
 
   const search = filters.search.trim();
   if (search) {
-    const patro = `%${search}%`;
-    parts.push(or(ilike(merchants.normalizedName, patro), ilike(merchants.displayName, patro)));
+    const pattern = `%${search}%`;
+    parts.push(
+      or(ilike(merchants.normalizedName, pattern), ilike(merchants.displayName, pattern)),
+    );
   }
   if (filters.onlyUnclassified) parts.push(isNull(merchants.defaultCategoryId));
   if (filters.onlyUnconfirmed) parts.push(eq(merchants.isConfirmed, false));
@@ -170,7 +172,7 @@ export async function merchantView(id: number, ledgerId: number): Promise<Mercha
 export async function rememberMerchantChoice(
   merchant: Merchant,
   categoryId: number | null,
-  aplicaAlsExistents = true,
+  applyToExisting = true,
   connection: Transactor = db,
 ): Promise<number> {
   return connection.transaction(async (tx) => {
@@ -183,9 +185,9 @@ export async function rememberMerchantChoice(
       })
       .where(eq(merchants.id, merchant.id));
 
-    if (!aplicaAlsExistents) return 0;
+    if (!applyToExisting) return 0;
 
-    const canviats = await tx
+    const changed = await tx
       .update(transactions)
       .set({
         categoryId,
@@ -202,7 +204,7 @@ export async function rememberMerchantChoice(
       )
       .returning({ id: transactions.id });
 
-    return canviats.length;
+    return changed.length;
   });
 }
 
@@ -216,7 +218,7 @@ export async function assignCategory(
   id: number,
   ledgerId: number,
   categoryId: number | null,
-  aplicaAlsExistents = true,
+  applyToExisting = true,
 ): Promise<number> {
   const merchant = await merchantInWorkspace(id, ledgerId);
 
@@ -229,7 +231,7 @@ export async function assignCategory(
     if (!category) throw new AppError("La categoria no es d'aquest espai", 422);
   }
 
-  return rememberMerchantChoice(merchant, categoryId, aplicaAlsExistents);
+  return rememberMerchantChoice(merchant, categoryId, applyToExisting);
 }
 
 /**
@@ -259,7 +261,7 @@ export async function getOrCreateMerchant(
 
   let merchant = existing;
   if (!merchant) {
-    const [creat] = await connection
+    const [createdOne] = await connection
       .insert(merchants)
       .values({
         ledgerId,
@@ -272,7 +274,7 @@ export async function getOrCreateMerchant(
         lastSeenAt: null,
       })
       .returning();
-    merchant = creat;
+    merchant = createdOne;
   }
   if (!merchant) return null;
 
@@ -293,13 +295,13 @@ export async function getOrCreateMerchant(
       ? seenOn
       : merchant.lastSeenAt;
 
-  const [actualitzat] = await connection
+  const [updatedOne] = await connection
     .update(merchants)
     .set({ transactionCount: merchant.transactionCount + 1, lastSeenAt: seenLast })
     .where(eq(merchants.id, merchant.id))
     .returning();
 
-  return actualitzat ?? merchant;
+  return updatedOne ?? merchant;
 }
 
 /** Recounts `transaction_count` from the real transactions. */
@@ -310,13 +312,13 @@ export async function countMerchants(
   const ids = [...new Set(merchantIds.filter((id) => id > 0))];
   if (ids.length === 0) return;
 
-  const recomptes = await connection
+  const recounts = await connection
     .select({ merchantId: transactions.merchantId, n: count() })
     .from(transactions)
     .where(inArray(transactions.merchantId, ids))
     .groupBy(transactions.merchantId);
 
-  const perId = new Map(recomptes.map((r) => [r.merchantId, Number(r.n)]));
+  const perId = new Map(recounts.map((r) => [r.merchantId, Number(r.n)]));
   for (const id of ids) {
     await connection
       .update(merchants)
@@ -326,8 +328,8 @@ export async function countMerchants(
 }
 
 export interface ReassignmentResult {
-  revisats: number;
-  canviats: number;
+  reviewed: number;
+  changed: number;
 }
 
 /**
@@ -359,8 +361,8 @@ export async function reassignNormalization(
     .from(transactions)
     .where(ledgerId === undefined ? undefined : eq(transactions.ledgerId, ledgerId));
 
-  let canviats = 0;
-  const merchantsTocats = new Set<number>();
+  let changed = 0;
+  const touchedMerchants = new Set<number>();
 
   for (const transaction of rows) {
     let newMerchantId: number | null = null;
@@ -386,9 +388,9 @@ export async function reassignNormalization(
 
     if (!mustChangeKey && keepsCounterparty) continue;
 
-    canviats += 1;
-    if (transaction.merchantId !== null) merchantsTocats.add(transaction.merchantId);
-    if (newMerchantId !== null) merchantsTocats.add(newMerchantId);
+    changed += 1;
+    if (transaction.merchantId !== null) touchedMerchants.add(transaction.merchantId);
+    if (newMerchantId !== null) touchedMerchants.add(newMerchantId);
 
     await connection
       .update(transactions)
@@ -404,7 +406,7 @@ export async function reassignNormalization(
     // If it came from a special bucket (or the key changed), classify it again.
     const cameFromBucket =
       transaction.categorySource === "merchant" &&
-      CUBELLS_ESPECIALS.has(transaction.normalizedDescription);
+      SPECIAL_BUCKETS.has(transaction.normalizedDescription);
 
     if (!mustChangeKey && !cameFromBucket && keepsCounterparty) {
       continue;
@@ -422,6 +424,6 @@ export async function reassignNormalization(
     );
   }
 
-  await countMerchants([...merchantsTocats], connection);
-  return { revisats: rows.length, canviats };
+  await countMerchants([...touchedMerchants], connection);
+  return { reviewed: rows.length, changed };
 }

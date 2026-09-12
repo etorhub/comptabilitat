@@ -108,7 +108,7 @@ export async function seedCategories(ledgerId: number): Promise<number> {
     ).map((c) => c.slug),
   );
 
-  let creades = 0;
+  let createdRows = 0;
   let position = 0;
 
   for (const [kind, tree] of trees) {
@@ -124,7 +124,7 @@ export async function seedCategories(ledgerId: number): Promise<number> {
           .limit(1);
         parentId = already?.id;
       } else {
-        const [creat] = await db
+        const [createdOne] = await db
           .insert(categories)
           .values({
             ledgerId,
@@ -138,8 +138,8 @@ export async function seedCategories(ledgerId: number): Promise<number> {
             parentId: null,
           })
           .returning({ id: categories.id });
-        parentId = creat?.id;
-        creades += 1;
+        parentId = createdOne?.id;
+        createdRows += 1;
       }
       position += 1;
       if (parentId === undefined) continue;
@@ -158,13 +158,13 @@ export async function seedCategories(ledgerId: number): Promise<number> {
           position: position,
           parentId: parentId,
         });
-        creades += 1;
+        createdRows += 1;
         position += 1;
       }
     }
   }
 
-  return creades;
+  return createdRows;
 }
 
 /** Creates the three initial workspaces with their plan, if they are missing. */
@@ -178,7 +178,7 @@ export async function seedLedgers(): Promise<Ledger[]> {
       continue;
     }
 
-    const [creat] = await db
+    const [createdOne] = await db
       .insert(ledgers)
       .values({
         code,
@@ -193,9 +193,9 @@ export async function seedLedgers(): Promise<Ledger[]> {
       })
       .returning();
 
-    if (creat) {
-      await seedCategories(creat.id);
-      created.push(creat);
+    if (createdOne) {
+      await seedCategories(createdOne.id);
+      created.push(createdOne);
     }
   }
 

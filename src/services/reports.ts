@@ -180,14 +180,14 @@ export async function categoryBreakdown(
     .orderBy(sql`sum(abs(${transactions.amount})) desc`)
     .limit(limit);
 
-  const suma = rows.reduce((acc, f) => acc.plus(money(f.amount)), new Decimal(0));
+  const grandTotal = rows.reduce((acc, f) => acc.plus(money(f.amount)), new Decimal(0));
 
   return rows.map((f) => ({
     categoryId: f.groupId,
     categoryName: f.groupName ?? "Sense classificar",
     color: f.color ?? "#94a3b8",
     amount: toMoneyString(money(f.amount)),
-    share: suma.isZero() ? 0 : money(f.amount).dividedBy(suma).toNumber(),
+    share: grandTotal.isZero() ? 0 : money(f.amount).dividedBy(grandTotal).toNumber(),
     transactions: f.transactionCount,
   }));
 }

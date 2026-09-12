@@ -161,22 +161,22 @@ describe("assigning a merchant's category", () => {
     await transaction("automatic-1", "none", null);
     await transaction("automatic-2", "none", null);
 
-    const canviats = await assignCategory(merchantId, ledgerId, bars.id);
-    expect(canviats).toBe(2);
+    const changed = await assignCategory(merchantId, ledgerId, bars.id);
+    expect(changed).toBe(2);
 
-    const [meu] = await db.select().from(transactions).where(eq(transactions.dedupKey, "meu"));
+    const [own] = await db.select().from(transactions).where(eq(transactions.dedupKey, "meu"));
     // Neither the category nor the source: the person's decision rules.
-    expect(meu?.categoryId).toBe(restaurants.id);
-    expect(meu?.categorySource).toBe("user");
+    expect(own?.categoryId).toBe(restaurants.id);
+    expect(own?.categorySource).toBe("user");
 
-    const automatics = await db
+    const automatic = await db
       .select()
       .from(transactions)
       .where(eq(transactions.categorySource, "merchant"));
-    expect(automatics).toHaveLength(2);
-    expect(automatics.every((t) => t.categoryId === bars.id)).toBe(true);
+    expect(automatic).toHaveLength(2);
+    expect(automatic.every((t) => t.categoryId === bars.id)).toBe(true);
     // And they leave the review tray.
-    expect(automatics.every((t) => t.needsReview === false)).toBe(true);
+    expect(automatic.every((t) => t.needsReview === false)).toBe(true);
   });
 
   test("leaves the merchant confirmed", async () => {
@@ -193,20 +193,20 @@ describe("assigning a merchant's category", () => {
     const bars = await categoryBySlug("restauracio-bars-i-cafeteries");
     await transaction("automatic-1", "none", null);
 
-    const canviats = await assignCategory(merchantId, ledgerId, bars.id, false);
-    expect(canviats).toBe(0);
+    const changed = await assignCategory(merchantId, ledgerId, bars.id, false);
+    expect(changed).toBe(0);
 
     const [t] = await db.select().from(transactions);
     expect(t?.categoryId).toBeNull();
   });
 
   test("does not accept a category from another workspace", async () => {
-    const forana = await categoryBySlug("habitatge", otherLedgerId);
-    await expect(assignCategory(merchantId, ledgerId, forana.id)).rejects.toThrow(AppError);
+    const foreign = await categoryBySlug("habitatge", otherLedgerId);
+    await expect(assignCategory(merchantId, ledgerId, foreign.id)).rejects.toThrow(AppError);
   });
 
   test("does not accept a merchant from another workspace", async () => {
-    const [foraster] = await db
+    const [outsider] = await db
       .insert(merchants)
       .values({
         ledgerId: otherLedgerId,
@@ -221,7 +221,7 @@ describe("assigning a merchant's category", () => {
       .returning();
 
     const bars = await categoryBySlug("restauracio-bars-i-cafeteries");
-    await expect(assignCategory(foraster?.id ?? 0, ledgerId, bars.id)).rejects.toThrow();
+    await expect(assignCategory(outsider?.id ?? 0, ledgerId, bars.id)).rejects.toThrow();
   });
 });
 
@@ -241,14 +241,14 @@ describe("getting or creating a merchant", () => {
 
   test("counts the times and remembers the last date", async () => {
     await getOrCreateMerchant(ledgerId, "NOU", "Nou", "2026-01-10");
-    const segon = await getOrCreateMerchant(ledgerId, "NOU", "Nou", "2026-03-20");
+    const second = await getOrCreateMerchant(ledgerId, "NOU", "Nou", "2026-03-20");
 
-    expect(segon?.transactionCount).toBe(2);
-    expect(segon?.lastSeenAt).toBe("2026-03-20");
+    expect(second?.transactionCount).toBe(2);
+    expect(second?.lastSeenAt).toBe("2026-03-20");
 
     // An earlier date does not push the last-seen one back.
-    const tercer = await getOrCreateMerchant(ledgerId, "NOU", "Nou", "2026-02-01");
-    expect(tercer?.lastSeenAt).toBe("2026-03-20");
+    const third = await getOrCreateMerchant(ledgerId, "NOU", "Nou", "2026-02-01");
+    expect(third?.lastSeenAt).toBe("2026-03-20");
   });
 });
 
@@ -296,7 +296,7 @@ describe("the list", () => {
 
 describe("reassigning the normalization", () => {
   test("takes a Spotify purchase out of the COMISSIO BANCARIA bucket", async () => {
-    const [cubell] = await db
+    const [bucket] = await db
       .insert(merchants)
       .values({
         ledgerId,
@@ -324,7 +324,7 @@ describe("reassigning the normalization", () => {
       normalizedDescription: "COMISSIO BANCARIA",
       counterparty: "",
       bankTransactionCode: "",
-      merchantId: cubell?.id ?? 0,
+      merchantId: bucket?.id ?? 0,
       categoryId: null,
       categorySource: "merchant",
       needsReview: true,
@@ -335,7 +335,7 @@ describe("reassigning the normalization", () => {
     });
 
     const result = await reassignNormalization(ledgerId);
-    expect(result.canviats).toBeGreaterThanOrEqual(1);
+    expect(result.changed).toBeGreaterThanOrEqual(1);
 
     const [t] = await db
       .select()
@@ -350,17 +350,17 @@ describe("reassigning the normalization", () => {
     expect(spotify).toBeDefined();
     expect(t?.merchantId).toBe(spotify?.id);
 
-    const [cubellDespres] = await db
+    const [bucketAfter] = await db
       .select()
       .from(merchants)
-      .where(eq(merchants.id, cubell?.id ?? 0));
-    expect(cubellDespres?.transactionCount).toBe(0);
+      .where(eq(merchants.id, bucket?.id ?? 0));
+    expect(bucketAfter?.transactionCount).toBe(0);
     expect(spotify?.transactionCount).toBe(1);
   });
 
   test("does not touch the category a person set", async () => {
     const restaurants = await categoryBySlug("restauracio-restaurants");
-    const [cubell] = await db
+    const [bucket] = await db
       .insert(merchants)
       .values({
         ledgerId,
@@ -388,7 +388,7 @@ describe("reassigning the normalization", () => {
       normalizedDescription: "COMISSIO BANCARIA",
       counterparty: "",
       bankTransactionCode: "",
-      merchantId: cubell?.id ?? 0,
+      merchantId: bucket?.id ?? 0,
       categoryId: restaurants.id,
       categorySource: "user",
       needsReview: false,

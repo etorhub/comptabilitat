@@ -16,7 +16,7 @@ import { closeStuckImports } from "../../services/sync.ts";
 export async function maintenanceJob(): Promise<string> {
   // The Python application never deleted expired sessions and the table grew
   // without end.
-  const esborrades = await purgeExpiredSessions();
+  const deleted = await purgeExpiredSessions();
 
   // And an import that stopped halfway leaves the connections page polling
   // every two seconds for ever.
@@ -25,9 +25,9 @@ export async function maintenanceJob(): Promise<string> {
   const reassignment = await reassignNormalization();
 
   return (
-    `${esborrades} sessions caducades esborrades; ` +
+    `${deleted} sessions caducades esborrades; ` +
     `${stuck} importacions penjades tancades; ` +
     `${jobsStuck} feines penjades tancades; ` +
-    `normalitzacio: ${reassignment.canviats} de ${reassignment.revisats} moviments reassignats`
+    `normalitzacio: ${reassignment.changed} de ${reassignment.reviewed} moviments reassignats`
   );
 }

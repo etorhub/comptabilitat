@@ -74,12 +74,12 @@ function toView(
 
 export async function listSeries(
   ledgerId: number,
-  options: { statuses?: SeriesStatus[]; inclouAcabades?: boolean } = {},
+  options: { statuses?: SeriesStatus[]; includeFinished?: boolean } = {},
 ): Promise<SeriesView[]> {
   const parts = [eq(recurringSeries.ledgerId, ledgerId)];
   if (options.statuses && options.statuses.length > 0) {
     parts.push(inArray(recurringSeries.status, options.statuses));
-  } else if (!options.inclouAcabades) {
+  } else if (!options.includeFinished) {
     parts.push(ne(recurringSeries.status, "ended"));
     parts.push(ne(recurringSeries.status, "dismissed"));
   }

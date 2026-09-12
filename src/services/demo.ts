@@ -116,7 +116,7 @@ const Recurring: readonly (readonly [string, string, number, string, string])[] 
  * one Saturday (one-off, restaurant category): same actor, each in its own
  * category, and only the first one generates a series.
  */
-const TRANSFERENCIES_PERSONALS: readonly (readonly [
+const PERSONAL_TRANSFERS: readonly (readonly [
   string,
   string,
   number | null,
@@ -139,7 +139,7 @@ const TRANSFERENCIES_PERSONALS: readonly (readonly [
   ],
 ];
 
-const NOMINA = "NOMINA MES EMPRESA EXEMPLE SL";
+const PAYROLL = "NOMINA MES EMPRESA EXEMPLE SL";
 const Balances: Record<string, string> = {
   personal: "2840.15",
   calella: "610.40",
@@ -160,7 +160,7 @@ const Users: readonly (readonly [string, string, boolean, Record<string, LedgerR
  * because JavaScript's does not accept a seed: what matters is that repeating
  * it gives the same thing, not that it gives the same thing as the Python.
  */
-function generador(seed: number): () => number {
+function generator(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
     state = (state * 1_664_525 + 1_013_904_223) >>> 0;
@@ -171,7 +171,7 @@ function generador(seed: number): () => number {
 export interface DemoSummary {
   state: string;
   user?: string;
-  contrasenya?: string;
+  password?: string;
   transactionList?: number;
   accountList?: number;
   transfers?: number;
@@ -179,12 +179,12 @@ export interface DemoSummary {
 
 export async function fillForTests(
   email = "demo@exemple.cat",
-  contrasenya = "comptabilitat",
+  password = "comptabilitat",
 ): Promise<DemoSummary> {
-  const [japle] = await db.select({ id: accounts.id }).from(accounts).limit(1);
-  if (japle) return { state: "ja hi havia dades; no s'ha tocat res" };
+  const [anyAccount] = await db.select({ id: accounts.id }).from(accounts).limit(1);
+  if (anyAccount) return { state: "ja hi havia dades; no s'ha tocat res" };
 
-  const random = generador(20260825);
+  const random = generator(20260825);
   const today = todayLocal();
 
   await seedLedgers();
@@ -192,29 +192,32 @@ export async function fillForTests(
   const byCode = new Map(workspaces.map((e) => [e.code, e]));
 
   // --- Users ---
-  for (const [correu, name, esAdmin, accessos] of Users) {
-    const adreça = correu === "demo@exemple.cat" ? email : correu;
-    const [ja] = await db.select().from(users).where(eq(users.email, adreça)).limit(1);
+  for (const [seeded, name, esAdmin, access] of Users) {
+    // The demo account takes the address the caller asked for; the rest keep
+    // the one in the table. These are two different values and must not share
+    // a name.
+    const address = seeded === "demo@exemple.cat" ? email : seeded;
+    const [ja] = await db.select().from(users).where(eq(users.email, address)).limit(1);
     if (ja) continue;
 
-    const [persona] = await db
+    const [person] = await db
       .insert(users)
       .values({
-        email: adreça,
+        email: address,
         fullName: name,
-        passwordHash: await hashPassword(contrasenya),
+        passwordHash: await hashPassword(password),
         isAdmin: esAdmin,
         isActive: true,
       })
       .returning();
-    if (!persona) continue;
+    if (!person) continue;
 
-    for (const [code, rol] of Object.entries(accessos)) {
+    for (const [code, role] of Object.entries(access)) {
       const workspace = byCode.get(code);
       if (workspace) {
         await db
           .insert(userLedgerPermissions)
-          .values({ userId: persona.id, ledgerId: workspace.id, role: rol });
+          .values({ userId: person.id, ledgerId: workspace.id, role: role });
       }
     }
   }
@@ -317,13 +320,13 @@ export async function fillForTests(
 
     // The salary, every month.
     if (personal) {
-      await add(personal, addDays(base, 1), new Decimal("2150.00"), NOMINA);
+      await add(personal, addDays(base, 1), new Decimal("2150.00"), PAYROLL);
     }
 
     // Day-to-day expenses.
     for (const account of accountList.values()) {
-      const quantes = 8 + Math.floor(random() * 10);
-      for (let i = 0; i < quantes; i += 1) {
+      const howMany = 8 + Math.floor(random() * 10);
+      for (let i = 0; i < howMany; i += 1) {
         const row = Expenses[Math.floor(random() * Expenses.length)];
         if (!row) continue;
         const [description, min, max] = row;
@@ -342,7 +345,7 @@ export async function fillForTests(
 
     // Transfers to a person with a declared periodicity (the rent). The
     // one-off ones (`dies === null`) are generated separately, once.
-    for (const [description, amount, days, workspaceCode] of TRANSFERENCIES_PERSONALS) {
+    for (const [description, amount, days, workspaceCode] of PERSONAL_TRANSFERS) {
       if (days === null) continue;
       const account = accountList.get(workspaceCode);
       if (!account) continue;
@@ -352,7 +355,7 @@ export async function fillForTests(
   }
 
   // The one-off transfers to a person: once only, not every month.
-  for (const [description, amount, days, workspaceCode] of TRANSFERENCIES_PERSONALS) {
+  for (const [description, amount, days, workspaceCode] of PERSONAL_TRANSFERS) {
     if (days !== null) continue;
     const account = accountList.get(workspaceCode);
     if (!account) continue;
@@ -405,13 +408,13 @@ export async function fillForTests(
   const assignments: [string, string][] = [
     ...Expenses.map(([description, , , slug]) => [description, slug] as [string, string]),
     ...Recurring.map(([description, , , , slug]) => [description, slug] as [string, string]),
-    [NOMINA, "ingressos-del-treball-nomina"],
+    [PAYROLL, "ingressos-del-treball-nomina"],
   ];
 
   for (const account of accountList.values()) {
     for (const [description, slug] of assignments) {
-      const [normalitzat] = normalizeDescription(description, "");
-      if (!normalitzat) continue;
+      const [normalized] = normalizeDescription(description, "");
+      if (!normalized) continue;
 
       const categoryId = perSlug.get(`${account.ledgerId}:${slug}`);
       if (categoryId === undefined) continue;
@@ -422,7 +425,7 @@ export async function fillForTests(
         .where(
           and(
             eq(merchants.ledgerId, account.ledgerId),
-            eq(merchants.normalizedName, normalitzat),
+            eq(merchants.normalizedName, normalized),
           ),
         )
         .limit(1);
@@ -437,7 +440,7 @@ export async function fillForTests(
   // by transaction.
   const directClassification: [string, string, string][] = [
     ...TRANSFERS_BETWEEN_WORKSPACES,
-    ...TRANSFERENCIES_PERSONALS.map(
+    ...PERSONAL_TRANSFERS.map(
       ([description, , , workspaceCode, slug]) =>
         [workspaceCode, description, slug] as [string, string, string],
     ),
@@ -504,7 +507,7 @@ export async function fillForTests(
   return {
     state: "fet",
     user: email,
-    contrasenya,
+    password,
     transactionList: total,
     accountList: accountList.size,
     transfers,

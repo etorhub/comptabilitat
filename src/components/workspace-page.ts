@@ -22,7 +22,7 @@ export async function workspacePage(
   const user = currentUser(c);
   const workspace = currentWorkspace(c);
 
-  const [workspaces, { perRevisar, newAlerts }] = await Promise.all([
+  const [workspaces, { toReview, newAlerts }] = await Promise.all([
     myWorkspaces(user.id),
     counters(workspace.id),
   ]);
@@ -34,7 +34,7 @@ export async function workspacePage(
     path: c.req.path,
     workspaces,
     workspace,
-    perRevisar,
+    toReview,
     newAlerts,
     children,
   });

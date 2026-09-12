@@ -54,15 +54,15 @@ function raw(over: Record<string, unknown> = {}): Record<string, unknown> {
  * what is tested is the part that decides, which is `saveTransactions`,
  * through its effect on the database.
  */
-async function importa(
+async function importTransactions(
   items: Record<string, unknown>[],
   incompleteList = false,
 ): Promise<void> {
   const { saveTransactions } = await import("../src/services/import.ts");
-  const analitzats = items
+  const analyzed = items
     .map(parseTransaction)
     .filter((x): x is NonNullable<typeof x> => x !== null);
-  await saveTransactions(account, analitzats, incompleteList);
+  await saveTransactions(account, analyzed, incompleteList);
 }
 
 beforeEach(async () => {
@@ -128,20 +128,23 @@ beforeEach(async () => {
 
 describe("importing", () => {
   test("stores the new transactions", async () => {
-    await importa([raw(), raw({ entry_reference: "R2", booking_date: "2026-03-02" })]);
-    const desats = await db.select().from(transactions);
-    expect(desats).toHaveLength(2);
+    await importTransactions([
+      raw(),
+      raw({ entry_reference: "R2", booking_date: "2026-03-02" }),
+    ]);
+    const savedRows = await db.select().from(transactions);
+    expect(savedRows).toHaveLength(2);
   });
 
   test("does not duplicate them when the same is imported again", async () => {
     const items = [raw({ entry_reference: "R1" }), raw({ entry_reference: "R2" })];
-    await importa(items);
-    await importa(items);
+    await importTransactions(items);
+    await importTransactions(items);
     expect(await db.select().from(transactions)).toHaveLength(2);
   });
 
   test("classifies them and gives them a merchant", async () => {
-    await importa([raw({ entry_reference: "R1" })]);
+    await importTransactions([raw({ entry_reference: "R1" })]);
     const [t] = await db.select().from(transactions);
 
     // The dot inside the acronym stays; the final one goes. It is what the
@@ -155,34 +158,34 @@ describe("importing", () => {
   });
 
   test("notes how far back the history got", async () => {
-    await importa([
+    await importTransactions([
       raw({ entry_reference: "R1", booking_date: "2026-01-15" }),
       raw({ entry_reference: "R2", booking_date: "2026-03-20" }),
     ]);
-    const [actualitzat] = await db.select().from(accounts).where(eq(accounts.id, account.id));
-    expect(actualitzat?.historyStartDate).toBe("2026-01-15");
-    expect(actualitzat?.lastBookedDate).toBe("2026-03-20");
+    const [updatedOne] = await db.select().from(accounts).where(eq(accounts.id, account.id));
+    expect(updatedOne?.historyStartDate).toBe("2026-01-15");
+    expect(updatedOne?.lastBookedDate).toBe("2026-03-20");
   });
 });
 
 describe("a pending entry that is booked", () => {
   test("is not duplicated: the row is reused", async () => {
-    await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
+    await importTransactions([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
 
     // The same amount, two days later and already booked.
-    await importa([
+    await importTransactions([
       raw({ status: "BOOK", booking_date: "2026-03-03", entry_reference: "R-DEF" }),
     ]);
 
-    const desats = await db.select().from(transactions);
-    expect(desats).toHaveLength(1);
-    expect(desats[0]?.status).toBe("booked");
-    expect(desats[0]?.entryReference).toBe("R-DEF");
+    const savedRows = await db.select().from(transactions);
+    expect(savedRows).toHaveLength(1);
+    expect(savedRows[0]?.status).toBe("booked");
+    expect(savedRows[0]?.entryReference).toBe("R-DEF");
   });
 
   test("and keeps the category a person had set", async () => {
-    await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
+    await importTransactions([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
 
     const [category] = await db
       .select()
@@ -200,7 +203,7 @@ describe("a pending entry that is booked", () => {
       .set({ categoryId: category?.id, categorySource: "user", needsReview: false })
       .where(eq(transactions.accountId, account.id));
 
-    await importa([
+    await importTransactions([
       raw({ status: "BOOK", booking_date: "2026-03-03", entry_reference: "R-DEF" }),
     ]);
 
@@ -210,9 +213,9 @@ describe("a pending entry that is booked", () => {
   });
 
   test("too far apart in time, no pairing", async () => {
-    await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
+    await importTransactions([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     // Nine days later: outside the five-day window.
-    await importa([
+    await importTransactions([
       raw({ status: "BOOK", booking_date: "2026-03-10", entry_reference: "R-LLUNY" }),
     ]);
     expect(await db.select().from(transactions)).toHaveLength(2);
@@ -220,11 +223,11 @@ describe("a pending entry that is booked", () => {
 
   test("with a different amount, neither", async () => {
     const pending = raw({ status: "PDNG", booking_date: "2026-03-01" });
-    await importa([pending]);
+    await importTransactions([pending]);
 
     // The bank keeps reporting the pending one and, on top of that, a new
     // entry of a different amount. As they do not match, they must not be paired.
-    await importa([
+    await importTransactions([
       pending,
       raw({
         status: "BOOK",
@@ -234,18 +237,18 @@ describe("a pending entry that is booked", () => {
       }),
     ]);
 
-    const desats = await db.select().from(transactions);
-    expect(desats).toHaveLength(2);
-    expect(desats.filter((t) => t.status === "pending")).toHaveLength(1);
+    const savedRows = await db.select().from(transactions);
+    expect(savedRows).toHaveLength(2);
+    expect(savedRows.filter((t) => t.status === "pending")).toHaveLength(1);
   });
 
   test("a pending entry the bank stops reporting disappears", async () => {
-    await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
+    await importTransactions([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
 
     // Now the bank only reports an entry of a different amount: the pending
     // one that is no longer there is deleted, as the Python did.
-    await importa([
+    await importTransactions([
       raw({
         status: "BOOK",
         booking_date: "2026-03-02",
@@ -254,19 +257,19 @@ describe("a pending entry that is booked", () => {
       }),
     ]);
 
-    const desats = await db.select().from(transactions);
-    expect(desats).toHaveLength(1);
-    expect(desats[0]?.entryReference).toBe("R-ALTRE");
+    const savedRows = await db.select().from(transactions);
+    expect(savedRows).toHaveLength(1);
+    expect(savedRows[0]?.entryReference).toBe("R-ALTRE");
   });
 
   test("but not if the bank's list comes truncated", async () => {
-    await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
+    await importTransactions([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
 
     // The same case as before, but the bank hit the page limit: «it is not
     // there» means «it did not arrive», and deleting it would really lose it
     // along with any notes and category it had.
-    await importa(
+    await importTransactions(
       [
         raw({
           status: "BOOK",
@@ -284,7 +287,7 @@ describe("a pending entry that is booked", () => {
 
 describe("the pending entries the bank no longer reports", () => {
   test("are deleted", async () => {
-    await importa([
+    await importTransactions([
       raw({ status: "PDNG", booking_date: "2026-03-01" }),
       raw({
         status: "PDNG",
@@ -295,15 +298,15 @@ describe("the pending entries the bank no longer reports", () => {
     expect(await db.select().from(transactions)).toHaveLength(2);
 
     // The second time the bank only reports one.
-    await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
+    await importTransactions([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
   });
 });
 
 describe("what the bank changes on a transaction we already had", () => {
   test("is updated without duplicating", async () => {
-    await importa([raw({ entry_reference: "R1", booking_date: "2026-03-01" })]);
-    await importa([
+    await importTransactions([raw({ entry_reference: "R1", booking_date: "2026-03-01" })]);
+    await importTransactions([
       raw({
         entry_reference: "R1",
         booking_date: "2026-03-01",
@@ -311,16 +314,16 @@ describe("what the bank changes on a transaction we already had", () => {
       }),
     ]);
 
-    const desats = await db.select().from(transactions);
-    expect(desats).toHaveLength(1);
-    expect(desats[0]?.amount).toBe("-50.00");
+    const savedRows = await db.select().from(transactions);
+    expect(savedRows).toHaveLength(1);
+    expect(savedRows[0]?.amount).toBe("-50.00");
   });
 });
 
 describe("the deduplication key", () => {
   test("the one stored is the one the parser computes", async () => {
     const item = raw({ entry_reference: "R-CLAU" });
-    await importa([item]);
+    await importTransactions([item]);
     const analyzed = parseTransaction(item);
     const [t] = await db.select().from(transactions);
     expect(t?.dedupKey).toBe(dedupKey(analyzed as NonNullable<typeof analyzed>));

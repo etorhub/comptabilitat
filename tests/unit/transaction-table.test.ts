@@ -35,7 +35,7 @@ function transaction(id: number): TransactionView {
     status: "booked",
     description: `Compra ${id}`,
     descriptionHint: null,
-    darrers4: null,
+    last4: null,
     operationType: "altres",
     counterparty: "",
     merchantId: null,
@@ -57,12 +57,12 @@ function transaction(id: number): TransactionView {
   };
 }
 
-async function table(canEdit: boolean, quantes = 3): Promise<string> {
-  const items = Array.from({ length: quantes }, (_, i) => transaction(i + 1));
+async function table(canEdit: boolean, howMany = 3): Promise<string> {
+  const items = Array.from({ length: howMany }, (_, i) => transaction(i + 1));
   return String(
     await Table({
       code: "personal",
-      page: { items, total: quantes, offset: 0, limit: 50, totalAmount: "-90.00" },
+      page: { items, total: howMany, offset: 0, limit: 50, totalAmount: "-90.00" },
       groups,
       filters: transactionFiltersSchema.parse({}),
       canEdit,
@@ -72,12 +72,12 @@ async function table(canEdit: boolean, quantes = 3): Promise<string> {
 
 /** The `name=`s inside each `<form>` of the markup. */
 function fieldsPerForm(markup: string): string[][] {
-  const formularis: string[][] = [];
+  const forms: string[][] = [];
   for (const part of markup.split(/<form\b/i).slice(1)) {
     const body = part.split(/<\/form>/i)[0] ?? "";
-    formularis.push([...body.matchAll(/\sname="([^"]+)"/g)].map((m) => m[1] as string));
+    forms.push([...body.matchAll(/\sname="([^"]+)"/g)].map((m) => m[1] as string));
   }
-  return formularis;
+  return forms;
 }
 
 describe("the transaction table", () => {
@@ -90,8 +90,8 @@ describe("the transaction table", () => {
   });
 
   test("no form carries the same field twice", async () => {
-    const formularis = fieldsPerForm(await table(true, 5));
-    for (const fields of formularis) {
+    const forms = fieldsPerForm(await table(true, 5));
+    for (const fields of forms) {
       expect(new Set(fields).size).toBe(fields.length);
     }
   });
@@ -108,11 +108,11 @@ describe("the transaction table", () => {
   test("the row's tag field shares no form with the bar", async () => {
     const markup = await table(true, 3);
     for (const fields of fieldsPerForm(markup)) {
-      const teFila = fields.includes("nova_etiqueta");
+      const hasRow = fields.includes("nova_etiqueta");
       const hasBar = fields.includes("etiqueta_bloc") || fields.includes("category_id");
       // A row form only has nova_etiqueta (+ etiqueta when removing).
       // The bar has no form: it goes with hx-include.
-      if (teFila) {
+      if (hasRow) {
         expect(fields).not.toContain("category_id");
         expect(fields).not.toContain("etiqueta_bloc");
       }
@@ -152,7 +152,7 @@ describe("the transaction table", () => {
       ...transaction(9),
       description: "Amazon",
       descriptionHint: "COMPRA WWW.AMAZON, LUXEMBOURG",
-      darrers4: "4017",
+      last4: "4017",
       operationType: "targeta",
     };
     const markup = String(
@@ -227,11 +227,11 @@ describe("the transaction table as cards", () => {
 
   test("there is no cell without a name", async () => {
     // Only the rows, not the header: the `<th>`s already say their names.
-    const celles = [...(await table(true, 3)).matchAll(/<td\b[^>]*>/g)].map((m) => m[0]);
+    const cells = [...(await table(true, 3)).matchAll(/<td\b[^>]*>/g)].map((m) => m[0]);
 
-    expect(celles.length).toBeGreaterThan(0);
-    for (const cella of celles) {
-      expect(cella).toContain("data-etiqueta=");
+    expect(cells.length).toBeGreaterThan(0);
+    for (const cell of cells) {
+      expect(cell).toContain("data-etiqueta=");
     }
   });
 

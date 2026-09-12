@@ -39,7 +39,7 @@ interface FieldProps {
   type?: string;
   value?: string | number | null | undefined;
   errors?: FieldErrors | undefined;
-  requerit?: boolean;
+  required?: boolean;
   help?: string;
   autocomplete?: string;
   autofocus?: boolean;
@@ -57,7 +57,7 @@ export function Field(props: FieldProps): Html {
     type = "text",
     value,
     errors,
-    requerit = false,
+    required = false,
     help,
     autocomplete,
     autofocus = false,
@@ -70,23 +70,23 @@ export function Field(props: FieldProps): Html {
   const error = fieldError(errors, name);
   const idError = `${id}-error`;
   const helpId = `${id}-ajuda`;
-  const descriu = [error ? idError : null, help ? helpId : null].filter(Boolean).join(" ");
+  const describe = [error ? idError : null, help ? helpId : null].filter(Boolean).join(" ");
 
   return html`<label class="camp">
-    <span class="camp-etiqueta">${tag}${requerit ? html`<abbr title="obligatori">*</abbr>` : ""}</span>
+    <span class="camp-etiqueta">${tag}${required ? html`<abbr title="obligatori">*</abbr>` : ""}</span>
     <input
       type="${type}"
       name="${name}"
       id="${id}"
       value="${value ?? ""}"
-      ${requerit ? raw("required") : ""}
+      ${required ? raw("required") : ""}
       ${autofocus ? raw("autofocus") : ""}
       ${autocomplete ? raw(`autocomplete="${autocomplete}"`) : ""}
       ${maxlength ? raw(`maxlength="${maxlength}"`) : ""}
       ${step ? raw(`step="${step}"`) : ""}
       ${placeholder ? raw(`placeholder="${placeholder}"`) : ""}
       ${error ? raw('aria-invalid="true"') : ""}
-      ${descriu ? raw(`aria-describedby="${descriu}"`) : ""}
+      ${describe ? raw(`aria-describedby="${describe}"`) : ""}
     />
     ${help ? html`<small id="${helpId}" class="camp-ajuda">${help}</small>` : ""}
     ${error ? html`<p id="${idError}" class="camp-error">${error}</p>` : ""}
@@ -173,19 +173,19 @@ export function Select(props: SelectProps): Html {
 interface CheckboxProps {
   name: string;
   tag: string;
-  marcat?: boolean;
+  marked?: boolean;
   attributes?: string;
   value?: string;
 }
 
 export function Checkbox(props: CheckboxProps): Html {
-  const { name, tag, marcat = false, attributes, value } = props;
+  const { name, tag, marked = false, attributes, value } = props;
   return html`<label class="casella">
     <input
       type="checkbox"
       name="${name}"
       ${value ? raw(`value="${value}"`) : ""}
-      ${marcat ? raw("checked") : ""}
+      ${marked ? raw("checked") : ""}
       ${attributes ? raw(attributes) : ""}
     />
     <span>${tag}</span>

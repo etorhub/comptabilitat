@@ -47,30 +47,30 @@ const MIN_REGULARITY = 0.6;
 const AVERAGE_MONTHS = 6;
 
 export interface RecurringStats {
-  creades: number;
-  actualitzades: number;
+  createdRows: number;
+  updatedRows: number;
   finished: number;
   alertList: number;
 }
 
 export function summaryRecurring(s: RecurringStats): string {
-  return `recurrents: ${s.creades} noves, ${s.actualitzades} actualitzades, ${s.finished} finalitzades, ${s.alertList} avisos`;
+  return `recurrents: ${s.createdRows} noves, ${s.updatedRows} actualitzades, ${s.finished} finalitzades, ${s.alertList} avisos`;
 }
 
-function mediana(values: number[]): number {
+function median(values: number[]): number {
   if (values.length === 0) return 0;
-  const ordenats = values.toSorted((a, b) => a - b);
-  const mig = Math.floor(ordenats.length / 2);
-  if (ordenats.length % 2 === 1) return ordenats[mig] as number;
-  return ((ordenats[mig - 1] as number) + (ordenats[mig] as number)) / 2;
+  const sorted = values.toSorted((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 1) return sorted[mid] as number;
+  return ((sorted[mid - 1] as number) + (sorted[mid] as number)) / 2;
 }
 
-function medianaImports(values: string[]): Decimal {
+function medianAmount(values: string[]): Decimal {
   if (values.length === 0) return new Decimal(0);
-  const ordenats = values.map((v) => new Decimal(v)).toSorted((a, b) => a.comparedTo(b));
-  const mig = Math.floor(ordenats.length / 2);
-  if (ordenats.length % 2 === 1) return ordenats[mig] as Decimal;
-  return (ordenats[mig - 1] as Decimal).plus(ordenats[mig] as Decimal).dividedBy(2);
+  const sorted = values.map((v) => new Decimal(v)).toSorted((a, b) => a.comparedTo(b));
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 1) return sorted[mid] as Decimal;
+  return (sorted[mid - 1] as Decimal).plus(sorted[mid] as Decimal).dividedBy(2);
 }
 
 function nextCadenceMonth(intervalDays: number): Cadence | null {
@@ -82,10 +82,10 @@ function nextCadenceMonth(intervalDays: number): Cadence | null {
   return null;
 }
 
-function regularity(intervals: number[], esperat: number, tolerance: number): number {
+function regularity(intervals: number[], expected: number, tolerance: number): number {
   if (intervals.length === 0) return 0;
-  const bons = intervals.filter((v) => Math.abs(v - esperat) <= tolerance).length;
-  return bons / intervals.length;
+  const good = intervals.filter((v) => Math.abs(v - expected) <= tolerance).length;
+  return good / intervals.length;
 }
 
 interface TransactionSeries {
@@ -100,7 +100,7 @@ interface TransactionSeries {
   displayDescription: string | null;
 }
 
-function signatura(m: TransactionSeries): string {
+function signature(m: TransactionSeries): string {
   const counterparty = m.merchantId !== null ? `m${m.merchantId}` : "-";
   const sentit = money(m.amount).isPositive() ? "in" : "out";
   return `c${m.categoryId}|${counterparty}|${sentit}`;
@@ -128,8 +128,8 @@ function amountToleranceFor(expectedAmount: Decimal): Decimal {
  */
 export async function detectRecurring(ledgerId: number): Promise<RecurringStats> {
   const stats: RecurringStats = {
-    creades: 0,
-    actualitzades: 0,
+    createdRows: 0,
+    updatedRows: 0,
     finished: 0,
     alertList: 0,
   };
@@ -162,7 +162,7 @@ export async function detectRecurring(ledgerId: number): Promise<RecurringStats>
   for (const transaction of transactionList) {
     if (transaction.categoryId === null) continue;
     const row: TransactionSeries = { ...transaction, categoryId: transaction.categoryId };
-    const key = signatura(row);
+    const key = signature(row);
     const group = groups.get(key);
     if (group) group.push(row);
     else groups.set(key, [row]);
@@ -200,13 +200,13 @@ async function evaluateGroup(
 
   // Active series: refreshed with the cadence it already has (no need to re-detect).
   if (existing?.status === "active") {
-    const intervalArrodonit = existing.intervalDays;
+    const roundedInterval = existing.intervalDays;
     const lastDate = dates[dates.length - 1] as string;
     const last = items[items.length - 1] as TransactionSeries;
-    const detectedAmount = medianaImports(items.map((i) => i.amount)).toDecimalPlaces(2);
+    const detectedAmount = medianAmount(items.map((i) => i.amount)).toDecimalPlaces(2);
     const expectedAmount =
       existing.amountMode === "average"
-        ? medianaImports(importsRecents(items)).toDecimalPlaces(2)
+        ? medianAmount(recentAmounts(items)).toDecimalPlaces(2)
         : money(existing.expectedAmount);
 
     await db
@@ -214,7 +214,7 @@ async function evaluateGroup(
       .set({
         occurrencesCount: items.length,
         lastSeenDate: lastDate,
-        nextExpectedDate: addDays(lastDate, intervalArrodonit),
+        nextExpectedDate: addDays(lastDate, roundedInterval),
         merchantId: last.merchantId,
         ...(existing.amountMode === "average"
           ? {
@@ -226,7 +226,7 @@ async function evaluateGroup(
       })
       .where(eq(recurringSeries.id, existing.id));
 
-    stats.actualitzades += 1;
+    stats.updatedRows += 1;
 
     if (
       existing.amountMode === "exact" &&
@@ -235,12 +235,12 @@ async function evaluateGroup(
         .abs()
         .gt(money(existing.amountTolerance))
     ) {
-      const puja = money(last.amount).abs().gt(money(existing.expectedAmount).abs());
-      const creat = await createAlert({
+      const goesUp = money(last.amount).abs().gt(money(existing.expectedAmount).abs());
+      const createdOne = await createAlert({
         type: "recurring_amount_change",
         ledgerId,
         dedupKey: `amount-change:${existing.id}:${lastDate}`,
-        title: `${existing.label}: l'import ${puja ? "puja" : "baixa"} a ${money(last.amount).abs().toFixed(2)} EUR`,
+        title: `${existing.label}: l'import ${goesUp ? "puja" : "baixa"} a ${money(last.amount).abs().toFixed(2)} EUR`,
         body: `L'import habitual era de ${money(existing.expectedAmount).abs().toFixed(2)} EUR i l'ultim rebut ha estat de ${money(last.amount).abs().toFixed(2)} EUR.`,
         severity: "warning",
         payload: {
@@ -250,7 +250,7 @@ async function evaluateGroup(
           transaction_id: last.id,
         },
       });
-      if (creat) stats.alertList += 1;
+      if (createdOne) stats.alertList += 1;
     }
 
     // If the detected amount diverges a lot with average, no warning is needed: it is already refreshed.
@@ -263,7 +263,7 @@ async function evaluateGroup(
   if (items.length < MIN_OCCURRENCES) return;
   if (intervals.length === 0) return;
 
-  const intervalMedia = mediana(intervals);
+  const intervalMedia = median(intervals);
   const found = nextCadenceMonth(intervalMedia);
   if (found === null) return;
 
@@ -272,17 +272,17 @@ async function evaluateGroup(
   if (regular < MIN_REGULARITY) return;
 
   const cadence = found;
-  const intervalArrodonit = Math.round(intervalMedia);
-  const confianca =
+  const roundedInterval = Math.round(intervalMedia);
+  const confidence =
     Math.round(Math.min(1, regular * Math.min(1, items.length / 6)) * 100) / 100;
-  const expectedAmount = medianaImports(items.map((i) => i.amount)).toDecimalPlaces(2);
+  const expectedAmount = medianAmount(items.map((i) => i.amount)).toDecimalPlaces(2);
   const amountTolerance = amountToleranceFor(expectedAmount);
   const lastDate = dates[dates.length - 1] as string;
-  const nextExpected = addDays(lastDate, intervalArrodonit);
+  const nextExpected = addDays(lastDate, roundedInterval);
   const last = items[items.length - 1] as TransactionSeries;
 
   if (!existing) {
-    const [creada] = await db
+    const [created] = await db
       .insert(recurringSeries)
       .values({
         ledgerId,
@@ -294,8 +294,8 @@ async function evaluateGroup(
         expectedAmount: toMoneyString(expectedAmount),
         amountTolerance: toMoneyString(amountTolerance),
         amountMode: "exact",
-        intervalDays: intervalArrodonit,
-        confidence: confianca,
+        intervalDays: roundedInterval,
+        confidence: confidence,
         occurrencesCount: items.length,
         firstSeenDate: dates[0] as string,
         lastSeenDate: lastDate,
@@ -305,9 +305,9 @@ async function evaluateGroup(
       })
       .returning({ id: recurringSeries.id });
 
-    if (!creada) return;
-    stats.creades += 1;
-    await linkOccurrences(creada.id, items);
+    if (!created) return;
+    stats.createdRows += 1;
+    await linkOccurrences(created.id, items);
     return;
   }
 
@@ -316,8 +316,8 @@ async function evaluateGroup(
     .update(recurringSeries)
     .set({
       cadence: cadence,
-      intervalDays: intervalArrodonit,
-      confidence: confianca,
+      intervalDays: roundedInterval,
+      confidence: confidence,
       occurrencesCount: items.length,
       lastSeenDate: lastDate,
       nextExpectedDate: nextExpected,
@@ -328,14 +328,14 @@ async function evaluateGroup(
     })
     .where(eq(recurringSeries.id, existing.id));
 
-  stats.actualitzades += 1;
+  stats.updatedRows += 1;
   await linkOccurrences(existing.id, items);
 }
 
-function importsRecents(items: TransactionSeries[]): string[] {
+function recentAmounts(items: TransactionSeries[]): string[] {
   const des = addDays(todayLocal(), -AVERAGE_MONTHS * 31);
-  const recents = items.filter((i) => i.bookingDate >= des).map((i) => i.amount);
-  return recents.length > 0 ? recents : items.map((i) => i.amount);
+  const recent = items.filter((i) => i.bookingDate >= des).map((i) => i.amount);
+  return recent.length > 0 ? recent : items.map((i) => i.amount);
 }
 
 async function linkOccurrences(seriesId: number, items: TransactionSeries[]): Promise<void> {
@@ -348,7 +348,7 @@ async function linkOccurrences(seriesId: number, items: TransactionSeries[]): Pr
     ).map((o) => o.transactionId),
   );
 
-  const noves = items
+  const newOnes = items
     .filter((i) => !known.has(i.id))
     .map((i) => ({
       seriesId: seriesId,
@@ -357,8 +357,8 @@ async function linkOccurrences(seriesId: number, items: TransactionSeries[]): Pr
       amount: i.amount,
     }));
 
-  if (noves.length > 0) {
-    await db.insert(recurringOccurrences).values(noves).onConflictDoNothing();
+  if (newOnes.length > 0) {
+    await db.insert(recurringOccurrences).values(newOnes).onConflictDoNothing();
   }
 }
 
@@ -404,12 +404,12 @@ export interface ManualSeriesData {
   nextExpectedDate: string;
 }
 
-function signaturaManual(
+function manualSignature(
   categoryId: number,
   merchantId: number | null,
   expectedAmount: MoneyString,
 ): string {
-  return signatura({
+  return signature({
     id: 0,
     bookingDate: "",
     amount: expectedAmount,
@@ -439,7 +439,7 @@ export async function createSeriesManual(
   }
 
   const merchantId = data.merchantId ?? null;
-  const signature = signaturaManual(data.categoryId, merchantId, data.expectedAmount);
+  const seriesSignature = manualSignature(data.categoryId, merchantId, data.expectedAmount);
   const intervalDays = CADENCE_DAYS[data.cadence];
   const amount = toMoneyString(expectedAmount);
   const amountTolerance = toMoneyString(amountToleranceFor(expectedAmount));
@@ -449,7 +449,10 @@ export async function createSeriesManual(
     .select()
     .from(recurringSeries)
     .where(
-      and(eq(recurringSeries.ledgerId, ledgerId), eq(recurringSeries.signature, signature)),
+      and(
+        eq(recurringSeries.ledgerId, ledgerId),
+        eq(recurringSeries.signature, seriesSignature),
+      ),
     )
     .limit(1);
 
@@ -482,11 +485,11 @@ export async function createSeriesManual(
     return existing.id;
   }
 
-  const [creada] = await connection
+  const [created] = await connection
     .insert(recurringSeries)
     .values({
       ledgerId,
-      signature,
+      signature: seriesSignature,
       label: data.label,
       merchantId,
       categoryId: data.categoryId,
@@ -505,8 +508,8 @@ export async function createSeriesManual(
     })
     .returning({ id: recurringSeries.id });
 
-  if (!creada) throw new ConflictError("No s'ha pogut crear la serie");
-  return creada.id;
+  if (!created) throw new ConflictError("No s'ha pogut crear la serie");
+  return created.id;
 }
 
 /** Changes the expected amount and pins it so the detector does not write it. */
@@ -577,7 +580,7 @@ export async function checkMissingBills(ledgerId: number): Promise<number> {
       continue;
     }
 
-    const creat = await createAlert({
+    const createdOne = await createAlert({
       type: "recurring_missing",
       ledgerId,
       dedupKey: `missing:${series.id}:${expected}`,
@@ -586,7 +589,7 @@ export async function checkMissingBills(ledgerId: number): Promise<number> {
       severity: "info",
       payload: { series_id: series.id, expected_date: expected },
     });
-    if (creat) created += 1;
+    if (createdOne) created += 1;
   }
 
   return created;

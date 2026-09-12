@@ -40,7 +40,7 @@ export interface CategoryView {
 }
 
 export interface NodeCategory extends CategoryView {
-  filles: CategoryView[];
+  children: CategoryView[];
 }
 
 /** The workspace's categories, in the order they should be shown. */
@@ -67,33 +67,33 @@ async function rollupStats(ledgerId: number): Promise<Map<number, [number, Money
     .where(and(eq(transactions.ledgerId, ledgerId), isNotNull(transactions.categoryId)))
     .groupBy(transactions.categoryId);
 
-  const propies = new Map<number, [number, MoneyString]>();
+  const ownOnes = new Map<number, [number, MoneyString]>();
   for (const row of rows) {
     if (row.categoryId === null) continue;
-    propies.set(row.categoryId, [row.n, row.total ?? "0.00"]);
+    ownOnes.set(row.categoryId, [row.n, row.total ?? "0.00"]);
   }
-  return propies;
+  return ownOnes;
 }
 
-function acumula(
+function accumulate(
   all: Category[],
-  propies: Map<number, [number, MoneyString]>,
+  ownOnes: Map<number, [number, MoneyString]>,
 ): Map<number, [number, MoneyString]> {
-  const acumulades = new Map<number, [number, MoneyString]>();
+  const accumulated = new Map<number, [number, MoneyString]>();
   for (const category of all) {
-    acumulades.set(category.id, propies.get(category.id) ?? [0, "0.00"]);
+    accumulated.set(category.id, ownOnes.get(category.id) ?? [0, "0.00"]);
   }
   for (const category of all) {
     if (category.parentId === null) continue;
-    const parent = acumulades.get(category.parentId);
-    const filla = acumulades.get(category.id);
-    if (!parent || !filla) continue;
-    acumulades.set(category.parentId, [
-      parent[0] + filla[0],
-      toMoneyString(money(parent[1]).plus(money(filla[1]))),
+    const parent = accumulated.get(category.parentId);
+    const child = accumulated.get(category.id);
+    if (!parent || !child) continue;
+    accumulated.set(category.parentId, [
+      parent[0] + child[0],
+      toMoneyString(money(parent[1]).plus(money(child[1]))),
     ]);
   }
-  return acumulades;
+  return accumulated;
 }
 
 /** The whole tree, grouped by type, with statistics if they are asked for. */
@@ -103,7 +103,7 @@ export async function categoryTree(
 ): Promise<Record<CategoryKind, NodeCategory[]>> {
   const all = await listCategories(ledgerId);
   const stats = withStats
-    ? acumula(all, await rollupStats(ledgerId))
+    ? accumulate(all, await rollupStats(ledgerId))
     : new Map<number, [number, MoneyString]>();
 
   const perId = new Map(all.map((c) => [c.id, c]));
@@ -135,7 +135,7 @@ export async function categoryTree(
     if (category.parentId !== null) continue;
     tree[category.kind].push({
       ...view(category),
-      filles: all.filter((c) => c.parentId === category.id).map(view),
+      children: all.filter((c) => c.parentId === category.id).map(view),
     });
   }
   return tree;
@@ -154,17 +154,17 @@ export async function categoryInWorkspace(id: number, ledgerId: number): Promise
 
 /** A slug unique within the workspace, adding `-2`, `-3`... if needed. */
 async function freeSlug(ledgerId: number, base: string): Promise<string> {
-  let candidat = base;
-  let sufix = 2;
+  let candidate = base;
+  let suffix = 2;
   for (;;) {
-    const [xoc] = await db
+    const [clash] = await db
       .select({ id: categories.id })
       .from(categories)
-      .where(and(eq(categories.ledgerId, ledgerId), eq(categories.slug, candidat)))
+      .where(and(eq(categories.ledgerId, ledgerId), eq(categories.slug, candidate)))
       .limit(1);
-    if (!xoc) return candidat;
-    candidat = `${base}-${sufix}`;
-    sufix += 1;
+    if (!clash) return candidate;
+    candidate = `${base}-${suffix}`;
+    suffix += 1;
   }
 }
 
@@ -192,7 +192,7 @@ export async function createCategory(
   const base = parent ? `${parent.slug}-${slugify(data.name)}` : slugify(data.name);
   const slug = await freeSlug(ledgerId, base);
 
-  const [creada] = await db
+  const [created] = await db
     .insert(categories)
     .values({
       ledgerId,
@@ -208,8 +208,8 @@ export async function createCategory(
     })
     .returning();
 
-  if (!creada) throw new AppError("No s'ha pogut crear la categoria", 500);
-  return creada;
+  if (!created) throw new AppError("No s'ha pogut crear la categoria", 500);
+  return created;
 }
 
 export async function renameCategory(
@@ -218,13 +218,13 @@ export async function renameCategory(
   name: string,
 ): Promise<Category> {
   await categoryInWorkspace(id, ledgerId);
-  const [actualitzada] = await db
+  const [updated] = await db
     .update(categories)
     .set({ name })
     .where(eq(categories.id, id))
     .returning();
-  if (!actualitzada) throw new NotFoundError("Aquesta categoria no existeix");
-  return actualitzada;
+  if (!updated) throw new NotFoundError("Aquesta categoria no existeix");
+  return updated;
 }
 
 /** How many transactions there are in a category. */
@@ -236,7 +236,7 @@ export async function transactionsOf(categoryId: number): Promise<number> {
   return row?.n ?? 0;
 }
 
-async function tefilles(id: number, ledgerId: number): Promise<number> {
+async function hasChildren(id: number, ledgerId: number): Promise<number> {
   const [row] = await db
     .select({ n: count() })
     .from(categories)
@@ -265,7 +265,7 @@ export async function deleteCategory(
     throw new AppError("Aquesta categoria del sistema no es pot esborrar", 422);
   }
 
-  if ((await tefilles(id, ledgerId)) > 0) {
+  if ((await hasChildren(id, ledgerId)) > 0) {
     throw new AppError("Primer cal esborrar o moure les subcategories", 422);
   }
 
@@ -283,12 +283,12 @@ export async function deleteCategory(
         throw new AppError("No es pot reassignar a la mateixa categoria", 422);
       }
       // It must belong to this workspace: otherwise transactions could be moved to another one.
-      const [desti] = await tx
+      const [target] = await tx
         .select({ id: categories.id })
         .from(categories)
         .where(and(eq(categories.id, reassignTo), eq(categories.ledgerId, ledgerId)))
         .limit(1);
-      if (!desti) throw new NotFoundError("La categoria de desti no existeix");
+      if (!target) throw new NotFoundError("La categoria de desti no existeix");
 
       await tx
         .update(transactions)
@@ -328,19 +328,19 @@ export interface CategoryGroup {
 
 export async function categoryOptions(
   ledgerId: number,
-  excloure: readonly number[] = [],
+  exclude: readonly number[] = [],
 ): Promise<CategoryGroup[]> {
   const all = await listCategories(ledgerId);
-  const fora = new Set(excloure);
+  const out = new Set(exclude);
   const groups: CategoryGroup[] = [];
 
   for (const parent of all) {
-    if (parent.parentId !== null || fora.has(parent.id)) continue;
-    const filles = all.filter((c) => c.parentId === parent.id && !fora.has(c.id));
+    if (parent.parentId !== null || out.has(parent.id)) continue;
+    const children = all.filter((c) => c.parentId === parent.id && !out.has(c.id));
     const options = [
       // The parent can be chosen too: some transactions belong to no child.
       { value: parent.id, text: parent.name },
-      ...filles.map((f) => ({ value: f.id, text: `  ${f.name}` })),
+      ...children.map((f) => ({ value: f.id, text: `  ${f.name}` })),
     ];
     groups.push({ tag: parent.name, options });
   }

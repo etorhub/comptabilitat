@@ -24,7 +24,7 @@ import { transferCategory } from "./classification.ts";
 /** Margin in days between the debit of one account and the credit of the other. */
 const MATCH_WINDOW_DAYS = 3;
 
-interface Candidat {
+interface Candidate {
   id: number;
   accountId: number;
   bookingDate: string;
@@ -36,7 +36,7 @@ interface Candidat {
 export async function detectTransfers(ledgerId: number, lookbackDays = 120): Promise<number> {
   const des = addDays(todayLocal(), -lookbackDays);
 
-  const candidats = await db
+  const candidates = await db
     .select({
       id: transactions.id,
       accountId: transactions.accountId,
@@ -51,18 +51,18 @@ export async function detectTransfers(ledgerId: number, lookbackDays = 120): Pro
     .where(countableTransactions({ workspaces: ledgerId, des }))
     .orderBy(asc(transactions.bookingDate), asc(transactions.id));
 
-  const sortides = candidats.filter((c) => money(c.amount).isNegative());
-  const entrades = candidats.filter((c) => money(c.amount).isPositive());
-  if (sortides.length === 0 || entrades.length === 0) return 0;
+  const debits = candidates.filter((c) => money(c.amount).isNegative());
+  const entries = candidates.filter((c) => money(c.amount).isPositive());
+  if (debits.length === 0 || entries.length === 0) return 0;
 
   const category = await transferCategory(ledgerId);
-  const gastades = new Set<number>();
-  let parelles = 0;
+  const spent = new Set<number>();
+  let pairs = 0;
 
-  for (const output of sortides) {
-    if (gastades.has(output.id)) continue;
+  for (const output of debits) {
+    if (spent.has(output.id)) continue;
 
-    const counterparty = findCounterparty(output, entrades, gastades);
+    const counterparty = findCounterparty(output, entries, spent);
     if (counterparty === null) continue;
 
     const group = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
@@ -76,30 +76,30 @@ export async function detectTransfers(ledgerId: number, lookbackDays = 120): Pro
       for (const item of [output, counterparty]) {
         // Typed with the table: that way a mistake in a field name does not
         // compile, instead of being written silently.
-        const canvis: Partial<typeof transactions.$inferInsert> = { transferGroupId: group };
+        const changes: Partial<typeof transactions.$inferInsert> = { transferGroupId: group };
 
         // Nobody picks the category of a transfer every time, but if a person
         // has set one, it is respected.
         if (category !== null && item.categorySource !== "user") {
-          canvis.categoryId = category.id;
-          canvis.categorySource = "rule";
-          canvis.categoryConfidence = 1;
-          canvis.needsReview = false;
+          changes.categoryId = category.id;
+          changes.categorySource = "rule";
+          changes.categoryConfidence = 1;
+          changes.needsReview = false;
         }
 
-        await tx.update(transactions).set(canvis).where(eq(transactions.id, item.id));
+        await tx.update(transactions).set(changes).where(eq(transactions.id, item.id));
       }
     });
 
-    gastades.add(output.id);
-    gastades.add(counterparty.id);
-    parelles += 1;
+    spent.add(output.id);
+    spent.add(counterparty.id);
+    pairs += 1;
   }
 
-  if (parelles > 0) {
-    console.info(`[traspassos] ${parelles} aparellats dins de l'espai ${ledgerId}`);
+  if (pairs > 0) {
+    console.info(`[traspassos] ${pairs} aparellats dins de l'espai ${ledgerId}`);
   }
-  return parelles;
+  return pairs;
 }
 
 /**
@@ -110,12 +110,12 @@ export async function detectTransfers(ledgerId: number, lookbackDays = 120): Pro
  * time wins.
  */
 function findCounterparty(
-  debit: Candidat,
-  credits: Candidat[],
+  debit: Candidate,
+  credits: Candidate[],
   used: Set<number>,
-): Candidat | null {
+): Candidate | null {
   const target = money(debit.amount).negated();
-  let best: Candidat | null = null;
+  let best: Candidate | null = null;
   let bestDistance = MATCH_WINDOW_DAYS + 1;
 
   for (const credit of credits) {

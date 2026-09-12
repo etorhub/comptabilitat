@@ -54,10 +54,10 @@ async function viewOf(id: number, ledgerId: number) {
   for (const nodes of Object.values(tree)) {
     for (const parent of nodes) {
       if (parent.id === id) {
-        return { view: parent, filla: false, fillesIds: parent.filles.map((f) => f.id) };
+        return { view: parent, child: false, childIds: parent.children.map((f) => f.id) };
       }
-      const filla = parent.filles.find((f) => f.id === id);
-      if (filla) return { view: filla, filla: true, fillesIds: [] };
+      const child = parent.children.find((f) => f.id === id);
+      if (child) return { view: child, child: true, childIds: [] };
     }
   }
   return null;
@@ -101,7 +101,7 @@ categoriesRoutes.get("/:id/fragment/fila", async (c) => {
         code: workspace.code,
         category: found.view,
         canEdit: roleAtLeast(currentRole(c), "editor"),
-        filla: found.filla,
+        child: found.child,
       }),
       clearToast(),
     ),
@@ -159,7 +159,7 @@ categoriesRoutes.post("/", requireEditor, async (c) => {
 
   // The whole tree changes (there is a new row, and maybe a new group), so it
   // is returned whole, out of band, with a clean form.
-  const [tree, grupsNous] = await Promise.all([
+  const [tree, newGroups] = await Promise.all([
     categoryTree(workspace.id),
     categoryOptions(workspace.id),
   ]);
@@ -167,7 +167,7 @@ categoriesRoutes.post("/", requireEditor, async (c) => {
   return fragment(
     c,
     await withOob(
-      CreateForm({ code: workspace.code, groups: grupsNous }),
+      CreateForm({ code: workspace.code, groups: newGroups }),
       Tree({ code: workspace.code, tree, canEdit: true, oob: true }),
       toast(`S'ha afegit «${parsed.data.name}»`, "success"),
     ),
@@ -205,7 +205,7 @@ categoriesRoutes.patch("/:id", requireEditor, async (c) => {
         code: workspace.code,
         category: found.view,
         canEdit: true,
-        filla: found.filla,
+        child: found.child,
       }),
       clearToast(),
     ),
@@ -237,8 +237,8 @@ categoriesRoutes.delete("/:id", requireEditor, async (c) => {
 
       // All but itself and its children: moving the transactions there would
       // be pointless if it disappears anyway.
-      const excloure = [id, ...found.fillesIds];
-      const groups = await categoryOptions(workspace.id, excloure);
+      const exclude = [id, ...found.childIds];
+      const groups = await categoryOptions(workspace.id, exclude);
 
       return fragment(
         c,

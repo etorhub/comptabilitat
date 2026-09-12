@@ -163,11 +163,11 @@ describe("what a person chose", () => {
 
     const summary = await moveAccountToWorkspace(accountA, calellaId);
 
-    expect(summary.conservades).toBe(1);
-    const desti = await category(calellaId, "alimentacio-supermercat");
+    expect(summary.kept).toBe(1);
+    const target = await category(calellaId, "alimentacio-supermercat");
     const row = await read(id);
     expect(row.ledgerId).toBe(calellaId);
-    expect(row.categoryId).toBe(desti.id);
+    expect(row.categoryId).toBe(target.id);
     expect(row.categorySource).toBe("user");
     expect(row.needsReview).toBe(false);
   });
@@ -178,13 +178,13 @@ describe("what a person chose", () => {
 
     const summary = await moveAccountToWorkspace(accountA, calellaId);
 
-    expect(summary.conservades).toBe(0);
+    expect(summary.kept).toBe(0);
     // It goes to the tray: in the new workspace its own rules apply.
     expect((await read(id)).categorySource).not.toBe("user");
   });
 
   test("if the category only existed in the old workspace, it goes to review", async () => {
-    const [propia] = await db
+    const [own] = await db
       .insert(categories)
       .values({
         ledgerId: personalId,
@@ -198,11 +198,11 @@ describe("what a person chose", () => {
         position: 99,
       })
       .returning();
-    const id = await transaction({ categoryId: propia?.id ?? 0, categorySource: "user" });
+    const id = await transaction({ categoryId: own?.id ?? 0, categorySource: "user" });
 
     const summary = await moveAccountToWorkspace(accountA, calellaId);
 
-    expect(summary.conservades).toBe(0);
+    expect(summary.kept).toBe(0);
     expect((await read(id)).needsReview).toBe(true);
   });
 });
@@ -210,12 +210,12 @@ describe("what a person chose", () => {
 describe("the transfers of the workspace being left", () => {
   test("the leg that stays counts again", async () => {
     const group = "g".repeat(32);
-    const seva = await transaction({
+    const its = await transaction({
       account: accountA,
       amount: "-400.00",
       transferGroupId: group,
     });
-    const altra = await transaction({
+    const other = await transaction({
       account: accountB,
       amount: "400.00",
       transferGroupId: group,
@@ -226,8 +226,8 @@ describe("the transfers of the workspace being left", () => {
     expect(summary.undoneTransfers).toBe(1);
     // The one that stays no longer points at a pairing that does not exist, so
     // it shows up in Personal's reports again.
-    expect((await read(altra)).transferGroupId).toBeNull();
-    expect((await read(seva)).transferGroupId).toBeNull();
+    expect((await read(other)).transferGroupId).toBeNull();
+    expect((await read(its)).transferGroupId).toBeNull();
   });
 });
 

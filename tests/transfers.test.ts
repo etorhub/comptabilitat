@@ -151,12 +151,12 @@ beforeEach(async () => {
 
 describe("what gets paired", () => {
   test("an equal debit and credit from different accounts", async () => {
-    const surt = await transaction({ account: accountA, amount: "-400.00" });
+    const debit = await transaction({ account: accountA, amount: "-400.00" });
     const signIn = await transaction({ account: accountB, amount: "400.00" });
 
     expect(await detectTransfers(ledgerId)).toBe(1);
 
-    const a = await read(surt);
+    const a = await read(debit);
     const b = await read(signIn);
     expect(a.transferGroupId).not.toBeNull();
     expect(a.transferGroupId).toBe(b.transferGroupId);
@@ -194,30 +194,30 @@ describe("what gets paired", () => {
 
 describe("an excluded transaction", () => {
   test("enters no pair", async () => {
-    const surt = await transaction({ account: accountA, amount: "-400.00", isExcluded: true });
+    const debit = await transaction({ account: accountA, amount: "-400.00", isExcluded: true });
     const signIn = await transaction({ account: accountB, amount: "400.00" });
 
     expect(await detectTransfers(ledgerId)).toBe(0);
     // And, above all, the other leg keeps counting in the reports.
     expect((await read(signIn)).transferGroupId).toBeNull();
-    expect((await read(surt)).transferGroupId).toBeNull();
+    expect((await read(debit)).transferGroupId).toBeNull();
   });
 });
 
 describe("the category", () => {
   test("the transfer sets it if nobody has chosen one", async () => {
-    const surt = await transaction({ account: accountA, amount: "-400.00" });
+    const debit = await transaction({ account: accountA, amount: "-400.00" });
     await transaction({ account: accountB, amount: "400.00" });
 
     await detectTransfers(ledgerId);
 
-    const a = await read(surt);
+    const a = await read(debit);
     expect(a.categorySource).toBe("rule");
     expect(a.categoryId).not.toBeNull();
   });
 
   test("but it does not touch the one a person set", async () => {
-    const [propia] = await db
+    const [own] = await db
       .select()
       .from(categories)
       .where(
@@ -225,18 +225,18 @@ describe("the category", () => {
       )
       .limit(1);
 
-    const surt = await transaction({
+    const debit = await transaction({
       account: accountA,
       amount: "-400.00",
       categorySource: "user",
-      categoryId: propia?.id ?? null,
+      categoryId: own?.id ?? null,
     });
     await transaction({ account: accountB, amount: "400.00" });
 
     await detectTransfers(ledgerId);
 
-    const a = await read(surt);
-    expect(a.categoryId).toBe(propia?.id ?? 0);
+    const a = await read(debit);
+    expect(a.categoryId).toBe(own?.id ?? 0);
     expect(a.categorySource).toBe("user");
     // But it does end up paired.
     expect(a.transferGroupId).not.toBeNull();
@@ -245,7 +245,7 @@ describe("the category", () => {
 
 describe("both legs, or neither", () => {
   test("if the second write fails, neither is left labelled", async () => {
-    const surt = await transaction({ account: accountA, amount: "-400.00" });
+    const debit = await transaction({ account: accountA, amount: "-400.00" });
     const signIn = await transaction({ account: accountB, amount: "400.00" });
 
     // A trigger that blows up the write of one of the two legs. It is the way
@@ -273,7 +273,7 @@ describe("both legs, or neither", () => {
 
     // Neither of the two was marked: without the transaction, the debit would
     // have been left with a group and the credit without one.
-    expect((await read(surt)).transferGroupId).toBeNull();
+    expect((await read(debit)).transferGroupId).toBeNull();
     expect((await read(signIn)).transferGroupId).toBeNull();
   });
 });

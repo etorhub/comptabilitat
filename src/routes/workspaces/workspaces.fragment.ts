@@ -9,7 +9,7 @@ import { LEDGER_ROLES, type Ledger, type LedgerRole } from "../../db/schema/inde
 import { DataTable } from "../../components/views.ts";
 import type { Html } from "../../lib/html.ts";
 
-const NAMES_ROL: Record<LedgerRole, string> = {
+const ROLE_NAMES: Record<LedgerRole, string> = {
   viewer: "Pot mirar",
   editor: "Pot classificar",
   admin: "Pot configurar",
@@ -25,10 +25,10 @@ export interface MemberView {
 export interface WorkspaceFormProps {
   workspace: Ledger;
   errors?: FieldErrors | undefined;
-  fet?: boolean;
+  done?: boolean;
 }
 
-export function WorkspaceForm({ workspace, errors, fet = false }: WorkspaceFormProps): Html {
+export function WorkspaceForm({ workspace, errors, done = false }: WorkspaceFormProps): Html {
   return html`<form
     id="form-espai"
     class="superficie targeta"
@@ -37,10 +37,10 @@ export function WorkspaceForm({ workspace, errors, fet = false }: WorkspaceFormP
     hx-swap="outerHTML"
   >
     <h2>Aquest espai</h2>
-    ${fet ? html`<p class="form-ok" role="status">S'ha desat.</p>` : ""} ${FormError(errors)}
+    ${done ? html`<p class="form-ok" role="status">S'ha desat.</p>` : ""} ${FormError(errors)}
 
     <div class="form-linia">
-      ${Field({ name: "name", tag: "Nom", value: workspace.name, errors, requerit: true })}
+      ${Field({ name: "name", tag: "Nom", value: workspace.name, errors, required: true })}
       ${Field({ name: "color", tag: "Color", type: "color", value: workspace.color, errors })}
     </div>
 
@@ -79,7 +79,7 @@ export function MembersTable({ members }: { members: MemberView[] }): Html {
       tots els espais alhora.
     </p>
     ${DataTable({
-      columnes: html`<th>Persona</th>
+      columns: html`<th>Persona</th>
         <th>Acces</th>` as Html,
       rows: members.map(
         (m) =>
@@ -88,7 +88,7 @@ export function MembersTable({ members }: { members: MemberView[] }): Html {
               <span class="nom">${m.fullName || m.email}</span><br />
               <small class="text-suau">${m.email}</small>
             </td>
-            <td>${NAMES_ROL[m.role]}</td>
+            <td>${ROLE_NAMES[m.role]}</td>
           </tr>` as Html,
       ),
       empty: "Encara no hi entra ningu mes.",

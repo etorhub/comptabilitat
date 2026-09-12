@@ -40,20 +40,20 @@ export async function resolveCounterparty(
   connection: Transactor = db,
   incrementCounter = true,
 ): Promise<Counterparty> {
-  const [normalitzat, mostrar] = normalizeDescription(data.description, data.counterparty);
-  if (!normalitzat) return COUNTERPARTY_EMPTY;
+  const [normalized, show] = normalizeDescription(data.description, data.counterparty);
+  if (!normalized) return COUNTERPARTY_EMPTY;
 
   const merchant = await getOrCreateMerchant(
     ledgerId,
-    normalitzat,
-    mostrar,
+    normalized,
+    show,
     data.bookingDate,
     connection,
     incrementCounter,
   );
   return {
     merchantId: merchant?.id ?? null,
-    normalizedKey: normalitzat,
-    displayName: mostrar,
+    normalizedKey: normalized,
+    displayName: show,
   };
 }

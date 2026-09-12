@@ -24,12 +24,12 @@ export function EmptyState(message: Html | string): Html {
 
 export interface DataTableProps {
   /** The header cells, already rendered: `<th>…</th><th>…</th>`. */
-  columnes: Html;
+  columns: Html;
   rows: Html[];
   /** What is shown when `rows` is empty. */
   empty: Html | string;
   /** Above the table: an action bar, say. Only shown when there are rows. */
-  abans?: Html | "";
+  before?: Html | "";
   /** Below the table: pagination, a summary. Only shown when there are rows. */
   footer?: Html | "";
   /** An extra class for the `<table>`, when a view has its own. */
@@ -43,21 +43,21 @@ export interface DataTableProps {
  * for selecting none of them nor paginating nothing means anything.
  */
 export function DataTable({
-  columnes,
+  columns,
   rows,
   empty,
-  abans = "",
+  before = "",
   footer = "",
   cssClass,
 }: DataTableProps): Html {
   if (rows.length === 0) return EmptyState(empty);
 
-  return html`${abans}
+  return html`${before}
     <div class="desplaçable">
       <table class="dades${cssClass === undefined ? "" : ` ${cssClass}`}">
         <thead>
           <tr>
-            ${columnes}
+            ${columns}
           </tr>
         </thead>
         <tbody>
@@ -83,11 +83,11 @@ export interface Page {
  */
 export function Pagination({
   page,
-  passos,
+  steps,
   summary = "",
 }: {
   page: Page;
-  passos: Html | "";
+  steps: Html | "";
   /** Next to the range: a total, a count. */
   summary?: Html | "";
 }): Html {
@@ -98,7 +98,7 @@ export function Pagination({
     <span class="text-suau">
       ${String(from)}–${String(to)} de ${String(page.total)}${summary}
     </span>
-    ${passos}
+    ${steps}
   </nav>` as Html;
 }
 
@@ -109,8 +109,8 @@ export function Pagination({
  * can come from a database row, and a quote would break it out of the
  * attribute.
  */
-export function Badge(text: string, options: { suau?: boolean; title?: string } = {}): Html {
-  const cssClass = options.suau === true ? "etiqueta etiqueta-suau" : "etiqueta";
+export function Badge(text: string, options: { soft?: boolean; title?: string } = {}): Html {
+  const cssClass = options.soft === true ? "etiqueta etiqueta-suau" : "etiqueta";
   return html`<span
     class="${cssClass}"
     ${options.title === undefined ? "" : html`title="${options.title}"`}

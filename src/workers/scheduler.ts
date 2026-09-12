@@ -32,10 +32,12 @@ validateConfig();
  * the others have to keep running. The result lands in `job_runs`.
  */
 async function run(name: string, job: () => Promise<string>): Promise<void> {
-  const començat = Date.now();
+  const startedAt = Date.now();
   try {
     const summary = await runJob(name, "scheduled", job);
-    console.info(`[${name}] fet en ${Math.round((Date.now() - començat) / 1000)}s\n${summary}`);
+    console.info(
+      `[${name}] fet en ${Math.round((Date.now() - startedAt) / 1000)}s\n${summary}`,
+    );
   } catch (error) {
     console.error(`[${name}] ha fallat:`, error);
   }
@@ -89,14 +91,14 @@ function main(): void {
       `${String(config.syncCronHour).padStart(2, "0")}:${String(config.syncCronMinute).padStart(2, "0")}.`,
   );
 
-  const atura = () => {
+  const stop = () => {
     console.info("[planificador] aturant-se…");
     for (const job of jobs) job.stop();
     void closeDb().finally(() => process.exit(0));
   };
 
-  process.on("SIGTERM", atura);
-  process.on("SIGINT", atura);
+  process.on("SIGTERM", stop);
+  process.on("SIGINT", stop);
 }
 
 main();

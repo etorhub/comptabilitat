@@ -42,7 +42,7 @@ function firstCookie(res: Response): string {
  * sign-in form has no session yet and carries a `_csrf` derived from a
  * single-use seed cookie; the real token does not exist until the session does.
  */
-export async function signIn(email: string, contrasenya = PASSWORD): Promise<Session> {
+export async function signIn(email: string, password = PASSWORD): Promise<Session> {
   const form = await app.request("/entrada");
   const seed = firstCookie(form);
   const field = (await attributeOf(await form.text(), 'input[name="_csrf"]', "value")) ?? "";
@@ -50,7 +50,7 @@ export async function signIn(email: string, contrasenya = PASSWORD): Promise<Ses
   const login = await app.request("/entrada", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seed },
-    body: new URLSearchParams({ _csrf: field, email, password: contrasenya }).toString(),
+    body: new URLSearchParams({ _csrf: field, email, password: password }).toString(),
   });
   const cookie = firstCookie(login);
 
@@ -68,9 +68,9 @@ export async function csrfForSession(cookie: string): Promise<string> {
   const headers = await attributeOf(await page.text(), "body", "hx-headers");
   if (headers === null) return "";
   try {
-    const llegit: unknown = JSON.parse(headers);
-    if (typeof llegit !== "object" || llegit === null) return "";
-    const value = (llegit as Record<string, unknown>)["X-CSRF-Token"];
+    const read: unknown = JSON.parse(headers);
+    if (typeof read !== "object" || read === null) return "";
+    const value = (read as Record<string, unknown>)["X-CSRF-Token"];
     return typeof value === "string" ? value : "";
   } catch {
     return "";
@@ -83,9 +83,9 @@ export async function requestAs(
   url: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  const metode = (init.method ?? "GET").toUpperCase();
+  const method = (init.method ?? "GET").toUpperCase();
   const headers = new Headers(init.headers);
   headers.set("Cookie", session.cookie);
-  if (metode !== "GET" && metode !== "HEAD") headers.set("X-CSRF-Token", session.csrf);
+  if (method !== "GET" && method !== "HEAD") headers.set("X-CSRF-Token", session.csrf);
   return app.request(url, { ...init, headers: headers });
 }

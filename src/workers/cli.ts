@@ -51,7 +51,7 @@ const jobs: Record<string, () => Promise<string>> = {
   "reassign-normalization": async () => {
     const workspace = enter("espai");
     const r = await reassignNormalization(workspace ?? undefined);
-    return `${r.canviats} de ${r.revisats} moviments reassignats`;
+    return `${r.changed} de ${r.reviewed} moviments reassignats`;
   },
 };
 

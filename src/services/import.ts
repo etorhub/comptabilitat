@@ -34,9 +34,9 @@ const FALLBACK_WINDOWS_MONTHS = [24, 12, 6, 3, 1];
 
 export interface AccountResult {
   accountId: number;
-  inserits: number;
-  actualitzats: number;
-  esborrats: number;
+  inserted: number;
+  updatedCount: number;
+  deletedRows: number;
   error: string;
 }
 
@@ -57,32 +57,32 @@ export async function removeTransactions(
   client: EnableBankingClient,
   account: Account,
   dateFrom: string,
-): Promise<{ items: TransactionAnalyzed[]; usada: string; truncat: boolean }> {
-  const finestres = [dateFrom];
+): Promise<{ items: TransactionAnalyzed[]; used: string; truncated: boolean }> {
+  const windows = [dateFrom];
   for (const months of FALLBACK_WINDOWS_MONTHS) {
-    const candidata = startDateMonthsAgo(months);
-    if (candidata > dateFrom && !finestres.includes(candidata)) finestres.push(candidata);
+    const candidateRow = startDateMonthsAgo(months);
+    if (candidateRow > dateFrom && !windows.includes(candidateRow)) windows.push(candidateRow);
   }
 
   let lastError: DateRangeError | null = null;
 
-  for (const candidata of finestres) {
+  for (const candidateRow of windows) {
     try {
       const items: TransactionAnalyzed[] = [];
       // It is iterated by hand so that the generator's return value can be
       // read, which says whether the list came up short.
-      const pages = client.iterTransactions(account.ebAccountUid, { dateFrom: candidata });
+      const pages = client.iterTransactions(account.ebAccountUid, { dateFrom: candidateRow });
       let step = await pages.next();
       while (step.done !== true) {
         const analyzed = parseTransaction(step.value);
         if (analyzed !== null) items.push(analyzed);
         step = await pages.next();
       }
-      return { items, usada: candidata, truncat: step.value };
+      return { items, used: candidateRow, truncated: step.value };
     } catch (error) {
       if (error instanceof DateRangeError) {
         console.warn(
-          `[sync] compte ${account.id}: el banc rebutja la finestra des de ${candidata} (${error.message})`,
+          `[sync] compte ${account.id}: el banc rebutja la finestra des de ${candidateRow} (${error.message})`,
         );
         lastError = error;
         continue;
@@ -95,7 +95,7 @@ export async function removeTransactions(
 }
 
 /** Fields the bank can change on a transaction we already had. */
-function calActualitzar(
+function needsUpdate(
   actual: {
     status: string;
     bookingDate: string;
@@ -131,19 +131,17 @@ export async function saveTransactions(
 ): Promise<AccountResult> {
   const result: AccountResult = {
     accountId: account.id,
-    inserits: 0,
-    actualitzats: 0,
-    esborrats: 0,
+    inserted: 0,
+    updatedCount: 0,
+    deletedRows: 0,
     error: "",
   };
   if (items.length === 0) return result;
 
-  const dateMinima = items.reduce((a, b) =>
-    a.bookingDate < b.bookingDate ? a : b,
-  ).bookingDate;
-  const inicíFinestra = addDays(dateMinima, -PENDING_MATCH_DAYS);
+  const minDate = items.reduce((a, b) => (a.bookingDate < b.bookingDate ? a : b)).bookingDate;
+  const windowStart = addDays(minDate, -PENDING_MATCH_DAYS);
 
-  const existents = await db
+  const existing = await db
     .select({
       id: transactions.id,
       dedupKey: transactions.dedupKey,
@@ -156,11 +154,11 @@ export async function saveTransactions(
     })
     .from(transactions)
     .where(
-      and(eq(transactions.accountId, account.id), gte(transactions.bookingDate, inicíFinestra)),
+      and(eq(transactions.accountId, account.id), gte(transactions.bookingDate, windowStart)),
     );
 
-  const byKey = new Map(existents.map((e) => [e.dedupKey, e]));
-  let pending = existents.filter((e) => e.status === "pending");
+  const byKey = new Map(existing.map((e) => [e.dedupKey, e]));
+  let pending = existing.filter((e) => e.status === "pending");
   const views = new Set<string>();
 
   for (const item of items) {
@@ -169,7 +167,7 @@ export async function saveTransactions(
 
     const actual = byKey.get(key);
     if (actual !== undefined) {
-      if (calActualitzar(actual, item)) {
+      if (needsUpdate(actual, item)) {
         await db
           .update(transactions)
           .set({
@@ -182,7 +180,7 @@ export async function saveTransactions(
             raw: item.raw,
           })
           .where(eq(transactions.id, actual.id));
-        result.actualitzats += 1;
+        result.updatedCount += 1;
       }
       continue;
     }
@@ -216,12 +214,12 @@ export async function saveTransactions(
           .where(eq(transactions.id, matched.id));
 
         byKey.set(key, { ...matched, dedupKey: key });
-        result.actualitzats += 1;
+        result.updatedCount += 1;
         continue;
       }
     }
 
-    const [creat] = await db
+    const [createdOne] = await db
       .insert(transactions)
       .values({
         accountId: account.id,
@@ -253,11 +251,11 @@ export async function saveTransactions(
       })
       .returning({ id: transactions.id });
 
-    if (!creat) continue;
+    if (!createdOne) continue;
 
     // Normalized name, merchant and category.
     let merchantId: number | null = null;
-    let normalitzat = "";
+    let normalized = "";
 
     if (account.ledgerId !== null) {
       const counterparty = await resolveCounterparty(account.ledgerId, {
@@ -266,23 +264,23 @@ export async function saveTransactions(
         bookingDate: item.bookingDate,
       });
       merchantId = counterparty.merchantId;
-      normalitzat = counterparty.normalizedKey;
+      normalized = counterparty.normalizedKey;
     }
 
     await db
       .update(transactions)
-      .set({ normalizedDescription: normalitzat.slice(0, 200), merchantId })
-      .where(eq(transactions.id, creat.id));
+      .set({ normalizedDescription: normalized.slice(0, 200), merchantId })
+      .where(eq(transactions.id, createdOne.id));
 
     await classifyTransaction({
-      id: creat.id,
+      id: createdOne.id,
       ledgerId: account.ledgerId,
       merchantId,
       categorySource: "none",
     });
 
     byKey.set(key, {
-      id: creat.id,
+      id: createdOne.id,
       dedupKey: key,
       status: item.status,
       bookingDate: item.bookingDate,
@@ -291,42 +289,42 @@ export async function saveTransactions(
       description: item.description,
       counterparty: item.counterparty,
     });
-    result.inserits += 1;
+    result.inserted += 1;
   }
 
   // The pending entries the bank no longer reports have disappeared. This can
   // only be deduced if the bank gave **everything**: with a truncated list,
   // «it is not there» means «it did not arrive», and we would delete live
   // transactions along with their notes, tags and whatever category was set.
-  const caducats = incompleteList
+  const expired = incompleteList
     ? []
-    : pending.filter((p) => !views.has(p.dedupKey) && p.bookingDate >= inicíFinestra);
-  if (caducats.length > 0) {
+    : pending.filter((p) => !views.has(p.dedupKey) && p.bookingDate >= windowStart);
+  if (expired.length > 0) {
     await db.delete(transactions).where(
       inArray(
         transactions.id,
-        caducats.map((p) => p.id),
+        expired.map((p) => p.id),
       ),
     );
-    result.esborrats = caducats.length;
+    result.deletedRows = expired.length;
   }
 
   // How far we got.
-  const definitius = items.filter((i) => i.status === "booked").map((i) => i.bookingDate);
-  const canvis: Partial<typeof accounts.$inferInsert> = {};
+  const booked = items.filter((i) => i.status === "booked").map((i) => i.bookingDate);
+  const changes: Partial<typeof accounts.$inferInsert> = {};
 
-  if (definitius.length > 0) {
-    const newer = definitius.reduce((a, b) => (a > b ? a : b));
+  if (booked.length > 0) {
+    const newer = booked.reduce((a, b) => (a > b ? a : b));
     if (account.lastBookedDate === null || newer > account.lastBookedDate) {
-      canvis.lastBookedDate = newer;
+      changes.lastBookedDate = newer;
     }
   }
   const older = items.reduce((a, b) => (a.bookingDate < b.bookingDate ? a : b)).bookingDate;
   if (account.historyStartDate === null || older < account.historyStartDate) {
-    canvis.historyStartDate = older;
+    changes.historyStartDate = older;
   }
-  if (Object.keys(canvis).length > 0) {
-    await db.update(accounts).set(canvis).where(eq(accounts.id, account.id));
+  if (Object.keys(changes).length > 0) {
+    await db.update(accounts).set(changes).where(eq(accounts.id, account.id));
   }
 
   return result;
@@ -336,7 +334,7 @@ export async function saveBalances(
   client: EnableBankingClient,
   account: Account,
 ): Promise<void> {
-  const ara = new Date();
+  const now = new Date();
 
   for (const raw of await client.getBalances(account.ebAccountUid)) {
     const data = parseBalance(raw);
@@ -357,7 +355,7 @@ export async function saveBalances(
     if (ja) {
       await db
         .update(balances)
-        .set({ amount: data.amount, fetchedAt: ara })
+        .set({ amount: data.amount, fetchedAt: now })
         .where(eq(balances.id, ja.id));
     } else {
       await db.insert(balances).values({
@@ -366,7 +364,7 @@ export async function saveBalances(
         amount: data.amount,
         currency: data.currency,
         referenceDate: data.referenceDate,
-        fetchedAt: ara,
+        fetchedAt: now,
       });
     }
   }

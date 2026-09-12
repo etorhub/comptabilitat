@@ -168,7 +168,7 @@ transactionsRoutes.get("/fragment/taula", async (c) => {
       }),
       CardFilter({
         cards: knownCards,
-        seleccionades: filters.card,
+        selected: filters.card,
         oob: true,
       }),
     ),
@@ -247,7 +247,7 @@ async function rowResponse(
   id: number,
   message?: { text: string; to: "success" | "info" },
 ) {
-  const [transaction, groups, perRevisar, knownTags] = await Promise.all([
+  const [transaction, groups, toReview, knownTags] = await Promise.all([
     transactionInWorkspace(id, workspaceId),
     categoryOptions(workspaceId),
     countToReview(workspaceId),
@@ -258,7 +258,7 @@ async function rowResponse(
     c,
     await withOob(
       Row({ code, transaction, groups, canEdit: true, knownTags }),
-      ReviewCounter(perRevisar, true),
+      ReviewCounter(toReview, true),
       message ? toast(message.text, message.to) : clearToast(),
     ),
   );
@@ -283,7 +283,7 @@ transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
 
   const row = await transactionRow(id, workspace.id);
 
-  const { recordats } = await categorizeTransaction(id, row, parsed.data.category_id, {
+  const { remembered } = await categorizeTransaction(id, row, parsed.data.category_id, {
     rememberMerchant: parsed.data.recorda_comerc,
   });
 
@@ -292,8 +292,8 @@ transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
     workspace.id,
     workspace.code,
     id,
-    recordats > 1
-      ? { text: `Recordat per a ${recordats} moviments d'aquest comerç`, to: "success" }
+    remembered > 1
+      ? { text: `Recordat per a ${remembered} moviments d'aquest comerç`, to: "success" }
       : undefined,
   );
 });
@@ -368,7 +368,7 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
   // The service does all of it or none, and throws a 404 if any id does not
   // belong to this workspace: a half-done request would leave the user not
   // knowing what changed.
-  const { aplicats } = await categorizeBulk(
+  const { applied } = await categorizeBulk(
     parsed.data.transaction,
     workspace.id,
     parsed.data.category_id,
@@ -376,7 +376,7 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
   );
 
   const { page: paged, filters, groups, knownTags } = await data(workspace.id, requestQuery(c));
-  const perRevisar = await countToReview(workspace.id);
+  const toReview = await countToReview(workspace.id);
 
   // The filters arrive in the URL of the `hx-post`, so the table comes back
   // with the same view it had; and the URL is pushed again so that the
@@ -394,9 +394,9 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
         canEdit: true,
         knownTags,
       }),
-      ReviewCounter(perRevisar, true),
+      ReviewCounter(toReview, true),
       toast(
-        `S'ha posat la categoria a ${aplicats} ${aplicats === 1 ? "moviment" : "moviments"}`,
+        `S'ha posat la categoria a ${applied} ${applied === 1 ? "moviment" : "moviments"}`,
         "success",
       ),
     ),
@@ -541,14 +541,10 @@ transactionsRoutes.post("/:id/revisa", requireEditor, async (c) => {
     rememberMerchant: parsed.data.recorda_comerc,
   });
 
-  const perRevisar = await countToReview(workspace.id);
+  const toReview = await countToReview(workspace.id);
 
   return fragment(
     c,
-    await withOob(
-      ReviewDone(id),
-      ReviewCounter(perRevisar, true),
-      toast("Confirmat", "success"),
-    ),
+    await withOob(ReviewDone(id), ReviewCounter(toReview, true), toast("Confirmat", "success")),
   );
 });

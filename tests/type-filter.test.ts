@@ -178,8 +178,8 @@ describe("filter by operation type", () => {
       ...baseFilter,
       operationType: ["targeta", "bizum"],
     });
-    const descs = page.items.map((i) => i.description).toSorted();
-    expect(descs).toEqual(["Joan", "Mercadona"]);
+    const descriptions = page.items.map((i) => i.description).toSorted();
+    expect(descriptions).toEqual(["Joan", "Mercadona"]);
   });
 
   test("others excludes card, transfer, bizum and direct debit", async () => {

@@ -61,8 +61,8 @@ function oobTable(): string {
  */
 async function resourcesTable(): Promise<string> {
   const base = join(ROOT, "src", "routes");
-  const entrades = await readdir(base, { withFileTypes: true });
-  const resources = entrades
+  const entries = await readdir(base, { withFileTypes: true });
+  const resources = entries
     .filter((e) => e.isDirectory())
     .map((e) => e.name)
     .toSorted();

@@ -17,9 +17,9 @@ import { normalizeDescription } from "./normalization.ts";
 
 export interface TransactionSummary {
   /** Transactions that changed workspace. */
-  moguts: number;
+  moved: number;
   /** Of those, the ones whose person-chosen category could be kept. */
-  conservades: number;
+  kept: number;
   /** Transfers of the old workspace that had to be undone. */
   undoneTransfers: number;
 }
@@ -59,7 +59,7 @@ export async function moveAccountToWorkspace(
   }
 
   if (newWorkspace === account.ledgerId) {
-    return { moguts: 0, conservades: 0, undoneTransfers: 0 };
+    return { moved: 0, kept: 0, undoneTransfers: 0 };
   }
 
   const summary = await db.transaction(async (tx) => {
@@ -92,7 +92,7 @@ export async function moveAccountToWorkspace(
 
     let undoneTransfers = 0;
     if (groups.length > 0) {
-      const orfes = await tx
+      const orphans = await tx
         .update(transactions)
         .set({ transferGroupId: null })
         .where(
@@ -102,14 +102,14 @@ export async function moveAccountToWorkspace(
           ),
         )
         .returning({ id: transactions.id });
-      undoneTransfers = orfes.length;
+      undoneTransfers = orphans.length;
     }
 
     // --- The move ---
 
     await tx.update(accounts).set({ ledgerId: newWorkspace }).where(eq(accounts.id, accountId));
 
-    const moguts = await tx
+    const moved = await tx
       .update(transactions)
       .set({
         ledgerId: newWorkspace,
@@ -124,10 +124,10 @@ export async function moveAccountToWorkspace(
       .where(eq(transactions.accountId, accountId))
       .returning({ id: transactions.id });
 
-    let conservades = 0;
+    let kept = 0;
     if (newWorkspace !== null) {
       // --- What is recovered ---
-      conservades = await returnsLesDecisions(tx, newWorkspace, decisions);
+      kept = await returnsLesDecisions(tx, newWorkspace, decisions);
       await redoCounterparties(tx, accountId, newWorkspace);
     }
 
@@ -137,7 +137,7 @@ export async function moveAccountToWorkspace(
     // they count transactions that are no longer there.
     await boxTheCounters(tx, [account.ledgerId, newWorkspace]);
 
-    return { moguts: moguts.length, conservades, undoneTransfers };
+    return { moved: moved.length, kept, undoneTransfers };
   });
 
   // Outside the transaction on purpose: `classifyPending` opens its own
@@ -161,12 +161,12 @@ async function returnsLesDecisions(
   if (decisions.length === 0) return 0;
 
   const slugs = [...new Set(decisions.map((d) => d.slug))];
-  const destins = await tx
+  const targets = await tx
     .select({ id: categories.id, slug: categories.slug })
     .from(categories)
     .where(and(eq(categories.ledgerId, newWorkspace), inArray(categories.slug, slugs)));
 
-  const perSlug = new Map(destins.map((c) => [c.slug, c.id]));
+  const perSlug = new Map(targets.map((c) => [c.slug, c.id]));
 
   // One `update` per destination category, not per transaction.
   const byCategory = new Map<number, number[]>();
@@ -176,7 +176,7 @@ async function returnsLesDecisions(
     byCategory.set(categoryId, [...(byCategory.get(categoryId) ?? []), decision.transactionId]);
   }
 
-  let conservades = 0;
+  let kept = 0;
   for (const [categoryId, ids] of byCategory) {
     await tx
       .update(transactions)
@@ -187,10 +187,10 @@ async function returnsLesDecisions(
         needsReview: false,
       })
       .where(inArray(transactions.id, ids));
-    conservades += ids.length;
+    kept += ids.length;
   }
 
-  return conservades;
+  return kept;
 }
 
 /**
@@ -204,7 +204,7 @@ async function redoCounterparties(
   accountId: number,
   newWorkspace: number,
 ): Promise<void> {
-  const seus = await tx
+  const own = await tx
     .select({
       id: transactions.id,
       description: transactions.description,
@@ -215,26 +215,26 @@ async function redoCounterparties(
     .where(and(eq(transactions.accountId, accountId), isNull(transactions.merchantId)));
 
   interface Group {
-    normalitzat: string;
-    mostrar: string;
+    normalized: string;
+    show: string;
     lastDay: string | null;
     ids: number[];
   }
   const byKey = new Map<string, Group>();
 
-  for (const transaction of seus) {
-    const [normalitzat, mostrar] = normalizeDescription(
+  for (const transaction of own) {
+    const [normalized, show] = normalizeDescription(
       transaction.description,
       transaction.counterparty,
     );
-    if (!normalitzat) continue;
+    if (!normalized) continue;
 
-    const key = normalitzat.slice(0, 200);
+    const key = normalized.slice(0, 200);
     const group = byKey.get(key);
     if (group === undefined) {
       byKey.set(key, {
-        normalitzat: key,
-        mostrar,
+        normalized: key,
+        show,
         lastDay: transaction.bookingDate,
         ids: [transaction.id],
       });
@@ -248,14 +248,14 @@ async function redoCounterparties(
   for (const group of byKey.values()) {
     const merchant = await getOrCreateMerchant(
       newWorkspace,
-      group.normalitzat,
-      group.mostrar,
+      group.normalized,
+      group.show,
       group.lastDay,
       tx,
     );
     await tx
       .update(transactions)
-      .set({ normalizedDescription: group.normalitzat, merchantId: merchant?.id ?? null })
+      .set({ normalizedDescription: group.normalized, merchantId: merchant?.id ?? null })
       .where(inArray(transactions.id, group.ids));
   }
 }

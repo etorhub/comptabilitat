@@ -64,9 +64,9 @@ export const PASSES_CONTAINING: Partial<Record<JobId, readonly JobId[]>> = {
   "passada-nocturna": ["totes"],
 };
 
-const emptyToUndef = <T extends z.ZodType>(esquema: T) =>
+const emptyToUndef = <T extends z.ZodType>(schema: T) =>
   z
-    .union([esquema, z.literal("")])
+    .union([schema, z.literal("")])
     .optional()
     .transform((v) => (v === "" || v === undefined ? undefined : v));
 

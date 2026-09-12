@@ -51,7 +51,7 @@ workspacesRoutes.get("/", async (c) => {
       WorkspacePage({
         workspace,
         members: await members(workspace.id),
-        potConfigurar: roleAtLeast(currentRole(c), "admin"),
+        canConfigure: roleAtLeast(currentRole(c), "admin"),
       }),
     ),
   );
@@ -72,7 +72,7 @@ workspacesRoutes.post("/", requireWorkspaceAdmin, async (c) => {
     );
   }
 
-  const [actualitzat] = await db
+  const [updatedOne] = await db
     .update(ledgers)
     .set({
       name: parsed.data.name,
@@ -87,7 +87,7 @@ workspacesRoutes.post("/", requireWorkspaceAdmin, async (c) => {
   return fragment(
     c,
     await withOob(
-      WorkspaceForm({ workspace: actualitzat ?? workspace, fet: true }),
+      WorkspaceForm({ workspace: updatedOne ?? workspace, done: true }),
       toast("Configuracio desada", "success"),
     ),
   );

@@ -17,7 +17,7 @@ import {
 } from "../lib/csrf.ts";
 import { toastOnly } from "../lib/http.ts";
 
-const METODES_SEGURS = new Set(["GET", "HEAD", "OPTIONS"]);
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 /**
  * Exempt routes.
@@ -27,15 +27,15 @@ const METODES_SEGURS = new Set(["GET", "HEAD", "OPTIONS"]);
  * protects it is the single-use `eb_auth_state` the connection generated. It
  * is also a `GET`, so it would not reach here anyway.
  */
-const EXEMPTES: readonly RegExp[] = [/^\/api\/auth\/callback$/];
+const EXEMPT: readonly RegExp[] = [/^\/api\/auth\/callback$/];
 
 export const csrfMiddleware: MiddlewareHandler = async (c, next) => {
-  if (METODES_SEGURS.has(c.req.method)) {
+  if (SAFE_METHODS.has(c.req.method)) {
     return next();
   }
 
   const path = new URL(c.req.url).pathname;
-  if (EXEMPTES.some((patro) => patro.test(path))) {
+  if (EXEMPT.some((pattern) => pattern.test(path))) {
     return next();
   }
 

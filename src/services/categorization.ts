@@ -29,7 +29,7 @@ export interface CategorizeOptions {
 
 export interface CategorizeResult {
   /** How many transactions of the same merchant inherited the decision. */
-  recordats: number;
+  remembered: number;
 }
 
 /**
@@ -50,12 +50,12 @@ export async function categorizeTransaction(
       .set({ categoryId, ...HUMAN_DECISION })
       .where(eq(transactions.id, transactionId));
 
-    let recordats = 0;
+    let remembered = 0;
     if (options.rememberMerchant === true && row.merchantId !== null) {
-      recordats = await rememberMerchantFromRow(tx, row.merchantId, categoryId);
+      remembered = await rememberMerchantFromRow(tx, row.merchantId, categoryId);
     }
 
-    return { recordats };
+    return { remembered };
   });
 }
 
@@ -70,16 +70,16 @@ export async function categorizeBulk(
   ledgerId: number,
   categoryId: number | null,
   options: { rememberMerchant?: boolean } = {},
-): Promise<{ aplicats: number }> {
-  const demanats = [...new Set(transactionIds)];
+): Promise<{ applied: number }> {
+  const requested = [...new Set(transactionIds)];
 
   return db.transaction(async (tx) => {
-    const meus = await tx
+    const mine = await tx
       .select({ id: transactions.id, merchantId: transactions.merchantId })
       .from(transactions)
-      .where(and(eq(transactions.ledgerId, ledgerId), inArray(transactions.id, demanats)));
+      .where(and(eq(transactions.ledgerId, ledgerId), inArray(transactions.id, requested)));
 
-    if (meus.length !== demanats.length) {
+    if (mine.length !== requested.length) {
       throw new NotFoundError("No s'ha trobat");
     }
 
@@ -89,20 +89,20 @@ export async function categorizeBulk(
       .where(
         inArray(
           transactions.id,
-          meus.map((m) => m.id),
+          mine.map((m) => m.id),
         ),
       );
 
     if (options.rememberMerchant === true) {
       const merchantIds = [
-        ...new Set(meus.map((m) => m.merchantId).filter((x): x is number => x !== null)),
+        ...new Set(mine.map((m) => m.merchantId).filter((x): x is number => x !== null)),
       ];
       for (const merchantId of merchantIds) {
         await rememberMerchantFromRow(tx, merchantId, categoryId);
       }
     }
 
-    return { aplicats: meus.length };
+    return { applied: mine.length };
   });
 }
 

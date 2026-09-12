@@ -32,26 +32,26 @@ import { categoryCatalog, classifyMerchants } from "../src/services/llm-classifi
 import { seedCategories } from "../src/services/seed.ts";
 
 /** The `config` is `as const` for the type, but the fields can be touched. */
-const ajustos = config as { ollamaEnabled: boolean; ollamaMinConfidence: number };
+const settings = config as { ollamaEnabled: boolean; ollamaMinConfidence: number };
 
 let ledgerId = 0;
 let accountId = 0;
 
 /** A simulated local model, with the same contract as the real client. */
-class OllamaFals {
+class OllamaFake {
   readonly baseUrl = "http://proves";
   readonly model = "model-de-proves";
   readonly timeoutSeconds = 1;
   readonly asked: string[] = [];
 
   constructor(
-    private readonly respostes: Record<string, Suggestion> = {},
-    private readonly disponible = true,
-    private readonly falla = false,
+    private readonly responses: Record<string, Suggestion> = {},
+    private readonly available = true,
+    private readonly fails = false,
   ) {}
 
   isAvailable(): Promise<boolean> {
-    return Promise.resolve(this.disponible);
+    return Promise.resolve(this.available);
   }
 
   classify(
@@ -60,25 +60,25 @@ class OllamaFals {
   ): Promise<Suggestion> {
     void _categories;
     this.asked.push(context.normalizedName);
-    if (this.falla) return Promise.reject(new OllamaError("no respon"));
-    const response = this.respostes[context.normalizedName];
+    if (this.fails) return Promise.reject(new OllamaError("no respon"));
+    const response = this.responses[context.normalizedName];
     if (response === undefined) return Promise.reject(new OllamaError("sense resposta"));
     return Promise.resolve(response);
   }
 }
 
-function asClient(fals: OllamaFals): OllamaClientReal {
-  return fals as unknown as OllamaClientReal;
+function asClient(fake: OllamaFake): OllamaClientReal {
+  return fake as unknown as OllamaClientReal;
 }
 
-function suggestion(parcial: Partial<Suggestion> & { categorySlug: string }): Suggestion {
+function suggestion(partial: Partial<Suggestion> & { categorySlug: string }): Suggestion {
   return {
     confidence: 0.9,
     merchant: "",
     rationale: "",
     model: "model-de-proves",
     promptVersion: "1",
-    ...parcial,
+    ...partial,
   };
 }
 
@@ -131,8 +131,8 @@ async function merchantWithTransaction(name: string, amount = "-30.00"): Promise
 }
 
 beforeEach(async () => {
-  ajustos.ollamaEnabled = true;
-  ajustos.ollamaMinConfidence = 0.55;
+  settings.ollamaEnabled = true;
+  settings.ollamaMinConfidence = 0.55;
 
   await db.delete(llmSuggestions);
   await db.delete(transactions);
@@ -192,7 +192,7 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
-  ajustos.ollamaEnabled = false;
+  settings.ollamaEnabled = false;
 });
 
 describe("the catalogue the model sees", () => {
@@ -213,7 +213,7 @@ describe("the model proposes, it does not decide", () => {
 
     const stats = await classifyMerchants(ledgerId, {
       client: asClient(
-        new OllamaFals({
+        new OllamaFake({
           Mercadona: suggestion({
             categorySlug: "alimentacio-supermercat",
             merchant: "Mercadona",
@@ -223,7 +223,7 @@ describe("the model proposes, it does not decide", () => {
       ),
     });
 
-    expect(stats.classificats).toBe(1);
+    expect(stats.classified).toBe(1);
 
     const [merchant] = await db.select().from(merchants).where(eq(merchants.id, merchantId));
     expect(merchant?.defaultCategoryId).toBe(supermercat.id);
@@ -241,7 +241,7 @@ describe("the model proposes, it does not decide", () => {
 
     const stats = await classifyMerchants(ledgerId, {
       client: asClient(
-        new OllamaFals({
+        new OllamaFake({
           "Cosa rara": suggestion({
             categorySlug: "alimentacio-supermercat",
             confidence: 0.2,
@@ -250,7 +250,7 @@ describe("the model proposes, it does not decide", () => {
       ),
     });
 
-    expect(stats.pocaConfianca).toBe(1);
+    expect(stats.lowConfidence).toBe(1);
     const [merchant] = await db.select().from(merchants).where(eq(merchants.id, merchantId));
     expect(merchant?.defaultCategoryId).toBeNull();
     expect((await db.select().from(llmSuggestions)).length).toBe(1);
@@ -261,7 +261,7 @@ describe("the model proposes, it does not decide", () => {
 
     const stats = await classifyMerchants(ledgerId, {
       client: asClient(
-        new OllamaFals({
+        new OllamaFake({
           Mercadona: suggestion({ categorySlug: "categoria-inventada", confidence: 0.99 }),
         }),
       ),
@@ -282,10 +282,10 @@ describe("when there is nothing to do or the model is not there", () => {
       .set({ defaultCategoryId: supermercat.id, isConfirmed: true })
       .where(eq(merchants.id, merchantId));
 
-    const fals = new OllamaFals();
-    const stats = await classifyMerchants(ledgerId, { client: asClient(fals) });
+    const fake = new OllamaFake();
+    const stats = await classifyMerchants(ledgerId, { client: asClient(fake) });
 
-    expect(fals.asked).toEqual([]);
+    expect(fake.asked).toEqual([]);
     expect(stats.omitted).toContain("no hi ha cap comerç nou");
   });
 
@@ -293,7 +293,7 @@ describe("when there is nothing to do or the model is not there", () => {
     await merchantWithTransaction("MERCADONA");
 
     const stats = await classifyMerchants(ledgerId, {
-      client: asClient(new OllamaFals({}, false)),
+      client: asClient(new OllamaFake({}, false)),
     });
 
     expect(stats.omitted).toContain("no esta disponible");
@@ -306,19 +306,19 @@ describe("when there is nothing to do or the model is not there", () => {
     await merchantWithTransaction("NETFLIX", "-12.99");
 
     const stats = await classifyMerchants(ledgerId, {
-      client: asClient(new OllamaFals({}, true, true)),
+      client: asClient(new OllamaFake({}, true, true)),
     });
 
-    expect(stats.mirats).toBe(2);
+    expect(stats.seen).toBe(2);
     expect(stats.errors).toBe(2);
   });
 
   test("with the model disabled nothing is done", async () => {
-    ajustos.ollamaEnabled = false;
+    settings.ollamaEnabled = false;
     await merchantWithTransaction("MERCADONA");
 
     const stats = await classifyMerchants(ledgerId, {
-      client: asClient(new OllamaFals()),
+      client: asClient(new OllamaFake()),
     });
 
     expect(stats.omitted).toContain("desactivat");
@@ -331,12 +331,12 @@ describe("when there is nothing to do or the model is not there", () => {
  */
 describe("the Ollama client", () => {
   async function withServer<T>(
-    gestor: (req: Request) => Response,
-    prova: (baseUrl: string) => Promise<T>,
+    handler: (req: Request) => Response,
+    sample: (baseUrl: string) => Promise<T>,
   ): Promise<T> {
-    const server = Bun.serve({ port: 0, fetch: gestor });
+    const server = Bun.serve({ port: 0, fetch: handler });
     try {
-      return await prova(`http://127.0.0.1:${server.port}`);
+      return await sample(`http://127.0.0.1:${server.port}`);
     } finally {
       await server.stop(true);
     }

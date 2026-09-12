@@ -16,7 +16,7 @@ interface SentMail {
   html: string;
 }
 
-const enviats: SentMail[] = [];
+const sent: SentMail[] = [];
 let serverCrashes = false;
 
 mock.module("nodemailer", () => ({
@@ -24,7 +24,7 @@ mock.module("nodemailer", () => ({
     createTransport: () => ({
       sendMail: (options: SentMail) => {
         if (serverCrashes) throw new Error("servidor caigut");
-        enviats.push(options);
+        sent.push(options);
         return Promise.resolve({ messageId: "1" });
       },
       close: () => undefined,
@@ -41,7 +41,7 @@ const { notifyPending } = await import("../src/services/notify.ts");
 import type { AlertSeverity } from "../src/db/schema/enums.ts";
 
 /** The `config` is `as const` for the type, but the fields can be touched. */
-const ajustos = config as {
+const settings = config as {
   smtpHost: string;
   smtpPort: number;
   smtpUser: string;
@@ -51,12 +51,12 @@ const ajustos = config as {
 };
 
 function configureMail(): void {
-  ajustos.smtpHost = "smtp.example.com";
-  ajustos.smtpPort = 587;
-  ajustos.smtpUser = "usuari";
-  ajustos.smtpPassword = "secret";
-  ajustos.smtpFrom = "comptes@example.com";
-  ajustos.alertRecipients = ["etor@example.com"];
+  settings.smtpHost = "smtp.example.com";
+  settings.smtpPort = 587;
+  settings.smtpUser = "usuari";
+  settings.smtpPassword = "secret";
+  settings.smtpFrom = "comptes@example.com";
+  settings.alertRecipients = ["etor@example.com"];
 }
 
 async function createAlert(
@@ -78,7 +78,7 @@ async function createAlert(
 }
 
 beforeEach(async () => {
-  enviats.length = 0;
+  sent.length = 0;
   serverCrashes = false;
   configureMail();
   await db.delete(alerts);
@@ -131,7 +131,7 @@ describe("the digest", () => {
 
 describe("the sending", () => {
   test("with no configuration nothing is sent", async () => {
-    ajustos.smtpHost = "";
+    settings.smtpHost = "";
     await createAlert();
 
     const result = await notifyPending();
@@ -148,9 +148,9 @@ describe("the sending", () => {
     const result = await notifyPending();
 
     expect(result).toContain("2 avisos enviats");
-    expect(enviats.length).toBe(1);
-    expect(enviats[0]?.to).toEqual(["etor@example.com"]);
-    expect(enviats[0]?.subject).toContain("Resum d'avisos (2)");
+    expect(sent.length).toBe(1);
+    expect(sent[0]?.to).toEqual(["etor@example.com"]);
+    expect(sent[0]?.subject).toContain("Resum d'avisos (2)");
 
     const withoutNotifying = await db.select().from(alerts).where(isNull(alerts.notifiedAt));
     expect(withoutNotifying.length).toBe(0);
@@ -161,7 +161,7 @@ describe("the sending", () => {
     await notifyPending();
 
     expect(await notifyPending()).toBe("Cap avis pendent d'enviar");
-    expect(enviats.length).toBe(1);
+    expect(sent.length).toBe(1);
   });
 
   test("urgent mode only sends the critical ones", async () => {
@@ -171,7 +171,7 @@ describe("the sending", () => {
     const result = await notifyPending(true);
 
     expect(result).toContain("1 avisos enviats");
-    expect(enviats[0]?.subject).toContain("Urgent");
+    expect(sent[0]?.subject).toContain("Urgent");
 
     const pending = await db.select().from(alerts).where(isNull(alerts.notifiedAt));
     expect(pending.map((a) => a.title)).toEqual(["Normal"]);
@@ -215,9 +215,9 @@ describe("each workspace has its own recipients", () => {
 
     await notifyPending();
 
-    expect(enviats.length).toBe(2);
-    const byWorkspace = enviats.find((c) => c.subject.includes("Calella"));
-    const general = enviats.find((c) => !c.subject.includes("Calella"));
+    expect(sent.length).toBe(2);
+    const byWorkspace = sent.find((c) => c.subject.includes("Calella"));
+    const general = sent.find((c) => !c.subject.includes("Calella"));
 
     expect(byWorkspace?.to).toEqual(["sogra@example.com"]);
     expect(general?.to).toEqual(["etor@example.com"]);
@@ -243,8 +243,8 @@ describe("each workspace has its own recipients", () => {
     await createAlert("Un avis", "warning", "p1", workspace?.id ?? 0);
     await notifyPending();
 
-    expect(enviats[0]?.html).toContain("Pardals");
+    expect(sent[0]?.html).toContain("Pardals");
     // With no recipients of its own, it falls back to the general ones.
-    expect(enviats[0]?.to).toEqual(["etor@example.com"]);
+    expect(sent[0]?.to).toEqual(["etor@example.com"]);
   });
 });

@@ -314,7 +314,7 @@ describe("correcting a category", () => {
   test("remembers the merchant and propagates it to its transactions", async () => {
     const merchantId = await merchant();
     const first = await transaction({ merchantId: merchantId });
-    const segon = await transaction({
+    const second = await transaction({
       amount: "-12.00",
       day: "2026-02-09",
       merchantId: merchantId,
@@ -329,7 +329,7 @@ describe("correcting a category", () => {
     const [rowMerchant] = await db.select().from(merchants).where(eq(merchants.id, merchantId));
     expect(rowMerchant?.defaultCategoryId).toBe(supermercat.id);
     expect(rowMerchant?.isConfirmed).toBe(true);
-    expect((await read(segon)).categoryId).toBe(supermercat.id);
+    expect((await read(second)).categoryId).toBe(supermercat.id);
   });
 });
 
@@ -363,10 +363,10 @@ describe("when a request fails", () => {
    */
   test("the error does not take the row with it: `HX-Reswap: none` has to be there", async () => {
     const id = await transaction();
-    const alie = await category(calellaId);
+    const foreign = await category(calellaId);
 
     const res = await send(`/e/personal/moviments/${id}/categoria`, {
-      category_id: String(alie.id),
+      category_id: String(foreign.id),
     });
 
     expect(res.status).toBe(422);
@@ -388,11 +388,11 @@ describe("when a request fails", () => {
   });
 
   test("and when the bulk selection carries a transaction from outside", async () => {
-    const meu = await transaction();
-    const alie = await transaction({ accountId: accountCalella, ledgerId: calellaId });
+    const own = await transaction();
+    const foreign = await transaction({ accountId: accountCalella, ledgerId: calellaId });
 
     const res = await send("/e/personal/moviments/bloc", {
-      transaction: [String(meu), String(alie)],
+      transaction: [String(own), String(foreign)],
       category_id: String((await category(personalId)).id),
     });
 
@@ -404,31 +404,31 @@ describe("when a request fails", () => {
 describe("bulk recategorization", () => {
   test("applies the category to all the selected ones", async () => {
     const first = await transaction();
-    const segon = await transaction({ amount: "-40.00", day: "2026-02-09" });
+    const second = await transaction({ amount: "-40.00", day: "2026-02-09" });
     const supermercat = await category(personalId);
 
     const res = await send("/e/personal/moviments/bloc", {
-      transaction: [String(first), String(segon)],
+      transaction: [String(first), String(second)],
       category_id: String(supermercat.id),
     });
 
     expect(res.status).toBe(200);
     expect((await read(first)).categoryId).toBe(supermercat.id);
-    expect((await read(segon)).categoryId).toBe(supermercat.id);
+    expect((await read(second)).categoryId).toBe(supermercat.id);
   });
 
   test("if any transaction is not from the workspace, none is applied", async () => {
-    const meu = await transaction();
-    const alie = await transaction({ accountId: accountCalella, ledgerId: calellaId });
+    const own = await transaction();
+    const foreign = await transaction({ accountId: accountCalella, ledgerId: calellaId });
     const supermercat = await category(personalId);
 
     const res = await send("/e/personal/moviments/bloc", {
-      transaction: [String(meu), String(alie)],
+      transaction: [String(own), String(foreign)],
       category_id: String(supermercat.id),
     });
 
     expect(res.status).toBe(404);
-    expect((await read(meu)).categorySource).toBe("none");
-    expect((await read(alie)).categorySource).toBe("none");
+    expect((await read(own)).categorySource).toBe("none");
+    expect((await read(foreign)).categorySource).toBe("none");
   });
 });

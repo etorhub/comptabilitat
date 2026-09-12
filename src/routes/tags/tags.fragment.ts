@@ -85,7 +85,7 @@ function SummaryRow({
   </tr>` as Html;
 }
 
-export function CapAleraDetail({
+export function DetailHeader({
   code,
   summary,
   canEdit,

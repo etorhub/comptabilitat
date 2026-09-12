@@ -33,7 +33,7 @@ export async function syncJob(
       daysBack: options.daysBack ?? null,
     });
     lines.push(
-      `${connection.aspspName}: ${result.inserits} nous, ${result.actualitzats} actualitzats` +
+      `${connection.aspspName}: ${result.inserted} nous, ${result.updatedCount} actualitzats` +
         (result.errors.length > 0 ? ` (${result.errors.length} errors)` : ""),
     );
   }

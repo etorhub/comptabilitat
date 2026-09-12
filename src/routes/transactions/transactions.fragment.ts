@@ -35,15 +35,15 @@ const Origin: Record<CategorySource, { text: string; title: string }> = {
   user: { text: "tu", title: "Ho has decidit tu. No ho canviara res." },
 };
 
-const dateCurta = new Intl.DateTimeFormat("ca-ES", { day: "2-digit", month: "short" });
+const dateShort = new Intl.DateTimeFormat("ca-ES", { day: "2-digit", month: "short" });
 
 /** Mastercard chip with the last 4 digits. Outside the alias button. */
-function CardChip({ darrers4 }: { darrers4: string | null }): Html {
-  if (!darrers4) return html`` as Html;
+function CardChip({ last4 }: { last4: string | null }): Html {
+  if (!last4) return html`` as Html;
   return html`<span
     class="xip-targeta"
-    aria-label="Targeta acabada en ${darrers4}"
-    title="Targeta acabada en ${darrers4}"
+    aria-label="Targeta acabada en ${last4}"
+    title="Targeta acabada en ${last4}"
   >
     <svg
       class="xip-targeta-icona"
@@ -60,7 +60,7 @@ function CardChip({ darrers4 }: { darrers4: string | null }): Html {
         fill="#ff5f00"
       />
     </svg>
-    <span class="xip-targeta-digits">*${darrers4}</span>
+    <span class="xip-targeta-digits">*${last4}</span>
   </span>` as Html;
 }
 
@@ -91,8 +91,8 @@ export function Table({
       // row. The name of each column comes from the cell's `data-etiqueta`,
       // below.
       cssClass: "taula-moviments taula-fitxes",
-      abans: canEdit ? BulkBar({ code, groups, filters }) : "",
-      columnes: html`${
+      before: canEdit ? BulkBar({ code, groups, filters }) : "",
+      columns: html`${
         canEdit
           ? html`<th class="tria">
             <input
@@ -114,7 +114,7 @@ export function Table({
       empty: "Cap moviment encaixa amb aquests filtres.",
       footer: Pagination({
         page,
-        passos: Passos({ code, filters, total: page.total }),
+        steps: Steps({ code, filters, total: page.total }),
         summary: html` · suma ${formatMoney(page.totalAmount)}` as Html,
       }),
     })}
@@ -200,7 +200,7 @@ function TagDatalist(tags: string[]): Html {
   </datalist>` as Html;
 }
 
-function Passos({
+function Steps({
   code,
   filters,
   total,
@@ -249,7 +249,7 @@ export interface RowProps {
   knownTags?: string[];
 }
 
-const iconLlapis = html`<svg
+const iconPencil = html`<svg
   xmlns="http://www.w3.org/2000/svg"
   width="14"
   height="14"
@@ -332,7 +332,7 @@ function CategoryCell({
         hx-target="#moviment-${transaction.id}"
         hx-swap="outerHTML"
       >
-        ${iconLlapis}
+        ${iconPencil}
       </button>
     </span>
     ${
@@ -352,7 +352,7 @@ export function Row({
   knownTags = [],
 }: RowProps): Html {
   const base = `/e/${code}/moviments/${transaction.id}`;
-  const negatiu = transaction.amount.startsWith("-");
+  const negative = transaction.amount.startsWith("-");
 
   return html`<tr
     id="moviment-${transaction.id}"
@@ -373,7 +373,7 @@ export function Row({
 
     <td class="data" data-etiqueta="Data">
       <time datetime="${transaction.bookingDate}">
-        ${dateCurta.format(new Date(`${transaction.bookingDate}T00:00:00`))}
+        ${dateShort.format(new Date(`${transaction.bookingDate}T00:00:00`))}
       </time>
       ${
         transaction.status === "pending"
@@ -398,7 +398,7 @@ export function Row({
             </button>`
             : html`<span>${transaction.description}</span>`
         }
-        ${CardChip({ darrers4: transaction.darrers4 })}
+        ${CardChip({ last4: transaction.last4 })}
         ${
           transaction.transferGroupId
             ? html`<span class="etiqueta etiqueta-suau" title="Traspas entre comptes propis"
@@ -438,7 +438,7 @@ export function Row({
       ${CategoryCell({ code, transaction, groups, canEdit, editingCategory })}
     </td>
 
-    <td class="dreta ${negatiu ? "negatiu" : "positiu"}" data-etiqueta="Import">
+    <td class="dreta ${negative ? "negatiu" : "positiu"}" data-etiqueta="Import">
       ${formatMoney(transaction.amount)}
     </td>
   </tr>` as Html;
@@ -462,7 +462,7 @@ function TransactionTags({
   knownTags: string[];
 }): Html {
   const base = `/e/${code}/moviments/${transaction.id}`;
-  const xapes = transaction.tags.map((t) => {
+  const chips = transaction.tags.map((t) => {
     const href = `/e/${code}/etiquetes/${encodeURIComponent(t)}`;
     if (!canEdit) {
       return html`<a class="etiqueta etiqueta-dada" href="${href}">${t}</a>`;
@@ -486,7 +486,7 @@ function TransactionTags({
     </form>`;
   });
 
-  const alta = canEdit
+  const add = canEdit
     ? html`<form
         class="alta-etiqueta"
         hx-post="${base}/etiquetes"
@@ -509,9 +509,9 @@ function TransactionTags({
       </form>`
     : "";
 
-  if (xapes.length === 0 && !canEdit) return html`` as Html;
+  if (chips.length === 0 && !canEdit) return html`` as Html;
 
-  return html`<span class="etiquetes-moviment">${xapes}${alta}</span>` as Html;
+  return html`<span class="etiquetes-moviment">${chips}${add}</span>` as Html;
 }
 
 /** The row turned into a field for typing an alias. */
@@ -565,11 +565,11 @@ export function ConceptRow({
 /** Multiple selector of cards (last 4 digits) used on the account. */
 export function CardFilter({
   cards,
-  seleccionades,
+  selected,
   oob = false,
 }: {
   cards: string[];
-  seleccionades: string[];
+  selected: string[];
   oob?: boolean;
 }): Html {
   if (cards.length === 0) return html`` as Html;
@@ -583,7 +583,7 @@ export function CardFilter({
         name: "targeta",
         value: t,
         tag: `*${t}`,
-        marcat: seleccionades.includes(t),
+        marked: selected.includes(t),
       }),
     )}
   </fieldset>` as Html;
@@ -670,31 +670,31 @@ export function FilterBar({
     <fieldset class="filtre-tipus">
       <legend class="camp-etiqueta">Tipus</legend>
       ${OPERATION_TYPE_LABELS.map(({ value, text }) =>
-        Checkbox({ name: "tipus", value, tag: text, marcat: filters.type.includes(value) }),
+        Checkbox({ name: "tipus", value, tag: text, marked: filters.type.includes(value) }),
       )}
     </fieldset>
 
-    ${CardFilter({ cards: knownCards, seleccionades: filters.card })}
+    ${CardFilter({ cards: knownCards, selected: filters.card })}
 
     ${Checkbox({
       name: "sense_classificar",
       value: "1",
       tag: "Nomes sense classificar",
-      marcat: filters.sense_classificar,
+      marked: filters.sense_classificar,
     })}
 
     ${Checkbox({
       name: "revisio",
       value: "1",
       tag: "Nomes per revisar",
-      marcat: filters.revisio,
+      marked: filters.revisio,
     })}
 
     ${Checkbox({
       name: "traspassos",
       value: "1",
       tag: "Inclou els traspassos",
-      marcat: filters.traspassos,
+      marked: filters.traspassos,
     })}
 
     ${TagDatalist(knownTags)}
@@ -740,21 +740,21 @@ export function ReviewCard({
   groups: CategoryGroup[];
 }): Html {
   const { transaction } = item;
-  const negatiu = transaction.amount.startsWith("-");
+  const negative = transaction.amount.startsWith("-");
 
   return html`<li id="revisio-${transaction.id}" class="superficie targeta item-revisio">
     <div class="item-cap">
       <time datetime="${transaction.bookingDate}" class="text-suau">
-        ${dateCurta.format(new Date(`${transaction.bookingDate}T00:00:00`))}
+        ${dateShort.format(new Date(`${transaction.bookingDate}T00:00:00`))}
       </time>
       <strong title="${transaction.descriptionHint ?? ""}">${transaction.description}</strong>
-      ${CardChip({ darrers4: transaction.darrers4 })}
+      ${CardChip({ last4: transaction.last4 })}
       ${
         !transaction.transferGroupId && transaction.operationType === "transferencia"
           ? html`<span class="etiqueta etiqueta-suau">transferència</span>`
           : ""
       }
-      <span class="${negatiu ? "negatiu" : "positiu"}">${formatMoney(transaction.amount)}</span>
+      <span class="${negative ? "negatiu" : "positiu"}">${formatMoney(transaction.amount)}</span>
     </div>
 
     ${transaction.merchantName ? html`<p class="text-suau">${transaction.merchantName}</p>` : ""}

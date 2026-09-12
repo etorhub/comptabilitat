@@ -129,7 +129,7 @@ export function AccountsTable({
   workspaces: Ledger[];
 }): Html {
   return DataTable({
-    columnes: html`<th>Compte</th>
+    columns: html`<th>Compte</th>
       <th class="dreta">Saldo</th>
       <th>Espai</th>` as Html,
     rows: accountList.map((account) => AccountRow({ account, workspaces })),
@@ -198,14 +198,14 @@ export function SyncState({
     return html`<div id="sync-${connectionId}"></div>` as Html;
   }
 
-  const acabada = isSyncFinished(run.status);
-  const exhausted = !acabada && pollExhausted(attempt);
+  const finished = isSyncFinished(run.status);
+  const exhausted = !finished && pollExhausted(attempt);
 
   return html`<div
     id="sync-${connectionId}"
-    class="sync-estat ${acabada ? "" : "sync-corrent"}"
+    class="sync-estat ${finished ? "" : "sync-corrent"}"
     ${
-      acabada
+      finished
         ? ""
         : poll({
             url: `/connexions/${connectionId}/fragment/sync`,
@@ -226,7 +226,7 @@ export function SyncState({
         : ""
     }
     ${
-      acabada
+      finished
         ? html`
           <strong>${run.status === "failed" ? "Ha fallat" : "Fet"}</strong>
           <span class="text-suau">
@@ -244,7 +244,7 @@ export function SyncState({
   </div>` as Html;
 }
 
-export function FormConnecta(): Html {
+export function ConnectForm(): Html {
   return html`<form method="post" action="/connexions/autoritza" class="superficie targeta">
     <h2>Connecta un banc</h2>
     <p class="text-suau">

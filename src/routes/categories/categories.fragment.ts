@@ -24,7 +24,7 @@ const NAMES_KIND: Record<CategoryKind, string> = {
   transfer: "Traspassos",
 };
 
-const ORDRE_KIND: CategoryKind[] = ["expense", "income", "transfer"];
+const KIND_ORDER: CategoryKind[] = ["expense", "income", "transfer"];
 
 export interface TreeProps {
   code: string;
@@ -36,19 +36,19 @@ export interface TreeProps {
 
 export function Tree({ code, tree, canEdit, oob = false }: TreeProps): Html {
   return html`<div ${oobAttributes("arbre-categories", oob)} class="arbre">
-    ${ORDRE_KIND.map((kind) => {
+    ${KIND_ORDER.map((kind) => {
       const nodes = tree[kind];
       if (nodes.length === 0) return "";
       return html`<section class="superficie targeta">
         <h2>${NAMES_KIND[kind]}</h2>
         ${DataTable({
-          columnes: html`<th>Categoria</th>
+          columns: html`<th>Categoria</th>
             <th class="dreta">Moviments</th>
             <th class="dreta">Total</th>
             ${canEdit ? html`<th></th>` : ""}` as Html,
           rows: nodes.flatMap((parent) => [
-            Row({ code, category: parent, canEdit, filla: false }),
-            ...parent.filles.map((f) => Row({ code, category: f, canEdit, filla: true })),
+            Row({ code, category: parent, canEdit, child: false }),
+            ...parent.children.map((f) => Row({ code, category: f, canEdit, child: true })),
           ]),
           // Unreachable: the section is not drawn if the group is empty.
           empty: "Aquest grup no te cap categoria.",
@@ -62,17 +62,17 @@ export interface RowProps {
   code: string;
   category: CategoryView;
   canEdit: boolean;
-  filla: boolean;
+  child: boolean;
 }
 
 /** A row of the table. This is what is redrawn when the name changes. */
-export function Row({ code, category, canEdit, filla }: RowProps): Html {
+export function Row({ code, category, canEdit, child }: RowProps): Html {
   const base = `/e/${code}/categories/${category.id}`;
 
-  return html`<tr id="categoria-${category.id}" class="${filla ? "filla" : "pare"}">
+  return html`<tr id="categoria-${category.id}" class="${child ? "filla" : "pare"}">
     <td>
       <span class="punt" style="background:${category.color}" aria-hidden="true"></span>
-      ${filla ? html`<span class="sagnat" aria-hidden="true">›</span>` : ""}
+      ${child ? html`<span class="sagnat" aria-hidden="true">›</span>` : ""}
       <span class="nom">${category.name}</span>
       ${
         category.isSystem

@@ -24,10 +24,10 @@ const typeSchema = z
   .union([z.string(), z.array(z.string())])
   .optional()
   .transform((v): OperationType[] => {
-    const bruts = v === undefined ? [] : Array.isArray(v) ? v : [v];
-    const valids = new Set<OperationType>(OPERATION_TYPES);
+    const rawValues = v === undefined ? [] : Array.isArray(v) ? v : [v];
+    const valid = new Set<OperationType>(OPERATION_TYPES);
     return [
-      ...new Set(bruts.filter((x): x is OperationType => valids.has(x as OperationType))),
+      ...new Set(rawValues.filter((x): x is OperationType => valid.has(x as OperationType))),
     ];
   });
 
@@ -35,8 +35,8 @@ const cardSchema = z
   .union([z.string(), z.array(z.string())])
   .optional()
   .transform((v): string[] => {
-    const bruts = v === undefined ? [] : Array.isArray(v) ? v : [v];
-    return [...new Set(bruts.filter((x) => /^\d{4}$/.test(x)))];
+    const rawValues = v === undefined ? [] : Array.isArray(v) ? v : [v];
+    return [...new Set(rawValues.filter((x) => /^\d{4}$/.test(x)))];
   });
 
 export const transactionFiltersSchema = z.object({
@@ -127,8 +127,8 @@ export const categorizeSchema = z.object({
 /** Bulk classification: the ticked checkboxes of the table. */
 export const bulkCategorizeSchema = z.object({
   transaction: z.union([z.string(), z.array(z.string())]).transform((v, ctx) => {
-    const bruts = Array.isArray(v) ? v : [v];
-    const ids = bruts
+    const rawValues = Array.isArray(v) ? v : [v];
+    const ids = rawValues
       .map((x) => Number.parseInt(x, 10))
       .filter((n) => Number.isInteger(n) && n > 0);
     if (ids.length === 0) {
@@ -170,8 +170,8 @@ export const tagAddRowSchema = z.object({
 /** Bulk tag: checkboxes + the bar's field. */
 export const bulkTagSchema = z.object({
   transaction: z.union([z.string(), z.array(z.string())]).transform((v, ctx) => {
-    const bruts = Array.isArray(v) ? v : [v];
-    const ids = bruts
+    const rawValues = Array.isArray(v) ? v : [v];
+    const ids = rawValues
       .map((x) => Number.parseInt(x, 10))
       .filter((n) => Number.isInteger(n) && n > 0);
     if (ids.length === 0) {

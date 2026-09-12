@@ -23,7 +23,7 @@ export const reportFiltersSchema = z.object({
     .optional()
     .or(z.literal(""))
     .transform((v) => (v ? v : null)),
-  mesos: z.coerce.number().int().min(1).max(60).default(12),
+  months: z.coerce.number().int().min(1).max(60).default(12),
 });
 
 export type ReportFilters = z.infer<typeof reportFiltersSchema>;
@@ -32,7 +32,7 @@ export function reportFiltersToQuery(f: ReportFilters): string {
   const p = new URLSearchParams();
   if (f.des) p.set("des", f.des);
   if (f.to) p.set("fins", f.to);
-  if (f.mesos !== 12) p.set("mesos", String(f.mesos));
+  if (f.months !== 12) p.set("mesos", String(f.months));
   const q = p.toString();
   return q ? `?${q}` : "";
 }

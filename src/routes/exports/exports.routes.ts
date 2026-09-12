@@ -22,7 +22,7 @@ import { Hono } from "hono";
 import { AppError } from "../../lib/http.ts";
 import { addDays, todayLocal } from "../../lib/time.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
-import { reportToPdf, transactionsToCsv, resumAXlsx } from "../../services/export.ts";
+import { reportToPdf, transactionsToCsv, summaryToXlsx } from "../../services/export.ts";
 import { incomeAndExpenses, categoryBreakdown, monthlySeries } from "../../services/reports.ts";
 import { listTransactions } from "../../services/transactions.ts";
 import { exportFiltersSchema, MAX_ROWS, summarySchema } from "./exports.schema.ts";
@@ -31,12 +31,12 @@ export const transactionsExportRoutes = new Hono();
 export const reportsExportRoutes = new Hono();
 
 /** File name with the workspace and the day, as the Python did. */
-function fileName(code: string, extensio: string): string {
+function fileName(code: string, extension: string): string {
   const day = todayLocal().replace(/-/g, "");
-  return `moviments-${code}-${day}.${extensio}`;
+  return `moviments-${code}-${day}.${extension}`;
 }
 
-function capçaleres(name: string, type: string): Record<string, string> {
+function headers(name: string, type: string): Record<string, string> {
   return {
     "Content-Type": type,
     // The name goes in quotes because it can carry hyphens and dots.
@@ -80,7 +80,7 @@ transactionsExportRoutes.get("/moviments.csv", async (c) => {
   return c.body(
     transactionsToCsv(transactionList),
     200,
-    capçaleres(fileName(workspace.code, "csv"), "text/csv; charset=utf-8"),
+    headers(fileName(workspace.code, "csv"), "text/csv; charset=utf-8"),
   );
 });
 
@@ -96,9 +96,9 @@ reportsExportRoutes.get("/informe.xlsx", async (c) => {
   ]);
 
   return c.body(
-    await resumAXlsx(monthly, categories),
+    await summaryToXlsx(monthly, categories),
     200,
-    capçaleres(
+    headers(
       `informe-${workspace.code}-${today.replace(/-/g, "")}.xlsx`,
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     ),
@@ -133,6 +133,6 @@ reportsExportRoutes.get("/informe.pdf", async (c) => {
   return c.body(
     pdf,
     200,
-    capçaleres(`informe-${workspace.code}-${today.replace(/-/g, "")}.pdf`, "application/pdf"),
+    headers(`informe-${workspace.code}-${today.replace(/-/g, "")}.pdf`, "application/pdf"),
   );
 });

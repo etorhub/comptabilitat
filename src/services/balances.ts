@@ -34,7 +34,7 @@ export async function lastBalance(accountId: number): Promise<BalanceKnown | nul
 
   if (!last?.date) return null;
 
-  const candidats = await db
+  const candidates = await db
     .select({
       amount: balances.amount,
       currency: balances.currency,
@@ -44,15 +44,15 @@ export async function lastBalance(accountId: number): Promise<BalanceKnown | nul
     .from(balances)
     .where(and(eq(balances.accountId, accountId), eq(balances.referenceDate, last.date)));
 
-  if (candidats.length === 0) return null;
+  if (candidates.length === 0) return null;
 
   const position = (type: string) => {
     const i = BALANCE_TYPE_PRIORITY.indexOf(type);
     return i === -1 ? BALANCE_TYPE_PRIORITY.length : i;
   };
-  candidats.sort((a, b) => position(a.balanceType) - position(b.balanceType));
+  candidates.sort((a, b) => position(a.balanceType) - position(b.balanceType));
 
-  return candidats[0] ?? null;
+  return candidates[0] ?? null;
 }
 
 export interface WorkspaceBalance {
@@ -118,10 +118,10 @@ export async function balanceSeries(
 
   const series: BalancePoint[] = [];
   let cursor = dateTo;
-  let corrent = actual;
+  let running = actual;
   while (cursor >= dateFrom) {
-    series.push({ day: cursor, balance: toMoneyString(corrent) });
-    corrent = corrent.minus(byDay.get(cursor) ?? new Decimal(0));
+    series.push({ day: cursor, balance: toMoneyString(running) });
+    running = running.minus(byDay.get(cursor) ?? new Decimal(0));
     cursor = addDays(cursor, -1);
   }
   series.reverse();

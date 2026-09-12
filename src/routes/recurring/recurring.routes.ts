@@ -115,8 +115,8 @@ recurringRoutes.get("/fragment/actives", async (c) => {
 recurringRoutes.get("/:id/fragment/fila", async (c) => {
   const workspace = currentWorkspace(c);
   const id = idFromRoute(c.req.param("id"), "Aquesta serie no existeix");
-  const editant = c.req.query("editant") === "1";
-  const show = !editant && c.req.query("mostra") === "1";
+  const editing = c.req.query("editant") === "1";
+  const show = !editing && c.req.query("mostra") === "1";
   const canEdit = roleAtLeast(currentRole(c), "editor");
   const view = await seriesView(id, workspace.id);
   const occurrences = show ? await seriesOccurrences(id, workspace.id) : null;
@@ -127,7 +127,7 @@ recurringRoutes.get("/:id/fragment/fila", async (c) => {
       code: workspace.code,
       series: view,
       canEdit,
-      editant: canEdit && editant,
+      editing: canEdit && editing,
       occurrences,
     }),
   );
@@ -231,7 +231,7 @@ recurringRoutes.post("/:id/import", requireEditor, async (c) => {
     return fragment(
       c,
       await withOob(
-        ActiveRow({ code: workspace.code, series: view, canEdit: true, editant: true }),
+        ActiveRow({ code: workspace.code, series: view, canEdit: true, editing: true }),
         toast(zodErrors(parsed.error).amount?.[0] ?? "Revisa l'import", "error"),
       ),
       422,
@@ -239,8 +239,8 @@ recurringRoutes.post("/:id/import", requireEditor, async (c) => {
   }
 
   // Keeps the series' direction; the form sends the absolute value.
-  const signe = money(series.expectedAmount).isNegative() ? -1 : 1;
-  const fresh = money(parsed.data.amount).abs().times(signe);
+  const sign = money(series.expectedAmount).isNegative() ? -1 : 1;
+  const fresh = money(parsed.data.amount).abs().times(sign);
 
   await updateSeriesAmount(id, toMoneyString(fresh));
 

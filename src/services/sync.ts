@@ -38,8 +38,8 @@ const HOURS_UNTIL_PRESUMED_DEAD = 2;
 export interface SyncResult {
   connectionId: number;
   accountList: number;
-  inserits: number;
-  actualitzats: number;
+  inserted: number;
+  updatedCount: number;
   errors: string[];
 }
 
@@ -90,8 +90,8 @@ export async function runTheImport(
   const result: SyncResult = {
     connectionId: connection.id,
     accountList: 0,
-    inserits: 0,
-    actualitzats: 0,
+    inserted: 0,
+    updatedCount: 0,
     errors: [],
   };
 
@@ -103,8 +103,8 @@ export async function runTheImport(
           status: state,
           finishedAt: new Date(),
           accountsSynced: result.accountList,
-          transactionsInserted: result.inserits,
-          transactionsUpdated: result.actualitzats,
+          transactionsInserted: result.inserted,
+          transactionsUpdated: result.updatedCount,
           error: error.slice(0, 2000),
         })
         .where(eq(syncRuns.id, run.id));
@@ -128,13 +128,13 @@ export async function runTheImport(
               ? addDays(account.lastBookedDate, -config.ebResyncOverlapDays)
               : startDateMonthsAgo(config.ebInitialHistoryMonths);
 
-        const { items, truncat } = await removeTransactions(client, account, dateFrom);
-        const parcial = await saveTransactions(account, items, truncat);
+        const { items, truncated } = await removeTransactions(client, account, dateFrom);
+        const partial = await saveTransactions(account, items, truncated);
         await saveBalances(client, account);
 
         result.accountList += 1;
-        result.inserits += parcial.inserits;
-        result.actualitzats += parcial.actualitzats;
+        result.inserted += partial.inserted;
+        result.updatedCount += partial.updatedCount;
       } catch (error) {
         if (error instanceof SessionExpiredError) throw error;
         const message = error instanceof Error ? error.message : String(error);
@@ -206,7 +206,7 @@ export async function runTheImport(
 export async function closeStuckImports(): Promise<number> {
   const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
 
-  const tancades = await db
+  const closed = await db
     .update(syncRuns)
     .set({
       status: "failed",
@@ -216,16 +216,16 @@ export async function closeStuckImports(): Promise<number> {
     .where(and(eq(syncRuns.status, "running"), lt(syncRuns.startedAt, limit)))
     .returning({ id: syncRuns.id });
 
-  if (tancades.length > 0) {
-    console.warn(`[sync] ${tancades.length} importacions penjades donades per fallides`);
+  if (closed.length > 0) {
+    console.warn(`[sync] ${closed.length} importacions penjades donades per fallides`);
   }
-  return tancades.length;
+  return closed.length;
 }
 
 /** If there is already a live one for this connection, no other is started. */
 export async function alreadySyncing(connectionId: number): Promise<boolean> {
   const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
-  const [viva] = await db
+  const [alive] = await db
     .select({ id: syncRuns.id })
     .from(syncRuns)
     .where(
@@ -236,7 +236,7 @@ export async function alreadySyncing(connectionId: number): Promise<boolean> {
       ),
     )
     .limit(1);
-  return viva !== undefined;
+  return alive !== undefined;
 }
 
 /**
@@ -247,7 +247,7 @@ export async function alreadySyncing(connectionId: number): Promise<boolean> {
  * would keep the page polling until maintenance went by.
  */
 export async function closeOpenImports(): Promise<number> {
-  const tancades = await db
+  const closed = await db
     .update(syncRuns)
     .set({
       status: "failed",
@@ -257,8 +257,8 @@ export async function closeOpenImports(): Promise<number> {
     .where(eq(syncRuns.status, "running"))
     .returning({ id: syncRuns.id });
 
-  if (tancades.length > 0) {
-    console.info(`[sync] ${tancades.length} importacions marcades com a interrompudes`);
+  if (closed.length > 0) {
+    console.info(`[sync] ${closed.length} importacions marcades com a interrompudes`);
   }
-  return tancades.length;
+  return closed.length;
 }

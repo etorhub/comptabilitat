@@ -20,7 +20,7 @@ const SEVERITY: Record<AlertSeverity, { tag: string; cssClass: string }> = {
   info: { tag: "Informatiu", cssClass: "avis-info" },
 };
 
-const dateLlarga = new Intl.DateTimeFormat("ca-ES", {
+const dateLong = new Intl.DateTimeFormat("ca-ES", {
   day: "numeric",
   month: "long",
   hour: "2-digit",
@@ -76,7 +76,7 @@ export function AlertCard({ code, alert, filters }: AlertCardProps): Html {
       <span class="etiqueta">${severity.tag}</span>
       <h2 class="avis-titol">${alert.title}</h2>
       <time class="text-suau" datetime="${alert.createdAt.toISOString()}">
-        ${dateLlarga.format(alert.createdAt)}
+        ${dateLong.format(alert.createdAt)}
       </time>
     </div>
 
@@ -149,7 +149,7 @@ export function FilterBar({ code, filters }: FilterBarProps): Html {
       name: "descartats",
       value: "1",
       tag: "Inclou els descartats",
-      marcat: filters.descartats,
+      marked: filters.descartats,
     })}
   </form>` as Html;
 }

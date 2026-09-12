@@ -18,10 +18,10 @@ export async function analysisJob(): Promise<string> {
 
   for (const workspace of await db.select().from(ledgers).where(eq(ledgers.isActive, true))) {
     const recurring = await detectRecurring(workspace.id);
-    const falten = await checkMissingBills(workspace.id);
+    const missing = await checkMissingBills(workspace.id);
     const overdrafts = await checkOverdrafts(workspace);
     lines.push(
-      `${workspace.name}: ${summaryRecurring(recurring)}, ${falten} rebuts que falten, ${overdrafts} avisos de descobert`,
+      `${workspace.name}: ${summaryRecurring(recurring)}, ${missing} rebuts que falten, ${overdrafts} avisos de descobert`,
     );
   }
 

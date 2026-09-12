@@ -174,7 +174,7 @@ beforeEach(async () => {
   accountPersonal = accountList.find((a) => a.ledgerId === personalId)?.id ?? 0;
   accountCalella = accountList.find((a) => a.ledgerId === calellaId)?.id ?? 0;
 
-  const movs = await db
+  const inserted = await db
     .insert(transactions)
     .values([
       {
@@ -264,8 +264,8 @@ beforeEach(async () => {
     ])
     .returning();
 
-  transactionPersonal = movs.find((m) => m.dedupKey === "k-p-1")?.id ?? 0;
-  transactionCalella = movs.find((m) => m.dedupKey === "k-c-1")?.id ?? 0;
+  transactionPersonal = inserted.find((m) => m.dedupKey === "k-p-1")?.id ?? 0;
+  transactionCalella = inserted.find((m) => m.dedupKey === "k-c-1")?.id ?? 0;
 
   editorSession = await signIn("editor@exemple.cat");
   viewerSession = await signIn("viewer@exemple.cat");
@@ -298,11 +298,11 @@ describe("tag service", () => {
     expect(row?.tags).toEqual(["casament"]);
 
     await removeTag(transactionPersonal, personalId, "Casament");
-    const [despres] = await db
+    const [after] = await db
       .select({ tags: transactions.tags })
       .from(transactions)
       .where(eq(transactions.id, transactionPersonal));
-    expect(despres?.tags).toEqual([]);
+    expect(after?.tags).toEqual([]);
   });
 
   test("does not duplicate when only the case changes", async () => {
@@ -316,51 +316,51 @@ describe("tag service", () => {
   });
 
   test("sums income and expenses with Decimal", async () => {
-    const segon = (
+    const second = (
       await db
         .select({ id: transactions.id })
         .from(transactions)
         .where(eq(transactions.dedupKey, "k-p-2"))
     )[0]?.id;
-    const tercer = (
+    const third = (
       await db
         .select({ id: transactions.id })
         .from(transactions)
         .where(eq(transactions.dedupKey, "k-p-3"))
     )[0]?.id;
-    if (!segon || !tercer) throw new Error("falten moviments");
+    if (!second || !third) throw new Error("falten moviments");
 
     await addTag(transactionPersonal, personalId, "casament");
-    await addTag(segon, personalId, "casament");
-    await addTag(tercer, personalId, "casament");
+    await addTag(second, personalId, "casament");
+    await addTag(third, personalId, "casament");
 
     const list = await listTags(personalId);
-    const casament = list.find((e) => e.name === "casament");
-    expect(casament).toBeDefined();
-    expect(casament?.transactionCount).toBe(3);
-    expect(casament?.expenses).toBe("150.00");
-    expect(casament?.income).toBe("20.00");
-    expect(casament?.net).toBe("-130.00");
+    const wedding = list.find((e) => e.name === "casament");
+    expect(wedding).toBeDefined();
+    expect(wedding?.transactionCount).toBe(3);
+    expect(wedding?.expenses).toBe("150.00");
+    expect(wedding?.income).toBe("20.00");
+    expect(wedding?.net).toBe("-130.00");
     // No parseFloat: the net is the exact subtraction with Decimal.
     expect(
-      money(casament?.income ?? "0")
-        .minus(money(casament?.expenses ?? "0"))
+      money(wedding?.income ?? "0")
+        .minus(money(wedding?.expenses ?? "0"))
         .toFixed(2),
     ).toBe("-130.00");
   });
 
   test("deletes from the whole workspace", async () => {
-    const segon = (
+    const second = (
       await db
         .select({ id: transactions.id })
         .from(transactions)
         .where(eq(transactions.dedupKey, "k-p-2"))
     )[0]?.id;
-    if (!segon) throw new Error("falta");
+    if (!second) throw new Error("falta");
     await addTag(transactionPersonal, personalId, "casament");
-    await addTag(segon, personalId, "casament");
-    const quants = await deleteTagFromWorkspace(personalId, "Casament");
-    expect(quants).toBe(2);
+    await addTag(second, personalId, "casament");
+    const howManyOf = await deleteTagFromWorkspace(personalId, "Casament");
+    expect(howManyOf).toBe(2);
     expect(await listTags(personalId)).toEqual([]);
   });
 });

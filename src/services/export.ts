@@ -17,7 +17,7 @@ import { money, formatMoney } from "../lib/money.ts";
 import type { TransactionView } from "./transactions.ts";
 import type { MonthlyPoint, CategoryPart } from "./reports.ts";
 
-const COLUMNES: [string, number][] = [
+const COLUMNS: [string, number][] = [
   ["Data", 12],
   ["Data valor", 12],
   ["Compte", 22],
@@ -50,7 +50,7 @@ function row(m: TransactionView): (string | number)[] {
 
 // --- CSV -------------------------------------------------------------------
 
-function escapaCsv(value: string): string {
+function escapeCsv(value: string): string {
   if (/[";\n\r]/.test(value)) {
     return `"${value.replace(/"/g, '""')}"`;
   }
@@ -62,7 +62,7 @@ function escapaCsv(value: string): string {
  * decimals with a comma, for the same reason.
  */
 export function transactionsToCsv(transactionList: TransactionView[]): Uint8Array<ArrayBuffer> {
-  const lines: string[] = [COLUMNES.map(([name]) => escapaCsv(name)).join(";")];
+  const lines: string[] = [COLUMNS.map(([name]) => escapeCsv(name)).join(";")];
 
   for (const transaction of transactionList) {
     lines.push(
@@ -70,7 +70,7 @@ export function transactionsToCsv(transactionList: TransactionView[]): Uint8Arra
         .map((value, i) => {
           // The amount column goes with a decimal comma.
           if (i === 6) return money(String(value)).toFixed(2).replace(".", ",");
-          return escapaCsv(String(value));
+          return escapeCsv(String(value));
         })
         .join(";"),
     );
@@ -82,40 +82,40 @@ export function transactionsToCsv(transactionList: TransactionView[]): Uint8Arra
 
 // --- XLSX ------------------------------------------------------------------
 
-function capçalera(full: ExcelJS.Worksheet, columnes: [string, number][]): void {
-  full.columns = columnes.map(([name, amplada]) => ({ header: name, width: amplada }));
-  const fila1 = full.getRow(1);
-  fila1.font = { bold: true, color: { argb: "FFFFFFFF" } };
-  fila1.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
-  fila1.alignment = { vertical: "middle" };
+function header(full: ExcelJS.Worksheet, columns: [string, number][]): void {
+  full.columns = columns.map(([name, width]) => ({ header: name, width: width }));
+  const row1 = full.getRow(1);
+  row1.font = { bold: true, color: { argb: "FFFFFFFF" } };
+  row1.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+  row1.alignment = { vertical: "middle" };
 }
 
-export async function resumAXlsx(
+export async function summaryToXlsx(
   monthly: MonthlyPoint[],
   categories: CategoryPart[],
 ): Promise<Uint8Array<ArrayBuffer>> {
-  const llibre = new ExcelJS.Workbook();
-  llibre.creator = "Comptabilitat";
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Comptabilitat";
 
-  const months = llibre.addWorksheet("Mes a mes");
-  capçalera(months, [
+  const months = workbook.addWorksheet("Mes a mes");
+  header(months, [
     ["Periode", 12],
     ["Ingressos", 14],
     ["Despeses", 14],
     ["Resultat", 14],
   ]);
-  for (const punt of monthly) {
+  for (const point of monthly) {
     months.addRow([
-      punt.periode,
-      Number(punt.income),
-      Number(punt.expenses),
-      Number(punt.cleaned),
+      point.periode,
+      Number(point.income),
+      Number(point.expenses),
+      Number(point.cleaned),
     ]);
   }
   for (const col of [2, 3, 4]) months.getColumn(col).numFmt = '#,##0.00 "€"';
 
-  const cats = llibre.addWorksheet("Categories");
-  capçalera(cats, [
+  const cats = workbook.addWorksheet("Categories");
+  header(cats, [
     ["Categoria", 30],
     ["Import", 14],
     ["Part", 10],
@@ -127,7 +127,7 @@ export async function resumAXlsx(
   cats.getColumn(2).numFmt = '#,##0.00 "€"';
   cats.getColumn(3).numFmt = "0.0%";
 
-  const buffer = await llibre.xlsx.writeBuffer();
+  const buffer = await workbook.xlsx.writeBuffer();
   return new Uint8Array(buffer as ArrayBuffer);
 }
 
@@ -162,14 +162,14 @@ export function reportToPdf(data: ReportData): Promise<Uint8Array<ArrayBuffer>> 
 
     doc.on("data", (t: Buffer) => parts.push(t));
     doc.on("end", () => {
-      const complet = Buffer.concat(parts);
-      const output = new Uint8Array(new ArrayBuffer(complet.byteLength));
-      output.set(complet);
+      const full = Buffer.concat(parts);
+      const output = new Uint8Array(new ArrayBuffer(full.byteLength));
+      output.set(full);
       resolve(output);
     });
     doc.on("error", reject);
 
-    const AMPLADA = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const WIDTH = doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
     doc.fontSize(20).fillColor("#0f172a").text(data.workspaceName);
     doc.fontSize(10).fillColor("#64748b").text(`Informe del ${data.des} al ${data.to}`);
@@ -188,25 +188,25 @@ export function reportToPdf(data: ReportData): Promise<Uint8Array<ArrayBuffer>> 
     }
     doc.moveDown(1.2);
 
-    const table = (title: string, headers: string[], rows: string[][], amplades: number[]) => {
+    const table = (title: string, headers: string[], rows: string[][], widths: number[]) => {
       if (doc.y > doc.page.height - 160) doc.addPage();
 
       doc.font("Helvetica-Bold").fontSize(13).fillColor("#0f172a").text(title);
       doc.moveDown(0.4);
 
       const x0 = doc.page.margins.left;
-      const columnes = amplades.map((p) => (AMPLADA * p) / 100);
+      const columns = widths.map((p) => (WIDTH * p) / 100);
 
       doc.font("Helvetica-Bold").fontSize(9).fillColor("#64748b");
       let y = doc.y;
       headers.forEach((text, i) => {
-        const x = x0 + columnes.slice(0, i).reduce((a, b) => a + b, 0);
-        doc.text(text, x, y, { width: columnes[i], align: i === 0 ? "left" : "right" });
+        const x = x0 + columns.slice(0, i).reduce((a, b) => a + b, 0);
+        doc.text(text, x, y, { width: columns[i], align: i === 0 ? "left" : "right" });
       });
       y = doc.y + 4;
       doc
         .moveTo(x0, y)
-        .lineTo(x0 + AMPLADA, y)
+        .lineTo(x0 + WIDTH, y)
         .strokeColor("#e2e8f0")
         .stroke();
       doc.y = y + 6;
@@ -219,8 +219,8 @@ export function reportToPdf(data: ReportData): Promise<Uint8Array<ArrayBuffer>> 
         }
         const fy = doc.y;
         f.forEach((text, i) => {
-          const x = x0 + columnes.slice(0, i).reduce((a, b) => a + b, 0);
-          doc.text(text, x, fy, { width: columnes[i], align: i === 0 ? "left" : "right" });
+          const x = x0 + columns.slice(0, i).reduce((a, b) => a + b, 0);
+          doc.text(text, x, fy, { width: columns[i], align: i === 0 ? "left" : "right" });
         });
         doc.y = fy + 15;
       }

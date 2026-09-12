@@ -119,14 +119,14 @@ const activeWorkspaces = () =>
 
 connectionsRoutes.get("/", async (c) => {
   const user = currentUser(c);
-  const [connections, workspaces, meus] = await Promise.all([
+  const [connections, workspaces, mine] = await Promise.all([
     listConnections(),
     activeWorkspaces(),
     myWorkspaces(user.id),
   ]);
 
   const state = c.req.query("estat");
-  const retorn =
+  const callbackResult =
     state === undefined
       ? undefined
       : { ok: state === "ok", reason: c.req.query("motiu") ?? "" };
@@ -138,8 +138,8 @@ connectionsRoutes.get("/", async (c) => {
       user,
       csrfToken: c.get("csrfToken") ?? "",
       path: c.req.path,
-      workspaces: meus,
-      children: ConnectionsPage({ connections, workspaces, retorn }),
+      workspaces: mine,
+      children: ConnectionsPage({ connections, workspaces, callbackResult }),
     }),
   );
 });
@@ -289,9 +289,9 @@ connectionsRoutes.post("/comptes/:id/espai", async (c) => {
 function moveMessage(newWorkspace: number | null, summary: TransactionSummary): string {
   if (newWorkspace === null) return "El compte ja no pertany a cap espai";
 
-  const parts = [`${summary.moguts} moviments moguts`];
-  if (summary.conservades > 0) {
-    parts.push(`${summary.conservades} amb la categoria que hi havies posat`);
+  const parts = [`${summary.moved} moviments moguts`];
+  if (summary.kept > 0) {
+    parts.push(`${summary.kept} amb la categoria que hi havies posat`);
   }
   if (summary.undoneTransfers > 0) {
     parts.push(`${summary.undoneTransfers} traspassos desfets a l'espai anterior`);

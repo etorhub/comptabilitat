@@ -15,7 +15,7 @@ import { DataTable } from "../../components/views.ts";
 import type { Html } from "../../lib/html.ts";
 import { oobAttributes } from "../../lib/oob.ts";
 
-const NAMES_ROL: Record<LedgerRole, string> = {
+const ROLE_NAMES: Record<LedgerRole, string> = {
   viewer: "Pot mirar",
   editor: "Pot classificar",
   admin: "Pot configurar",
@@ -23,7 +23,7 @@ const NAMES_ROL: Record<LedgerRole, string> = {
 
 export interface UserView extends User {
   /** Workspaces they can access, with the role. */
-  accessos: { ledgerId: number; code: string; name: string; role: LedgerRole }[];
+  access: { ledgerId: number; code: string; name: string; role: LedgerRole }[];
 }
 
 export interface ListProps {
@@ -51,7 +51,7 @@ export interface CardProps {
 
 export function Card({ user, workspaces, me, editErrors, passwordErrors }: CardProps): Html {
   const base = `/usuaris/${user.id}`;
-  const soc = user.id === me;
+  const isMe = user.id === me;
   const idPrefix = `u${user.id}`;
 
   return html`<section id="usuari-${user.id}" class="superficie targeta">
@@ -91,8 +91,8 @@ export function Card({ user, workspaces, me, editErrors, passwordErrors }: CardP
       ${Checkbox({
         name: "is_admin",
         tag: "Administrador de la instal·lacio (bancs i usuaris)",
-        marcat: user.isAdmin,
-        attributes: soc ? 'title="No et pots treure a tu mateix l\'admin"' : "",
+        marked: user.isAdmin,
+        attributes: isMe ? 'title="No et pots treure a tu mateix l\'admin"' : "",
       })}
       <div class="form-accions">
         <button type="submit" class="boto boto-discret">Desa</button>
@@ -100,11 +100,11 @@ export function Card({ user, workspaces, me, editErrors, passwordErrors }: CardP
     </form>
 
     ${DataTable({
-      columnes: html`<th>Espai</th>
+      columns: html`<th>Espai</th>
         <th>Acces</th>` as Html,
       empty: "Encara no hi ha cap espai actiu.",
       rows: workspaces.map((workspace) => {
-        const access = user.accessos.find((a) => a.ledgerId === workspace.id);
+        const access = user.access.find((a) => a.ledgerId === workspace.id);
         return html`<tr>
               <td>${workspace.name}</td>
               <td>
@@ -118,9 +118,9 @@ export function Card({ user, workspaces, me, editErrors, passwordErrors }: CardP
                   <select name="role" aria-label="Acces de ${user.email} a ${workspace.name}">
                     <option value="" ${access ? "" : raw("selected")}>— cap acces —</option>
                     ${LEDGER_ROLES.map(
-                      (rol) =>
-                        html`<option value="${rol}" ${access?.role === rol ? raw("selected") : ""}>
-                          ${NAMES_ROL[rol]}
+                      (role) =>
+                        html`<option value="${role}" ${access?.role === role ? raw("selected") : ""}>
+                          ${ROLE_NAMES[role]}
                         </option>`,
                     )}
                   </select>
@@ -145,7 +145,7 @@ export function Card({ user, workspaces, me, editErrors, passwordErrors }: CardP
           tag: "Contrasenya nova",
           type: "password",
           errors: passwordErrors,
-          requerit: true,
+          required: true,
           autocomplete: "new-password",
           help: "Com a minim 10 carácters. Li tanca totes les sessions obertes.",
         })}
@@ -160,7 +160,7 @@ export function Card({ user, workspaces, me, editErrors, passwordErrors }: CardP
         <button
           type="submit"
           class="boto boto-discret"
-          ${soc ? raw("disabled title='No et pots desactivar tu mateix'") : ""}
+          ${isMe ? raw("disabled title='No et pots desactivar tu mateix'") : ""}
         >
           ${user.isActive ? "Desactiva'l" : "Activa'l"}
         </button>
@@ -192,7 +192,7 @@ export function CreateForm({ errors, values }: CreateFormProps): Html {
         type: "email",
         value: values?.email ?? "",
         errors,
-        requerit: true,
+        required: true,
         autocomplete: "off",
       })}
       ${Field({
@@ -207,7 +207,7 @@ export function CreateForm({ errors, values }: CreateFormProps): Html {
         tag: "Contrasenya",
         type: "password",
         errors,
-        requerit: true,
+        required: true,
         autocomplete: "new-password",
         help: "Com a minim 10 carácters.",
       })}

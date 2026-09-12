@@ -118,10 +118,10 @@ describe("whoever has no access to a workspace", () => {
     const withoutAccess = await app.request("/e/calella/avisos", {
       headers: { Cookie: cookie },
     });
-    const inexistent = await app.request("/e/inventat/avisos", { headers: { Cookie: cookie } });
+    const missingOne = await app.request("/e/inventat/avisos", { headers: { Cookie: cookie } });
 
-    expect(withoutAccess.status).toBe(inexistent.status);
-    expect(await withoutAccess.text()).toBe(await inexistent.text());
+    expect(withoutAccess.status).toBe(missingOne.status);
+    expect(await withoutAccess.text()).toBe(await missingOne.text());
   });
 
   test("does not see its name anywhere", async () => {
@@ -151,12 +151,12 @@ describe("whoever has no access to a workspace", () => {
     const withoutAccess = await app.request("/e/calella/etiquetes", {
       headers: { Cookie: cookie },
     });
-    const inexistent = await app.request("/e/inventat/etiquetes", {
+    const missingOne = await app.request("/e/inventat/etiquetes", {
       headers: { Cookie: cookie },
     });
     expect(withoutAccess.status).toBe(404);
-    expect(withoutAccess.status).toBe(inexistent.status);
-    expect(await withoutAccess.text()).toBe(await inexistent.text());
+    expect(withoutAccess.status).toBe(missingOne.status);
+    expect(await withoutAccess.text()).toBe(await missingOne.text());
   });
 });
 

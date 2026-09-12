@@ -33,7 +33,7 @@ function formatStamp(when: Date): string {
   return localStamp.format(when).replace(", ", " ");
 }
 
-function dateCurta(isoDate: string): string {
+function dateShort(isoDate: string): string {
   const [any, month, day] = isoDate.split("-");
   return `${day}/${month}/${any}`;
 }
@@ -73,7 +73,7 @@ export async function notifyPending(urgentOnly = false): Promise<string> {
     else list.push(alert);
   }
 
-  let enviats = 0;
+  let sent = 0;
   let pendingUnsent = 0;
 
   for (const [ledgerId, workspaceAlerts] of byWorkspace) {
@@ -95,10 +95,10 @@ export async function notifyPending(urgentOnly = false): Promise<string> {
     const title = urgentOnly ? "Avis urgent de la comptabilitat" : "Resum d'avisos";
     let subtitle = urgentOnly
       ? "Hi ha una cosa que necessita atencio ara."
-      : `Avisos nous del ${dateCurta(todayLocal())}.`;
+      : `Avisos nous del ${dateShort(todayLocal())}.`;
     if (workspace !== undefined) subtitle = `${workspace.name} · ${subtitle}`;
 
-    const entrades: SummaryEntry[] = workspaceAlerts.map((alert) => ({
+    const entries: SummaryEntry[] = workspaceAlerts.map((alert) => ({
       severity: alert.severity,
       title: alert.title,
       body: alert.body,
@@ -106,29 +106,29 @@ export async function notifyPending(urgentOnly = false): Promise<string> {
       created: formatStamp(alert.createdAt),
     }));
 
-    const { html, text } = await renderSummary(entrades, title, subtitle);
+    const { html, text } = await renderSummary(entries, title, subtitle);
     const name = workspace !== undefined ? `${title} · ${workspace.name}` : title;
     const first = workspaceAlerts[0];
-    const assumpte =
+    const subject =
       workspaceAlerts.length === 1 && first !== undefined
         ? `${name}: ${first.title}`
         : `${name} (${workspaceAlerts.length})`;
 
-    if (!(await sendMail(assumpte, html, text, recipients))) {
+    if (!(await sendMail(subject, html, text, recipients))) {
       pendingUnsent += workspaceAlerts.length;
       continue;
     }
 
-    const ara = new Date();
+    const now = new Date();
     for (const alert of workspaceAlerts) {
-      await db.update(alerts).set({ notifiedAt: ara }).where(eq(alerts.id, alert.id));
+      await db.update(alerts).set({ notifiedAt: now }).where(eq(alerts.id, alert.id));
     }
-    enviats += workspaceAlerts.length;
+    sent += workspaceAlerts.length;
   }
 
-  if (enviats > 0 && pendingUnsent > 0) {
-    return `${enviats} avisos enviats; ${pendingUnsent} pendents (sense destinatari o error)`;
+  if (sent > 0 && pendingUnsent > 0) {
+    return `${sent} avisos enviats; ${pendingUnsent} pendents (sense destinatari o error)`;
   }
-  if (enviats > 0) return `${enviats} avisos enviats per correu`;
+  if (sent > 0) return `${sent} avisos enviats per correu`;
   return `${pendingUnsent} avisos pendents: no hi ha destinataris o el correu ha fallat`;
 }

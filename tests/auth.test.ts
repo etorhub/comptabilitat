@@ -123,9 +123,9 @@ describe("sign-in", () => {
     expect(token).toBeTruthy();
 
     const sessions = await db.select().from(userSessions);
-    const desat = sessions.map((s) => s.tokenHash);
-    expect(desat).toContain(hashToken(token as string));
-    expect(desat).not.toContain(token);
+    const saved = sessions.map((s) => s.tokenHash);
+    expect(saved).toContain(hashToken(token as string));
+    expect(saved).not.toContain(token);
   });
 
   test("a user that does not exist and a wrong password are indistinguishable", async () => {
@@ -133,14 +133,14 @@ describe("sign-in", () => {
     // between the two responses is the email, and any other difference would
     // be a way of guessing who is registered.
     const { seedCookie, csrfField } = await prepareLogin();
-    const capçaleres = {
+    const headers = {
       "Content-Type": "application/x-www-form-urlencoded",
       Cookie: seedCookie,
     };
 
-    const resDesconegut = await app.request("/entrada", {
+    const unknownResponse = await app.request("/entrada", {
       method: "POST",
-      headers: capçaleres,
+      headers: headers,
       body: signInBody({
         _csrf: csrfField,
         email: "ningu@exemple.cat",
@@ -148,9 +148,9 @@ describe("sign-in", () => {
       }),
     });
 
-    const resDolenta = await app.request("/entrada", {
+    const badResponse = await app.request("/entrada", {
       method: "POST",
-      headers: capçaleres,
+      headers: headers,
       body: signInBody({
         _csrf: csrfField,
         email: "pau@exemple.cat",
@@ -158,10 +158,10 @@ describe("sign-in", () => {
       }),
     });
 
-    expect(resDesconegut.status).toBe(resDolenta.status);
+    expect(unknownResponse.status).toBe(badResponse.status);
 
-    const netejaEmail = (s: string) => s.replace(/ningu@exemple\.cat|pau@exemple\.cat/g, "");
-    expect(netejaEmail(await resDesconegut.text())).toBe(netejaEmail(await resDolenta.text()));
+    const cleanEmail = (s: string) => s.replace(/ningu@exemple\.cat|pau@exemple\.cat/g, "");
+    expect(cleanEmail(await unknownResponse.text())).toBe(cleanEmail(await badResponse.text()));
   });
 
   test("a deactivated user cannot sign in", async () => {
@@ -202,12 +202,12 @@ describe("protected pages", () => {
         _csrf: csrfField,
         email: "pau@exemple.cat",
         password: PASSWORD,
-        desti: "//maliciós.example.com/",
+        target: "//maliciós.example.com/",
       }),
     });
 
-    const desti = res.headers.get("location") ?? "";
-    expect(desti.startsWith("//")).toBe(false);
-    expect(desti).not.toContain("maliciós.example.com");
+    const target = res.headers.get("location") ?? "";
+    expect(target.startsWith("//")).toBe(false);
+    expect(target).not.toContain("maliciós.example.com");
   });
 });

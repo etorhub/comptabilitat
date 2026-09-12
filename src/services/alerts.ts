@@ -37,7 +37,7 @@ export async function createAlert(
 
   if (existing) return null;
 
-  const [creat] = await connection
+  const [createdOne] = await connection
     .insert(alerts)
     .values({
       ledgerId: alert.ledgerId,
@@ -52,5 +52,5 @@ export async function createAlert(
     })
     .returning();
 
-  return creat ?? null;
+  return createdOne ?? null;
 }

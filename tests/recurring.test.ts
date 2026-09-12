@@ -178,27 +178,27 @@ describe("it has to be categorized", () => {
 
     // Only two of the three have a category: it does not reach the minimum number of occurrences.
     const stats = await detectRecurring(ledgerId);
-    expect(stats.creades).toBe(0);
+    expect(stats.createdRows).toBe(0);
   });
 
   test("the same merchant with two categories makes separate series", async () => {
-    const lloguer = await category("lloguer");
-    const sopars = await category("sopars-ocasionals");
+    const rent = await category("lloguer");
+    const dinners = await category("sopars-ocasionals");
     const m = await merchant("MARIA GARCIA");
     const today = todayLocal();
 
     for (const [i, days] of [90, 60, 30].entries()) {
-      await transaction(`ll${i}`, addDays(today, -days), "-350.00", lloguer, m);
+      await transaction(`ll${i}`, addDays(today, -days), "-350.00", rent, m);
     }
     // A single dinner: it does not reach 3 occurrences.
-    await transaction("sopar", addDays(today, -5), "-42.50", sopars, m);
+    await transaction("sopar", addDays(today, -5), "-42.50", dinners, m);
 
     const stats = await detectRecurring(ledgerId);
-    expect(stats.creades).toBe(1);
+    expect(stats.createdRows).toBe(1);
 
     const series = await listSeries(ledgerId);
     expect(series).toHaveLength(1);
-    expect(series[0]?.categoryId).toBe(lloguer);
+    expect(series[0]?.categoryId).toBe(rent);
     expect(series[0]?.status).toBe("suggested");
     expect(series[0]?.includeInForecast).toBe(false);
   });
@@ -214,7 +214,7 @@ describe("what counts as a series", () => {
     }
 
     const stats = await detectRecurring(ledgerId);
-    expect(stats.creades).toBe(1);
+    expect(stats.createdRows).toBe(1);
 
     const [series] = await listSeries(ledgerId);
     expect(series?.cadence).toBe("monthly");
@@ -251,7 +251,7 @@ describe("what counts as a series", () => {
     await transaction("b", addDays(today, -30), "-10.00", c, m);
 
     const stats = await detectRecurring(ledgerId);
-    expect(stats.creades).toBe(0);
+    expect(stats.createdRows).toBe(0);
   });
 
   test("three occurrences at irregular intervals, no", async () => {
@@ -263,7 +263,7 @@ describe("what counts as a series", () => {
     await transaction("c", addDays(today, -2), "-10.00", c, m);
 
     const stats = await detectRecurring(ledgerId);
-    expect(stats.creades).toBe(0);
+    expect(stats.createdRows).toBe(0);
   });
 
   test("a regular credit is a series too", async () => {
@@ -291,7 +291,7 @@ describe("what counts as a series", () => {
     }
 
     const stats = await detectRecurring(ledgerId);
-    expect(stats.creades).toBe(0);
+    expect(stats.createdRows).toBe(0);
   });
 
   test("nor do excluded transactions", async () => {
@@ -303,7 +303,7 @@ describe("what counts as a series", () => {
     }
 
     const stats = await detectRecurring(ledgerId);
-    expect(stats.creades).toBe(0);
+    expect(stats.createdRows).toBe(0);
   });
 
   test("two merchants in the same category make separate series", async () => {
@@ -317,7 +317,7 @@ describe("what counts as a series", () => {
     }
 
     const stats = await detectRecurring(ledgerId);
-    expect(stats.creades).toBe(2);
+    expect(stats.createdRows).toBe(2);
     expect(await listSeries(ledgerId)).toHaveLength(2);
   });
 });
@@ -332,10 +332,10 @@ describe("detecting again", () => {
     }
 
     await detectRecurring(ledgerId);
-    const segona = await detectRecurring(ledgerId);
+    const secondOne = await detectRecurring(ledgerId);
 
-    expect(segona.creades).toBe(0);
-    expect(segona.actualitzades).toBe(1);
+    expect(secondOne.createdRows).toBe(0);
+    expect(secondOne.updatedRows).toBe(1);
     expect(await listSeries(ledgerId)).toHaveLength(1);
   });
 
@@ -450,14 +450,14 @@ describe("manual CRUD", () => {
     });
     await dismissSeries(id);
 
-    const revifada = await createSeriesManual(ledgerId, {
+    const revived = await createSeriesManual(ledgerId, {
       label: "Lloguer nou",
       categoryId: c,
       cadence: "monthly",
       expectedAmount: "-900.00",
       nextExpectedDate: addDays(todayLocal(), 10),
     });
-    expect(revifada).toBe(id);
+    expect(revived).toBe(id);
 
     const [series] = await listSeries(ledgerId, { statuses: ["active"] });
     expect(series?.label).toBe("Lloguer nou");

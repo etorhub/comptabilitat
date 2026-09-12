@@ -18,7 +18,7 @@ import { html } from "hono/html";
 import { EmptyState, Pagination, DataTable } from "../../src/components/views.ts";
 import type { Html } from "../../src/lib/html.ts";
 
-const COLUMNES = html`<th>Nom</th>
+const COLUMNS = html`<th>Nom</th>
   <th>Valor</th>` as Html;
 
 function text(node: Html): string {
@@ -27,9 +27,7 @@ function text(node: Html): string {
 
 describe("DataTable", () => {
   test("with no rows it draws no table, only the notice", () => {
-    const output = text(
-      DataTable({ columnes: COLUMNES, rows: [], empty: "Aqui no hi ha res." }),
-    );
+    const output = text(DataTable({ columns: COLUMNS, rows: [], empty: "Aqui no hi ha res." }));
 
     expect(output).toContain("Aqui no hi ha res.");
     expect(output).toContain('class="buit text-suau"');
@@ -40,7 +38,7 @@ describe("DataTable", () => {
   test("with rows it draws the table and not the notice", () => {
     const output = text(
       DataTable({
-        columnes: COLUMNES,
+        columns: COLUMNS,
         rows: [
           html`<tr id="fila-1">
           <td>u</td>
@@ -57,9 +55,9 @@ describe("DataTable", () => {
 
   test("what goes before and the footer only appear when there are rows", () => {
     const props = {
-      columnes: COLUMNES,
+      columns: COLUMNS,
       empty: "Res.",
-      abans: html`<div id="barra"></div>` as Html,
+      before: html`<div id="barra"></div>` as Html,
       footer: html`<div id="peu"></div>` as Html,
     };
 
@@ -76,7 +74,7 @@ describe("DataTable", () => {
   test("the extra class is added to the usual one", () => {
     const output = text(
       DataTable({
-        columnes: COLUMNES,
+        columns: COLUMNS,
         rows: [html`<tr></tr>` as Html],
         empty: "Res.",
         cssClass: "taula-moviments",
@@ -90,20 +88,18 @@ describe("Pagination", () => {
   test("with an empty list it counts from zero", () => {
     // The merchants' copy said «1–0 of 0»: it added 1 to the offset without
     // looking at whether there was anything.
-    const output = text(Pagination({ page: { total: 0, limit: 50, offset: 0 }, passos: "" }));
+    const output = text(Pagination({ page: { total: 0, limit: 50, offset: 0 }, steps: "" }));
     expect(output).toContain("0–0 de 0");
   });
 
   test("gives the range of the right page", () => {
-    const output = text(
-      Pagination({ page: { total: 214, limit: 30, offset: 30 }, passos: "" }),
-    );
+    const output = text(Pagination({ page: { total: 214, limit: 30, offset: 30 }, steps: "" }));
     expect(output).toContain("31–60 de 214");
   });
 
   test("the last page does not go past the total", () => {
     const output = text(
-      Pagination({ page: { total: 214, limit: 30, offset: 210 }, passos: "" }),
+      Pagination({ page: { total: 214, limit: 30, offset: 210 }, steps: "" }),
     );
     expect(output).toContain("211–214 de 214");
   });

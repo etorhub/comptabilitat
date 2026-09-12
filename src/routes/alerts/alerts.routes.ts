@@ -103,7 +103,7 @@ alertsRoutes.post("/:id/llegit", async (c) => {
   const alert = await alertInWorkspace(id, workspace.id);
 
   // Only makes sense on a new alert; if it was already read, we touch nothing.
-  const actualitzat =
+  const updatedOne =
     alert.status === "new"
       ? ((
           await db.update(alerts).set({ status: "read" }).where(eq(alerts.id, id)).returning()
@@ -117,7 +117,7 @@ alertsRoutes.post("/:id/llegit", async (c) => {
     await withOob(
       AlertCard({
         code: workspace.code,
-        alert: actualitzat,
+        alert: updatedOne,
         filters: alertFiltersSchema.parse(c.req.query()),
       }),
       AlertCounter(await countNewAlerts(workspace.id), true),

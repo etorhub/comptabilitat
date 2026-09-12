@@ -35,7 +35,7 @@ export interface LayoutProps {
    */
   path?: string;
   /** The sidebar counters. They are out-of-band targets. */
-  perRevisar?: number;
+  toReview?: number;
   newAlerts?: number;
   children: unknown;
 }
@@ -90,7 +90,7 @@ export function Layout(props: LayoutProps): Html {
     csrfToken,
     workspaces,
     workspace,
-    perRevisar = 0,
+    toReview = 0,
     newAlerts = 0,
     path = "",
   } = props;
@@ -151,7 +151,7 @@ export function Layout(props: LayoutProps): Html {
           <!-- Tapping outside the drawer closes it. For sighted users only. -->
           <label for="menu-obert" class="rerefons-menu" aria-hidden="true"></label>
 
-          ${Sidebar({ user, workspaces, workspace, perRevisar, newAlerts, path })}
+          ${Sidebar({ user, workspaces, workspace, toReview, newAlerts, path })}
 
           <main id="contingut" class="principal">${props.children}</main>
         </div>
@@ -170,7 +170,7 @@ interface SidebarProps {
   user: User;
   workspaces: (Ledger & { role: LedgerRole })[];
   workspace?: Ledger | undefined;
-  perRevisar: number;
+  toReview: number;
   newAlerts: number;
   path: string;
 }
@@ -187,7 +187,7 @@ function activeLink(routes: string[], path: string): string | undefined {
   return paths.toSorted((a, b) => b.length - a.length)[0];
 }
 
-function Sidebar({ user, workspaces, workspace, perRevisar, newAlerts, path }: SidebarProps) {
+function Sidebar({ user, workspaces, workspace, toReview, newAlerts, path }: SidebarProps) {
   const code = workspace?.code;
 
   const links: { href: string; text: string; counter?: Html }[] = code
@@ -199,7 +199,7 @@ function Sidebar({ user, workspaces, workspace, perRevisar, newAlerts, path }: S
           // hangs off them. In the React app it was `/e/:codi/revisio`.
           href: `/e/${code}/moviments/revisio`,
           text: "Per revisar",
-          counter: ReviewCounter(perRevisar),
+          counter: ReviewCounter(toReview),
         },
         { href: `/e/${code}/recurrents`, text: "Recurrents" },
         { href: `/e/${code}/previsio`, text: "Previsio" },
@@ -226,7 +226,7 @@ function Sidebar({ user, workspaces, workspace, perRevisar, newAlerts, path }: S
   );
   // The space goes inside: without it, every link that is not the current one
   // would end up as `<a href="…" >`.
-  const marca = (href: string) => (href === active ? raw(' aria-current="page"') : "");
+  const brand = (href: string) => (href === active ? raw(' aria-current="page"') : "");
 
   return html`<nav class="barra" aria-label="Navegacio principal">
     <div class="barra-cap">
@@ -258,7 +258,7 @@ function Sidebar({ user, workspaces, workspace, perRevisar, newAlerts, path }: S
     <ul class="menu">
       ${links.map(
         (link) => html`<li>
-          <a href="${link.href}"${marca(link.href)}>
+          <a href="${link.href}"${brand(link.href)}>
             <span>${link.text}</span>
             ${link.counter ?? ""}
           </a>
@@ -273,7 +273,7 @@ function Sidebar({ user, workspaces, workspace, perRevisar, newAlerts, path }: S
           <ul class="menu">
             ${settings.map(
               (link) => html`<li>
-                <a href="${link.href}"${marca(link.href)}>
+                <a href="${link.href}"${brand(link.href)}>
                   <span>${link.text}</span>
                   ${link.counter ?? ""}
                 </a>
@@ -290,10 +290,10 @@ function Sidebar({ user, workspaces, workspace, perRevisar, newAlerts, path }: S
           <h2 class="menu-titol">Administracio</h2>
           <ul class="menu">
             <li>
-              <a href="/connexions"${marca("/connexions")}>Connexions bancaries</a>
+              <a href="/connexions"${brand("/connexions")}>Connexions bancaries</a>
             </li>
-            <li><a href="/feines"${marca("/feines")}>Feines</a></li>
-            <li><a href="/usuaris"${marca("/usuaris")}>Usuaris</a></li>
+            <li><a href="/feines"${brand("/feines")}>Feines</a></li>
+            <li><a href="/usuaris"${brand("/usuaris")}>Usuaris</a></li>
           </ul>
         </div>`
         : ""

@@ -11,10 +11,10 @@ import { WorkspaceForm, MembersTable, type MemberView } from "./workspaces.fragm
 export interface WorkspacePageProps {
   workspace: Ledger;
   members: MemberView[];
-  potConfigurar: boolean;
+  canConfigure: boolean;
 }
 
-export function WorkspacePage({ workspace, members, potConfigurar }: WorkspacePageProps): Html {
+export function WorkspacePage({ workspace, members, canConfigure }: WorkspacePageProps): Html {
   return html`
     <header class="capçalera">
       <h1>Espai</h1>
@@ -25,7 +25,7 @@ export function WorkspacePage({ workspace, members, potConfigurar }: WorkspacePa
     </header>
 
     ${
-      potConfigurar
+      canConfigure
         ? WorkspaceForm({ workspace })
         : html`<p class="text-suau">
           Cal ser administrador d'aquest espai per canviar-ne la configuracio.

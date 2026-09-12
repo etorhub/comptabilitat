@@ -24,8 +24,8 @@ import { runJob } from "../src/services/job-runs.ts";
 import { seedCategories } from "../src/services/seed.ts";
 
 async function waitForTerminal(jobName: string, timeoutMs = 10_000): Promise<void> {
-  const inici = Date.now();
-  while (Date.now() - inici < timeoutMs) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
     const [row] = await db
       .select()
       .from(jobRuns)
@@ -166,9 +166,12 @@ describe("the jobs screen", () => {
     expect(rows[0]?.trigger).toBe("manual");
 
     await waitForTerminal("maintenance");
-    const [acabada] = await db.select().from(jobRuns).where(eq(jobRuns.jobName, "maintenance"));
-    expect(acabada?.status).toBe("success");
-    expect(acabada?.summary).toContain("sessions");
+    const [finished] = await db
+      .select()
+      .from(jobRuns)
+      .where(eq(jobRuns.jobName, "maintenance"));
+    expect(finished?.status).toBe("success");
+    expect(finished?.summary).toContain("sessions");
   });
 
   test("a second POST while it runs returns 409", async () => {
@@ -216,10 +219,10 @@ describe("the jobs screen", () => {
       error: "",
     });
 
-    const corrent = await app.request("/feines/fragment/en-curs", {
+    const running = await app.request("/feines/fragment/en-curs", {
       headers: { Cookie: cookie },
     });
-    const html = await corrent.text();
+    const html = await running.text();
     expect(html).toContain('hx-trigger="every 2s"');
     expect(html).toContain("Analisi");
   });

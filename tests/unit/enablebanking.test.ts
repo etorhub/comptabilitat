@@ -79,8 +79,8 @@ describe("the deduplication key", () => {
   });
 
   test("never goes past the column's 64 characters", () => {
-    const llarga = dedupKey({ ...base, entryReference: "R".repeat(200) });
-    expect(llarga.length).toBeLessThanOrEqual(64);
+    const long = dedupKey({ ...base, entryReference: "R".repeat(200) });
+    expect(long.length).toBeLessThanOrEqual(64);
     expect(dedupKey(base).length).toBeLessThanOrEqual(64);
   });
 });
@@ -106,7 +106,7 @@ describe("what is discarded", () => {
 
 describe("the sign of the amount", () => {
   test("a debit comes out negative and a credit positive", () => {
-    const deute = parseTransaction({
+    const debit = parseTransaction({
       status: "BOOK",
       transaction_amount: { amount: "45.20", currency: "EUR" },
       credit_debit_indicator: "DBIT",
@@ -119,7 +119,7 @@ describe("the sign of the amount", () => {
       booking_date: "2026-03-01",
     });
 
-    expect(deute?.amount).toBe("-45.20");
+    expect(debit?.amount).toBe("-45.20");
     expect(credit?.amount).toBe("45.20");
   });
 });

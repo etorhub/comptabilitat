@@ -26,11 +26,14 @@ import { db } from "./client.ts";
 /** Alembic's head at the time of the stack change. */
 const CAP_ALEMBIC = "b2c3d4e5f6a7";
 
-async function existeix(table: string): Promise<boolean> {
-  const result = await db.execute<{ existeix: boolean }>(
-    sql`select to_regclass(${`public.${table}`}) is not null as existeix`,
+async function exists(table: string): Promise<boolean> {
+  const result = await db.execute<{ present: boolean }>(
+    // The alias has to match the generic exactly: `execute<T>` is an assertion,
+    // not a check, so a mismatch compiles and returns `undefined`. Not `exists`:
+    // that is a reserved word in Postgres.
+    sql`select to_regclass(${`public.${table}`}) is not null as present`,
   );
-  return Boolean(result[0]?.existeix);
+  return Boolean(result[0]?.present);
 }
 
 /**
@@ -67,7 +70,7 @@ async function baseline(reason: string): Promise<void> {
 }
 
 export async function applyMigrations(): Promise<void> {
-  const teAlembic = await existeix("alembic_version");
+  const teAlembic = await exists("alembic_version");
 
   /**
    * Has this been through a Drizzle migration already?
@@ -89,17 +92,17 @@ export async function applyMigrations(): Promise<void> {
       const cap = await db
         .execute<{ version_num: string }>(sql`select version_num from alembic_version limit 1`)
         .catch(() => []);
-      const versio = cap[0]?.version_num;
+      const version = cap[0]?.version_num;
 
-      if (versio !== CAP_ALEMBIC) {
+      if (version !== CAP_ALEMBIC) {
         throw new Error(
-          `La base de dades esta a la migracio d'Alembic ${versio ?? "desconeguda"} i s'esperava ` +
+          `La base de dades esta a la migracio d'Alembic ${version ?? "desconeguda"} i s'esperava ` +
             `${CAP_ALEMBIC}. Posa-la al dia amb Alembic abans de canviar de pila.`,
         );
       }
 
       await baseline("ve d'Alembic");
-    } else if (await existeix("ledgers")) {
+    } else if (await exists("ledgers")) {
       // The schema is there but nobody who leaves a record put it there —
       // somebody who applied the DDL by hand, say. Take the baseline anyway,
       // which beats blowing up trying to create tables that already exist.

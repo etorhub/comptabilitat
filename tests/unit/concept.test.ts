@@ -13,7 +13,7 @@ describe("parseDescription", () => {
   test("purchase with a masked TARJ.", () => {
     const r = parseDescription("COMPRA INTERNET EN APP ESTACIONAME, LLANÑA ES, TARJ. :*484017");
     expect(r.title).toBe("App Estacioname");
-    expect(r.darrers4).toBe("4017");
+    expect(r.last4).toBe("4017");
     expect(r.cleanedOriginal).not.toMatch(/\d{13,19}/);
     expect(r.cleanedOriginal).not.toContain("484017");
   });
@@ -21,7 +21,7 @@ describe("parseDescription", () => {
   test("mobile payment with a place tail", () => {
     const r = parseDescription("PAGO MOVIL EN IMAKO SUSHI, CALELLA PALAFES, TARJ. :*900522");
     expect(r.title).toBe("Imako Sushi");
-    expect(r.darrers4).toBe("0522");
+    expect(r.last4).toBe("0522");
   });
 
   test("pharmacy with TARJ.", () => {
@@ -29,7 +29,7 @@ describe("parseDescription", () => {
       "COMPRA INTERNET EN FARMACIA LUIS M, SEVILLA ES, TARJ. :*900522",
     );
     expect(r.title).toBe("Farmacia Luis M");
-    expect(r.darrers4).toBe("0522");
+    expect(r.last4).toBe("0522");
   });
 
   test("Amazon with a full PAN and a commission: the PAN does not come out", () => {
@@ -37,7 +37,7 @@ describe("parseDescription", () => {
       "COMPRA WWW.AMAZON*QE6I19905, LUXEMBOURG, TARJETA 5489010385484017 , COMISION 0,00",
     );
     expect(r.title).toBe("Amazon");
-    expect(r.darrers4).toBe("4017");
+    expect(r.last4).toBe("4017");
     expect(r.title).not.toContain("5489");
     expect(r.cleanedOriginal).not.toContain("5489010385484017");
     expect(r.cleanedOriginal).not.toMatch(/COMISI/i);
@@ -46,7 +46,7 @@ describe("parseDescription", () => {
   test("a transfer keeps accents and casing", () => {
     const r = parseDescription("TRANSFERENCIA A FAVOR DE María Lourdes Cortés Braña");
     expect(r.title).toBe("María Lourdes Cortés Braña");
-    expect(r.darrers4).toBeNull();
+    expect(r.last4).toBeNull();
     expect(r.type).toBe("transferencia");
   });
 
@@ -62,7 +62,7 @@ describe("parseDescription", () => {
       "RECIBO AJUNTAMENT DE BARCELONA, concepto: IBI+TM2026-3T/RCAD:1162401DF3816C0006ES/Torre dels Pardals,0066, P0202 Q.IBI 95,25/Q.TM 6,51/07746",
     );
     expect(r.title).toBe("IBI+TM2026-3T · Torre dels Pardals");
-    expect(r.darrers4).toBeNull();
+    expect(r.last4).toBeNull();
     expect(r.type).toBe("rebut");
     expect(r.title).not.toContain("RCAD");
     expect(r.title).not.toContain("Q.IBI");
@@ -80,7 +80,7 @@ describe("parseDescription", () => {
 
   test("unknown text is kept without a card", () => {
     const r = parseDescription("COSA ESTRANYA DEL BANC XYZ, TARJ. :*123456");
-    expect(r.darrers4).toBe("3456");
+    expect(r.last4).toBe("3456");
     expect(r.title).not.toContain("123456");
     expect(r.title.length).toBeGreaterThan(0);
   });
@@ -88,13 +88,13 @@ describe("parseDescription", () => {
   test("COMPRA TARJ. with no card digits", () => {
     const r = parseDescription("COMPRA TARJ. CLINICA DISCRETA");
     expect(r.title).toBe("Clinica Discreta");
-    expect(r.darrers4).toBeNull();
+    expect(r.last4).toBeNull();
   });
 
   test("PAN masked with X: 5402XXXXXXXX1234", () => {
     const r = parseDescription("COMPRA TARJ. 5402XXXXXXXX1234 EN MERCADONA, BARCELONA");
     expect(r.title).toBe("Mercadona");
-    expect(r.darrers4).toBe("1234");
+    expect(r.last4).toBe("1234");
     expect(r.title).not.toContain("5402");
   });
 });

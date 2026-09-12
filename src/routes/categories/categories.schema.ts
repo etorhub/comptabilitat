@@ -12,7 +12,7 @@ import { z } from "zod/v4";
 import { categories, categoryKindSchema } from "../../db/schema/index.ts";
 
 /** An integer coming from a form field, where empty means «none». */
-const idOpcional = z
+const optionalId = z
   .union([z.literal(""), z.coerce.number().int().positive()])
   .optional()
   .transform((v) => (v === "" || v === undefined ? null : v));
@@ -29,7 +29,7 @@ const base = createInsertSchema(categories, {
  */
 export const categoryCreateSchema = base.pick({ name: true }).extend({
   kind: categoryKindSchema,
-  parent_id: idOpcional,
+  parent_id: optionalId,
   color: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/, "El color ha de ser un codi hexadecimal")
@@ -44,5 +44,5 @@ export const categoryUpdateSchema = z.object({
 
 export const categoryDeleteSchema = z.object({
   /** Where any transactions it has should go. */
-  reassign_to: idOpcional,
+  reassign_to: optionalId,
 });

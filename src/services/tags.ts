@@ -13,7 +13,7 @@ import { transactions } from "../db/schema/index.ts";
 import { AppError, NotFoundError } from "../lib/http.ts";
 import { money, toMoneyString, type MoneyString } from "../lib/money.ts";
 
-const LONGITUD_MAX = 40;
+const MAX_LENGTH = 40;
 
 /**
  * Cleans the text a person wrote.
@@ -30,8 +30,8 @@ export function normalizeTag(raw: string): string {
   if (cleaned.length === 0) {
     throw new AppError("Cal un nom d'etiqueta", 422);
   }
-  if (cleaned.length > LONGITUD_MAX) {
-    throw new AppError(`L'etiqueta pot tenir com a molt ${LONGITUD_MAX} caracters`, 422);
+  if (cleaned.length > MAX_LENGTH) {
+    throw new AppError(`L'etiqueta pot tenir com a molt ${MAX_LENGTH} caracters`, 422);
   }
   if (cleaned.includes(",")) {
     throw new AppError("L'etiqueta no pot dur comes", 422);
@@ -156,15 +156,18 @@ export async function addTag(
     .limit(1);
   if (!row) throw new NotFoundError("Aquest moviment no existeix");
 
-  const canònica = await workspaceSpelling(ledgerId, rawName);
-  const actuals = row.tags ?? [];
-  if (actuals.some((t) => sameTag(t, canònica))) {
-    return actuals.toSorted();
+  const canonical = await workspaceSpelling(ledgerId, rawName);
+  const current = row.tags ?? [];
+  if (current.some((t) => sameTag(t, canonical))) {
+    return current.toSorted();
   }
 
-  const noves = [...actuals, canònica].toSorted();
-  await db.update(transactions).set({ tags: noves }).where(eq(transactions.id, transactionId));
-  return noves;
+  const newOnes = [...current, canonical].toSorted();
+  await db
+    .update(transactions)
+    .set({ tags: newOnes })
+    .where(eq(transactions.id, transactionId));
+  return newOnes;
 }
 
 /** Removes a tag from a transaction (case-insensitive). */
@@ -181,9 +184,12 @@ export async function removeTag(
     .limit(1);
   if (!row) throw new NotFoundError("Aquest moviment no existeix");
 
-  const noves = (row.tags ?? []).filter((t) => !sameTag(t, cleaned)).toSorted();
-  await db.update(transactions).set({ tags: noves }).where(eq(transactions.id, transactionId));
-  return noves;
+  const newOnes = (row.tags ?? []).filter((t) => !sameTag(t, cleaned)).toSorted();
+  await db
+    .update(transactions)
+    .set({ tags: newOnes })
+    .where(eq(transactions.id, transactionId));
+  return newOnes;
 }
 
 /**
@@ -196,28 +202,28 @@ export async function addTagBulk(
   ledgerId: number,
   rawName: string,
 ): Promise<number> {
-  const demanats = [...new Set(ids)];
-  if (demanats.length === 0) throw new AppError("No hi ha cap moviment triat", 422);
+  const requested = [...new Set(ids)];
+  if (requested.length === 0) throw new AppError("No hi ha cap moviment triat", 422);
 
-  const meus = await db
+  const mine = await db
     .select({ id: transactions.id, tags: transactions.tags })
     .from(transactions)
-    .where(and(eq(transactions.ledgerId, ledgerId), inArray(transactions.id, demanats)));
+    .where(and(eq(transactions.ledgerId, ledgerId), inArray(transactions.id, requested)));
 
-  if (meus.length !== demanats.length) {
+  if (mine.length !== requested.length) {
     throw new NotFoundError("No s'ha trobat");
   }
 
-  const canònica = await workspaceSpelling(ledgerId, rawName);
-  let tocats = 0;
-  for (const row of meus) {
-    const actuals = row.tags ?? [];
-    if (actuals.some((t) => sameTag(t, canònica))) continue;
-    const noves = [...actuals, canònica].toSorted();
-    await db.update(transactions).set({ tags: noves }).where(eq(transactions.id, row.id));
-    tocats += 1;
+  const canonical = await workspaceSpelling(ledgerId, rawName);
+  let touched = 0;
+  for (const row of mine) {
+    const current = row.tags ?? [];
+    if (current.some((t) => sameTag(t, canonical))) continue;
+    const newOnes = [...current, canonical].toSorted();
+    await db.update(transactions).set({ tags: newOnes }).where(eq(transactions.id, row.id));
+    touched += 1;
   }
-  return tocats;
+  return touched;
 }
 
 /**
@@ -240,8 +246,8 @@ export async function deleteTagFromWorkspace(
       )
   `);
 
-  const quants = [...affected].length;
-  if (quants === 0) return 0;
+  const howManyOf = [...affected].length;
+  if (howManyOf === 0) return 0;
 
   await db.execute(sql`
     update transactions
@@ -257,7 +263,7 @@ export async function deleteTagFromWorkspace(
       )
   `);
 
-  return quants;
+  return howManyOf;
 }
 
 /** Parses a comma-separated list (rules form). */
@@ -268,8 +274,8 @@ export function parseTagList(raw: string): string[] {
   for (const part of raw.split(",")) {
     const cleaned = part.trim().replace(/\s+/g, " ");
     if (!cleaned) continue;
-    if (cleaned.length > LONGITUD_MAX) {
-      throw new AppError(`Cada etiqueta pot tenir com a molt ${LONGITUD_MAX} caracters`, 422);
+    if (cleaned.length > MAX_LENGTH) {
+      throw new AppError(`Cada etiqueta pot tenir com a molt ${MAX_LENGTH} caracters`, 422);
     }
     const key = cleaned.toLocaleLowerCase("ca");
     if (views.has(key)) continue;

@@ -49,7 +49,7 @@ async function createUser(): Promise<void> {
     throw new Error(`Ja hi ha un usuari amb el correu ${email}`);
   }
 
-  const [creat] = await db
+  const [createdOne] = await db
     .insert(users)
     .values({
       email,
@@ -60,7 +60,9 @@ async function createUser(): Promise<void> {
     })
     .returning({ id: users.id });
 
-  console.log(`Usuari ${email} creat (id ${creat?.id})${isAdmin ? ", administrador" : ""}.`);
+  console.log(
+    `Usuari ${email} creat (id ${createdOne?.id})${isAdmin ? ", administrador" : ""}.`,
+  );
   if (isAdmin) {
     console.log("Recorda: ser administrador no dona acces a cap espai. Fes servir dona-acces.");
   }
@@ -69,7 +71,7 @@ async function createUser(): Promise<void> {
 async function grantsAccess(): Promise<void> {
   const email = requireArg("email").toLowerCase();
   const code = requireArg("espai");
-  const rol = ledgerRoleSchema.parse(arg("rol") ?? "viewer");
+  const role = ledgerRoleSchema.parse(arg("rol") ?? "viewer");
 
   const [user] = await db.select().from(users).where(eq(users.email, email));
   if (!user) throw new Error(`No hi ha cap usuari amb el correu ${email}`);
@@ -90,14 +92,14 @@ async function grantsAccess(): Promise<void> {
   if (ja) {
     await db
       .update(userLedgerPermissions)
-      .set({ role: rol })
+      .set({ role: role })
       .where(eq(userLedgerPermissions.id, ja.id));
-    console.log(`${email} ara es ${rol} a ${workspace.name}.`);
+    console.log(`${email} ara es ${role} a ${workspace.name}.`);
   } else {
     await db
       .insert(userLedgerPermissions)
-      .values({ userId: user.id, ledgerId: workspace.id, role: rol });
-    console.log(`${email} te acces a ${workspace.name} com a ${rol}.`);
+      .values({ userId: user.id, ledgerId: workspace.id, role: role });
+    console.log(`${email} te acces a ${workspace.name} com a ${role}.`);
   }
 }
 
@@ -128,7 +130,7 @@ async function createWorkspace(): Promise<void> {
     .orderBy(desc(ledgers.position))
     .limit(1);
 
-  const [creat] = await db
+  const [createdOne] = await db
     .insert(ledgers)
     .values({
       code: data.code,
@@ -143,7 +145,7 @@ async function createWorkspace(): Promise<void> {
     })
     .returning();
 
-  const categories = await seedCategories(creat?.id ?? 0);
+  const categories = await seedCategories(createdOne?.id ?? 0);
   console.log(`Espai ${data.code} creat amb ${categories} categories.`);
   console.log(
     "La resta (llindar de descobert, destinataris dels avisos) es configura des de " +
@@ -160,7 +162,7 @@ async function cleanSessions(): Promise<void> {
 }
 
 /** Creates the three workspaces and their category plans, if absent. */
-async function inicia(): Promise<void> {
+async function initialize(): Promise<void> {
   const created = await seedLedgers();
   console.log(
     created.length > 0
@@ -182,7 +184,7 @@ async function demo(): Promise<void> {
 }
 
 const orders: Record<string, () => Promise<void>> = {
-  init: inicia,
+  init: initialize,
   demo,
   "crea-espai": createWorkspace,
   "crea-usuari": createUser,

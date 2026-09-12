@@ -38,7 +38,7 @@ export function TransactionsPage(props: TransactionsPageProps): Html {
   } = props;
   // What you download is what you are looking at: the same filters.
   const query = transactionFiltersToQuery(filters);
-  const searchOberta = hasActiveFilters(filters);
+  const searchOpen = hasActiveFilters(filters);
 
   return html`
     <div class="moviments-pagina">
@@ -46,7 +46,7 @@ export function TransactionsPage(props: TransactionsPageProps): Html {
         type="checkbox"
         id="cerca-oberta"
         class="toggle-cerca visualment-ocult"
-        ${searchOberta ? raw("checked") : ""}
+        ${searchOpen ? raw("checked") : ""}
       />
       <header class="capçalera capçalera-fila">
         <h1>Moviments</h1>

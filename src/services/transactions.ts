@@ -73,7 +73,7 @@ export interface TransactionView {
    */
   descriptionHint: string | null;
   /** Last 4 digits of the card, or null. Never with an alias. */
-  darrers4: string | null;
+  last4: string | null;
   /**
    * Operation type deduced from the concept. Null when there is an alias (we
    * do not show the bank's metadata).
@@ -185,7 +185,7 @@ export function transactionView(row: RawRow): TransactionView {
       status: row.status,
       description: row.displayDescription ?? "",
       descriptionHint: null,
-      darrers4: null,
+      last4: null,
       operationType: null,
       counterparty: "",
       merchantId: row.merchantId,
@@ -219,7 +219,7 @@ export function transactionView(row: RawRow): TransactionView {
     status: row.status,
     description: parsed.title,
     descriptionHint: hint,
-    darrers4: parsed.darrers4,
+    last4: parsed.last4,
     operationType: parsed.type,
     counterparty: row.counterparty,
     merchantId: row.merchantId,
@@ -288,14 +288,14 @@ function typePredicate(type: OperationType): SQL {
       // `or()` is typed as optional because it accepts zero arguments; here it
       // gets four fixed ones, so it cannot be undefined. It is checked instead
       // of being asserted with a `!`.
-      const algun = or(
+      const some = or(
         typePredicate("targeta"),
         typePredicate("transferencia"),
         typePredicate("bizum"),
         typePredicate("rebut"),
       );
-      if (algun === undefined) throw new Error("predicatTipus: cap predicat");
-      return not(algun);
+      if (some === undefined) throw new Error("predicatTipus: cap predicat");
+      return not(some);
     }
   }
 }
@@ -339,12 +339,12 @@ export async function cardsAvailable(
     .from(transactions)
     .where(on);
 
-  const trobades = new Set<string>();
+  const found = new Set<string>();
   for (const f of rows) {
-    const { darrers4 } = parseDescription(f.description);
-    if (darrers4) trobades.add(darrers4);
+    const { last4 } = parseDescription(f.description);
+    if (last4) found.add(last4);
   }
-  return [...trobades].toSorted();
+  return [...found].toSorted();
 }
 
 /**
@@ -354,19 +354,19 @@ export async function cardsAvailable(
  * counterparty: only by the alias a person has set and by the notes.
  * Otherwise what has been hidden could be guessed by trying words.
  */
-function searchClause(patro: string): SQL | undefined {
+function searchClause(pattern: string): SQL | undefined {
   return or(
     and(
       isNotNull(transactions.displayDescription),
-      or(ilike(transactions.displayDescription, patro), ilike(transactions.notes, patro)),
+      or(ilike(transactions.displayDescription, pattern), ilike(transactions.notes, pattern)),
     ),
     and(
       isNull(transactions.displayDescription),
       or(
-        ilike(transactions.description, patro),
-        ilike(transactions.normalizedDescription, patro),
-        ilike(transactions.counterparty, patro),
-        ilike(transactions.notes, patro),
+        ilike(transactions.description, pattern),
+        ilike(transactions.normalizedDescription, pattern),
+        ilike(transactions.counterparty, pattern),
+        ilike(transactions.notes, pattern),
       ),
     ),
   );

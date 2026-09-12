@@ -20,16 +20,16 @@ import type { HistoryFilters } from "./jobs.schema.ts";
 export interface JobsPageProps {
   passes: JobEntry[];
   individuals: JobEntry[];
-  darreres: Map<string, JobRun>;
-  enCursRuns: JobRun[];
+  latest: Map<string, JobRun>;
+  runningJobs: JobRun[];
   runningNames: Set<string>;
-  salut: HealthSummary;
+  health: HealthSummary;
   history: HistoryPage;
   filters: HistoryFilters;
 }
 
 export function JobsPage(props: JobsPageProps): Html {
-  const { passes, individuals, darreres, enCursRuns, runningNames, salut, history, filters } =
+  const { passes, individuals, latest, runningJobs, runningNames, health, history, filters } =
     props;
 
   return html`
@@ -42,9 +42,9 @@ export function JobsPage(props: JobsPageProps): Html {
       </p>
     </header>
 
-    ${ScheduleHealth({ entrades: scheduleEntries(darreres), salut })}
-    ${Running({ runs: enCursRuns })}
-    ${JobsList({ passes, individuals, darreres, enCurs: runningNames })}
+    ${ScheduleHealth({ entries: scheduleEntries(latest), health })}
+    ${Running({ runs: runningJobs })}
+    ${JobsList({ passes, individuals, latest, running: runningNames })}
 
     <section>
       <h2 class="menu-titol">Historial</h2>

@@ -33,7 +33,7 @@ let ledgerId = 0;
 let accountId = 0;
 let merchantId = 0;
 let idNormal = 0;
-let idAmagat = 0;
+let hiddenId = 0;
 
 const CAP_FILTER = {
   accountId: null,
@@ -158,31 +158,31 @@ beforeEach(async () => {
     .returning({ id: transactions.id, dedupKey: transactions.dedupKey });
 
   idNormal = created.find((t) => t.dedupKey === "normal")?.id ?? 0;
-  idAmagat = created.find((t) => t.dedupKey === "amagat")?.id ?? 0;
+  hiddenId = created.find((t) => t.dedupKey === "amagat")?.id ?? 0;
 });
 
 describe("a masked transaction", () => {
   test("shows the alias instead of the bank's concept", async () => {
-    const transaction = await transactionInWorkspace(idAmagat, ledgerId);
+    const transaction = await transactionInWorkspace(hiddenId, ledgerId);
     expect(transaction.description).toBe("Despesa personal");
     expect(transaction.isMasked).toBe(true);
   });
 
   test("shows neither the counterparty nor the merchant", async () => {
-    const transaction = await transactionInWorkspace(idAmagat, ledgerId);
+    const transaction = await transactionInWorkspace(hiddenId, ledgerId);
     expect(transaction.counterparty).toBe("");
     expect(transaction.merchantName).toBeNull();
   });
 
   test("leaves no trace of the bank's concept anywhere in the view", async () => {
-    const transaction = await transactionInWorkspace(idAmagat, ledgerId);
-    const serialitzat = JSON.stringify(transaction);
+    const transaction = await transactionInWorkspace(hiddenId, ledgerId);
+    const serialized = JSON.stringify(transaction);
 
-    expect(serialitzat).not.toContain("CLINICA");
-    expect(serialitzat).not.toContain("Clinica");
-    expect(serialitzat).not.toContain("COMPRA TARJ");
+    expect(serialized).not.toContain("CLINICA");
+    expect(serialized).not.toContain("Clinica");
+    expect(serialized).not.toContain("COMPRA TARJ");
     // Nor the bank's raw response.
-    expect(serialitzat).not.toContain("aixo no ha de sortir mai");
+    expect(serialized).not.toContain("aixo no ha de sortir mai");
   });
 
   test("a transaction with a PAN does not leave it in the view", async () => {
@@ -195,23 +195,23 @@ describe("a masked transaction", () => {
       .where(eq(transactions.id, idNormal));
 
     const transaction = await transactionInWorkspace(idNormal, ledgerId);
-    const serialitzat = JSON.stringify(transaction);
+    const serialized = JSON.stringify(transaction);
     expect(transaction.description).toBe("Amazon");
-    expect(transaction.darrers4).toBe("4017");
-    expect(serialitzat).not.toContain("5489010385484017");
+    expect(transaction.last4).toBe("4017");
+    expect(serialized).not.toContain("5489010385484017");
   });
 
   test("an ordinary transaction does show them", async () => {
     const transaction = await transactionInWorkspace(idNormal, ledgerId);
     expect(transaction.description).toBe("Clinica Discreta");
-    expect(transaction.darrers4).toBeNull();
+    expect(transaction.last4).toBeNull();
     expect(transaction.merchantName).toBe("Clinica Discreta");
     expect(transaction.isMasked).toBe(false);
   });
 
   test("a hidden transaction carries no card chip", async () => {
-    const transaction = await transactionInWorkspace(idAmagat, ledgerId);
-    expect(transaction.darrers4).toBeNull();
+    const transaction = await transactionInWorkspace(hiddenId, ledgerId);
+    expect(transaction.last4).toBeNull();
     expect(transaction.descriptionHint).toBeNull();
   });
 });
@@ -226,7 +226,7 @@ describe("the search", () => {
 
   test("nor by the counterparty", async () => {
     const page = await listTransactions(ledgerId, { ...CAP_FILTER, search: "Discreta SL" });
-    expect(page.items.every((t) => t.id !== idAmagat)).toBe(true);
+    expect(page.items.every((t) => t.id !== hiddenId)).toBe(true);
   });
 
   test("it does find it by the alias", async () => {
@@ -235,18 +235,18 @@ describe("the search", () => {
       search: "Despesa personal",
     });
     expect(page.items).toHaveLength(1);
-    expect(page.items[0]?.id).toBe(idAmagat);
+    expect(page.items[0]?.id).toBe(hiddenId);
   });
 
   test("and by the notes", async () => {
     await db
       .update(transactions)
       .set({ notes: "recordatori meu" })
-      .where(eq(transactions.id, idAmagat));
+      .where(eq(transactions.id, hiddenId));
 
     const page = await listTransactions(ledgerId, { ...CAP_FILTER, search: "recordatori" });
     expect(page.items).toHaveLength(1);
-    expect(page.items[0]?.id).toBe(idAmagat);
+    expect(page.items[0]?.id).toBe(hiddenId);
   });
 });
 
@@ -255,9 +255,9 @@ describe("removing the alias", () => {
     await db
       .update(transactions)
       .set({ displayDescription: null })
-      .where(eq(transactions.id, idAmagat));
+      .where(eq(transactions.id, hiddenId));
 
-    const transaction = await transactionInWorkspace(idAmagat, ledgerId);
+    const transaction = await transactionInWorkspace(hiddenId, ledgerId);
     expect(transaction.isMasked).toBe(false);
     expect(transaction.description).toBe("Clinica Discreta");
     expect(transaction.merchantName).toBe("Clinica Discreta");

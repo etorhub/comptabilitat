@@ -101,8 +101,8 @@ app.onError((err, c) => {
  * a sudden death, an OOM — is picked up by the maintenance job with
  * `closeStuckImports()`.
  */
-function shutdownGracefully(senyal: string): void {
-  console.info(`[servidor] ${senyal}: aturant-se…`);
+function shutdownGracefully(signal: string): void {
+  console.info(`[servidor] ${signal}: aturant-se…`);
   void (async () => {
     try {
       const { closeOpenImports } = await import("./services/sync.ts");

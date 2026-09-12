@@ -62,12 +62,12 @@ authRoutes.get("/entrada", async (c) => {
     setCookie(c, CSRF_SEED_COOKIE, seed, { ...cookieBase, maxAge: 3600 });
   }
 
-  const desti = c.req.query("desti");
+  const target = c.req.query("desti");
   return page(
     c,
     LoginPage({
       csrfToken: await csrfTokenFor(seed),
-      desti: desti && desti.startsWith("/") && !desti.startsWith("//") ? desti : "/",
+      target: target && target.startsWith("/") && !target.startsWith("//") ? target : "/",
     }),
   );
 });
@@ -86,13 +86,13 @@ authRoutes.post("/entrada", async (c) => {
         csrfToken,
         errors: zodErrors(parsed.error),
         email: typeof body.email === "string" ? body.email : "",
-        desti: typeof body.desti === "string" ? body.desti : "/",
+        target: typeof body.desti === "string" ? body.desti : "/",
       }),
       422,
     );
   }
 
-  const { email, password, desti } = parsed.data;
+  const { email, password, target } = parsed.data;
   const ip =
     c.req.header("X-Forwarded-For")?.split(",")[0]?.trim() ??
     c.req.header("X-Real-IP") ??
@@ -105,23 +105,23 @@ authRoutes.post("/entrada", async (c) => {
       LoginPage({
         csrfToken,
         email,
-        desti,
+        target,
         errors: { _: ["Massa intents. Espera un quart d'hora i torna-ho a provar."] },
       }),
       429,
     );
   }
 
-  const trobat = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  const user = trobat[0];
+  const foundOne = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  const user = foundOne[0];
 
   // A password is always checked, whether the user exists or not: otherwise
   // the response time would tell which emails are registered.
-  const correcta = user
+  const correct = user
     ? await verifyPassword(password, user.passwordHash)
     : (await burnPasswordTime(password), false);
 
-  if (!user || !correcta || !user.isActive) {
+  if (!user || !correct || !user.isActive) {
     recordFailedLogin(email, ip);
     // The same message in all three cases, so as not to say which of the three it is.
     return fragment(
@@ -129,7 +129,7 @@ authRoutes.post("/entrada", async (c) => {
       LoginPage({
         csrfToken,
         email,
-        desti,
+        target,
         errors: { _: ["El correu o la contrasenya no son correctes"] },
       }),
       401,
@@ -148,7 +148,7 @@ authRoutes.post("/entrada", async (c) => {
   });
   deleteCookie(c, CSRF_SEED_COOKIE, { path: "/" });
 
-  return c.redirect(desti !== "/" ? desti : await firstPage(user.id), 303);
+  return c.redirect(target !== "/" ? target : await firstPage(user.id), 303);
 });
 
 // --- Sign out --------------------------------------------------------------
@@ -212,5 +212,5 @@ authRoutes.post("/contrasenya", requireUser, async (c) => {
     await destroyOtherSessions(user.id, tokenHash);
   }
 
-  return fragment(c, PasswordForm({ fet: true }));
+  return fragment(c, PasswordForm({ done: true }));
 });

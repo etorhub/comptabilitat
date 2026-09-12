@@ -42,7 +42,7 @@ export const usersRoutes = new Hono();
 async function listUsers(): Promise<UserView[]> {
   const all = await db.select().from(users).orderBy(asc(users.email));
 
-  const permisos = await db
+  const permissions = await db
     .select({
       userId: userLedgerPermissions.userId,
       ledgerId: userLedgerPermissions.ledgerId,
@@ -55,7 +55,7 @@ async function listUsers(): Promise<UserView[]> {
 
   return all.map((user) => ({
     ...user,
-    accessos: permisos
+    access: permissions
       .filter((p) => p.userId === user.id)
       .map((p) => ({ ledgerId: p.ledgerId, code: p.code, name: p.name, role: p.role })),
   }));
@@ -63,9 +63,9 @@ async function listUsers(): Promise<UserView[]> {
 
 async function userView(id: number): Promise<UserView> {
   const all = await listUsers();
-  const trobat = all.find((u) => u.id === id);
-  if (!trobat) throw new NotFoundError("Aquest usuari no existeix");
-  return trobat;
+  const foundOne = all.find((u) => u.id === id);
+  if (!foundOne) throw new NotFoundError("Aquest usuari no existeix");
+  return foundOne;
 }
 
 const activeWorkspaces = () =>
@@ -75,7 +75,7 @@ const activeWorkspaces = () =>
 
 usersRoutes.get("/", async (c) => {
   const me = currentUser(c);
-  const [userList, workspaces, meus] = await Promise.all([
+  const [userList, workspaces, mine] = await Promise.all([
     listUsers(),
     activeWorkspaces(),
     myWorkspaces(me.id),
@@ -88,7 +88,7 @@ usersRoutes.get("/", async (c) => {
       user: me,
       csrfToken: c.get("csrfToken") ?? "",
       path: c.req.path,
-      workspaces: meus,
+      workspaces: mine,
       children: UsersPage({ userList, workspaces, me: me.id }),
     }),
   );

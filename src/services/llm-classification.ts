@@ -30,23 +30,23 @@ import {
 } from "../lib/ollama/prompts.ts";
 
 export interface LlmStats {
-  mirats: number;
-  classificats: number;
-  pocaConfianca: number;
+  seen: number;
+  classified: number;
+  lowConfidence: number;
   errors: number;
   /** If it has text, nothing was asked and it explains why. */
   omitted: string;
 }
 
 function emptyStats(): LlmStats {
-  return { mirats: 0, classificats: 0, pocaConfianca: 0, errors: 0, omitted: "" };
+  return { seen: 0, classified: 0, lowConfidence: 0, errors: 0, omitted: "" };
 }
 
 export function summaryLlm(s: LlmStats): string {
   if (s.omitted !== "") return `model local omes: ${s.omitted}`;
   return (
-    `model local: ${s.mirats} comerços mirats, ${s.classificats} classificats, ` +
-    `${s.pocaConfianca} amb poca confiança, ${s.errors} amb error`
+    `model local: ${s.seen} comerços mirats, ${s.classified} classificats, ` +
+    `${s.lowConfidence} amb poca confiança, ${s.errors} amb error`
   );
 }
 
@@ -103,26 +103,26 @@ export async function merchantsToClassify(
 }
 
 async function buildContext(merchant: Merchant): Promise<MerchantContext> {
-  const mostres = await db
+  const samples = await db
     .select({ description: transactions.description })
     .from(transactions)
     .where(eq(transactions.merchantId, merchant.id))
     .orderBy(desc(transactions.bookingDate))
     .limit(3);
 
-  const [mitjana] = await db
+  const [average] = await db
     .select({ value: avg(transactions.amount) })
     .from(transactions)
     .where(eq(transactions.merchantId, merchant.id));
 
-  const importMitja = money(mitjana?.value ?? "0");
+  const averageAmount = money(average?.value ?? "0");
 
   return {
     normalizedName:
       merchant.displayName !== "" ? merchant.displayName : merchant.normalizedName,
-    sampleDescriptions: mostres.map((m) => m.description),
-    typicalAmount: abs(importMitja).toFixed(2),
-    direction: importMitja.greaterThan(0) ? "ingres" : "despesa",
+    sampleDescriptions: samples.map((m) => m.description),
+    typicalAmount: abs(averageAmount).toFixed(2),
+    direction: averageAmount.greaterThan(0) ? "ingres" : "despesa",
     occurrences: merchant.transactionCount,
   };
 }
@@ -181,7 +181,7 @@ export async function classifyMerchants(
   const perSlug = new Map(all.map((c) => [c.slug, c]));
 
   for (const merchant of pending) {
-    stats.mirats += 1;
+    stats.seen += 1;
     const context = await buildContext(merchant);
 
     let suggestion: Suggestion;
@@ -208,7 +208,7 @@ export async function classifyMerchants(
     }
 
     if (suggestion.confidence < config.ollamaMinConfidence) {
-      stats.pocaConfianca += 1;
+      stats.lowConfidence += 1;
       continue;
     }
 
@@ -241,7 +241,7 @@ export async function classifyMerchants(
         );
     });
 
-    stats.classificats += 1;
+    stats.classified += 1;
   }
 
   return stats;

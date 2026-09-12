@@ -126,7 +126,7 @@ beforeAll(async () => {
 describe("creating categories", () => {
   test("a subcategory inherits the parent's type", async () => {
     const parent = await categoryBySlug("ingressos-del-treball");
-    const filla = await createCategory(ledgerId, {
+    const child = await createCategory(ledgerId, {
       name: "Bonus",
       // Deliberately the opposite of the parent's: it has to be ignored.
       kind: "expense",
@@ -135,18 +135,18 @@ describe("creating categories", () => {
       icon: "",
     });
 
-    expect(filla.kind).toBe("income");
-    expect(filla.slug).toBe("ingressos-del-treball-bonus");
-    expect(filla.isSystem).toBe(false);
+    expect(child.kind).toBe("income");
+    expect(child.slug).toBe("ingressos-del-treball-bonus");
+    expect(child.isSystem).toBe(false);
   });
 
   test("a third level is not allowed", async () => {
-    const filla = await categoryBySlug("ingressos-del-treball-bonus");
+    const child = await categoryBySlug("ingressos-del-treball-bonus");
     await expect(
       createCategory(ledgerId, {
         name: "Massa endins",
         kind: "income",
-        parentId: filla.id,
+        parentId: child.id,
         color: "#94a3b8",
         icon: "",
       }),
@@ -175,12 +175,12 @@ describe("creating categories", () => {
   });
 
   test("it cannot hang off a parent of another workspace", async () => {
-    const forana = await categoryBySlug("habitatge", otherLedgerId);
+    const foreign = await categoryBySlug("habitatge", otherLedgerId);
     await expect(
       createCategory(ledgerId, {
         name: "Intrusa",
         kind: "expense",
-        parentId: forana.id,
+        parentId: foreign.id,
         color: "#94a3b8",
         icon: "",
       }),
@@ -238,16 +238,16 @@ describe("deleting categories", () => {
 
     await expect(deleteCategory(c.id, ledgerId, null)).rejects.toThrow(ConflictError);
     // And above all: the transaction is still there.
-    const queden = await db
+    const remain = await db
       .select()
       .from(transactions)
       .where(eq(transactions.categoryId, c.id));
-    expect(queden).toHaveLength(1);
+    expect(remain).toHaveLength(1);
   });
 
   test("with a destination, the transactions go there and none is lost", async () => {
     const origin = await categoryBySlug("restauracio-restaurants");
-    const desti = await categoryBySlug("restauracio-bars-i-cafeteries");
+    const target = await categoryBySlug("restauracio-bars-i-cafeteries");
 
     // A rule that assigns the source category: the foreign key is CASCADE, so
     // if the category were deleted first, the rule would disappear.
@@ -263,24 +263,24 @@ describe("deleting categories", () => {
       matchCount: 0,
     });
 
-    await deleteCategory(origin.id, ledgerId, desti.id);
+    await deleteCategory(origin.id, ledgerId, target.id);
 
-    const moguts = await db
+    const moved = await db
       .select()
       .from(transactions)
-      .where(eq(transactions.categoryId, desti.id));
-    expect(moguts).toHaveLength(1);
+      .where(eq(transactions.categoryId, target.id));
+    expect(moved).toHaveLength(1);
 
-    const orfes = await db
+    const orphans = await db
       .select()
       .from(transactions)
       .where(eq(transactions.ledgerId, ledgerId));
-    expect(orfes.every((t) => t.categoryId !== null)).toBe(true);
+    expect(orphans.every((t) => t.categoryId !== null)).toBe(true);
 
     // The rule was reassigned, not deleted.
     const kept = await db.select().from(rules).where(eq(rules.ledgerId, ledgerId));
     expect(kept).toHaveLength(1);
-    expect(kept[0]?.setCategoryId).toBe(desti.id);
+    expect(kept[0]?.setCategoryId).toBe(target.id);
   });
 
   test("it cannot be reassigned to a category of another workspace", async () => {
@@ -313,8 +313,8 @@ describe("deleting categories", () => {
       raw: {},
     });
 
-    const forana = await categoryBySlug("habitatge", otherLedgerId);
-    await expect(deleteCategory(c.id, ledgerId, forana.id)).rejects.toThrow();
+    const foreign = await categoryBySlug("habitatge", otherLedgerId);
+    await expect(deleteCategory(c.id, ledgerId, foreign.id)).rejects.toThrow();
 
     // Nothing was deleted and nothing was moved.
     expect(await categoryInWorkspace(c.id, ledgerId)).toBeDefined();
@@ -340,12 +340,12 @@ describe("the picker's options", () => {
   test("only this workspace's appear", async () => {
     const groups = await categoryOptions(ledgerId);
     const ids = groups.flatMap((g) => g.options.map((o) => o.value));
-    const foranes = await db
+    const foreignKeys = await db
       .select({ id: categories.id })
       .from(categories)
       .where(eq(categories.ledgerId, otherLedgerId));
-    for (const forana of foranes) {
-      expect(ids).not.toContain(forana.id);
+    for (const foreign of foreignKeys) {
+      expect(ids).not.toContain(foreign.id);
     }
   });
 });

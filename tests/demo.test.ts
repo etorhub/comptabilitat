@@ -55,14 +55,14 @@ describe("the users", () => {
       .innerJoin(users, eq(users.id, userLedgerPermissions.userId))
       .innerJoin(ledgers, eq(ledgers.id, userLedgerPermissions.ledgerId));
 
-    const accessos = new Map<string, string[]>();
+    const access = new Map<string, string[]>();
     for (const row of rows) {
-      accessos.set(row.email, [...(accessos.get(row.email) ?? []), row.code].toSorted());
+      access.set(row.email, [...(access.get(row.email) ?? []), row.code].toSorted());
     }
 
-    expect(accessos.get("demo@exemple.cat")).toEqual(["calella", "pardals", "personal"]);
-    expect(accessos.get("parella@exemple.cat")).toEqual(["pardals"]);
-    expect(accessos.get("sogra@exemple.cat")).toEqual(["calella"]);
+    expect(access.get("demo@exemple.cat")).toEqual(["calella", "pardals", "personal"]);
+    expect(access.get("parella@exemple.cat")).toEqual(["pardals"]);
+    expect(access.get("sogra@exemple.cat")).toEqual(["calella"]);
   });
 
   test("the demo user can sign in and sees the three workspaces", async () => {
@@ -77,7 +77,7 @@ describe("the users", () => {
       body: new URLSearchParams({
         _csrf: field,
         email: summary.user ?? "",
-        password: summary.contrasenya ?? "",
+        password: summary.password ?? "",
       }).toString(),
     });
 
@@ -127,13 +127,13 @@ describe("the data", () => {
 
 describe("running it again", () => {
   test("does not trample the data that is already there", async () => {
-    const [abans] = await db.select({ n: count() }).from(transactions);
+    const [before] = await db.select({ n: count() }).from(transactions);
 
-    const segona = await fillForTests();
+    const secondOne = await fillForTests();
 
-    expect(segona.state).toContain("ja hi havia dades");
-    const [despres] = await db.select({ n: count() }).from(transactions);
-    expect(despres?.n).toBe(abans?.n ?? -1);
+    expect(secondOne.state).toContain("ja hi havia dades");
+    const [after] = await db.select({ n: count() }).from(transactions);
+    expect(after?.n).toBe(before?.n ?? -1);
     const [userCount] = await db.select({ n: count() }).from(users);
     expect(userCount?.n).toBe(3);
   });

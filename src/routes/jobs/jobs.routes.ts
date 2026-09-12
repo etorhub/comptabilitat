@@ -163,30 +163,30 @@ function resolveJob(id: JobId): () => Promise<string> {
 async function pageData(filters = historyFiltersSchema.parse({})) {
   const { passes, individuals } = catalog();
   const names = [...new Set([...passes, ...individuals].map((f) => f.id))];
-  const [darreres, enCursRuns, runningNames, salut, history] = await Promise.all([
+  const [latest, runningJobs, runningNames, health, history] = await Promise.all([
     lastRunPerJob([...names, ...JOBS]),
     readRunning(),
     runningJobNames(),
     summaryHealth(),
     readHistory(filtersToService(filters)),
   ]);
-  return { passes, individuals, darreres, enCursRuns, runningNames, salut, history, filters };
+  return { passes, individuals, latest, runningJobs, runningNames, health, history, filters };
 }
 
 async function oobMonitor(filters = historyFiltersSchema.parse({})) {
   const data = await pageData(filters);
   return [
     ScheduleHealth({
-      entrades: scheduleEntries(data.darreres),
-      salut: data.salut,
+      entries: scheduleEntries(data.latest),
+      health: data.health,
       oob: true,
     }),
-    Running({ runs: data.enCursRuns, oob: true }),
+    Running({ runs: data.runningJobs, oob: true }),
     JobsList({
       passes: data.passes,
       individuals: data.individuals,
-      darreres: data.darreres,
-      enCurs: data.runningNames,
+      latest: data.latest,
+      running: data.runningNames,
       oob: true,
     }),
     HistoryList({ page: data.history, filters: data.filters, oob: true }),
@@ -197,7 +197,7 @@ async function oobMonitor(filters = historyFiltersSchema.parse({})) {
 
 jobsRoutes.get("/", async (c) => {
   const me = currentUser(c);
-  const meus = await myWorkspaces(me.id);
+  const mine = await myWorkspaces(me.id);
   const filters = historyFiltersSchema.parse(c.req.query());
   const data = await pageData(filters);
 
@@ -208,7 +208,7 @@ jobsRoutes.get("/", async (c) => {
       user: me,
       csrfToken: c.get("csrfToken") ?? "",
       path: c.req.path,
-      workspaces: meus,
+      workspaces: mine,
       children: JobsPage(data),
     }),
   );
@@ -232,17 +232,17 @@ jobsRoutes.get("/fragment/en-curs", async (c) => {
   return fragment(
     c,
     await withOob(
-      Running({ runs: data.enCursRuns, attempt }),
+      Running({ runs: data.runningJobs, attempt }),
       ScheduleHealth({
-        entrades: scheduleEntries(data.darreres),
-        salut: data.salut,
+        entries: scheduleEntries(data.latest),
+        health: data.health,
         oob: true,
       }),
       JobsList({
         passes: data.passes,
         individuals: data.individuals,
-        darreres: data.darreres,
-        enCurs: data.runningNames,
+        latest: data.latest,
+        running: data.runningNames,
         oob: true,
       }),
       HistoryList({

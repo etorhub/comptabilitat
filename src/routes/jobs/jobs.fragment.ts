@@ -34,7 +34,7 @@ export interface JobEntry {
   description: string;
 }
 
-const dateHora = new Intl.DateTimeFormat("ca-ES", {
+const dateTime = new Intl.DateTimeFormat("ca-ES", {
   day: "numeric",
   month: "short",
   hour: "2-digit",
@@ -43,7 +43,7 @@ const dateHora = new Intl.DateTimeFormat("ca-ES", {
   timeZone: config.timezone,
 });
 
-const dateCurta = new Intl.DateTimeFormat("ca-ES", {
+const dateShort = new Intl.DateTimeFormat("ca-ES", {
   day: "numeric",
   month: "short",
   hour: "2-digit",
@@ -68,18 +68,18 @@ function stateClass(status: JobStatus): string {
   }
 }
 
-function durada(run: JobRun): string {
+function duration(run: JobRun): string {
   const fi = run.finishedAt?.getTime() ?? Date.now();
-  const segons = Math.max(0, Math.round((fi - run.startedAt.getTime()) / 1000));
-  if (segons < 60) return `${segons}s`;
-  const min = Math.floor(segons / 60);
-  const rest = segons % 60;
+  const seconds = Math.max(0, Math.round((fi - run.startedAt.getTime()) / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const min = Math.floor(seconds / 60);
+  const rest = seconds % 60;
   if (min < 60) return rest === 0 ? `${min} min` : `${min} min ${rest}s`;
   const h = Math.floor(min / 60);
   return `${h} h ${min % 60} min`;
 }
 
-function extracte(text: string, max = 120): string {
+function excerpt(text: string, max = 120): string {
   const cleaned = text.replace(/\s+/g, " ").trim();
   if (cleaned.length <= max) return cleaned;
   return `${cleaned.slice(0, max - 1)}…`;
@@ -92,20 +92,20 @@ function pad2(n: number): string {
 export interface ScheduleEntry {
   id: JobId;
   title: string;
-  hora: string;
-  darrera: JobRun | null;
+  time: string;
+  last: JobRun | null;
 }
 
 export function ScheduleHealth({
-  entrades,
-  salut,
+  entries,
+  health,
   oob = false,
 }: {
-  entrades: ScheduleEntry[];
-  salut: HealthSummary;
+  entries: ScheduleEntry[];
+  health: HealthSummary;
   oob?: boolean;
 }): Html {
-  const pass = salut.darreraPassadaDiaria;
+  const pass = health.lastDailyPass;
   return html`<section
     ${oobAttributes("agenda-salut", oob)}
     class="superficie targeta"
@@ -113,11 +113,11 @@ export function ScheduleHealth({
     <h2 class="menu-titol">Agenda i salut</h2>
     <div class="feines-comptadors">
       <p>
-        <strong>${String(salut.enCurs)}</strong>
+        <strong>${String(health.running)}</strong>
         <span class="text-suau">en curs</span>
       </p>
       <p>
-        <strong>${String(salut.fallades24h)}</strong>
+        <strong>${String(health.failed24h)}</strong>
         <span class="text-suau">fallades (24 h)</span>
       </p>
       <p>
@@ -126,21 +126,21 @@ export function ScheduleHealth({
           pass
             ? html`<span class="${stateClass(pass.status)}">${STATUS_LABELS[pass.status]}</span>
               <time class="text-suau" datetime="${pass.startedAt.toISOString()}">
-                ${dateCurta.format(pass.startedAt)}
+                ${dateShort.format(pass.startedAt)}
               </time>`
             : html`<span class="text-suau">encara no n'hi ha</span>`
         }
       </p>
     </div>
     <ul class="feines-agenda">
-      ${entrades.map(
+      ${entries.map(
         (e) => html`<li>
           <strong>${e.title}</strong>
-          <span class="text-suau">${e.hora}</span>
+          <span class="text-suau">${e.time}</span>
           ${
-            e.darrera
-              ? html`<span class="${stateClass(e.darrera.status)}">${STATUS_LABELS[e.darrera.status]}</span>
-                <span class="text-suau">${durada(e.darrera)}</span>`
+            e.last
+              ? html`<span class="${stateClass(e.last.status)}">${STATUS_LABELS[e.last.status]}</span>
+                <span class="text-suau">${duration(e.last)}</span>`
               : html`<span class="text-suau">—</span>`
           }
         </li>`,
@@ -149,20 +149,20 @@ export function ScheduleHealth({
   </section>` as Html;
 }
 
-function buttonBlocked(id: JobId, enCurs: Set<string>): boolean {
-  if (enCurs.has(id)) return true;
+function buttonBlocked(id: JobId, running: Set<string>): boolean {
+  if (running.has(id)) return true;
   for (const pass of PASSES_CONTAINING[id] ?? []) {
-    if (enCurs.has(pass)) return true;
+    if (running.has(pass)) return true;
   }
   // If a step this pass would include is running, do not start it again.
   if (id === "passada-diaria" || id === "totes") {
     for (const step of ["sync", "classify", "analyze"] as const) {
-      if (enCurs.has(step)) return true;
+      if (running.has(step)) return true;
     }
   }
   if (id === "passada-nocturna" || id === "totes") {
     for (const step of ["llm", "classify"] as const) {
-      if (enCurs.has(step)) return true;
+      if (running.has(step)) return true;
     }
   }
   if (id === "totes") {
@@ -172,7 +172,7 @@ function buttonBlocked(id: JobId, enCurs: Set<string>): boolean {
       "passada-diaria",
       "passada-nocturna",
     ] as const) {
-      if (enCurs.has(step)) return true;
+      if (running.has(step)) return true;
     }
   }
   return false;
@@ -182,18 +182,18 @@ export function ButtonJob({
   id,
   title,
   description,
-  darrera,
-  enCurs,
-}: JobEntry & { darrera: JobRun | null; enCurs: Set<string> }): Html {
-  const blocked = buttonBlocked(id, enCurs);
+  last,
+  running,
+}: JobEntry & { last: JobRun | null; running: Set<string> }): Html {
+  const blocked = buttonBlocked(id, running);
   return html`<div class="superficie targeta">
     <div class="item-cap">
       <div>
         <strong>${title}</strong>
         ${
-          darrera
-            ? html`<span class="${stateClass(darrera.status)}">${STATUS_LABELS[darrera.status]}</span>
-              <span class="text-suau">${dateCurta.format(darrera.startedAt)} · ${durada(darrera)}</span>`
+          last
+            ? html`<span class="${stateClass(last.status)}">${STATUS_LABELS[last.status]}</span>
+              <span class="text-suau">${dateShort.format(last.startedAt)} · ${duration(last)}</span>`
             : html`<span class="etiqueta etiqueta-suau">Mai</span>`
         }
         <p class="text-suau">${description}</p>
@@ -215,14 +215,14 @@ export function ButtonJob({
 export function JobsList({
   passes,
   individuals,
-  darreres,
-  enCurs,
+  latest,
+  running,
   oob = false,
 }: {
   passes: JobEntry[];
   individuals: JobEntry[];
-  darreres: Map<string, JobRun>;
-  enCurs: Set<string>;
+  latest: Map<string, JobRun>;
+  running: Set<string>;
   oob?: boolean;
 }): Html {
   return html`<div ${oobAttributes("llista-feines", oob)}>
@@ -231,8 +231,8 @@ export function JobsList({
       ${passes.map((job) =>
         ButtonJob({
           ...job,
-          darrera: darreres.get(job.id) ?? null,
-          enCurs,
+          last: latest.get(job.id) ?? null,
+          running,
         }),
       )}
     </section>
@@ -241,8 +241,8 @@ export function JobsList({
       ${individuals.map((job) =>
         ButtonJob({
           ...job,
-          darrera: darreres.get(job.id) ?? null,
-          enCurs,
+          last: latest.get(job.id) ?? null,
+          running,
         }),
       )}
     </section>
@@ -267,12 +267,12 @@ export function Running({
   attempt?: number;
   oob?: boolean;
 }): Html {
-  const corrent = runs.length > 0;
-  const exhausted = corrent && pollExhausted(attempt);
+  const running = runs.length > 0;
+  const exhausted = running && pollExhausted(attempt);
   return html`<section
     ${oobAttributes("en-curs", oob)}
     class="superficie targeta"
-    ${corrent ? poll({ url: "/feines/fragment/en-curs", target: "#en-curs", attempt }) : ""}
+    ${running ? poll({ url: "/feines/fragment/en-curs", target: "#en-curs", attempt }) : ""}
     role="status"
     aria-live="polite"
   >
@@ -286,7 +286,7 @@ export function Running({
         : ""
     }
     ${
-      corrent
+      running
         ? html`<ul class="feines-en-curs">
           ${runs.map(
             (run) => html`<li>
@@ -294,7 +294,7 @@ export function Running({
               <strong>${jobLabel(run.jobName)}</strong>
               <span class="etiqueta">${TRIGGER_LABELS[run.trigger]}</span>
               <time class="text-suau" datetime="${run.startedAt.toISOString()}">
-                des de ${dateHora.format(run.startedAt)} · ${durada(run)}
+                des de ${dateTime.format(run.startedAt)} · ${duration(run)}
               </time>
             </li>`,
           )}
@@ -379,7 +379,7 @@ function RunRow(run: JobRun, children: JobRun[]): Html {
                 (f) => html`<li>
                   <span class="${stateClass(f.status)}">${STATUS_LABELS[f.status]}</span>
                   ${jobLabel(f.jobName)}
-                  <span class="text-suau">${durada(f)}</span>
+                  <span class="text-suau">${duration(f)}</span>
                 </li>`,
               )}
             </ul>
@@ -390,11 +390,11 @@ function RunRow(run: JobRun, children: JobRun[]): Html {
     <td><span class="etiqueta etiqueta-suau">${TRIGGER_LABELS[run.trigger]}</span></td>
     <td><span class="${stateClass(run.status)}">${STATUS_LABELS[run.status]}</span></td>
     <td>
-      <time datetime="${run.startedAt.toISOString()}">${dateHora.format(run.startedAt)}</time>
+      <time datetime="${run.startedAt.toISOString()}">${dateTime.format(run.startedAt)}</time>
     </td>
-    <td>${durada(run)}</td>
+    <td>${duration(run)}</td>
     <td class="${run.status === "failed" ? "negatiu" : "text-suau"}">
-      ${summary ? extracte(summary) : "—"}
+      ${summary ? excerpt(summary) : "—"}
     </td>
   </tr>` as Html;
 }
@@ -447,7 +447,7 @@ export function HistoryList({
   return html`<div ${oobAttributes("historial-feines", oob)}>
     ${HistoryFilterBar({ filters })}
     ${DataTable({
-      columnes:
+      columns:
         html`<th>Feina</th><th>Origen</th><th>Estat</th><th>Inici</th><th>Durada</th><th>Resultat</th>` as Html,
       rows: page.items.map((run) => RunRow(run, page.children.get(run.id) ?? [])),
       empty: "Encara no hi ha cap execució registrada.",
@@ -476,8 +476,8 @@ export function RunDetail({
         <p class="text-suau">
           <span class="${stateClass(run.status)}">${STATUS_LABELS[run.status]}</span>
           · ${TRIGGER_LABELS[run.trigger]}
-          · <time datetime="${run.startedAt.toISOString()}">${dateHora.format(run.startedAt)}</time>
-          · ${durada(run)}
+          · <time datetime="${run.startedAt.toISOString()}">${dateTime.format(run.startedAt)}</time>
+          · ${duration(run)}
         </p>
       </div>
     </header>
@@ -498,11 +498,11 @@ export function RunDetail({
               (f) => html`<li>
                 <span class="${stateClass(f.status)}">${STATUS_LABELS[f.status]}</span>
                 <strong>${jobLabel(f.jobName)}</strong>
-                <span class="text-suau">${durada(f)}</span>
-                ${f.error ? html`<span class="negatiu">${extracte(f.error, 80)}</span>` : ""}
+                <span class="text-suau">${duration(f)}</span>
+                ${f.error ? html`<span class="negatiu">${excerpt(f.error, 80)}</span>` : ""}
                 ${
                   f.summary && !f.error
-                    ? html`<span class="text-suau">${extracte(f.summary, 80)}</span>`
+                    ? html`<span class="text-suau">${excerpt(f.summary, 80)}</span>`
                     : ""
                 }
               </li>`,
@@ -524,7 +524,7 @@ export function RunDetail({
                 ${String(s.transactionsInserted)} nous,
                 ${String(s.transactionsUpdated)} actualitzats,
                 ${String(s.accountsSynced)} comptes
-                ${s.error ? html`<span class="negatiu">${extracte(s.error, 80)}</span>` : ""}
+                ${s.error ? html`<span class="negatiu">${excerpt(s.error, 80)}</span>` : ""}
               </li>`,
             )}
           </ul>
@@ -535,47 +535,47 @@ export function RunDetail({
 }
 
 /** Builds the schedule entries from the configuration. */
-export function scheduleEntries(darreres: Map<string, JobRun>): ScheduleEntry[] {
+export function scheduleEntries(latest: Map<string, JobRun>): ScheduleEntry[] {
   const items: ScheduleEntry[] = [
     {
       id: "passada-diaria",
       title: "Passada diaria",
-      hora: `${pad2(config.syncCronHour)}:${pad2(config.syncCronMinute)}`,
-      darrera: darreres.get("passada-diaria") ?? null,
+      time: `${pad2(config.syncCronHour)}:${pad2(config.syncCronMinute)}`,
+      last: latest.get("passada-diaria") ?? null,
     },
     {
       id: "analyze",
       title: "Analisi",
-      hora: `${pad2(config.analysisCronHour)}:45`,
-      darrera: darreres.get("analyze") ?? null,
+      time: `${pad2(config.analysisCronHour)}:45`,
+      last: latest.get("analyze") ?? null,
     },
   ];
   if (config.ollamaEnabled) {
     items.push({
       id: "passada-nocturna",
       title: "Passada nocturna",
-      hora: `${pad2(config.classifyCronHour)}:15`,
-      darrera: darreres.get("passada-nocturna") ?? null,
+      time: `${pad2(config.classifyCronHour)}:15`,
+      last: latest.get("passada-nocturna") ?? null,
     });
   }
   items.push(
     {
       id: "notify",
       title: "Avisos",
-      hora: `${pad2(config.notifyCronHour)}:00`,
-      darrera: darreres.get("notify") ?? null,
+      time: `${pad2(config.notifyCronHour)}:00`,
+      last: latest.get("notify") ?? null,
     },
     {
       id: "notify-urgents",
       title: "Avisos urgents",
-      hora: "cada hora (:05)",
-      darrera: darreres.get("notify-urgents") ?? null,
+      time: "cada hora (:05)",
+      last: latest.get("notify-urgents") ?? null,
     },
     {
       id: "maintenance",
       title: "Manteniment",
-      hora: "04:30",
-      darrera: darreres.get("maintenance") ?? null,
+      time: "04:30",
+      last: latest.get("maintenance") ?? null,
     },
   );
   return items;
