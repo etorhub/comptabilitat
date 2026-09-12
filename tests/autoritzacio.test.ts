@@ -1,9 +1,9 @@
 /**
- * Flux complet d'autoritzacio: inici, retorn del banc i alta dels comptes.
+ * Full authorization flow: start, return from the bank and account creation.
  *
- * Port de `backend/tests/test_authorization_flow.py`. El banc es un servidor
- * local: cap prova no surt a fora. La clau RS256 es genera al vol, perque el
- * client ha de poder signar el JWT de debò.
+ * A port of `backend/tests/test_authorization_flow.py`. The bank is a local
+ * server: no test goes outside. The RS256 key is generated on the fly,
+ * because the client has to be able to really sign the JWT.
  */
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
@@ -46,7 +46,7 @@ const Session = {
   ],
 };
 
-/** El `config` es `as const` pel tipus, pero els camps es poden tocar. */
+/** The `config` is `as const` for the type, but the fields can be touched. */
 const ajustos = config as {
   ebApplicationId: string;
   ebPrivateKey: string;
@@ -173,8 +173,8 @@ describe("el flux d'autoritzacio", () => {
   test("dona d'alta els comptes, sense espai assignat", async () => {
     const res = await autoritza(adminSession, { aspsp_name: "Santander" });
 
-    // Per HTMX, una redireccio es un 204 amb `HX-Redirect`: la pagina del
-    // banc no pot anar dins d'un `<div>`.
+    // For HTMX, a redirect is a 204 with `HX-Redirect`: the bank's page cannot
+    // go inside a `<div>`.
     expect(res.status).toBe(204);
     expect(res.headers.get("HX-Redirect")).toBe("https://banc.example/sca?x=1");
 
@@ -195,7 +195,7 @@ describe("el flux d'autoritzacio", () => {
 
     const accountList = await db.select().from(accounts).orderBy(accounts.ebAccountUid);
     expect(accountList.map((c) => c.ebAccountUid)).toEqual(["uid-1", "uid-2"]);
-    // Els comptes arriben sense espai: l'assigna l'usuari despres.
+    // The accounts arrive with no workspace: the user assigns it afterwards.
     expect(accountList.every((c) => c.ledgerId === null)).toBe(true);
   });
 
@@ -224,7 +224,7 @@ describe("el flux d'autoritzacio", () => {
       .set({ ledgerId: calellaId })
       .where(eq(accounts.ebAccountUid, "uid-1"));
 
-    // Segona autoritzacio sobre la mateixa connexio, com quan caduca el consentiment.
+    // A second authorization over the same connection, as when the consent expires.
     await autoritza(adminSession, { connection_id: String(first?.id ?? 0) });
     const segona = await connection();
     await bankCallback({ code: "codi-2", state: segona?.ebAuthState ?? "" });
@@ -240,8 +240,8 @@ describe("qui pot gestionar les connexions", () => {
   test("un usuari normal no en veu res", async () => {
     const anna = await signIn("anna@exemple.cat");
 
-    // Aqui hi ha un canvi respecte de l'aplicacio de Python, que responia 403:
-    // ara es un 404, com amb els espais. Qui no ho es, no ha de saber que hi ha.
+    // Here there is a change from the Python application, which answered 403:
+    // now it is a 404, as with workspaces. Whoever is not, need not know it is there.
     expect(
       (await app.request("/connexions", { headers: { Cookie: anna.cookie } })).status,
     ).toBe(404);

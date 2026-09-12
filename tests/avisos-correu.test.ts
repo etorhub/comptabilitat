@@ -1,8 +1,8 @@
 /**
- * Avisos per correu.
+ * Email alerts.
  *
- * Port de `backend/tests/test_notifications.py`. El servidor de correu es
- * simulat: cap prova no toca res de fora.
+ * A port of `backend/tests/test_notifications.py`. The mail server is
+ * simulated: no test touches anything outside.
  */
 
 import { beforeEach, describe, expect, mock, test } from "bun:test";
@@ -40,7 +40,7 @@ const { notifyPending } = await import("../src/services/notify.ts");
 
 import type { AlertSeverity } from "../src/db/schema/enums.ts";
 
-/** El `config` es `as const` pel tipus, pero els camps es poden tocar. */
+/** The `config` is `as const` for the type, but the fields can be touched. */
 const ajustos = config as {
   smtpHost: string;
   smtpPort: number;
@@ -244,7 +244,7 @@ describe("cada espai te els seus destinataris", () => {
     await notifyPending();
 
     expect(enviats[0]?.html).toContain("Pardals");
-    // Sense destinataris propis, cau als generals.
+    // With no recipients of its own, it falls back to the general ones.
     expect(enviats[0]?.to).toEqual(["etor@example.com"]);
   });
 });

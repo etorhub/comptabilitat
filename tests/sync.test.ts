@@ -1,13 +1,13 @@
 /**
- * Importacio de moviments.
+ * Transaction import.
  *
- * Traduccio de `backend/tests/test_sync.py`. Es prova contra un client
- * d'Enable Banking de mentida, com feia el Python amb respostes gravades: la
- * bateria no toca cap servei extern.
+ * A translation of `backend/tests/test_sync.py`. It is tested against a fake
+ * Enable Banking client, as the Python did with recorded responses: the suite
+ * touches no external service.
  *
- * El cas que mes importa es el de la reconciliacio: quan un apunt **pendent**
- * es consolida, no ha de duplicar-se, i la categoria que hi hagi posat una
- * persona s'ha de conservar.
+ * The case that matters most is the reconciliation: when a **pending** entry
+ * is booked, it must not be duplicated, and whatever category a person set
+ * has to be kept.
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
@@ -34,7 +34,7 @@ let workspaceId = 0;
 let connection: BankConnection;
 let account: Account;
 
-/** Un moviment tal com el torna el banc. */
+/** A transaction as the bank returns it. */
 function raw(over: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     status: "BOOK",
@@ -48,11 +48,11 @@ function raw(over: Record<string, unknown> = {}): Record<string, unknown> {
 }
 
 /**
- * Insereix moviments com ho faria la importacio.
+ * Inserts transactions the way the import would.
  *
- * No es crida `sincronitzaConnexio` perque aixo demanaria una xarxa; el que
- * es prova es la part que decideix, que es `desaMoviments`, a traves del seu
- * efecte a la base de dades.
+ * `sincronitzaConnection` is not called because that would need a network;
+ * what is tested is the part that decides, which is `saveTransactions`,
+ * through its effect on the database.
  */
 async function importa(
   items: Record<string, unknown>[],
@@ -144,8 +144,8 @@ describe("importar", () => {
     await importa([raw({ entry_reference: "R1" })]);
     const [t] = await db.select().from(transactions);
 
-    // El punt de dins de la sigla es queda; el final se'n va. Es el que fa
-    // el Python i el que hi ha desat a `merchants.normalized_name`.
+    // The dot inside the acronym stays; the final one goes. It is what the
+    // Python does and what is stored in `merchants.normalized_name`.
     expect(t?.normalizedDescription).toBe("MERCADONA S.A");
     expect(t?.merchantId).not.toBeNull();
 
@@ -170,7 +170,7 @@ describe("un apunt pendent que es consolida", () => {
     await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
 
-    // El mateix import, dos dies mes tard i ja definitiu.
+    // The same amount, two days later and already booked.
     await importa([
       raw({ status: "BOOK", booking_date: "2026-03-03", entry_reference: "R-DEF" }),
     ]);
@@ -211,7 +211,7 @@ describe("un apunt pendent que es consolida", () => {
 
   test("massa lluny en el temps, no s'aparella", async () => {
     await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
-    // Nou dies despres: fora de la finestra de cinc.
+    // Nine days later: outside the five-day window.
     await importa([
       raw({ status: "BOOK", booking_date: "2026-03-10", entry_reference: "R-LLUNY" }),
     ]);
@@ -222,8 +222,8 @@ describe("un apunt pendent que es consolida", () => {
     const pendent = raw({ status: "PDNG", booking_date: "2026-03-01" });
     await importa([pendent]);
 
-    // El banc continua reportant el pendent i, a mes, un apunt nou d'un altre
-    // import. Com que no coincideixen, no s'han d'aparellar.
+    // The bank keeps reporting the pending one and, on top of that, a new
+    // entry of a different amount. As they do not match, they must not be paired.
     await importa([
       pendent,
       raw({
@@ -243,8 +243,8 @@ describe("un apunt pendent que es consolida", () => {
     await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
 
-    // Ara el banc nomes reporta un apunt d'un altre import: el pendent que
-    // ja no consta s'esborra, com feia el Python.
+    // Now the bank only reports an entry of a different amount: the pending
+    // one that is no longer there is deleted, as the Python did.
     await importa([
       raw({
         status: "BOOK",
@@ -263,9 +263,9 @@ describe("un apunt pendent que es consolida", () => {
     await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
 
-    // El mateix cas d'abans, pero el banc ha arribat al limit de pagines: «no
-    // hi es» vol dir «no ha arribat», i esborrar-lo seria perdre'l de debo amb
-    // les notes i la categoria que hi hagues.
+    // The same case as before, but the bank hit the page limit: «it is not
+    // there» means «it did not arrive», and deleting it would really lose it
+    // along with any notes and category it had.
     await importa(
       [
         raw({
@@ -294,7 +294,7 @@ describe("els pendents que el banc ja no reporta", () => {
     ]);
     expect(await db.select().from(transactions)).toHaveLength(2);
 
-    // La segona vegada el banc nomes en reporta un.
+    // The second time the bank only reports one.
     await importa([raw({ status: "PDNG", booking_date: "2026-03-01" })]);
     expect(await db.select().from(transactions)).toHaveLength(1);
   });

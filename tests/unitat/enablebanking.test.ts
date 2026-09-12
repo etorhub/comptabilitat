@@ -1,12 +1,12 @@
 /**
- * Lectura de les respostes d'Enable Banking.
+ * Reading Enable Banking's responses.
  *
- * La funcio que importa d'aqui es `dedupKey()`. **Ha de donar exactament el
- * mateix que la de Python**: a `transactions.dedup_key` ja n'hi ha de desades,
- * i si canviés, la propera sincronitzacio no reconeixeria cap moviment i
- * duplicaria tot l'historic en silenci.
+ * The function that matters here is `dedupKey()`. **It has to give exactly
+ * the same as the Python one**: there are already some stored in
+ * `transactions.dedup_key`, and if it changed, the next synchronization would
+ * recognize no transaction and would silently duplicate the whole history.
  *
- * Les expectatives del fitxer de dades son la sortida gravada de
+ * The expectations in the data file are the recorded output of
  * `backend/app/integrations/enablebanking/parsing.py`.
  */
 

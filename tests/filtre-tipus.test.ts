@@ -1,5 +1,5 @@
 /**
- * Filtre per tipus d'operacio i etiqueta de transferencia.
+ * Filter by operation type and transfer label.
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";

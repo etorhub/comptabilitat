@@ -1,9 +1,9 @@
 /**
- * Classificacio amb el model local.
+ * Classification with the local model.
  *
- * La invariant d'aqui: **el model proposa, no decideix**. El que suggereix
- * s'aplica al moviment pero el deixa marcat per revisar, i no dona mai el
- * comerç per confirmat. Port de `backend/tests/test_llm_classification.py`.
+ * The invariant here: **the model proposes, it does not decide**. What it
+ * suggests is applied to the transaction but leaves it marked for review, and
+ * it never takes the merchant as confirmed. A port of `test_llm_classification.py`.
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
@@ -31,13 +31,13 @@ import type { CategoryCatalog, MerchantContext } from "../src/lib/ollama/prompts
 import { categoryCatalog, classifyMerchants } from "../src/services/llm-classification.ts";
 import { seedCategories } from "../src/services/seed.ts";
 
-/** El `config` es `as const` pel tipus, pero els camps es poden tocar. */
+/** The `config` is `as const` for the type, but the fields can be touched. */
 const ajustos = config as { ollamaEnabled: boolean; ollamaMinConfidence: number };
 
 let ledgerId = 0;
 let accountId = 0;
 
-/** Model local simulat, amb el mateix contracte que el client de debò. */
+/** A simulated local model, with the same contract as the real client. */
 class OllamaFals {
   readonly baseUrl = "http://proves";
   readonly model = "model-de-proves";
@@ -326,8 +326,8 @@ describe("quan no hi ha res a fer o el model no hi es", () => {
 });
 
 /**
- * El client contra un servidor de mentida: el que a Python es feia amb
- * `respx`. Nomes es prova la lectura de la resposta, no el model.
+ * The client against a fake server: what in Python was done with `respx`.
+ * Only reading the response is tested, not the model.
  */
 describe("el client d'Ollama", () => {
   async function withServer<T>(

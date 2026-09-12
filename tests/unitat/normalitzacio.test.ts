@@ -1,15 +1,15 @@
 /**
- * Normalitzacio dels conceptes bancaris.
+ * Normalization of the bank concepts.
  *
- * Aquesta funcio decideix la clau de la memoria de comerços
- * (`merchants.normalized_name`), i a la base de dades ja n'hi ha de desades.
- * Si el port canviés el resultat, els comerços que ja hi ha deixarien de
- * trobar-se amb ells mateixos i tot es tornaria a preguntar al model, en
- * silenci.
+ * This function decides the key of the merchant memory
+ * (`merchants.normalized_name`), and there are already some stored in the
+ * database. If the port changed the result, the merchants already there would
+ * stop finding themselves and everything would be asked of the model again,
+ * in silence.
  *
- * Per aixo les expectatives del fitxer de dades **son la sortida de debò de
- * `backend/app/services/normalization.py`**, gravada tal com era. Aixo no
- * comprova que la funcio sigui bona: comprova que sigui **la mateixa**.
+ * That is why the expectations in the data file **are the real output of
+ * `backend/app/services/normalization.py`**, recorded as it was. This does not
+ * check that the function is good: it checks that it is **the same**.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -53,8 +53,8 @@ describe("el que fa, explicat", () => {
   });
 
   test("una comissio al final d'una compra no es el comerç", () => {
-    // El Santander afegeix «COMISION 0,00» a moltes compres; abans tot
-    // queia al cubell COMISSIO BANCARIA.
+    // Santander adds «COMISION 0,00» to many purchases; before, they all fell
+    // into the COMISSIO BANCARIA bucket.
     const [key] = normalizeDescription(
       "COMPRA Spotify P45ED4AF0B, Stockholm, TARJETA 5489010385484017 , COMISION 0,00",
     );
@@ -73,8 +73,8 @@ describe("el que fa, explicat", () => {
 
   test("la contrapart que dona el banc mana sobre el concepte lliure", () => {
     const [key] = normalizeDescription("COMPRA TARJ. QUALSEVOL COSA", "Mercadona S.A.");
-    // El punt final se'n va, pero el de dins de la sigla es queda: es el que
-    // fa el Python, i el que hi ha desat a `merchants.normalized_name`.
+    // The final dot goes, but the one inside the acronym stays: it is what the
+    // Python does, and what is stored in `merchants.normalized_name`.
     expect(key).toBe("MERCADONA S.A");
   });
 
@@ -93,7 +93,7 @@ describe("el que fa, explicat", () => {
   test("el nom per mostrar es llegible", () => {
     expect(displayName("COMUNITAT DE PROPIETARIS")).toBe("Comunitat de Propietaris");
     expect(displayName("ENDESA ENERGIA SA")).toBe("Endesa Energia SA");
-    // «Bar» es una paraula, no una sigla.
+    // «Bar» is a word, not an acronym.
     expect(displayName("BAR CAN PEPE")).toBe("Bar Can Pepe");
   });
 

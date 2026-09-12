@@ -1,11 +1,11 @@
 /**
- * Usuaris i acces.
+ * Users and access.
  *
- * La prova que mes importa d'aquest fitxer es la ultima: que la guarda de la
- * pantalla d'administracio **nomes tanqui la pantalla d'administracio**. Un
- * `app.route("/", admin)` amb un `use("*")` a dins aplica la guarda a tota
- * l'aplicacio i deixa fora del programa qui no sigui administrador; va passar,
- * i no es veu si totes les proves entren com a administrador.
+ * The test that matters most in this file is the last one: that the guard on
+ * the administration screen **closes off only the administration screen**. An
+ * `app.route("/", admin)` with a `use("*")` inside applies the guard to the
+ * whole application and locks non-administrators out of the program; it
+ * happened, and it cannot be seen if every test signs in as an administrator.
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
@@ -71,7 +71,7 @@ beforeEach(async () => {
     ])
     .returning();
 
-  // En Pau no es administrador, pero si que te acces a un espai.
+  // Pau is not an administrator, but does have access to a workspace.
   const pau = created.find((u) => u.email === "pau@exemple.cat");
   await db
     .insert(userLedgerPermissions)
@@ -202,7 +202,7 @@ describe("donar acces a un espai", () => {
       (await app.request("/e/personal", { headers: { Cookie: session.cookie } })).status,
     ).toBe(404);
 
-    // L'administrador li'n dona.
+    // The administrator gives them one.
     const admin = await signIn("arrel@exemple.cat");
     const res = await app.request(`/usuaris/${fresh?.id}/acces`, {
       method: "POST",
@@ -216,7 +216,7 @@ describe("donar acces a un espai", () => {
     });
     expect(res.status).toBe(200);
 
-    // I ara si.
+    // And now yes.
     expect(
       (await app.request("/e/personal", { headers: { Cookie: session.cookie } })).status,
     ).toBe(200);
@@ -258,7 +258,7 @@ describe("desactivar un usuari", () => {
       headers: { Cookie: admin.cookie, "X-CSRF-Token": admin.csrf, "HX-Request": "true" },
     });
 
-    // La sessio ja no val: torna a l'entrada.
+    // The session is no longer valid: back to the sign-in page.
     const res = await app.request("/contrasenya", { headers: { Cookie: session.cookie } });
     expect(res.status).toBe(303);
   });
@@ -349,12 +349,12 @@ describe("reiniciar la contrasenya", () => {
     });
     expect(res.status).toBe(200);
 
-    // La sessio antiga ja no val.
+    // The old session is no longer valid.
     expect(
       (await app.request("/contrasenya", { headers: { Cookie: session.cookie } })).status,
     ).toBe(303);
 
-    // I pot entrar amb la nova.
+    // And they can sign in with the new one.
     const get = await app.request("/entrada");
     const loginHtml = await get.text();
     const seed = (get.headers.get("set-cookie") ?? "").split(";")[0] ?? "";

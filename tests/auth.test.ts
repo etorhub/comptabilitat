@@ -1,8 +1,8 @@
 /**
- * Entrada, CSRF i sessions.
+ * Sign-in, CSRF and sessions.
  *
- * El CSRF no es una traduccio de cap prova de Python: alla no n'hi havia cap
- * defensa. Aquestes proves son la xarxa d'una cosa nova.
+ * The CSRF part is not a translation of any Python test: there was no such
+ * defense there. These tests are the net under something new.
  */
 
 import { beforeAll, describe, expect, test } from "bun:test";
@@ -129,9 +129,9 @@ describe("entrada", () => {
   });
 
   test("un usuari que no existeix i una contrasenya dolenta son indistingibles", async () => {
-    // La mateixa llavor per als dos intents: aixi l'unica cosa que canvia
-    // entre les dues respostes es el correu, i qualsevol altra diferencia
-    // seria una manera d'endevinar qui esta donat d'alta.
+    // The same seed for both attempts: that way the only thing that changes
+    // between the two responses is the email, and any other difference would
+    // be a way of guessing who is registered.
     const { seedCookie, csrfCamp } = await prepareLogin();
     const capçaleres = {
       "Content-Type": "application/x-www-form-urlencoded",

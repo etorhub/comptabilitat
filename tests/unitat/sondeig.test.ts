@@ -1,12 +1,12 @@
 /**
- * Els dos sondejos de l'aplicacio, i que s'aturen.
+ * The application's two polls, and the fact that they stop.
  *
- * L'error (`f80df91`) va ser aquest: una importacio interrompuda deixava la
- * fila en `running` per sempre, i com que el fragment nomes deixava de sondejar
- * quan l'estat era terminal, la pagina ho preguntava cada dos segons
- * indefinidament, per a tothom qui la mires.
+ * The bug (`f80df91`) was this: an interrupted import left the row `running`
+ * forever, and since the fragment only stopped polling when the state was
+ * terminal, the page asked for it every two seconds indefinitely, for
+ * everyone who looked at it.
  *
- * El que es comprova aqui no es «sondeja», sino **que es rendeix**.
+ * What is checked here is not «it polls», but **that it gives up**.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -21,9 +21,9 @@ function regles(violacions: Violation[]): RuleName[] {
   return violacions.map((v) => v.rule);
 }
 
-// Sense `as`: el tipus ve de la taula de Drizzle, i si algun dia hi apareix
-// una columna nova val mes que aixo peti aqui que no pas que dibuixem una
-// fila que no s'assembla a les de debo.
+// No `as`: the type comes from the Drizzle table, and if a new column ever
+// shows up there it is better that this breaks here than that we draw a row
+// that does not look like the real ones.
 function syncRun(status: SyncRun["status"]): SyncRun {
   return {
     id: 1,
@@ -75,8 +75,8 @@ describe("l'estat d'una importacio", () => {
   });
 
   test("i si no acaba mai, es rendeix i ho diu", async () => {
-    // Aixo es exactament la importacio interrompuda de la `f80df91`: l'estat
-    // no arribara mai a terminal perque no hi ha ningu que l'hi porti.
+    // This is exactly the interrupted import of `f80df91`: the state will
+    // never reach terminal because there is nobody to take it there.
     const html = String(
       await SyncState({
         connectionId: 4,

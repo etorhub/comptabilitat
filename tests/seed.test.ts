@@ -1,10 +1,10 @@
 /**
- * El pla de categories.
+ * The category plan.
  *
- * El que es comprova aqui es que els pendents que surten del pla siguin
- * exactament els que el codi busca pel nom. Si algu reanomena una categoria
- * del pla sense pensar-hi, la classificacio i l'aparellament de traspassos
- * deixarien de trobar la seva categoria **en silenci**.
+ * What is checked here is that the slugs coming out of the plan are exactly
+ * the ones the code looks up by name. If somebody renames a category of the
+ * plan without thinking, the classification and the transfer pairing would
+ * stop finding their category **in silence**.
  */
 
 import { beforeAll, describe, expect, test } from "bun:test";

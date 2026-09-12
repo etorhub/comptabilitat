@@ -1,8 +1,8 @@
 /**
- * Pantalla de feines i el seu historial.
+ * Jobs screen and its history.
  *
- * Comprova la guarda d'administracio (404, no 403), que un administrador pot
- * engegar una feina, i que l'execució queda registrada a `job_runs`.
+ * It checks the administration guard (404, not 403), that an administrator
+ * can start a job, and that the run is recorded in `job_runs`.
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";

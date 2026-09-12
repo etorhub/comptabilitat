@@ -1,15 +1,15 @@
 /**
- * Moure un compte d'espai.
+ * Moving an account between workspaces.
  *
- * Toca l'historial sencer del compte, aixi que el que s'hi perd no es recupera.
- * Les tres coses que han de valer:
+ * It touches the account's whole history, so what is lost there is not
+ * recovered. The three things that have to hold:
  *
- *   1. **El que ha triat una persona es conserva.** Els identificadors de
- *      categoria son de cada espai, pero el slug vol dir el mateix a tots, i
- *      tots es sembren amb el mateix pla.
- *   2. **La cama que es queda no es queda orfe.** Si l'altra meitat d'un
- *      traspas se'n va, la que resta ha de tornar a comptar als informes.
- *   3. **O tot, o res.** Si peta a mitges, el compte no pot quedar mig mogut.
+ *   1. **What a person chose is kept.** Category ids belong to each
+ *      workspace, but the slug means the same in all of them, and they are
+ *      all seeded with the same plan.
+ *   2. **The leg that stays is not left orphaned.** If the other half of a
+ *      transfer leaves, the remaining one has to count in the reports again.
+ *   3. **All or nothing.** If it fails halfway, the account cannot be left half-moved.
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
@@ -179,7 +179,7 @@ describe("el que ha triat una persona", () => {
     const summary = await moveAccountToWorkspace(accountA, calellaId);
 
     expect(summary.conservades).toBe(0);
-    // Se'n va a la safata: a l'espai nou hi manen les seves regles.
+    // It goes to the tray: in the new workspace its own rules apply.
     expect((await read(id)).categorySource).not.toBe("user");
   });
 
@@ -224,8 +224,8 @@ describe("els traspassos de l'espai que es deixa", () => {
     const summary = await moveAccountToWorkspace(accountA, calellaId);
 
     expect(summary.undoneTransfers).toBe(1);
-    // La que es queda ja no apunta a un aparellament que no existeix, aixi que
-    // torna a sortir als informes de Personal.
+    // The one that stays no longer points at a pairing that does not exist, so
+    // it shows up in Personal's reports again.
     expect((await read(altra)).transferGroupId).toBeNull();
     expect((await read(seva)).transferGroupId).toBeNull();
   });
@@ -252,7 +252,7 @@ describe("o tot, o res", () => {
       await db.execute(sql`drop function if exists peta_el_trasllat()`);
     }
 
-    // Res no s'ha mogut: ni el compte, ni el moviment, ni la seva categoria.
+    // Nothing has moved: not the account, not the transaction, not its category.
     const [account] = await db.select().from(accounts).where(eq(accounts.id, accountA));
     expect(account?.ledgerId).toBe(personalId);
     const row = await read(id);

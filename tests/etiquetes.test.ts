@@ -1,5 +1,5 @@
 /**
- * Etiquetes: alta/baixa, sumes, pagina vs fragment, permisos.
+ * Tags: add/remove, totals, page vs fragment, permissions.
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
@@ -341,7 +341,7 @@ describe("servei d'etiquetes", () => {
     expect(casament?.expenses).toBe("150.00");
     expect(casament?.income).toBe("20.00");
     expect(casament?.net).toBe("-130.00");
-    // Cap parseFloat: el net es la resta exacta amb Decimal.
+    // No parseFloat: the net is the exact subtraction with Decimal.
     expect(
       money(casament?.income ?? "0")
         .minus(money(casament?.expenses ?? "0"))

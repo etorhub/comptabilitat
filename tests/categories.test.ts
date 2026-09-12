@@ -1,8 +1,8 @@
 /**
- * Categories: el pla de dos nivells i l'esborrat amb reassignacio.
+ * Categories: the two-level plan and deletion with reassignment.
  *
- * Traduccio de `backend/tests/test_categories.py`. El cas important es el
- * 409: esborrar una categoria que te moviments no ha de perdre'ls mai.
+ * A translation of `backend/tests/test_categories.py`. The important case is
+ * the 409: deleting a category that has transactions must never lose them.
  */
 
 import { beforeAll, describe, expect, test } from "bun:test";
@@ -128,7 +128,7 @@ describe("crear categories", () => {
     const parent = await categoryBySlug("ingressos-del-treball");
     const filla = await createCategory(ledgerId, {
       name: "Bonus",
-      // A posta el contrari del pare: s'ha d'ignorar.
+      // Deliberately the opposite of the parent's: it has to be ignored.
       kind: "expense",
       parentId: parent.id,
       color: "#94a3b8",
@@ -237,7 +237,7 @@ describe("esborrar categories", () => {
     });
 
     await expect(deleteCategory(c.id, ledgerId, null)).rejects.toThrow(ConflictError);
-    // I sobretot: el moviment continua sent-hi.
+    // And above all: the transaction is still there.
     const queden = await db
       .select()
       .from(transactions)
@@ -249,8 +249,8 @@ describe("esborrar categories", () => {
     const origin = await categoryBySlug("restauracio-restaurants");
     const desti = await categoryBySlug("restauracio-bars-i-cafeteries");
 
-    // Una regla que assigna la categoria d'origen: la clau forana es CASCADE,
-    // o sigui que si s'esborres primer la categoria, la regla desapareixeria.
+    // A rule that assigns the source category: the foreign key is CASCADE, so
+    // if the category were deleted first, the rule would disappear.
     await db.insert(rules).values({
       name: "Regla de prova",
       ledgerId,
@@ -277,7 +277,7 @@ describe("esborrar categories", () => {
       .where(eq(transactions.ledgerId, ledgerId));
     expect(orfes.every((t) => t.categoryId !== null)).toBe(true);
 
-    // La regla s'ha reassignat, no esborrat.
+    // The rule was reassigned, not deleted.
     const regles = await db.select().from(rules).where(eq(rules.ledgerId, ledgerId));
     expect(regles).toHaveLength(1);
     expect(regles[0]?.setCategoryId).toBe(desti.id);
@@ -316,7 +316,7 @@ describe("esborrar categories", () => {
     const forana = await categoryBySlug("habitatge", altreLedgerId);
     await expect(deleteCategory(c.id, ledgerId, forana.id)).rejects.toThrow();
 
-    // Ni s'ha esborrat ni s'ha mogut res.
+    // Nothing was deleted and nothing was moved.
     expect(await categoryInWorkspace(c.id, ledgerId)).toBeDefined();
   });
 });

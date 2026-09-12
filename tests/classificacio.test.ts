@@ -1,10 +1,10 @@
 /**
- * Memoria de comerços i cua de revisio, dins d'un espai.
+ * Merchant memory and review queue, inside a workspace.
  *
- * Port de `backend/tests/test_classification.py`. La invariant que es
- * comprova tot el temps: **el que ha decidit una persona no ho toca res**.
+ * A port of `backend/tests/test_classification.py`. The invariant checked
+ * throughout: **nothing touches what a person decided**.
  *
- * Cal una base de dades:
+ * A database is needed:
  *   DATABASE_URL=postgresql://comptabilitat:comptabilitat@127.0.0.1:5432/comptabilitat_test
  */
 
@@ -130,7 +130,7 @@ async function merchant(
   return m?.id ?? 0;
 }
 
-/** Torna a llegir un moviment de la base de dades. */
+/** Reads a transaction back from the database. */
 async function read(id: number) {
   const [row] = await db.select().from(transactions).where(eq(transactions.id, id));
   if (!row) throw new Error("el moviment ha desaparegut");
@@ -342,24 +342,24 @@ describe("l'identificador de l'adreça", () => {
   });
 
   test("i un numero amb cua enganxada, tambe", async () => {
-    // `Number.parseInt("12abc")` retorna 12: abans aixo era una adreça valida
-    // que anava a parar al moviment 12.
+    // `Number.parseInt("12abc")` returns 12: this used to be a valid URL that
+    // ended up on transaction 12.
     const id = await transaction();
     const res = await send(`/e/personal/moviments/${id}abc/categoria`, {
       category_id: String((await category(personalId)).id),
     });
     expect(res.status).toBe(404);
-    // I el moviment 12 no s'ha tocat.
+    // And transaction 12 has not been touched.
     expect((await read(id)).categorySource).toBe("none");
   });
 });
 
 describe("quan una peticio falla", () => {
   /**
-   * Un cos que nomes duu el `#toast` es queda buit quan HTMX en treu els
-   * intercanvis fora de banda, i aleshores HTMX intercanviaria aquest buit
-   * dins de l'`hx-target`. Amb `hx-swap="outerHTML"` aixo esborra la fila que
-   * l'usuari estava tocant. `HX-Reswap: none` ho evita.
+   * A body carrying only the `#toast` is left empty when HTMX takes the
+   * out-of-band swaps out of it, and then HTMX would swap that emptiness into
+   * the `hx-target`. With `hx-swap="outerHTML"` that deletes the row the user
+   * was touching. `HX-Reswap: none` prevents it.
    */
   test("l'error no s'endu la fila: hi ha d'anar `HX-Reswap: none`", async () => {
     const id = await transaction();
@@ -371,9 +371,9 @@ describe("quan una peticio falla", () => {
 
     expect(res.status).toBe(422);
     expect(res.headers.get("HX-Reswap")).toBe("none");
-    // I el cos nomes duu el `#toast`, fora de banda. Es canvia el contingut
-    // del contenidor i no el contenidor: si no, el `#toast` de recanvi es
-    // quedaria sense `aria-live` i deixaria de ser una regio viva.
+    // And the body only carries the `#toast`, out of band. The container's
+    // content is changed and not the container: otherwise the replacement
+    // `#toast` would lose its `aria-live` and stop being a live region.
     const body = await res.text();
     expect(body).toContain('hx-swap-oob="innerHTML:#toast"');
   });

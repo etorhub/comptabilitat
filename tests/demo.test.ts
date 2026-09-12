@@ -1,6 +1,6 @@
 /**
- * Dades d'exemple: han de deixar l'aplicacio en un estat on tot es pugui
- * mirar. Port de `backend/tests/test_demo.py`.
+ * Sample data: it has to leave the application in a state where everything
+ * can be looked at. A port of `backend/tests/test_demo.py`.
  */
 
 import { beforeAll, describe, expect, test } from "bun:test";
@@ -27,7 +27,7 @@ import { app } from "../src/server.ts";
 
 let summary: DemoSummary;
 
-/** La demo triga; es genera un sol cop i totes les proves la miren. */
+/** The demo takes a while; it is generated once and every test looks at it. */
 beforeAll(async () => {
   await db.delete(alerts);
   await db.delete(balances);
@@ -44,7 +44,7 @@ beforeAll(async () => {
   await db.delete(ledgers);
 
   summary = await fillForTests();
-  // Divuit mesos de moviments a tres espais: no cap als 5 s de per defecte.
+  // Eighteen months of transactions in three workspaces: it does not fit in the default 5 s.
 }, 120_000);
 
 describe("els usuaris", () => {
@@ -84,7 +84,7 @@ describe("els usuaris", () => {
     expect(res.status).toBe(303);
     const cookie = (res.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
 
-    // El selector de la barra lateral ha de dur-hi els tres espais.
+    // The sidebar picker has to carry all three workspaces.
     const page = await app.request("/e/personal", { headers: { Cookie: cookie } });
     const body = await page.text();
     expect(page.status).toBe(200);
@@ -110,7 +110,7 @@ describe("les dades", () => {
     );
     expect(espaisAmbMoviments.size).toBe(3);
 
-    // Els rebuts recurrents son el que alimenta la previsio.
+    // The recurring direct debits are what feeds the forecast.
     const [nSeries] = await db.select({ n: count() }).from(recurringSeries);
     expect(nSeries?.n ?? 0).toBeGreaterThanOrEqual(5);
   });

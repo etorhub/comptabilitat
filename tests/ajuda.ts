@@ -1,46 +1,46 @@
 /**
- * El que totes les proves necessiten i cadascuna es reescrivia.
+ * What every test needs and each one used to rewrite.
  *
- * L'`entra()` d'aqui estava copiat a **set** fitxers de proves, amb els
- * mateixos dos parells de claudators i les mateixes dues expressions regulars
- * —deu copies d'una, sis de l'altra— i petites diferencies de noms de variable
- * que no volien dir res. Quan una cosa es copia set vegades, la vuitena persona
- * que la necessita en fa una altra versio lleugerament diferent.
+ * The `signIn()` here was copied into **seven** test files, with the same two
+ * pairs of brackets and the same two regular expressions —ten copies of one,
+ * six of the other— and small differences in variable names that meant
+ * nothing. When something is copied seven times, the eighth person who needs
+ * it writes yet another slightly different version.
  *
- * No es un fitxer de proves (`ajuda.ts`, no `ajuda.test.ts`): el `bun test`
- * nomes recull els `*.test.ts`.
+ * It is not a test file (`ajuda.ts`, not `ajuda.test.ts`): `bun test` only
+ * picks up `*.test.ts`.
  *
- * **Els testimonis es llegeixen del marcatge, no amb una expressio regular.**
- * El CSRF de la sessio viu a l'`hx-headers` del `<body>` i el de l'entrada a un
- * camp ocult; `attributeOf()` els treu d'alli mirant els atributs de debo. Una
- * expressio regular sobre HTML encerta fins al dia que algu mou un atribut o
- * canvia les cometes, i llavors falla d'una manera que no s'enten.
+ * **The tokens are read from the markup, not with a regular expression.** The
+ * session's CSRF lives in the `<body>`'s `hx-headers` and the sign-in one in a
+ * hidden field; `attributeOf()` takes them from there by looking at the real
+ * attributes. A regular expression over HTML is right until somebody moves an
+ * attribute or changes the quotes, and then it fails in a way nobody understands.
  */
 
 import { attributeOf } from "../htmx-contract/index.ts";
 import { app } from "../src/server.ts";
 
-/** La contrasenya que fan servir totes les proves. */
+/** The password every test uses. */
 export const PASSWORD = "provaprovaprova";
 
 export interface Session {
-  /** La galeta de sessio, a punt per posar a `Cookie`. */
+  /** The session cookie, ready to put in `Cookie`. */
   cookie: string;
-  /** El testimoni per a qualsevol peticio que no sigui `GET`. */
+  /** The token for any request that is not a `GET`. */
   csrf: string;
 }
 
-/** La primera galeta d'un `set-cookie`, sense els seus atributs. */
+/** The first cookie of a `set-cookie`, without its attributes. */
 function firstCookie(res: Response): string {
   return (res.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
 }
 
 /**
- * Entra i torna la galeta de sessio i el testimoni CSRF que li correspon.
+ * Signs in and returns the session cookie and the CSRF token that goes with it.
  *
- * Son dues peticions perque l'aplicacio ho fa en dos temps: el formulari
- * d'entrada encara no te sessio i duu un `_csrf` derivat d'una galeta llavor
- * d'un sol us; el testimoni de debo no existeix fins que la sessio existeix.
+ * They are two requests because the application does it in two steps: the
+ * sign-in form has no session yet and carries a `_csrf` derived from a
+ * single-use seed cookie; the real token does not exist until the session does.
  */
 export async function signIn(email: string, contrasenya = PASSWORD): Promise<Session> {
   const form = await app.request("/entrada");
@@ -58,10 +58,10 @@ export async function signIn(email: string, contrasenya = PASSWORD): Promise<Ses
 }
 
 /**
- * El testimoni CSRF que duu qualsevol pagina de la sessio.
+ * The CSRF token any page of the session carries.
  *
- * Surt de l'`hx-headers` del `<body>`, que es on la disposicio el publica un
- * sol cop perque totes les peticions d'HTMX l'heretin.
+ * It comes from the `<body>`'s `hx-headers`, which is where the layout
+ * publishes it once so that every HTMX request inherits it.
  */
 export async function csrfForSession(cookie: string): Promise<string> {
   const page = await app.request("/contrasenya", { headers: { Cookie: cookie } });
@@ -77,7 +77,7 @@ export async function csrfForSession(cookie: string): Promise<string> {
   }
 }
 
-/** Una peticio autenticada, amb el testimoni ja posat si cal. */
+/** An authenticated request, with the token already set if needed. */
 export async function requestAs(
   session: Session,
   url: string,

@@ -1,5 +1,5 @@
 /**
- * Recta de minims quadrats de la previsio: sense base de dades.
+ * Least-squares line of the forecast: no database.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -9,7 +9,7 @@ import { leastSquaresLine } from "../../src/services/forecast.ts";
 
 describe("rectaMinimsQuadrats", () => {
   test("una serie lineal pura recupera els extrems", () => {
-    // 1000, 990, …, 700: baixa 10 per dia durant 30 passos (31 punts).
+    // 1000, 990, …, 700: down 10 a day for 30 steps (31 points).
     const values = Array.from({ length: 31 }, (_, i) => money(1000).minus(money(10).times(i)));
     const line = leastSquaresLine(values);
 
@@ -30,7 +30,7 @@ describe("rectaMinimsQuadrats", () => {
   });
 
   test("amb dents de serra, la recta suavitza pero conserva el sentit", () => {
-    // Baixa en global, amb un salt amunt al mig.
+    // Down overall, with a jump up in the middle.
     const values = [
       money(1000),
       money(950),

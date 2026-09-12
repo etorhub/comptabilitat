@@ -1,9 +1,9 @@
 /**
- * Exportacions.
+ * Exports.
  *
- * El que importa aqui no es el format sino que **l'emmascarament hi arribi**.
- * Un full de calcul es exactament el lloc on el concepte del banc tornaria a
- * apareixer si amagar-lo nomes fos cosa de la pantalla.
+ * What matters here is not the format but that **the masking gets through**.
+ * A spreadsheet is exactly the place where the bank's concept would reappear
+ * if hiding it were only a screen matter.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -41,7 +41,7 @@ const normal: TransactionView = {
   seriesLabel: null,
 };
 
-/** El mateix moviment, ja passat per `vistaMoviment()` amb alies. */
+/** The same transaction, already through `transactionView()` with an alias. */
 const amagat: TransactionView = {
   ...normal,
   id: 2,
@@ -61,7 +61,7 @@ function textCsv(bytes: Uint8Array): string {
 describe("CSV", () => {
   test("va amb BOM, punt i coma i decimals amb coma", () => {
     const bytes = movimentsACsv([normal]);
-    // El BOM es mira als bytes: `TextDecoder` se'l menja en descodificar.
+    // The BOM is checked on the bytes: `TextDecoder` eats it when decoding.
     expect([bytes[0], bytes[1], bytes[2]]).toEqual([0xef, 0xbb, 0xbf]);
 
     const csv = textCsv(bytes);
@@ -97,7 +97,7 @@ describe("CSV", () => {
     };
     const csv = textCsv(movimentsACsv([complicat]));
     const rows = csv.replace("﻿", "").split("\r\n").filter(Boolean);
-    // La capçalera i una fila; el salt de linia de dins va entre cometes.
+    // The header and one row; the newline inside goes in quotes.
     expect(csv).toContain('"Ell va dir ""hola""; i prou"');
     expect(rows[0]?.split(";")).toHaveLength(11);
   });

@@ -1,19 +1,19 @@
 /**
- * El contracte d'HTMX, comprovat a totes les pagines de l'aplicacio.
+ * The HTMX contract, checked on every page of the application.
  *
- * `htmx-contract/` sap trobar els problemes; aixo els hi porta. La diferencia
- * importa: una eina que s'ha de cridar a ma es una eina que algu no cridara, i
- * els quatre errors que la van motivar van passar precisament perque el pas que
- * els hauria vist —obrir-ho al navegador— es el que es salta.
+ * `htmx-contract/` knows how to find the problems; this brings them to it. The
+ * difference matters: a tool that has to be called by hand is a tool somebody
+ * will not call, and the four bugs that motivated it happened precisely because
+ * the step that would have caught them —opening it in the browser— is skipped.
  *
- * Dues coses, doncs:
+ * Two things, then:
  *
- *   1. Cada pagina que l'aplicacio sap servir passa per `checkDocument()`.
- *   2. **La `taula` d'aqui ha de cobrir tot `src/routes/`**, i hi ha una prova
- *      que ho comprova. Afegir un recurs sense entrada aqui fa fallar el CI, que
- *      es l'unica manera que aixo sobrevisqui a qui no llegeixi l'`AGENTS.md`.
+ *   1. Every page the application knows how to serve goes through `checkDocument()`.
+ *   2. **The `PAGINES` table here has to cover all of `src/routes/`**, and there
+ *      is a test that checks it. Adding a resource without an entry here fails
+ *      CI, the only way this survives whoever does not read `AGENTS.md`.
  *
- * Cal base de dades: les pagines es demanen de debo, amb les dades d'exemple.
+ * A database is needed: the pages are really requested, with the sample data.
  */
 
 import { beforeAll, describe, expect, test } from "bun:test";
@@ -42,11 +42,11 @@ import { fillForTests } from "../src/services/demo.ts";
 import { PASSWORD, requestAs, signIn, type Session } from "./ajuda.ts";
 
 /**
- * Les pagines, i de quin recurs son.
+ * The pages, and which resource they belong to.
  *
- * El `recurs` es el nom del directori de `src/routes/`. Serveix per a la prova
- * de cobertura del final: sense ell, la taula podria quedar-se enrere sense que
- * res ho digues.
+ * The `recurs` is the name of the directory in `src/routes/`. It is used by the
+ * coverage test at the end: without it, the table could fall behind with
+ * nothing to say so.
  */
 const Pages: { resource: string; url: string; que: string }[] = [
   { resource: "auth", url: "/contrasenya", que: "canvi de contrasenya" },
@@ -66,11 +66,11 @@ const Pages: { resource: string; url: string; que: string }[] = [
 ];
 
 /**
- * Els recursos que no tenen cap pagina, i per que.
+ * The resources that have no page, and why.
  *
- * Son els mateixos dos que l'`AGENTS.md` ja declara com a excepcions de la
- * regla dels quatre fitxers. Si un dia n'hi ha un altre, val mes que la prova
- * de cobertura obligui a escriure aqui el motiu que no pas que passi en silenci.
+ * They are the same two that `AGENTS.md` already declares as exceptions to
+ * the four-file rule. If one day there is another, better that the coverage
+ * test forces the reason to be written here than that it goes by in silence.
  */
 const WITHOUT_PAGE: Record<string, string> = {
   exports: "nomes descarregues (CSV, XLSX, PDF), penjades de Moviments i d'Informes",
@@ -94,8 +94,8 @@ beforeAll(async () => {
   await db.delete(users);
   await db.delete(ledgers);
 
-  // Les dades d'exemple donen pagines amb contingut de debo: files, grafics i
-  // paginacio. Una pagina buida no comprova gaire res.
+  // The sample data gives pages with real content: rows, charts and
+  // pagination. An empty page checks next to nothing.
   await fillForTests("demo@exemple.cat", PASSWORD);
   session = await signIn("demo@exemple.cat");
 }, 180_000);
@@ -109,8 +109,8 @@ describe("cada pagina compleix el contracte", () => {
       const html = await res.text();
       const violacions = await checkDocument(html);
 
-      // El missatge surt sencer: una llista de regles sense el que diuen
-      // obliga qui ho llegeixi a anar a buscar el codi.
+      // The message comes out whole: a list of rules without what they say
+      // forces whoever reads it to go and look for the code.
       expect(violacions, `${url}\n${formatViolations(violacions)}`).toEqual([]);
     });
   }
@@ -118,8 +118,8 @@ describe("cada pagina compleix el contracte", () => {
 
 describe("l'entrada, que encara no te sessio", () => {
   test("compleix el contracte igualment", async () => {
-    // Sense galeta: es l'unica pagina que es dibuixa per a qui no ha entrat, i
-    // l'unica que duu un `_csrf` per formulari.
+    // No cookie: it is the only page drawn for someone who has not signed in,
+    // and the only one that carries a `_csrf` per form.
     const res = await app.request("/entrada");
     expect(res.status).toBe(200);
 

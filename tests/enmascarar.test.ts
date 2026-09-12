@@ -1,15 +1,15 @@
 /**
- * Emmascarament de moviments.
+ * Transaction masking.
  *
- * Amagar el concepte d'un moviment es una funcio de privadesa: serveix per a
- * les coses que no vols que llegeixi qui miri la pantalla per sobre de
- * l'espatlla. Per tant no n'hi ha prou que el concepte no es dibuixi; **tampoc
- * no s'ha de poder endevinar cercant-lo**.
+ * Hiding a transaction's concept is a privacy feature: it is for the things
+ * you do not want read by whoever looks at the screen over your shoulder. So
+ * it is not enough that the concept is not drawn; **it must not be guessable
+ * by searching for it either**.
  *
- * Aquestes proves son la traduccio de `backend/tests/test_enmascarar.py`, i
- * son especialment importants en aquesta arquitectura: com que cada fragment
- * dibuixa el seu tros, una plantilla nova que agafés la fila crua se saltaria
- * l'emmascarament sense que res petes. Per aixo tot passa per `vistaMoviment`.
+ * These tests are a translation of `backend/tests/test_enmascarar.py`, and
+ * they are especially important in this architecture: since each fragment
+ * draws its own piece, a new template that took the raw row would skip the
+ * masking without anything breaking. That is why it all goes through `transactionView`.
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
@@ -181,7 +181,7 @@ describe("un moviment emmascarat", () => {
     expect(serialitzat).not.toContain("CLINICA");
     expect(serialitzat).not.toContain("Clinica");
     expect(serialitzat).not.toContain("COMPRA TARJ");
-    // I tampoc la resposta crua del banc.
+    // Nor the bank's raw response.
     expect(serialitzat).not.toContain("aixo no ha de sortir mai");
   });
 
@@ -219,7 +219,7 @@ describe("un moviment emmascarat", () => {
 describe("la cerca", () => {
   test("no troba un moviment amagat pel concepte del banc", async () => {
     const page = await listTransactions(ledgerId, { ...CAP_FILTER, search: "CLINICA" });
-    // Nomes hi ha de sortir el que no esta amagat.
+    // Only what is not hidden may come out.
     expect(page.items).toHaveLength(1);
     expect(page.items[0]?.id).toBe(idNormal);
   });

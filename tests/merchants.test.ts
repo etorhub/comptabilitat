@@ -1,8 +1,8 @@
 /**
- * Comerços: la memoria de cada espai.
+ * Merchants: each workspace's memory.
  *
- * La invariant que es comprova aqui es la mes important de tota la
- * classificacio: **el que ha decidit una persona no ho sobreescriu res**.
+ * The invariant checked here is the most important one of the whole
+ * classification: **nothing overwrites what a person decided**.
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
@@ -165,7 +165,7 @@ describe("assignar la categoria d'un comerç", () => {
     expect(canviats).toBe(2);
 
     const [meu] = await db.select().from(transactions).where(eq(transactions.dedupKey, "meu"));
-    // Ni la categoria ni l'origen: la decisio de la persona mana.
+    // Neither the category nor the source: the person's decision rules.
     expect(meu?.categoryId).toBe(restaurants.id);
     expect(meu?.categorySource).toBe("user");
 
@@ -175,7 +175,7 @@ describe("assignar la categoria d'un comerç", () => {
       .where(eq(transactions.categorySource, "merchant"));
     expect(automatics).toHaveLength(2);
     expect(automatics.every((t) => t.categoryId === bars.id)).toBe(true);
-    // I surten de la safata de revisio.
+    // And they leave the review tray.
     expect(automatics.every((t) => t.needsReview === false)).toBe(true);
   });
 
@@ -246,7 +246,7 @@ describe("obtenir o crear un comerç", () => {
     expect(segon?.transactionCount).toBe(2);
     expect(segon?.lastSeenAt).toBe("2026-03-20");
 
-    // Una data anterior no fa recular l'ultima vista.
+    // An earlier date does not push the last-seen one back.
     const tercer = await getOrCreateMerchant(ledgerId, "NOU", "Nou", "2026-02-01");
     expect(tercer?.lastSeenAt).toBe("2026-03-20");
   });

@@ -1,11 +1,11 @@
 /**
- * Les garanties dels espais estancs.
+ * The guarantees of watertight workspaces.
  *
- * Aquestes proves son la traduccio de `backend/tests/test_espais.py` i son les
- * mes importants de totes: comproven que qui no te acces a un espai no en pot
- * saber res, ni tan sols que existeix.
+ * These tests are a translation of `backend/tests/test_espais.py` and are the
+ * most important of all: they check that whoever has no access to a workspace
+ * can know nothing about it, not even that it exists.
  *
- * Cal una base de dades. La mateixa que fan servir les altres proves:
+ * A database is needed. The same one the other tests use:
  *   DATABASE_URL=postgresql://comptabilitat:comptabilitat@127.0.0.1:5432/comptabilitat_test
  */
 
@@ -22,7 +22,7 @@ let idCalella = 0;
 let calellaAlertId = 0;
 
 beforeAll(async () => {
-  // Dos espais; en Pau nomes te acces al primer.
+  // Two workspaces; Pau only has access to the first.
   await db.delete(userLedgerPermissions);
   await db.delete(alerts);
   await db.delete(users);
@@ -72,7 +72,7 @@ beforeAll(async () => {
         isAdmin: false,
         isActive: true,
       },
-      // Administrador de la instal·lacio, pero sense acces a cap espai.
+      // Installation administrator, but with access to no workspace.
       {
         email: "arrel@exemple.cat",
         fullName: "Arrel",
@@ -164,11 +164,11 @@ describe("ser administrador de la instal·lacio", () => {
   test("no dona acces a cap espai", async () => {
     const { cookie } = await signIn("arrel@exemple.cat");
 
-    // Ni al que existeix i no li han donat...
+    // Neither to the one that exists and was not given to them...
     const res = await app.request("/e/personal/avisos", { headers: { Cookie: cookie } });
     expect(res.status).toBe(404);
 
-    // ...ni al selector d'espais.
+    // ...nor to the workspace picker.
     const root = await app.request("/", { headers: { Cookie: cookie } });
     expect(root.headers.get("location")).toBe("/sense-espais");
   });

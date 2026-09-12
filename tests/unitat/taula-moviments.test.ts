@@ -1,16 +1,16 @@
 /**
- * L'estructura del formulari de la taula de moviments.
+ * The structure of the transaction table's form.
  *
- * Aquestes proves miren **el marcatge**, no la ruta, perque el problema que
- * eviten nomes existeix al navegador: si dues coses de la pagina comparteixen
- * el nom d'un camp i totes dues son dins del mateix `<form>`, HTMX les envia
- * totes en qualsevol peticio que no sigui `GET` —i, encara pitjor, les del
- * formulari **tapen** la de l'element que has tocat.
+ * These tests look at **the markup**, not at the route, because the problem
+ * they prevent only exists in the browser: if two things on the page share a
+ * field name and both are inside the same `<form>`, HTMX sends them all in
+ * any request that is not a `GET` —and, worse still, the form's ones
+ * **shadow** the one on the element you touched.
  *
- * Aixo va passar de debo: la tria de categoria de cada fila era dins del
- * formulari de la seleccio en bloc, aixi que canviar la categoria d'una fila
- * desava la de l'ultima fila de la pagina. Les proves de ruta no ho veien
- * perque envien el cos a ma i no fan mai el que fa el navegador.
+ * This really happened: each row's category picker was inside the bulk
+ * selection form, so changing one row's category saved the last row's. The
+ * route tests did not see it because they send the body by hand and never do
+ * what the browser does.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -70,7 +70,7 @@ async function table(canEdit: boolean, quantes = 3): Promise<string> {
   );
 }
 
-/** Els `name=` que hi ha dins de cada `<form>` del marcatge. */
+/** The `name=`s inside each `<form>` of the markup. */
 function fieldsPerForm(markup: string): string[][] {
   const formularis: string[][] = [];
   for (const part of markup.split(/<form\b/i).slice(1)) {
@@ -82,8 +82,8 @@ function fieldsPerForm(markup: string): string[][] {
 
 describe("la taula de moviments", () => {
   test("hi ha una tria de categoria per fila, mes la de la barra", async () => {
-    // Aixo no comprova res per si sol: hi es perque les dues proves de sota
-    // no puguin passar per no haver trobat res a mirar.
+    // This checks nothing on its own: it is here so that the two tests below
+    // cannot pass by having found nothing to look at.
     const markup = await table(true, 5);
     expect([...markup.matchAll(/name="category_id"/g)]).toHaveLength(6);
     expect([...markup.matchAll(/name="moviment"/g)]).toHaveLength(5);
@@ -97,8 +97,8 @@ describe("la taula de moviments", () => {
   });
 
   test("les tries de categoria no comparteixen cap formulari", async () => {
-    // Es el nus del problema: si totes son dins del mateix `<form>`, HTMX les
-    // envia totes i l'ultima tapa la que has tocat.
+    // This is the crux of it: if they are all inside the same `<form>`, HTMX
+    // sends them all and the last one shadows the one you touched.
     const markup = await table(true, 5);
     for (const camps of fieldsPerForm(markup)) {
       expect(camps.filter((c) => c === "category_id").length).toBeLessThanOrEqual(1);
@@ -110,8 +110,8 @@ describe("la taula de moviments", () => {
     for (const camps of fieldsPerForm(markup)) {
       const teFila = camps.includes("nova_etiqueta");
       const teBarra = camps.includes("etiqueta_bloc") || camps.includes("category_id");
-      // Un formulari de fila nomes te nova_etiqueta (+ etiqueta al treure).
-      // La barra no te formulari: va amb hx-include.
+      // A row form only has nova_etiqueta (+ etiqueta when removing).
+      // The bar has no form: it goes with hx-include.
       if (teFila) {
         expect(camps).not.toContain("category_id");
         expect(camps).not.toContain("etiqueta_bloc");
@@ -204,13 +204,13 @@ describe("la taula de moviments", () => {
 });
 
 /**
- * Les fitxes del telefon.
+ * The phone cards.
  *
- * Per sota de 40rem la taula es dibuixa com una fitxa per moviment: el capçal
- * desapareix i el nom de cada columna surt de la `data-etiqueta` de la cella.
- * Es a dir que **una cella sense `data-etiqueta` es un camp sense nom** al
- * telefon, i al navegador de l'escriptori no es veu gens. Per aixo es
- * comprova aqui i no a ull.
+ * Below 40rem the table is drawn as one card per transaction: the header
+ * disappears and each column's name comes from the cell's `data-etiqueta`.
+ * Which means **a cell without `data-etiqueta` is an unnamed field** on the
+ * phone, and on a desktop browser it cannot be seen at all. That is why it is
+ * checked here and not by eye.
  */
 describe("la taula de moviments en fitxes", () => {
   test("la taula demana el dibuix en fitxes", async () => {
@@ -226,7 +226,7 @@ describe("la taula de moviments en fitxes", () => {
   });
 
   test("no hi ha cap cella sense nom", async () => {
-    // Nomes les files, no el capçal: els `<th>` ja diuen com es diuen.
+    // Only the rows, not the header: the `<th>`s already say their names.
     const celles = [...(await table(true, 3)).matchAll(/<td\b[^>]*>/g)].map((m) => m[0]);
 
     expect(celles.length).toBeGreaterThan(0);

@@ -1,15 +1,15 @@
 /**
- * Una llista sense files ha de dir que no n'hi ha cap.
+ * A list with no rows has to say there are none.
  *
- * Sembla obvi i no ho era: cada fragment duia la seva closca de taula
- * escrita a ma, amb l'avis de «no hi ha res» en una branca a part, i les
- * rutes d'esborrar tornaven **nomes la fila** —un `<tr hidden>`— de manera
- * que treure l'ultima deixava una capçalera de taula sobre un cos buit, per
- * sempre, sense dir enlloc que la llista s'havia acabat. Es veia a les
- * regles, i el mateix cami hi havia als avisos.
+ * It looks obvious and it was not: each fragment carried its own table shell
+ * written by hand, with the «there is nothing» notice in a separate branch,
+ * and the delete routes returned **only the row** —a `<tr hidden>`— so that
+ * removing the last one left a table header over an empty body, forever,
+ * without saying anywhere that the list had run out. It could be seen in the
+ * rules, and the alerts had the same path.
  *
- * Ara les files i l'estat buit els dibuixa la mateixa funcio, que es
- * l'unica manera d'evitar que tornin a separar-se.
+ * Now the rows and the empty state are drawn by the same function, which is
+ * the only way to stop them separating again.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -67,7 +67,7 @@ describe("TaulaDades", () => {
     expect(withRows).toContain('id="barra"');
     expect(withRows).toContain('id="peu"');
 
-    // Ni una barra per triar files que no hi son ni paginar el no-res.
+    // No bar for selecting rows that are not there and no paginating nothing.
     const without = text(DataTable({ ...props, rows: [] }));
     expect(without).not.toContain('id="barra"');
     expect(without).not.toContain('id="peu"');
@@ -88,8 +88,8 @@ describe("TaulaDades", () => {
 
 describe("Paginacio", () => {
   test("amb la llista buida compta des de zero", () => {
-    // La copia dels comerços deia «1–0 de 0»: sumava 1 a l'offset sense
-    // mirar si hi havia res.
+    // The merchants' copy said «1–0 of 0»: it added 1 to the offset without
+    // looking at whether there was anything.
     const output = text(Pagination({ page: { total: 0, limit: 50, offset: 0 }, passos: "" }));
     expect(output).toContain("0–0 de 0");
   });

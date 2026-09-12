@@ -1,8 +1,8 @@
 /**
- * Previsio de saldo i avis de descobert.
+ * Balance forecast and overdraft alert.
  *
- * La previsio nomes mira schedules `active` amb `include_in_forecast`.
- * No hi ha «despesa variable» residual.
+ * The forecast only looks at `active` schedules with `include_in_forecast`.
+ * There is no residual «variable expense».
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
@@ -73,7 +73,7 @@ async function transaction(
   return t?.id ?? 0;
 }
 
-/** Una serie activa a la previsio, sense passar pel detector. */
+/** An active series in the forecast, without going through the detector. */
 async function activeSeries(opts: {
   amount: string;
   intervalDays: number;
@@ -165,7 +165,7 @@ beforeEach(async () => {
     .returning();
   accountId = account?.id ?? 0;
 
-  // Saldo conegut d'avui.
+  // Today's known balance.
   await db.insert(balances).values({
     accountId,
     balanceType: "CLBD",
@@ -188,7 +188,7 @@ describe("la projeccio", () => {
     expect(Number(forecast.points[30]?.esperat)).toBeCloseTo(1000, 1);
     expect(forecast.dailySpend).toBe("0.00");
     expect(forecast.firstOverdraft).toBeNull();
-    // Mateixa amplada a esquerra (real) i dreta (previsio), amb avui a les dues.
+    // Same width on the left (real) and the right (forecast), with today on both.
     expect(forecast.historic.length).toBe(31);
     expect(forecast.historic[forecast.historic.length - 1]?.day).toBe(todayLocal());
     expect(Number(forecast.historic[forecast.historic.length - 1]?.balance)).toBeCloseTo(
@@ -313,7 +313,7 @@ describe("l'avis de descobert", () => {
       })
       .returning();
 
-    // 200 EUR cada 5 dies: en menys de 60 dies s'acaben els 1000.
+    // 200 EUR every 5 days: the 1000 runs out in under 60 days.
     await activeSeries({
       amount: "-200.00",
       intervalDays: 5,

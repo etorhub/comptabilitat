@@ -1,12 +1,11 @@
 /**
- * Importacions que es queden penjades.
+ * Imports that are left hanging.
  *
- * La importacio corre en segon pla dins del proces del servidor. Si el
- * contenidor es reinicia enmig, la fila de `sync_runs` es queda en `running`
- * per sempre: no hi ha ningu que la pugui acabar. I el fragment de la pagina
- * de connexions nomes s'atura quan l'estat es terminal, de manera que la
- * pagina es queda **sondejant cada dos segons, per sempre**, per a tothom qui
- * la miri.
+ * The import runs in the background inside the server process. If the
+ * container restarts halfway, the `sync_runs` row stays `running` forever:
+ * there is nobody who can finish it. And the connections page fragment only
+ * stops when the state is terminal, so the page is left **polling every two
+ * seconds, forever**, for everyone who looks at it.
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";

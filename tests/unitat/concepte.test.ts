@@ -1,8 +1,8 @@
 /**
- * Parseig del concepte per a la UI.
+ * Parsing of the concept for the UI.
  *
- * No mira la base de dades: nomes que els exemples del banc es tornin
- * llegibles i que un PAN no arribi mai al titol.
+ * It does not look at the database: only that the bank's examples become
+ * readable and that a PAN never reaches the title.
  */
 
 import { describe, expect, test } from "bun:test";

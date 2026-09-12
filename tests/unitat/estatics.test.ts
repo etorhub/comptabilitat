@@ -1,10 +1,10 @@
 /**
- * Memòria cau dels fitxers estàtics.
+ * Static file caching.
  *
- * Sense `Cache-Control` i sense `?v=`, cada càrrega de pàgina tornava a
- * baixar HTMX, ECharts i el CSS. Aquestes proves tanquen les dues meitats:
- * la capçalera que el navegador respectarà, i la versió a l'HTML perquè un
- * desplegament no deixi bytes vells un any.
+ * Without `Cache-Control` and without `?v=`, every page load downloaded HTMX,
+ * ECharts and the CSS again. These tests close both halves: the header the
+ * browser will respect, and the version in the HTML so that a deployment does
+ * not leave old bytes for a year.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -25,8 +25,8 @@ describe("estatics", () => {
     const res = await app.request("/entrada");
     expect(res.status).toBe(200);
     const html = await res.text();
-    // `app.css` es genera i pot no existir a la CI; el `?v=` hi ha de ser
-    // igualment (amb resum o amb el marcador `absent`).
+    // `app.css` is generated and may not exist in CI; the `?v=` has to be
+    // there anyway (with a digest or with the `absent` marker).
     expect(html).toContain("app.css?v=");
     expect(html).toContain(staticHref("htmx.min.js"));
     expect(html).toMatch(/htmx\.min\.js\?v=[0-9a-f]{8}/);

@@ -1,15 +1,15 @@
 /**
- * Aparellament de traspassos entre comptes propis.
+ * Pairing of transfers between the owner's own accounts.
  *
- * Aixo decideix que compta com a ingres i que no, aixi que quan s'equivoca
- * l'error surt als informes i no a la pantalla. Les dues invariants que
- * importen:
+ * This decides what counts as income and what does not, so when it gets it
+ * wrong the error shows up in the reports and not on screen. The two
+ * invariants that matter:
  *
- *   1. **Les dues cames, o cap.** Una parella a mitges treu la sortida dels
- *      informes i deixa l'entrada comptant: el mes surt malament per l'import
- *      sencer, i sembla correcte.
- *   2. **Un moviment exclos a ma no entra en cap parella**, perque aparellar-lo
- *      trauria l'altra cama dels informes sense que ningu ho hagues demanat.
+ *   1. **Both legs, or neither.** A half pair takes the debit out of the
+ *      reports and leaves the credit counting: the month comes out wrong by
+ *      the whole amount, and it looks right.
+ *   2. **A transaction excluded by hand enters no pair**, because pairing it
+ *      would take the other leg out of the reports without anyone asking.
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
@@ -198,7 +198,7 @@ describe("un moviment exclos", () => {
     const signIn = await transaction({ account: accountB, amount: "400.00" });
 
     expect(await detectTransfers(ledgerId)).toBe(0);
-    // I, sobretot, l'altra cama continua comptant als informes.
+    // And, above all, the other leg keeps counting in the reports.
     expect((await read(signIn)).transferGroupId).toBeNull();
     expect((await read(surt)).transferGroupId).toBeNull();
   });
@@ -238,7 +238,7 @@ describe("la categoria", () => {
     const a = await read(surt);
     expect(a.categoryId).toBe(propia?.id ?? 0);
     expect(a.categorySource).toBe("user");
-    // Pero si que queda aparellat.
+    // But it does end up paired.
     expect(a.transferGroupId).not.toBeNull();
   });
 });
@@ -248,8 +248,8 @@ describe("les dues cames, o cap", () => {
     const surt = await transaction({ account: accountA, amount: "-400.00" });
     const signIn = await transaction({ account: accountB, amount: "400.00" });
 
-    // Un disparador que fa petar l'escriptura d'una de les dues cames. Es la
-    // manera d'arribar de debo al cas que la transaccio ha de cobrir.
+    // A trigger that blows up the write of one of the two legs. It is the way
+    // to really reach the case the transaction has to cover.
     await db.execute(sql`
       create or replace function peta_una_cama() returns trigger as $$
       begin
@@ -271,20 +271,20 @@ describe("les dues cames, o cap", () => {
       await db.execute(sql`drop function if exists peta_una_cama()`);
     }
 
-    // Cap de les dues no ha quedat marcada: sense la transaccio, la sortida
-    // hauria quedat amb grup i l'entrada sense.
+    // Neither of the two was marked: without the transaction, the debit would
+    // have been left with a group and the credit without one.
     expect((await read(surt)).transferGroupId).toBeNull();
     expect((await read(signIn)).transferGroupId).toBeNull();
   });
 });
 
 /**
- * El comptador d'encaixos d'una regla.
+ * A rule's match counter.
  *
- * Es puja amb `match_count + 1` **a la base de dades**. Si es fes des del
- * valor llegit en JavaScript, dues passades alhora —la sincronitzacio de la
- * nit i algu aplicant una regla a ma— es trepitjarien i el comptador aniria
- * enrere.
+ * It is raised with `match_count + 1` **in the database**. If it were done
+ * from the value read in JavaScript, two passes at once —the night's
+ * synchronization and somebody applying a rule by hand— would tread on each
+ * other and the counter would go backwards.
  */
 describe("el comptador d'una regla", () => {
   test("no es perd res encara que dues passades hi escriguin alhora", async () => {
@@ -305,7 +305,7 @@ describe("el comptador d'una regla", () => {
       .returning();
     const id = regla?.id ?? 0;
 
-    // Vint sumes alhora, cadascuna a la seva connexio.
+    // Twenty increments at once, each on its own connection.
     await Promise.all(
       Array.from({ length: 20 }, () =>
         db

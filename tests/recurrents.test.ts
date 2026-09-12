@@ -1,10 +1,10 @@
 /**
- * Deteccio de series recurrents (schedules).
+ * Detection of recurring series (schedules).
  *
- * El detector mira l'historic categoritzat i **nomes proposa** series
- * (`status: suggested`, fora de la previsio). Calen ≥3 aparicions a intervals
- * regulars; no hi ha porta de categoria ni marca de subscripcio. La persona
- * confirma (`confirmaSerie` → `active`) o descarta a `/recurrents`.
+ * The detector looks at the categorized history and **only proposes** series
+ * (`status: suggested`, out of the forecast). It needs ≥3 occurrences at
+ * regular intervals; there is no category gate and no subscription flag. The
+ * person confirms (`confirmSeries` → `active`) or dismisses at `/recurrents`.
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
@@ -40,7 +40,7 @@ import { addDays, todayLocal } from "../src/lib/time.ts";
 let ledgerId = 0;
 let accountId = 0;
 
-/** Insereix un moviment amb una categoria (i, opcionalment, un comerç) concrets. */
+/** Inserts a transaction with a given category (and, optionally, a merchant). */
 async function transaction(
   key: string,
   date: string,
@@ -176,7 +176,7 @@ describe("cal categoritzar", () => {
       await transaction(`n${i}`, addDays(today, -days), "-12.99", i === 0 ? null : c, m);
     }
 
-    // Nomes dues de les tres tenen categoria: no arriba al minim d'aparicions.
+    // Only two of the three have a category: it does not reach the minimum number of occurrences.
     const stats = await detectRecurring(ledgerId);
     expect(stats.creades).toBe(0);
   });
@@ -190,7 +190,7 @@ describe("cal categoritzar", () => {
     for (const [i, days] of [90, 60, 30].entries()) {
       await transaction(`ll${i}`, addDays(today, -days), "-350.00", lloguer, m);
     }
-    // Un sol sopar: no arriba a 3 aparicions.
+    // A single dinner: it does not reach 3 occurrences.
     await transaction("sopar", addDays(today, -5), "-42.50", sopars, m);
 
     const stats = await detectRecurring(ledgerId);
@@ -352,7 +352,7 @@ describe("tornar a detectar", () => {
     if (!proposal) throw new Error("calia una proposta");
     await confirmSeries(proposal.id, { cadence: "monthly", amountMode: "exact" });
 
-    // Un rebut molt mes car que els altres.
+    // A direct debit much dearer than the others.
     await transaction("g-car", addDays(today, -30), "-45.00", c, m);
     const stats = await detectRecurring(ledgerId);
 
@@ -415,7 +415,7 @@ describe("rebuts que falten", () => {
       .select()
       .from(recurringSeries)
       .where(eq(recurringSeries.ledgerId, ledgerId));
-    // Exactes confirmades es queden actives; nomes avisen.
+    // Confirmed exact ones stay active; they only warn.
     expect(series?.status).toBe("active");
   });
 });

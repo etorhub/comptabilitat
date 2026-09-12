@@ -1,16 +1,15 @@
 /**
- * La barra lateral i el `#toast`.
+ * The sidebar and the `#toast`.
  *
- * Dues coses que el full d'estil sabia dibuixar i cap plantilla no demanava
- * mai:
+ * Two things the stylesheet knew how to draw and no template ever asked for:
  *
- *   - `.menu a[aria-current="page"]` tenia el seu fons des del primer dia i
- *     l'atribut no l'escrivia ningu: la barra no deia on eres, ni de color ni
- *     a un lector de pantalla.
- *   - El `#toast` naixia amb `aria-live="polite"` i el primer avis el
- *     substituia per un `<div id="toast">` sense l'atribut, de manera que a
- *     partir d'aquell moment ja no hi havia cap regio viva. Ara es canvia el
- *     **contingut** del `#toast` i el contenidor no es mou mai.
+ *   - `.menu a[aria-current="page"]` had its background from day one and
+ *     nobody wrote the attribute: the bar did not say where you were,
+ *     neither in color nor to a screen reader.
+ *   - The `#toast` was born with `aria-live="polite"` and the first toast
+ *     replaced it with a `<div id="toast">` without the attribute, so that
+ *     from then on there was no live region at all. Now the `#toast`'s
+ *     **content** is changed and the container never moves.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -46,7 +45,7 @@ async function bar(ruta: string): Promise<string> {
   );
 }
 
-/** L'`href` de l'enllaç marcat com a pagina actual. */
+/** The `href` of the link marked as the current page. */
 function marcat(page: string): string[] {
   return [...page.matchAll(/<a href="([^"]+)" aria-current="page">/g)].map((m) => m[1] ?? "");
 }
@@ -54,19 +53,19 @@ function marcat(page: string): string[] {
 describe("aria-current a la barra lateral", () => {
   test("marca la pagina que s'esta mirant, i nomes una", async () => {
     expect(marcat(await bar("/e/personal/moviments"))).toEqual(["/e/personal/moviments"]);
-    // I els del grup de configuracio, que el master va moure a part.
+    // And those of the configuration group, which the master moved aside.
     expect(marcat(await bar("/e/personal/etiquetes"))).toEqual(["/e/personal/etiquetes"]);
     expect(marcat(await bar("/e/personal/categories"))).toEqual(["/e/personal/categories"]);
   });
 
   test("guanya el cami mes llarg, no el primer que encaixa", async () => {
-    // «Panell» es `/e/personal`, que es el començament de tots els altres.
+    // «Panell» is `/e/personal`, which is the start of all the others.
     expect(marcat(await bar("/e/personal/avisos"))).toEqual(["/e/personal/avisos"]);
-    // I «Moviments» ho es de «Per revisar».
+    // And «Moviments» is the start of «Per revisar».
     expect(marcat(await bar("/e/personal/moviments/revisio"))).toEqual([
       "/e/personal/moviments/revisio",
     ]);
-    // El panell, a la seva, si que es marca.
+    // The dashboard, on its own page, is marked.
     expect(marcat(await bar("/e/personal"))).toEqual(["/e/personal"]);
   });
 
@@ -86,34 +85,34 @@ describe("aria-current a la barra lateral", () => {
 });
 
 /**
- * El calaix del mobil.
+ * The mobile drawer.
  *
- * Es de CSS pur: una casella amagada i uns `<label>` que hi apunten. Si algu
- * canvia l'identificador d'un costat i no de l'altre, el menu deixa d'obrir-se
- * i res no peta —el navegador no es queixa d'un `for` que no apunta enlloc—,
- * de manera que el que es comprova aqui es que els dos costats es diguin igual.
+ * It is pure CSS: a hidden checkbox and some `<label>`s pointing at it. If
+ * somebody changes the id on one side and not the other, the menu stops
+ * opening and nothing breaks —the browser does not complain about a `for`
+ * pointing nowhere—, so what is checked here is that both sides say the same.
  */
 describe("el calaix de la navegacio", () => {
   test("la casella i tots els `for` que hi apunten es diuen igual", async () => {
     const page = await bar("/e/personal");
 
     expect(page).toContain('<input type="checkbox" id="menu-obert"');
-    // El d'obrir, el rerefons i el de tancar.
+    // The open one, the backdrop and the close one.
     expect([...page.matchAll(/for="menu-obert"/g)]).toHaveLength(3);
   });
 
   test("els botons del calaix diuen que fan", async () => {
     const page = await bar("/e/personal");
 
-    // Son `<label>` amb una icona a dins: sense aixo no diuen res.
+    // They are `<label>`s with an icon inside: without this they say nothing.
     expect(page).toContain('aria-label="Obre el menu"');
     expect(page).toContain('aria-label="Tanca el menu"');
   });
 
   test("els comptadors no es dupliquen a la barra de dalt", async () => {
-    // Son objectius fora de banda i cada identificador te un sol amo: si es
-    // dibuixessin dos cops, l'intercanvi nomes en trobaria un i l'altre
-    // quedaria encallat amb el numero vell. Vegeu AGENTS.md.
+    // They are out-of-band targets and each id has a single owner: if they
+    // were drawn twice, the swap would find only one and the other would be
+    // left stuck with the old number. See AGENTS.md.
     const page = await bar("/e/personal");
 
     expect([...page.matchAll(/id="comptador-revisio"/g)]).toHaveLength(1);
@@ -129,7 +128,7 @@ describe("el calaix de la navegacio", () => {
 
 describe("#toast", () => {
   test("canvia el contingut i no el contenidor", () => {
-    // Si tornes un `<div id="toast">`, te'n vas la regio viva amb ell.
+    // If you return a `<div id="toast">`, the live region goes with it.
     for (const node of [toast("Ha petat"), clearToast()]) {
       expect(String(node)).toContain('hx-swap-oob="innerHTML:#toast"');
       expect(String(node)).not.toContain('id="toast"');
