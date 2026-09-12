@@ -29,29 +29,29 @@ export interface UserView extends User {
 export interface ListProps {
   userList: UserView[];
   workspaces: Ledger[];
-  jo: number;
+  me: number;
   oob?: boolean;
 }
 
-export function List({ userList, workspaces, jo, oob = false }: ListProps): Html {
+export function List({ userList, workspaces, me, oob = false }: ListProps): Html {
   return html`<div ${oobAttributes("llista-usuaris", oob)}>
-    ${userList.map((user) => Card({ user, workspaces, jo }))}
+    ${userList.map((user) => Card({ user, workspaces, me }))}
   </div>` as Html;
 }
 
 export interface CardProps {
   user: UserView;
   workspaces: Ledger[];
-  jo: number;
+  me: number;
   /** Errors of the name / administrator form. */
   editErrors?: FieldErrors | undefined;
   /** Errors of the password reset form. */
   passwordErrors?: FieldErrors | undefined;
 }
 
-export function Card({ user, workspaces, jo, editErrors, passwordErrors }: CardProps): Html {
+export function Card({ user, workspaces, me, editErrors, passwordErrors }: CardProps): Html {
   const base = `/usuaris/${user.id}`;
-  const soc = user.id === jo;
+  const soc = user.id === me;
   const idPrefix = `u${user.id}`;
 
   return html`<section id="usuari-${user.id}" class="superficie targeta">

@@ -22,14 +22,14 @@ export interface JobsPageProps {
   individuals: JobEntry[];
   darreres: Map<string, JobRun>;
   enCursRuns: JobRun[];
-  enCursNoms: Set<string>;
+  runningNames: Set<string>;
   salut: HealthSummary;
   history: HistoryPage;
   filters: HistoryFilters;
 }
 
 export function JobsPage(props: JobsPageProps): Html {
-  const { passes, individuals, darreres, enCursRuns, enCursNoms, salut, history, filters } =
+  const { passes, individuals, darreres, enCursRuns, runningNames, salut, history, filters } =
     props;
 
   return html`
@@ -44,7 +44,7 @@ export function JobsPage(props: JobsPageProps): Html {
 
     ${ScheduleHealth({ entrades: scheduleEntries(darreres), salut })}
     ${Running({ runs: enCursRuns })}
-    ${JobsList({ passes, individuals, darreres, enCurs: enCursNoms })}
+    ${JobsList({ passes, individuals, darreres, enCurs: runningNames })}
 
     <section>
       <h2 class="menu-titol">Historial</h2>

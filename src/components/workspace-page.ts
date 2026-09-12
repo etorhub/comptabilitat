@@ -31,7 +31,7 @@ export async function workspacePage(
     title,
     user,
     csrfToken: c.get("csrfToken") ?? "",
-    ruta: c.req.path,
+    path: c.req.path,
     workspaces,
     workspace,
     perRevisar,

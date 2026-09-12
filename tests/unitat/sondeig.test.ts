@@ -17,8 +17,8 @@ import { Running } from "../../src/routes/jobs/jobs.fragment.ts";
 import { MAX_ATTEMPTS } from "../../src/lib/sondeig.ts";
 import type { JobRun, SyncRun } from "../../src/db/schema/index.ts";
 
-function regles(violacions: Violation[]): RuleName[] {
-  return violacions.map((v) => v.rule);
+function rules(violations: Violation[]): RuleName[] {
+  return violations.map((v) => v.rule);
 }
 
 // No `as`: the type comes from the Drizzle table, and if a new column ever
@@ -57,7 +57,7 @@ describe("the state of an import", () => {
   test("while it runs, it polls —and the poll is bounded", async () => {
     const html = String(await SyncState({ connectionId: 4, run: syncRun("running") }));
     expect(html).toContain("hx-trigger=");
-    expect(regles(await checkDocument(html, { fragment: true }))).not.toContain(
+    expect(rules(await checkDocument(html, { fragment: true }))).not.toContain(
       "unbounded-poll",
     );
   });
@@ -93,7 +93,7 @@ describe("the jobs in progress", () => {
   test("while there are any, it polls in a bounded way", async () => {
     const html = String(await Running({ runs: [job()] }));
     expect(html).toContain("hx-trigger=");
-    expect(regles(await checkDocument(html, { fragment: true }))).not.toContain(
+    expect(rules(await checkDocument(html, { fragment: true }))).not.toContain(
       "unbounded-poll",
     );
   });

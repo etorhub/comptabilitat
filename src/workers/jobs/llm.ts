@@ -13,12 +13,12 @@ import { ledgers } from "../../db/schema/index.ts";
 import { classifyMerchants, summaryLlm } from "../../services/llm-classification.ts";
 
 export async function localModelJob(limit = 50): Promise<string> {
-  const linies: string[] = [];
+  const lines: string[] = [];
 
   for (const workspace of await db.select().from(ledgers).where(eq(ledgers.isActive, true))) {
     const stats = await classifyMerchants(workspace.id, { limit });
-    linies.push(`${workspace.name}: ${summaryLlm(stats)}`);
+    lines.push(`${workspace.name}: ${summaryLlm(stats)}`);
   }
 
-  return linies.join("\n") || "no hi ha cap espai actiu";
+  return lines.join("\n") || "no hi ha cap espai actiu";
 }

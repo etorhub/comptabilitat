@@ -99,10 +99,10 @@ function acumula(
 /** The whole tree, grouped by type, with statistics if they are asked for. */
 export async function categoryTree(
   ledgerId: number,
-  ambEstadistiques = true,
+  withStats = true,
 ): Promise<Record<CategoryKind, NodeCategory[]>> {
   const all = await listCategories(ledgerId);
-  const stats = ambEstadistiques
+  const stats = withStats
     ? acumula(all, await rollupStats(ledgerId))
     : new Map<number, [number, MoneyString]>();
 
@@ -153,7 +153,7 @@ export async function categoryInWorkspace(id: number, ledgerId: number): Promise
 }
 
 /** A slug unique within the workspace, adding `-2`, `-3`... if needed. */
-async function pendentLliure(ledgerId: number, base: string): Promise<string> {
+async function freeSlug(ledgerId: number, base: string): Promise<string> {
   let candidat = base;
   let sufix = 2;
   for (;;) {
@@ -190,7 +190,7 @@ export async function createCategory(
   }
 
   const base = parent ? `${parent.slug}-${slugify(data.name)}` : slugify(data.name);
-  const slug = await pendentLliure(ledgerId, base);
+  const slug = await freeSlug(ledgerId, base);
 
   const [creada] = await db
     .insert(categories)
@@ -269,10 +269,10 @@ export async function deleteCategory(
     throw new AppError("Primer cal esborrar o moure les subcategories", 422);
   }
 
-  const usats = await transactionsOf(id);
-  if (usats > 0 && reassignTo === null) {
+  const used = await transactionsOf(id);
+  if (used > 0 && reassignTo === null) {
     throw new ConflictError(
-      `Hi ha ${usats} ${usats === 1 ? "moviment" : "moviments"} en aquesta categoria`,
+      `Hi ha ${used} ${used === 1 ? "moviment" : "moviments"} en aquesta categoria`,
       "Tria a quina categoria han d'anar a parar.",
     );
   }

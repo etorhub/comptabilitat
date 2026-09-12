@@ -226,25 +226,25 @@ export function stripAccents(text: string): string {
 }
 
 /** Equivalent of Python's `str.isdigit()` for the cases that reach us. */
-const esNumero = (token: string): boolean => /^\d+$/.test(token);
+const isDigits = (token: string): boolean => /^\d+$/.test(token);
 
 /**
  * Equivalent of Python's `str.isupper()`: true if every cased character is
  * upper case **and there is at least one**. «4B» is true; «123» is not.
  */
-function esMajuscules(word: string): boolean {
+function isUpperCase(word: string): boolean {
   if (!/[a-zA-Z]/.test(word)) return false;
   return word === word.toUpperCase();
 }
 
 /** Equivalent of `str.capitalize()`: first letter up, the rest down. */
-function capitalitza(word: string): string {
+function capitalize(word: string): string {
   if (word.length === 0) return word;
   return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
 }
 
 /** Strips the given characters from both ends, like `strip(" .")`. */
-function retallaExtrems(text: string, chars: string): string {
+function stripEnds(text: string, chars: string): string {
   let inici = 0;
   let fi = text.length;
   while (inici < fi && chars.includes(text[inici] as string)) inici += 1;
@@ -265,12 +265,12 @@ export function displayName(normalized: string): string {
       words.push(word.toLowerCase());
     } else if (
       COMPANY_SUFFIXES.has(word) ||
-      (word.length <= 3 && esMajuscules(word) && !esNumero(word) && !SHORT_WORDS.has(word))
+      (word.length <= 3 && isUpperCase(word) && !isDigits(word) && !SHORT_WORDS.has(word))
     ) {
       // Acronyms and short codes like SA, SL or 4B are left as they are.
       words.push(word);
     } else {
-      words.push(capitalitza(word));
+      words.push(capitalize(word));
     }
   }
 
@@ -325,17 +325,17 @@ export function normalizeDescription(description: string, counterparty = ""): [s
 
   while (tokens.length > 0) {
     const last = tokens[tokens.length - 1] as string;
-    if (TRAILING_NOISE.has(last) || esNumero(last)) tokens.pop();
+    if (TRAILING_NOISE.has(last) || isDigits(last)) tokens.pop();
     else break;
   }
   while (tokens.length > 0) {
     const first = tokens[0] as string;
-    if (esNumero(first) || LEADING_STOPWORDS.has(first) || MONTHS.has(first)) tokens.shift();
+    if (isDigits(first) || LEADING_STOPWORDS.has(first) || MONTHS.has(first)) tokens.shift();
     else break;
   }
 
   // Very long names are trimmed: the tail is usually an internal reference.
-  const normalized = retallaExtrems(tokens.slice(0, 6).join(" ").slice(0, 200), " .");
+  const normalized = stripEnds(tokens.slice(0, 6).join(" ").slice(0, 200), " .");
   if (!normalized) {
     // If there was only the operation prefix, we do not recycle it as a
     // merchant name: every empty «PAGO MOVIL EN» would end up in the same place.

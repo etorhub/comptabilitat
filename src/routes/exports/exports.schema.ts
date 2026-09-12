@@ -18,7 +18,7 @@ export const exportFiltersSchema = z.object({
     .optional()
     .or(z.literal(""))
     .transform((v) => (v ? v : null)),
-  fins: z
+  to: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional()

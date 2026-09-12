@@ -25,8 +25,8 @@ const LONGITUD_MAX = 40;
  * It does not change case: the workspace's canonical spelling is decided by
  * `workspaceSpelling()`.
  */
-export function normalizeTag(bruta: string): string {
-  const cleaned = bruta.trim().replace(/\s+/g, " ");
+export function normalizeTag(raw: string): string {
+  const cleaned = raw.trim().replace(/\s+/g, " ");
   if (cleaned.length === 0) {
     throw new AppError("Cal un nom d'etiqueta", 422);
   }
@@ -51,8 +51,8 @@ export function sameTag(a: string, b: string): boolean {
 export async function workspaceSpelling(ledgerId: number, name: string): Promise<string> {
   const cleaned = normalizeTag(name);
   const known = await workspaceTags(ledgerId);
-  const existent = known.find((t) => sameTag(t, cleaned));
-  return existent ?? cleaned;
+  const existing = known.find((t) => sameTag(t, cleaned));
+  return existing ?? cleaned;
 }
 
 /** All the workspace's distinct tags, sorted. */
@@ -147,7 +147,7 @@ export function hasTag(name: string) {
 export async function addTag(
   transactionId: number,
   ledgerId: number,
-  nomBrut: string,
+  rawName: string,
 ): Promise<string[]> {
   const [row] = await db
     .select({ id: transactions.id, tags: transactions.tags })
@@ -156,7 +156,7 @@ export async function addTag(
     .limit(1);
   if (!row) throw new NotFoundError("Aquest moviment no existeix");
 
-  const canònica = await workspaceSpelling(ledgerId, nomBrut);
+  const canònica = await workspaceSpelling(ledgerId, rawName);
   const actuals = row.tags ?? [];
   if (actuals.some((t) => sameTag(t, canònica))) {
     return actuals.toSorted();
@@ -171,9 +171,9 @@ export async function addTag(
 export async function removeTag(
   transactionId: number,
   ledgerId: number,
-  nomBrut: string,
+  rawName: string,
 ): Promise<string[]> {
-  const cleaned = normalizeTag(nomBrut);
+  const cleaned = normalizeTag(rawName);
   const [row] = await db
     .select({ id: transactions.id, tags: transactions.tags })
     .from(transactions)
@@ -194,7 +194,7 @@ export async function removeTag(
 export async function addTagBulk(
   ids: number[],
   ledgerId: number,
-  nomBrut: string,
+  rawName: string,
 ): Promise<number> {
   const demanats = [...new Set(ids)];
   if (demanats.length === 0) throw new AppError("No hi ha cap moviment triat", 422);
@@ -208,7 +208,7 @@ export async function addTagBulk(
     throw new NotFoundError("No s'ha trobat");
   }
 
-  const canònica = await workspaceSpelling(ledgerId, nomBrut);
+  const canònica = await workspaceSpelling(ledgerId, rawName);
   let tocats = 0;
   for (const row of meus) {
     const actuals = row.tags ?? [];
@@ -227,11 +227,11 @@ export async function addTagBulk(
  */
 export async function deleteTagFromWorkspace(
   ledgerId: number,
-  nomBrut: string,
+  rawName: string,
 ): Promise<number> {
-  const cleaned = normalizeTag(nomBrut);
+  const cleaned = normalizeTag(rawName);
 
-  const afectats = await db.execute<{ id: number }>(sql`
+  const affected = await db.execute<{ id: number }>(sql`
     select id from transactions
     where ledger_id = ${ledgerId}
       and exists (
@@ -240,7 +240,7 @@ export async function deleteTagFromWorkspace(
       )
   `);
 
-  const quants = [...afectats].length;
+  const quants = [...affected].length;
   if (quants === 0) return 0;
 
   await db.execute(sql`
@@ -261,11 +261,11 @@ export async function deleteTagFromWorkspace(
 }
 
 /** Parses a comma-separated list (rules form). */
-export function parseTagList(bruta: string): string[] {
-  if (!bruta.trim()) return [];
+export function parseTagList(raw: string): string[] {
+  if (!raw.trim()) return [];
   const views = new Set<string>();
   const result: string[] = [];
-  for (const part of bruta.split(",")) {
+  for (const part of raw.split(",")) {
     const cleaned = part.trim().replace(/\s+/g, " ");
     if (!cleaned) continue;
     if (cleaned.length > LONGITUD_MAX) {

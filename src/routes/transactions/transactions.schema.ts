@@ -42,7 +42,7 @@ const cardSchema = z
 export const transactionFiltersSchema = z.object({
   cerca: z.string().trim().max(200).default(""),
   des: date,
-  fins: date,
+  to: date,
   compte: z
     .union([z.literal(""), z.coerce.number().int().positive()])
     .optional()
@@ -82,7 +82,7 @@ export function hasActiveFilters(f: TransactionFilters): boolean {
   return Boolean(
     f.cerca ||
     f.des ||
-    f.fins ||
+    f.to ||
     f.compte !== null ||
     f.categoria !== null ||
     f.etiqueta ||
@@ -98,7 +98,7 @@ export function transactionFiltersToQuery(f: TransactionFilters): string {
   const p = new URLSearchParams();
   if (f.cerca) p.set("cerca", f.cerca);
   if (f.des) p.set("des", f.des);
-  if (f.fins) p.set("fins", f.fins);
+  if (f.to) p.set("fins", f.to);
   if (f.compte !== null) p.set("compte", String(f.compte));
   if (f.categoria !== null) p.set("categoria", String(f.categoria));
   if (f.etiqueta) p.set("etiqueta", f.etiqueta);

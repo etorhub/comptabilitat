@@ -36,13 +36,13 @@ export interface DashboardPageProps {
   balanceDate: string | null;
   mesActual: IncomeAndExpenses;
   perRevisar: number;
-  senseClassificar: number;
+  unclassified: number;
   activeAlerts: number;
   /** The alerts link only makes sense for installation administrators. */
   canSeeAlerts: boolean;
   monthly: MonthlyPoint[];
   categories: CategoryPart[];
-  saldos: BalancePoint[];
+  balances: BalancePoint[];
 }
 
 export function DashboardPage(props: DashboardPageProps): Html {
@@ -54,12 +54,12 @@ export function DashboardPage(props: DashboardPageProps): Html {
     balanceDate,
     mesActual,
     perRevisar,
-    senseClassificar,
+    unclassified,
     activeAlerts,
     canSeeAlerts,
     monthly,
     categories,
-    saldos,
+    balances,
   } = props;
 
   return html`
@@ -83,7 +83,7 @@ export function DashboardPage(props: DashboardPageProps): Html {
         tag: "Per revisar",
         value: String(perRevisar),
         href: `/e/${code}/moviments/revisio`,
-        detail: senseClassificar > 0 ? `${senseClassificar} sense classificar` : "",
+        detail: unclassified > 0 ? `${unclassified} sense classificar` : "",
       })}
       ${Stat({
         tag: "Avisos",
@@ -96,7 +96,7 @@ export function DashboardPage(props: DashboardPageProps): Html {
 
     <div class="dues-columnes">
       ${CategoryChart(categories)}
-      ${BalanceChart(saldos)}
+      ${BalanceChart(balances)}
     </div>
   ` as Html;
 }
@@ -106,7 +106,7 @@ export interface ReportsPageProps {
   filters: ReportFilters;
   totals: IncomeAndExpenses;
   monthly: MonthlyPoint[];
-  despesesPerCategoria: CategoryPart[];
+  expensesPerCategory: CategoryPart[];
   incomeByCategory: CategoryPart[];
   merchantList: MerchantPart[];
 }
@@ -117,7 +117,7 @@ export function ReportsPage(props: ReportsPageProps): Html {
     filters,
     totals,
     monthly,
-    despesesPerCategoria,
+    expensesPerCategory,
     incomeByCategory,
     merchantList,
   } = props;
@@ -140,7 +140,7 @@ export function ReportsPage(props: ReportsPageProps): Html {
       </label>
       <label class="camp camp-linia camp-estret">
         <span class="camp-etiqueta">Fins a</span>
-        <input type="date" name="fins" value="${filters.fins ?? ""}" />
+        <input type="date" name="fins" value="${filters.to ?? ""}" />
       </label>
       <label class="camp camp-linia camp-estret">
         <span class="camp-etiqueta">Mesos</span>
@@ -163,7 +163,7 @@ export function ReportsPage(props: ReportsPageProps): Html {
     ${ReportsContent({
       totals,
       monthly,
-      despesesPerCategoria,
+      expensesPerCategory,
       incomeByCategory,
       merchantList,
     })}
@@ -173,13 +173,13 @@ export function ReportsPage(props: ReportsPageProps): Html {
 export interface ReportsContentProps {
   totals: IncomeAndExpenses;
   monthly: MonthlyPoint[];
-  despesesPerCategoria: CategoryPart[];
+  expensesPerCategory: CategoryPart[];
   incomeByCategory: CategoryPart[];
   merchantList: MerchantPart[];
 }
 
 export function ReportsContent(props: ReportsContentProps): Html {
-  const { totals, monthly, despesesPerCategoria, incomeByCategory, merchantList } = props;
+  const { totals, monthly, expensesPerCategory, incomeByCategory, merchantList } = props;
 
   return html`<div id="contingut-informes">
     <div class="xifres">
@@ -196,7 +196,7 @@ export function ReportsContent(props: ReportsContentProps): Html {
 
     <section class="superficie targeta">
       <h2>Despeses per categoria</h2>
-      ${CategoriesTable(despesesPerCategoria)}
+      ${CategoriesTable(expensesPerCategory)}
     </section>
 
     <section class="superficie targeta">
@@ -224,8 +224,8 @@ export function ForecastContent({
 }): Html {
   const last = forecast.points[forecast.points.length - 1];
   const finalBalance = last?.esperat ?? forecast.openingBalance;
-  const diferencia = money(finalBalance).minus(money(forecast.openingBalance));
-  const diferenciaText = `${diferencia.isPositive() ? "+" : ""}${formatMoney(diferencia)}`;
+  const difference = money(finalBalance).minus(money(forecast.openingBalance));
+  const differenceText = `${difference.isPositive() ? "+" : ""}${formatMoney(difference)}`;
 
   return html`<div id="previsio-contingut">
     <div class="dues-columnes previsio-cap">
@@ -277,8 +277,8 @@ export function ForecastContent({
         ${Stat({
           tag: `D'aqui a ${forecast.horizonDays} dies`,
           value: formatMoney(finalBalance),
-          to: diferencia.isNegative() ? "negatiu" : diferencia.isPositive() ? "positiu" : "",
-          detail: diferencia.isZero() ? "igual que avui" : `${diferenciaText} respecte d'avui`,
+          to: difference.isNegative() ? "negatiu" : difference.isPositive() ? "positiu" : "",
+          detail: difference.isZero() ? "igual que avui" : `${differenceText} respecte d'avui`,
         })}
       </div>
     </div>

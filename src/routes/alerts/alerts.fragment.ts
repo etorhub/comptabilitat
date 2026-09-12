@@ -14,7 +14,7 @@ import { EmptyState } from "../../components/vista.ts";
 import type { Html } from "../../lib/html.ts";
 import { alertFiltersToQuery, type AlertFilters } from "./alerts.schema.ts";
 
-const GRAVETAT: Record<AlertSeverity, { tag: string; cssClass: string }> = {
+const SEVERITY: Record<AlertSeverity, { tag: string; cssClass: string }> = {
   critical: { tag: "Urgent", cssClass: "avis-critic" },
   warning: { tag: "Atencio", cssClass: "avis-atencio" },
   info: { tag: "Informatiu", cssClass: "avis-info" },
@@ -65,15 +65,15 @@ interface AlertCardProps {
 
 export function AlertCard({ code, alert, filters }: AlertCardProps): Html {
   const query = filters === undefined ? "" : alertFiltersToQuery(filters);
-  const gravetat = GRAVETAT[alert.severity];
+  const severity = SEVERITY[alert.severity];
   const dismissed = alert.status === "dismissed";
 
   return html`<li
     id="avis-${alert.id}"
-    class="avis ${gravetat.cssClass} ${alert.status === "new" ? "avis-nou" : ""}"
+    class="avis ${severity.cssClass} ${alert.status === "new" ? "avis-nou" : ""}"
   >
     <div class="avis-cap">
-      <span class="etiqueta">${gravetat.tag}</span>
+      <span class="etiqueta">${severity.tag}</span>
       <h2 class="avis-titol">${alert.title}</h2>
       <time class="text-suau" datetime="${alert.createdAt.toISOString()}">
         ${dateLlarga.format(alert.createdAt)}

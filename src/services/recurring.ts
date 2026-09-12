@@ -73,18 +73,18 @@ function medianaImports(values: string[]): Decimal {
   return (ordenats[mig - 1] as Decimal).plus(ordenats[mig] as Decimal).dividedBy(2);
 }
 
-function nextCadenceMonth(intervalDies: number): Cadence | null {
-  for (const cadencia of Object.keys(CADENCE_DAYS) as Cadence[]) {
-    if (Math.abs(intervalDies - CADENCE_DAYS[cadencia]) <= CADENCE_TOLERANCE_DAYS[cadencia]) {
-      return cadencia;
+function nextCadenceMonth(intervalDays: number): Cadence | null {
+  for (const cadence of Object.keys(CADENCE_DAYS) as Cadence[]) {
+    if (Math.abs(intervalDays - CADENCE_DAYS[cadence]) <= CADENCE_TOLERANCE_DAYS[cadence]) {
+      return cadence;
     }
   }
   return null;
 }
 
-function regularitat(intervals: number[], esperat: number, tolerancia: number): number {
+function regularity(intervals: number[], esperat: number, tolerance: number): number {
   if (intervals.length === 0) return 0;
-  const bons = intervals.filter((v) => Math.abs(v - esperat) <= tolerancia).length;
+  const bons = intervals.filter((v) => Math.abs(v - esperat) <= tolerance).length;
   return bons / intervals.length;
 }
 
@@ -112,8 +112,10 @@ function seriesLabel(m: TransactionSeries): string {
   return m.normalizedDescription || m.description.slice(0, 80);
 }
 
-function toleranciaDimport(importEsperat: Decimal): Decimal {
-  return Decimal.max(importEsperat.abs().times("0.10"), new Decimal("1.00")).toDecimalPlaces(2);
+function amountToleranceFor(expectedAmount: Decimal): Decimal {
+  return Decimal.max(expectedAmount.abs().times("0.10"), new Decimal("1.00")).toDecimalPlaces(
+    2,
+  );
 }
 
 /**
@@ -179,13 +181,13 @@ async function evaluateGroup(
   items: TransactionSeries[],
   stats: RecurringStats,
 ): Promise<void> {
-  const [existent] = await db
+  const [existing] = await db
     .select()
     .from(recurringSeries)
     .where(and(eq(recurringSeries.ledgerId, ledgerId), eq(recurringSeries.signature, key)))
     .limit(1);
 
-  if (existent && (existent.status === "dismissed" || existent.status === "ended")) {
+  if (existing && (existing.status === "dismissed" || existing.status === "ended")) {
     return;
   }
 
@@ -197,15 +199,15 @@ async function evaluateGroup(
   }
 
   // Active series: refreshed with the cadence it already has (no need to re-detect).
-  if (existent?.status === "active") {
-    const intervalArrodonit = existent.intervalDays;
+  if (existing?.status === "active") {
+    const intervalArrodonit = existing.intervalDays;
     const lastDate = dates[dates.length - 1] as string;
     const last = items[items.length - 1] as TransactionSeries;
-    const importDetectat = medianaImports(items.map((i) => i.amount)).toDecimalPlaces(2);
-    const importEsperat =
-      existent.amountMode === "average"
+    const detectedAmount = medianaImports(items.map((i) => i.amount)).toDecimalPlaces(2);
+    const expectedAmount =
+      existing.amountMode === "average"
         ? medianaImports(importsRecents(items)).toDecimalPlaces(2)
-        : money(existent.expectedAmount);
+        : money(existing.expectedAmount);
 
     await db
       .update(recurringSeries)
@@ -214,36 +216,36 @@ async function evaluateGroup(
         lastSeenDate: lastDate,
         nextExpectedDate: addDays(lastDate, intervalArrodonit),
         merchantId: last.merchantId,
-        ...(existent.amountMode === "average"
+        ...(existing.amountMode === "average"
           ? {
-              expectedAmount: toMoneyString(importEsperat),
-              amountTolerance: toMoneyString(toleranciaDimport(importEsperat)),
+              expectedAmount: toMoneyString(expectedAmount),
+              amountTolerance: toMoneyString(amountToleranceFor(expectedAmount)),
             }
           : {}),
         ...(last.displayDescription ? { label: last.displayDescription } : {}),
       })
-      .where(eq(recurringSeries.id, existent.id));
+      .where(eq(recurringSeries.id, existing.id));
 
     stats.actualitzades += 1;
 
     if (
-      existent.amountMode === "exact" &&
+      existing.amountMode === "exact" &&
       money(last.amount)
-        .minus(money(existent.expectedAmount))
+        .minus(money(existing.expectedAmount))
         .abs()
-        .gt(money(existent.amountTolerance))
+        .gt(money(existing.amountTolerance))
     ) {
-      const puja = money(last.amount).abs().gt(money(existent.expectedAmount).abs());
+      const puja = money(last.amount).abs().gt(money(existing.expectedAmount).abs());
       const creat = await createAlert({
         type: "recurring_amount_change",
         ledgerId,
-        dedupKey: `amount-change:${existent.id}:${lastDate}`,
-        title: `${existent.label}: l'import ${puja ? "puja" : "baixa"} a ${money(last.amount).abs().toFixed(2)} EUR`,
-        body: `L'import habitual era de ${money(existent.expectedAmount).abs().toFixed(2)} EUR i l'ultim rebut ha estat de ${money(last.amount).abs().toFixed(2)} EUR.`,
+        dedupKey: `amount-change:${existing.id}:${lastDate}`,
+        title: `${existing.label}: l'import ${puja ? "puja" : "baixa"} a ${money(last.amount).abs().toFixed(2)} EUR`,
+        body: `L'import habitual era de ${money(existing.expectedAmount).abs().toFixed(2)} EUR i l'ultim rebut ha estat de ${money(last.amount).abs().toFixed(2)} EUR.`,
         severity: "warning",
         payload: {
-          series_id: existent.id,
-          previous_amount: existent.expectedAmount,
+          series_id: existing.id,
+          previous_amount: existing.expectedAmount,
           new_amount: last.amount,
           transaction_id: last.id,
         },
@@ -252,8 +254,8 @@ async function evaluateGroup(
     }
 
     // If the detected amount diverges a lot with average, no warning is needed: it is already refreshed.
-    void importDetectat;
-    await linkOccurrences(existent.id, items);
+    void detectedAmount;
+    await linkOccurrences(existing.id, items);
     return;
   }
 
@@ -265,21 +267,21 @@ async function evaluateGroup(
   const found = nextCadenceMonth(intervalMedia);
   if (found === null) return;
 
-  const tolerancia = CADENCE_TOLERANCE_DAYS[found];
-  const regular = regularitat(intervals, CADENCE_DAYS[found], tolerancia);
+  const tolerance = CADENCE_TOLERANCE_DAYS[found];
+  const regular = regularity(intervals, CADENCE_DAYS[found], tolerance);
   if (regular < MIN_REGULARITY) return;
 
-  const cadencia = found;
+  const cadence = found;
   const intervalArrodonit = Math.round(intervalMedia);
   const confianca =
     Math.round(Math.min(1, regular * Math.min(1, items.length / 6)) * 100) / 100;
-  const importEsperat = medianaImports(items.map((i) => i.amount)).toDecimalPlaces(2);
-  const toleranciaImport = toleranciaDimport(importEsperat);
+  const expectedAmount = medianaImports(items.map((i) => i.amount)).toDecimalPlaces(2);
+  const amountTolerance = amountToleranceFor(expectedAmount);
   const lastDate = dates[dates.length - 1] as string;
   const nextExpected = addDays(lastDate, intervalArrodonit);
   const last = items[items.length - 1] as TransactionSeries;
 
-  if (!existent) {
+  if (!existing) {
     const [creada] = await db
       .insert(recurringSeries)
       .values({
@@ -288,9 +290,9 @@ async function evaluateGroup(
         label: seriesLabel(last),
         merchantId: last.merchantId,
         categoryId: last.categoryId,
-        cadence: cadencia,
-        expectedAmount: toMoneyString(importEsperat),
-        amountTolerance: toMoneyString(toleranciaImport),
+        cadence: cadence,
+        expectedAmount: toMoneyString(expectedAmount),
+        amountTolerance: toMoneyString(amountTolerance),
         amountMode: "exact",
         intervalDays: intervalArrodonit,
         confidence: confianca,
@@ -313,21 +315,21 @@ async function evaluateGroup(
   await db
     .update(recurringSeries)
     .set({
-      cadence: cadencia,
+      cadence: cadence,
       intervalDays: intervalArrodonit,
       confidence: confianca,
       occurrencesCount: items.length,
       lastSeenDate: lastDate,
       nextExpectedDate: nextExpected,
       merchantId: last.merchantId,
-      expectedAmount: toMoneyString(importEsperat),
-      amountTolerance: toMoneyString(toleranciaImport),
+      expectedAmount: toMoneyString(expectedAmount),
+      amountTolerance: toMoneyString(amountTolerance),
       ...(last.displayDescription ? { label: last.displayDescription } : {}),
     })
-    .where(eq(recurringSeries.id, existent.id));
+    .where(eq(recurringSeries.id, existing.id));
 
   stats.actualitzades += 1;
-  await linkOccurrences(existent.id, items);
+  await linkOccurrences(existing.id, items);
 }
 
 function importsRecents(items: TransactionSeries[]): string[] {
@@ -431,19 +433,19 @@ export async function createSeriesManual(
 ): Promise<number> {
   await categoryInWorkspace(data.categoryId, ledgerId);
 
-  const importEsperat = money(data.expectedAmount);
-  if (importEsperat.isZero()) {
+  const expectedAmount = money(data.expectedAmount);
+  if (expectedAmount.isZero()) {
     throw new ConflictError("L'import no pot ser zero");
   }
 
   const merchantId = data.merchantId ?? null;
   const signature = signaturaManual(data.categoryId, merchantId, data.expectedAmount);
   const intervalDays = CADENCE_DAYS[data.cadence];
-  const amount = toMoneyString(importEsperat);
-  const amountTolerance = toMoneyString(toleranciaDimport(importEsperat));
+  const amount = toMoneyString(expectedAmount);
+  const amountTolerance = toMoneyString(amountToleranceFor(expectedAmount));
   const day = data.nextExpectedDate;
 
-  const [existent] = await connection
+  const [existing] = await connection
     .select()
     .from(recurringSeries)
     .where(
@@ -451,8 +453,8 @@ export async function createSeriesManual(
     )
     .limit(1);
 
-  if (existent) {
-    if (existent.status !== "dismissed") {
+  if (existing) {
+    if (existing.status !== "dismissed") {
       throw new ConflictError("Ja hi ha una serie amb la mateixa categoria, comerç i sentit");
     }
 
@@ -475,9 +477,9 @@ export async function createSeriesManual(
         status: "active",
         includeInForecast: true,
       })
-      .where(eq(recurringSeries.id, existent.id));
+      .where(eq(recurringSeries.id, existing.id));
 
-    return existent.id;
+    return existing.id;
   }
 
   const [creada] = await connection
@@ -513,16 +515,16 @@ export async function updateSeriesAmount(
   expectedAmount: MoneyString,
   connection: Transactor = db,
 ): Promise<void> {
-  const importEsperat = money(expectedAmount);
-  if (importEsperat.isZero()) {
+  const amount = money(expectedAmount);
+  if (amount.isZero()) {
     throw new ConflictError("L'import no pot ser zero");
   }
 
   await connection
     .update(recurringSeries)
     .set({
-      expectedAmount: toMoneyString(importEsperat),
-      amountTolerance: toMoneyString(toleranciaDimport(importEsperat)),
+      expectedAmount: toMoneyString(amount),
+      amountTolerance: toMoneyString(amountToleranceFor(amount)),
       amountMode: "exact",
     })
     .where(eq(recurringSeries.id, seriesId));

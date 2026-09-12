@@ -39,7 +39,7 @@ async function existeix(table: string): Promise<boolean> {
  * It writes straight into Drizzle's history table, which is what the migrator
  * would have done had it run it.
  */
-async function baseline(motiu: string): Promise<void> {
+async function baseline(reason: string): Promise<void> {
   const journal = await Bun.file("drizzle/meta/_journal.json").json();
   const first = journal.entries?.[0];
   if (!first) throw new Error("No hi ha cap migracio a drizzle/meta/_journal.json");
@@ -61,7 +61,7 @@ async function baseline(motiu: string): Promise<void> {
   );
 
   console.info(
-    `[migracions] base de dades existent (${motiu}): la migracio ${first.tag} ` +
+    `[migracions] base de dades existent (${reason}): la migracio ${first.tag} ` +
       "es marca com a aplicada sense executar-la.",
   );
 }

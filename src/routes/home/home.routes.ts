@@ -31,7 +31,7 @@ homeRoutes.get("/sense-espais", requireUser, async (c) => {
       title: "Sense espais",
       user,
       csrfToken: c.get("csrfToken") ?? "",
-      ruta: c.req.path,
+      path: c.req.path,
       workspaces: [],
       children: html`
         <header class="capçalera"><h1>Encara no tens cap espai</h1></header>

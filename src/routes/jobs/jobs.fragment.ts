@@ -31,7 +31,7 @@ import {
 export interface JobEntry {
   id: JobId;
   title: string;
-  descripcio: string;
+  description: string;
 }
 
 const dateHora = new Intl.DateTimeFormat("ca-ES", {
@@ -181,7 +181,7 @@ function buttonBlocked(id: JobId, enCurs: Set<string>): boolean {
 export function ButtonJob({
   id,
   title,
-  descripcio,
+  description,
   darrera,
   enCurs,
 }: JobEntry & { darrera: JobRun | null; enCurs: Set<string> }): Html {
@@ -196,7 +196,7 @@ export function ButtonJob({
               <span class="text-suau">${dateCurta.format(darrera.startedAt)} · ${durada(darrera)}</span>`
             : html`<span class="etiqueta etiqueta-suau">Mai</span>`
         }
-        <p class="text-suau">${descripcio}</p>
+        <p class="text-suau">${description}</p>
       </div>
       <form
         hx-post="/feines"
@@ -441,8 +441,8 @@ export function HistoryList({
   filters: HistoryFilters;
   oob?: boolean;
 }): Html {
-  const desde = page.total === 0 ? 0 : page.page * page.limit + 1;
-  const fins = Math.min((page.page + 1) * page.limit, page.total);
+  const from = page.total === 0 ? 0 : page.page * page.limit + 1;
+  const to = Math.min((page.page + 1) * page.limit, page.total);
 
   return html`<div ${oobAttributes("historial-feines", oob)}>
     ${HistoryFilterBar({ filters })}
@@ -451,9 +451,9 @@ export function HistoryList({
         html`<th>Feina</th><th>Origen</th><th>Estat</th><th>Inici</th><th>Durada</th><th>Resultat</th>` as Html,
       rows: page.items.map((run) => RunRow(run, page.children.get(run.id) ?? [])),
       empty: "Encara no hi ha cap execució registrada.",
-      peu:
+      footer:
         page.total > 0
-          ? (html`<p class="text-suau">${String(desde)}–${String(fins)} de ${String(page.total)}</p>
+          ? (html`<p class="text-suau">${String(from)}–${String(to)} de ${String(page.total)}</p>
             ${HistorySteps({ filters, total: page.total })}` as Html)
           : "",
     })}

@@ -112,7 +112,7 @@ export function Table({
         Row({ code, transaction, groups, canEdit, knownTags }),
       ),
       empty: "Cap moviment encaixa amb aquests filtres.",
-      peu: Pagination({
+      footer: Pagination({
         page,
         passos: Passos({ code, filters, total: page.total }),
         summary: html` · suma ${formatMoney(page.totalAmount)}` as Html,
@@ -245,7 +245,7 @@ export interface RowProps {
   groups: CategoryGroup[];
   canEdit: boolean;
   /** Show the dropdown even when there is already a category (inline edit). */
-  editantCategoria?: boolean;
+  editingCategory?: boolean;
   knownTags?: string[];
 }
 
@@ -270,11 +270,11 @@ function CategoryCell({
   transaction,
   groups,
   canEdit,
-  editantCategoria = false,
+  editingCategory = false,
 }: RowProps): Html {
   const base = `/e/${code}/moviments/${transaction.id}`;
   const origin = Origin[transaction.categorySource];
-  const mostraSelect = canEdit && (editantCategoria || transaction.categoryId === null);
+  const showSelect = canEdit && (editingCategory || transaction.categoryId === null);
 
   if (!canEdit) {
     return html`
@@ -288,7 +288,7 @@ function CategoryCell({
     ` as Html;
   }
 
-  if (mostraSelect) {
+  if (showSelect) {
     return html`
       ${Select({
         name: "category_id",
@@ -300,7 +300,7 @@ function CategoryCell({
         attributes: `hx-post="${base}/categoria" hx-target="#moviment-${transaction.id}" hx-swap="outerHTML" hx-trigger="change"`,
       })}
       ${
-        editantCategoria
+        editingCategory
           ? html`<button
             type="button"
             class="boto boto-discret"
@@ -348,7 +348,7 @@ export function Row({
   transaction,
   groups,
   canEdit,
-  editantCategoria = false,
+  editingCategory = false,
   knownTags = [],
 }: RowProps): Html {
   const base = `/e/${code}/moviments/${transaction.id}`;
@@ -356,7 +356,7 @@ export function Row({
 
   return html`<tr
     id="moviment-${transaction.id}"
-    class="${transaction.isExcluded ? "exclos" : ""}${editantCategoria ? " editant-categoria" : ""}"
+    class="${transaction.isExcluded ? "exclos" : ""}${editingCategory ? " editant-categoria" : ""}"
   >
     ${
       canEdit
@@ -435,7 +435,7 @@ export function Row({
     </td>
 
     <td class="cel-categoria" data-etiqueta="Categoria">
-      ${CategoryCell({ code, transaction, groups, canEdit, editantCategoria })}
+      ${CategoryCell({ code, transaction, groups, canEdit, editingCategory })}
     </td>
 
     <td class="dreta ${negatiu ? "negatiu" : "positiu"}" data-etiqueta="Import">
@@ -515,7 +515,7 @@ function TransactionTags({
 }
 
 /** The row turned into a field for typing an alias. */
-export function FilaConcepte({
+export function ConceptRow({
   code,
   transaction,
 }: {
@@ -563,7 +563,7 @@ export function FilaConcepte({
 }
 
 /** Multiple selector of cards (last 4 digits) used on the account. */
-export function FiltreTargetes({
+export function CardFilter({
   cards,
   seleccionades,
   oob = false,
@@ -631,7 +631,7 @@ export function FilterBar({
 
     <label class="camp camp-linia camp-estret">
       <span class="camp-etiqueta">Fins a</span>
-      <input type="date" name="fins" value="${filters.fins ?? ""}" />
+      <input type="date" name="fins" value="${filters.to ?? ""}" />
     </label>
 
     ${
@@ -674,7 +674,7 @@ export function FilterBar({
       )}
     </fieldset>
 
-    ${FiltreTargetes({ cards: knownCards, seleccionades: filters.card })}
+    ${CardFilter({ cards: knownCards, seleccionades: filters.card })}
 
     ${Checkbox({
       name: "sense_classificar",

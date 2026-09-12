@@ -45,10 +45,10 @@ export async function nightlyPass(): Promise<string> {
  * The urgent alerts are not included: `alertsJob` already covers the critical
  * ones, and sending them again would duplicate them.
  */
-export async function passAll(ambModelLocal: boolean = config.ollamaEnabled): Promise<string> {
+export async function passAll(withLocalModel: boolean = config.ollamaEnabled): Promise<string> {
   const parts: string[] = [];
   parts.push(await runStep("passada-diaria", dailyPass));
-  if (ambModelLocal) {
+  if (withLocalModel) {
     parts.push(await runStep("passada-nocturna", nightlyPass));
   }
   parts.push(await runStep("notify", alertsJob));

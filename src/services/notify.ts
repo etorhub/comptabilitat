@@ -18,7 +18,7 @@ import { sendMail, renderSummary, type SummaryEntry } from "../lib/email.ts";
 import { todayLocal } from "../lib/time.ts";
 
 /** Local date and time, as `strftime("%d/%m/%Y %H:%M")` wrote them. */
-const marcaLocal = new Intl.DateTimeFormat("ca-ES", {
+const localStamp = new Intl.DateTimeFormat("ca-ES", {
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
@@ -28,9 +28,9 @@ const marcaLocal = new Intl.DateTimeFormat("ca-ES", {
   timeZone: config.timezone,
 });
 
-function formataMarca(moment: Date): string {
+function formatStamp(when: Date): string {
   // The Catalan `Intl` puts «, » between the date and the time; the Python does not.
-  return marcaLocal.format(moment).replace(", ", " ");
+  return localStamp.format(when).replace(", ", " ");
 }
 
 function dateCurta(isoDate: string): string {
@@ -39,8 +39,9 @@ function dateCurta(isoDate: string): string {
 }
 
 /** Who this workspace's alerts go to. */
-export function recipientsOf(recipientsEspai: readonly string[] | null): string[] {
-  if (recipientsEspai !== null && recipientsEspai.length > 0) return [...recipientsEspai];
+export function recipientsOf(workspaceRecipients: readonly string[] | null): string[] {
+  if (workspaceRecipients !== null && workspaceRecipients.length > 0)
+    return [...workspaceRecipients];
   return [...config.alertRecipients];
 }
 
@@ -50,14 +51,14 @@ export function recipientsOf(recipientsEspai: readonly string[] | null): string[
  * With `nomesUrgents` only the critical ones come out, so that it can be
  * called every hour without filling the inbox; the rest go in the daily digest.
  */
-export async function notifyPending(nomesUrgents = false): Promise<string> {
-  const condicions = [isNull(alerts.notifiedAt), ne(alerts.status, "dismissed")];
-  if (nomesUrgents) condicions.push(eq(alerts.severity, "critical"));
+export async function notifyPending(urgentOnly = false): Promise<string> {
+  const conditions = [isNull(alerts.notifiedAt), ne(alerts.status, "dismissed")];
+  if (urgentOnly) conditions.push(eq(alerts.severity, "critical"));
 
   const pending = await db
     .select()
     .from(alerts)
-    .where(and(...condicions))
+    .where(and(...conditions))
     // Same order as the Python: `severity` is text, so alphabetically
     // «critical» < «info» < «warning» and the urgent ones come first.
     .orderBy(asc(alerts.severity), asc(alerts.createdAt));
@@ -75,7 +76,7 @@ export async function notifyPending(nomesUrgents = false): Promise<string> {
   let enviats = 0;
   let pendingUnsent = 0;
 
-  for (const [ledgerId, delEspai] of byWorkspace) {
+  for (const [ledgerId, workspaceAlerts] of byWorkspace) {
     const [workspace] =
       ledgerId === null
         ? []
@@ -85,44 +86,44 @@ export async function notifyPending(nomesUrgents = false): Promise<string> {
     if (recipients.length === 0) {
       console.info(
         `[avisos] sense destinataris per a ${workspace?.name ?? "avisos generals"}: ` +
-          `${delEspai.length} avisos queden pendents`,
+          `${workspaceAlerts.length} avisos queden pendents`,
       );
-      pendingUnsent += delEspai.length;
+      pendingUnsent += workspaceAlerts.length;
       continue;
     }
 
-    const title = nomesUrgents ? "Avis urgent de la comptabilitat" : "Resum d'avisos";
-    let subtitle = nomesUrgents
+    const title = urgentOnly ? "Avis urgent de la comptabilitat" : "Resum d'avisos";
+    let subtitle = urgentOnly
       ? "Hi ha una cosa que necessita atencio ara."
       : `Avisos nous del ${dateCurta(todayLocal())}.`;
     if (workspace !== undefined) subtitle = `${workspace.name} · ${subtitle}`;
 
-    const entrades: SummaryEntry[] = delEspai.map((alert) => ({
+    const entrades: SummaryEntry[] = workspaceAlerts.map((alert) => ({
       severity: alert.severity,
       title: alert.title,
       body: alert.body,
       ledgerName: workspace?.name ?? "",
-      created: formataMarca(alert.createdAt),
+      created: formatStamp(alert.createdAt),
     }));
 
     const { html, text } = await renderSummary(entrades, title, subtitle);
     const name = workspace !== undefined ? `${title} · ${workspace.name}` : title;
-    const first = delEspai[0];
+    const first = workspaceAlerts[0];
     const assumpte =
-      delEspai.length === 1 && first !== undefined
+      workspaceAlerts.length === 1 && first !== undefined
         ? `${name}: ${first.title}`
-        : `${name} (${delEspai.length})`;
+        : `${name} (${workspaceAlerts.length})`;
 
     if (!(await sendMail(assumpte, html, text, recipients))) {
-      pendingUnsent += delEspai.length;
+      pendingUnsent += workspaceAlerts.length;
       continue;
     }
 
     const ara = new Date();
-    for (const alert of delEspai) {
+    for (const alert of workspaceAlerts) {
       await db.update(alerts).set({ notifiedAt: ara }).where(eq(alerts.id, alert.id));
     }
-    enviats += delEspai.length;
+    enviats += workspaceAlerts.length;
   }
 
   if (enviats > 0 && pendingUnsent > 0) {

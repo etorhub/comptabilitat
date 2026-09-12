@@ -100,15 +100,15 @@ describe("the data", () => {
     expect(summary.transactionList ?? 0).toBeGreaterThan(200);
     expect(summary.accountList).toBe(3);
 
-    const [nComptes] = await db.select({ n: count() }).from(accounts);
-    expect(nComptes?.n).toBe(3);
+    const [accountCount] = await db.select({ n: count() }).from(accounts);
+    expect(accountCount?.n).toBe(3);
 
-    const espaisAmbMoviments = new Set(
+    const workspacesWithTransactions = new Set(
       (await db.select({ ledgerId: transactions.ledgerId }).from(transactions)).map(
         (t) => t.ledgerId,
       ),
     );
-    expect(espaisAmbMoviments.size).toBe(3);
+    expect(workspacesWithTransactions.size).toBe(3);
 
     // The recurring direct debits are what feeds the forecast.
     const [nSeries] = await db.select({ n: count() }).from(recurringSeries);
@@ -134,7 +134,7 @@ describe("running it again", () => {
     expect(segona.state).toContain("ja hi havia dades");
     const [despres] = await db.select({ n: count() }).from(transactions);
     expect(despres?.n).toBe(abans?.n ?? -1);
-    const [nUsuaris] = await db.select({ n: count() }).from(users);
-    expect(nUsuaris?.n).toBe(3);
+    const [userCount] = await db.select({ n: count() }).from(users);
+    expect(userCount?.n).toBe(3);
   });
 });

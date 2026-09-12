@@ -31,7 +31,7 @@ const workspaces = [
   { ...workspace, role: "owner" as LedgerRole } as Ledger & { role: LedgerRole },
 ];
 
-async function bar(ruta: string): Promise<string> {
+async function bar(path: string): Promise<string> {
   return String(
     await Layout({
       title: "Prova",
@@ -39,7 +39,7 @@ async function bar(ruta: string): Promise<string> {
       csrfToken: "x",
       workspaces,
       workspace,
-      ruta,
+      path,
       children: "",
     }),
   );

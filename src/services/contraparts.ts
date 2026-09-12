@@ -31,14 +31,14 @@ const COUNTERPARTY_EMPTY: Counterparty = {
 /**
  * Gets (or creates) the counterparty's merchant.
  *
- * @param incrementaComptador passed straight to `getOrCreateMerchant`: false
+ * @param incrementCounter passed straight to `getOrCreateMerchant`: false
  *   for batch reassignments that recount afterwards.
  */
 export async function resolveCounterparty(
   ledgerId: number,
   data: CounterpartyData,
   connection: Transactor = db,
-  incrementaComptador = true,
+  incrementCounter = true,
 ): Promise<Counterparty> {
   const [normalitzat, mostrar] = normalizeDescription(data.description, data.counterparty);
   if (!normalitzat) return COUNTERPARTY_EMPTY;
@@ -49,7 +49,7 @@ export async function resolveCounterparty(
     mostrar,
     data.bookingDate,
     connection,
-    incrementaComptador,
+    incrementCounter,
   );
   return {
     merchantId: merchant?.id ?? null,

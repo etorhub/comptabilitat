@@ -17,7 +17,7 @@ export const reportFiltersSchema = z.object({
     .optional()
     .or(z.literal(""))
     .transform((v) => (v ? v : null)),
-  fins: z
+  to: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional()
@@ -31,7 +31,7 @@ export type ReportFilters = z.infer<typeof reportFiltersSchema>;
 export function reportFiltersToQuery(f: ReportFilters): string {
   const p = new URLSearchParams();
   if (f.des) p.set("des", f.des);
-  if (f.fins) p.set("fins", f.fins);
+  if (f.to) p.set("fins", f.to);
   if (f.mesos !== 12) p.set("mesos", String(f.mesos));
   const q = p.toString();
   return q ? `?${q}` : "";

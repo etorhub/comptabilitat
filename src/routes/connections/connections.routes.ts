@@ -62,7 +62,7 @@ import {
 export const connectionsRoutes = new Hono();
 
 /** The IBAN is only ever shown masked. */
-function ibanEmmascarat(iban: string): string {
+function maskedIban(iban: string): string {
   if (iban.length <= 8) return iban ? "····" : "";
   return `${iban.slice(0, 4)}····${iban.slice(-4)}`;
 }
@@ -91,15 +91,15 @@ async function listConnections(): Promise<ConnectionView[]> {
       validUntil: connection.validUntil,
       lastSyncAt: connection.lastSyncAt,
       lastError: connection.lastError,
-      diesPerCaducar:
+      daysToExpiry:
         connection.validUntil === null
           ? null
           : daysBetween(today, connection.validUntil.toISOString().slice(0, 10)),
       accountList: await Promise.all(
         accountList.map(async (account) => ({
           id: account.id,
-          name: account.name || account.product || ibanEmmascarat(account.iban),
-          ibanMasked: ibanEmmascarat(account.iban),
+          name: account.name || account.product || maskedIban(account.iban),
+          ibanMasked: maskedIban(account.iban),
           currency: account.currency,
           ledgerId: account.ledgerId,
           balance: (await lastBalance(account.id))?.amount ?? null,
@@ -127,7 +127,9 @@ connectionsRoutes.get("/", async (c) => {
 
   const state = c.req.query("estat");
   const retorn =
-    state === undefined ? undefined : { ok: state === "ok", motiu: c.req.query("motiu") ?? "" };
+    state === undefined
+      ? undefined
+      : { ok: state === "ok", reason: c.req.query("motiu") ?? "" };
 
   return page(
     c,
@@ -135,7 +137,7 @@ connectionsRoutes.get("/", async (c) => {
       title: "Connexions",
       user,
       csrfToken: c.get("csrfToken") ?? "",
-      ruta: c.req.path,
+      path: c.req.path,
       workspaces: meus,
       children: ConnectionsPage({ connections, workspaces, retorn }),
     }),
@@ -182,16 +184,16 @@ callbackRoute.get("/api/auth/callback", async (c) => {
   const base = `${config.publicBaseUrl}/connexions`;
 
   if (!parsed.success || parsed.data.error || !parsed.data.code || !parsed.data.state) {
-    const motiu = encodeURIComponent(parsed.success ? (parsed.data.error ?? "") : "");
-    return c.redirect(`${base}?estat=error&motiu=${motiu}`, 303);
+    const reason = encodeURIComponent(parsed.success ? (parsed.data.error ?? "") : "");
+    return c.redirect(`${base}?estat=error&motiu=${reason}`, 303);
   }
 
   try {
     await finishAuthorization(parsed.data.code, parsed.data.state);
     return c.redirect(`${base}?estat=ok`, 303);
   } catch (error) {
-    const motiu = encodeURIComponent(error instanceof Error ? error.message : "desconegut");
-    return c.redirect(`${base}?estat=error&motiu=${motiu}`, 303);
+    const reason = encodeURIComponent(error instanceof Error ? error.message : "desconegut");
+    return c.redirect(`${base}?estat=error&motiu=${reason}`, 303);
   }
 });
 
@@ -270,7 +272,7 @@ connectionsRoutes.post("/comptes/:id/espai", async (c) => {
   const [workspaces, connections] = await Promise.all([activeWorkspaces(), listConnections()]);
   const view = connections
     .flatMap((con) => con.accountList)
-    .find((compteVista) => compteVista.id === id);
+    .find((accountView) => accountView.id === id);
 
   if (!view) throw new NotFoundError("Aquest compte no existeix");
 

@@ -127,7 +127,7 @@ export async function saveTransactions(
   account: Account,
   items: TransactionAnalyzed[],
   /** If the bank did not give everything, nothing can be deduced from what is missing. */
-  llistaIncompleta = false,
+  incompleteList = false,
 ): Promise<AccountResult> {
   const result: AccountResult = {
     accountId: account.id,
@@ -298,7 +298,7 @@ export async function saveTransactions(
   // only be deduced if the bank gave **everything**: with a truncated list,
   // «it is not there» means «it did not arrive», and we would delete live
   // transactions along with their notes, tags and whatever category was set.
-  const caducats = llistaIncompleta
+  const caducats = incompleteList
     ? []
     : pending.filter((p) => !views.has(p.dedupKey) && p.bookingDate >= inicíFinestra);
   if (caducats.length > 0) {

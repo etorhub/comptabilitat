@@ -109,7 +109,7 @@ export async function seedCategories(ledgerId: number): Promise<number> {
   );
 
   let creades = 0;
-  let posicio = 0;
+  let position = 0;
 
   for (const [kind, tree] of trees) {
     for (const [nomPare, color, children] of tree) {
@@ -134,14 +134,14 @@ export async function seedCategories(ledgerId: number): Promise<number> {
             color,
             icon: "",
             isSystem: true,
-            position: posicio,
+            position: position,
             parentId: null,
           })
           .returning({ id: categories.id });
         parentId = creat?.id;
         creades += 1;
       }
-      posicio += 1;
+      position += 1;
       if (parentId === undefined) continue;
 
       for (const childName of children) {
@@ -155,11 +155,11 @@ export async function seedCategories(ledgerId: number): Promise<number> {
           color,
           icon: "",
           isSystem: true,
-          position: posicio,
+          position: position,
           parentId: parentId,
         });
         creades += 1;
-        posicio += 1;
+        position += 1;
       }
     }
   }
@@ -171,7 +171,7 @@ export async function seedCategories(ledgerId: number): Promise<number> {
 export async function seedLedgers(): Promise<Ledger[]> {
   const created: Ledger[] = [];
 
-  for (const [posicio, [code, name, color, description]] of DEFAULT_LEDGERS.entries()) {
+  for (const [position, [code, name, color, description]] of DEFAULT_LEDGERS.entries()) {
     const [ja] = await db.select().from(ledgers).where(eq(ledgers.code, code)).limit(1);
     if (ja) {
       await seedCategories(ja.id);
@@ -187,7 +187,7 @@ export async function seedLedgers(): Promise<Ledger[]> {
         currency: "EUR",
         color,
         overdraftThreshold: "0.00",
-        position: posicio,
+        position: position,
         isActive: true,
         alertRecipients: [],
       })

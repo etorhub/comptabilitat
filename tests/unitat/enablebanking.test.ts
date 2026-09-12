@@ -112,7 +112,7 @@ describe("the sign of the amount", () => {
       credit_debit_indicator: "DBIT",
       booking_date: "2026-03-01",
     });
-    const abonament = parseTransaction({
+    const credit = parseTransaction({
       status: "BOOK",
       transaction_amount: { amount: "45.20", currency: "EUR" },
       credit_debit_indicator: "CRDT",
@@ -120,6 +120,6 @@ describe("the sign of the amount", () => {
     });
 
     expect(deute?.amount).toBe("-45.20");
-    expect(abonament?.amount).toBe("45.20");
+    expect(credit?.amount).toBe("45.20");
   });
 });

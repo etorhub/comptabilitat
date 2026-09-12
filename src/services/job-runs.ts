@@ -21,7 +21,7 @@ import {
 } from "../db/schema/index.ts";
 
 const ERROR_MAX = 2000;
-const HORES_FINS_A_DONAR_PER_MORTA = 2;
+const HOURS_UNTIL_PRESUMED_DEAD = 2;
 
 interface RunContext {
   /** Id of the parent row (the pass or the top-level job). */
@@ -36,7 +36,7 @@ function semblaParcial(summary: string): boolean {
   return /\(\d+ errors?\)/.test(summary);
 }
 
-function truncarError(error: unknown): string {
+function truncateError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   return message.slice(0, ERROR_MAX);
 }
@@ -86,7 +86,7 @@ async function runAndClose(run: JobRun, fn: () => Promise<string>): Promise<stri
     await closeRun(run.id, status, summary, "");
     return summary;
   } catch (error) {
-    await closeRun(run.id, "failed", "", truncarError(error));
+    await closeRun(run.id, "failed", "", truncateError(error));
     throw error;
   }
 }
@@ -157,7 +157,7 @@ export async function runStep(jobName: string, fn: () => Promise<string>): Promi
 
 /** Is there a top-level run with this name still going? */
 export async function jobRunning(jobName: string): Promise<boolean> {
-  const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
+  const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
   const [viva] = await db
     .select({ id: jobRuns.id })
     .from(jobRuns)
@@ -175,7 +175,7 @@ export async function jobRunning(jobName: string): Promise<boolean> {
 
 /** Set of job names (parent or child) that are `running` right now. */
 export async function runningJobNames(): Promise<Set<string>> {
-  const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
+  const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
   const rows = await db
     .select({ jobName: jobRuns.jobName })
     .from(jobRuns)
@@ -184,7 +184,7 @@ export async function runningJobNames(): Promise<Set<string>> {
 }
 
 export async function readRunning(): Promise<JobRun[]> {
-  const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
+  const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
   return db
     .select()
     .from(jobRuns)
@@ -203,7 +203,7 @@ export interface HistoryFilters {
   state?: JobStatus;
   origin?: JobTrigger;
   from?: Date;
-  finsA?: Date;
+  until?: Date;
   /** 0-indexed page. */
   page: number;
   limit: number;
@@ -224,7 +224,7 @@ function filterKeys(filters: HistoryFilters) {
   if (filters.state) parts.push(eq(jobRuns.status, filters.state));
   if (filters.origin) parts.push(eq(jobRuns.trigger, filters.origin));
   if (filters.from) parts.push(gte(jobRuns.startedAt, filters.from));
-  if (filters.finsA) parts.push(lte(jobRuns.startedAt, filters.finsA));
+  if (filters.until) parts.push(lte(jobRuns.startedAt, filters.until));
   return and(...parts);
 }
 
@@ -244,7 +244,7 @@ export async function readHistory(filters: HistoryFilters): Promise<HistoryPage>
         ...(filters.state ? [eq(jobRuns.status, filters.state)] : []),
         ...(filters.origin ? [eq(jobRuns.trigger, filters.origin)] : []),
         ...(filters.from ? [gte(jobRuns.startedAt, filters.from)] : []),
-        ...(filters.finsA ? [lte(jobRuns.startedAt, filters.finsA)] : []),
+        ...(filters.until ? [lte(jobRuns.startedAt, filters.until)] : []),
       )
     : filterKeys(filters);
 
@@ -322,7 +322,7 @@ export interface HealthSummary {
 
 export async function summaryHealth(): Promise<HealthSummary> {
   const fa24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
+  const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
 
   const [{ enCurs } = { enCurs: 0 }] = await db
     .select({ enCurs: count() })
@@ -367,17 +367,17 @@ export async function syncRunsForRun(run: JobRun): Promise<SyncRun[]> {
   const fi = run.finishedAt ?? new Date();
   // A little margin: the job starts before opening the first sync_run.
   const from = new Date(inici.getTime() - 5_000);
-  const fins = new Date(fi.getTime() + 5_000);
+  const to = new Date(fi.getTime() + 5_000);
   return db
     .select()
     .from(syncRuns)
-    .where(and(gte(syncRuns.startedAt, from), lte(syncRuns.startedAt, fins)))
+    .where(and(gte(syncRuns.startedAt, from), lte(syncRuns.startedAt, to)))
     .orderBy(asc(syncRuns.startedAt));
 }
 
 /** Marks `running` jobs older than 2 h as failed. */
 export async function closeStuckJobs(): Promise<number> {
-  const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
+  const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
 
   const tancades = await db
     .update(jobRuns)

@@ -19,12 +19,12 @@ export function tagDetailToQuery(q: TagDetailQuery): string {
 
 /** Tag name in the URL (after decodeURIComponent). */
 export function nameFromRoute(value: string | undefined): string {
-  const brut = value ?? "";
-  let decodificat = brut;
+  const raw = value ?? "";
+  let decoded = raw;
   try {
-    decodificat = decodeURIComponent(brut);
+    decoded = decodeURIComponent(raw);
   } catch {
-    decodificat = brut;
+    decoded = raw;
   }
-  return decodificat.trim().replace(/\s+/g, " ");
+  return decoded.trim().replace(/\s+/g, " ");
 }

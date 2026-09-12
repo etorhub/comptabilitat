@@ -107,7 +107,7 @@ export function filtersToService(filters: HistoryFilters) {
     state: filters.estat,
     origin: filters.origen,
     from: filters.des_de ? new Date(`${filters.des_de}T00:00:00`) : undefined,
-    finsA: filters.fins_a ? new Date(`${filters.fins_a}T23:59:59.999`) : undefined,
+    until: filters.fins_a ? new Date(`${filters.fins_a}T23:59:59.999`) : undefined,
     page: filters.pagina,
     limit: 30,
   };

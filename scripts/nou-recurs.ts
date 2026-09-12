@@ -34,7 +34,7 @@ interface Options {
   /** The directory under `src/routes/`, English and plural. */
   dir: string;
   /** The URL segment, Catalan, because URLs are product surface. */
-  ruta: string;
+  segment: string;
   /** The heading of the page, Catalan, because it is shown. */
   title: string;
   /** An installation-administration resource, outside any workspace. */
@@ -80,9 +80,9 @@ function readOptions(argv: string[]): Options {
     help(`«${dir}» no serveix de nom: minuscules, xifres i guions, i comença per lletra.`);
   }
 
-  const ruta = named.get("ruta") ?? dir;
-  const title = named.get("titol") ?? ruta.charAt(0).toUpperCase() + ruta.slice(1);
-  return { dir, ruta, title, admin: named.has("admin") };
+  const segment = named.get("ruta") ?? dir;
+  const title = named.get("titol") ?? segment.charAt(0).toUpperCase() + segment.slice(1);
+  return { dir, segment, title, admin: named.has("admin") };
 }
 
 /** `projects` → `Projects`; `bank-connections` → `BankConnections`. */
@@ -163,11 +163,11 @@ export function List({
   code: string;
   items: ${inPascal(o.dir)}View[];
 }): Html {
-  return html\`<div id="llista-${o.ruta}">
+  return html\`<div id="llista-${o.segment}">
     \${DataTable({
       columnes: html\`<th>Nom</th>\` as Html,
       rows: items.map(
-        (item) => html\`<tr id="${o.ruta}-\${item.id}">
+        (item) => html\`<tr id="${o.segment}-\${item.id}">
           <td>\${item.name}</td>
         </tr>\` as Html,
       ),
@@ -220,8 +220,8 @@ function fileRoutes(o: Options): string {
     ? `/**
  * Routes of the ${o.dir} resource. Installation administrators only.
  *
- * GET /${o.ruta} → the whole page.
- * GET /${o.ruta}/fragment/llista → the list fragment.
+ * GET /${o.segment} → the whole page.
+ * GET /${o.segment}/fragment/llista → the list fragment.
  */`
     : `/**
  * Routes of the ${o.dir} resource.
@@ -269,7 +269,7 @@ ${camel}Routes.get("/", async (c) => {
       title: "${o.title}",
       user,
       csrfToken: c.get("csrfToken") ?? "",
-      ruta: c.req.path,
+      path: c.req.path,
       workspaces: await myWorkspaces(user.id),
       children: ${pascal}Page({ code: "", items }),
     }),
@@ -281,7 +281,7 @@ ${camel}Routes.get("/fragment/llista", async (c) => {
   const items = await list();
 
   // The fragment route pushes **the page's URL**, not its own.
-  pushUrl(c, \`/${o.ruta}\${${camel}ToQuery(filters)}\`);
+  pushUrl(c, \`/${o.segment}\${${camel}ToQuery(filters)}\`);
 
   return fragment(c, List({ code: "", items }));
 });
@@ -310,7 +310,7 @@ ${camel}Routes.get("/fragment/llista", async (c) => {
   const items = await list(workspace.id);
 
   // The fragment route pushes **the page's URL**, not its own.
-  pushUrl(c, \`/e/\${workspace.code}/${o.ruta}\${${camel}ToQuery(filters)}\`);
+  pushUrl(c, \`/e/\${workspace.code}/${o.segment}\${${camel}ToQuery(filters)}\`);
 
   return fragment(c, List({ code: workspace.code, items }));
 });
@@ -344,7 +344,7 @@ function registerRoute(source: string, o: Options): string {
       `  ${camel}.use("*", requireUser);\n` +
       `  ${camel}.use("*", requireAdmin);\n` +
       `  ${camel}.route("/", ${camel}Routes);\n` +
-      `  app.route("/${o.ruta}", ${camel});\n\n`;
+      `  app.route("/${o.segment}", ${camel});\n\n`;
     if (!text.includes(anchor))
       throw new Error("No trobo l'ancora de registre a src/routes/index.ts");
     text = text.replace(anchor, block + anchor);
@@ -354,7 +354,7 @@ function registerRoute(source: string, o: Options): string {
       throw new Error("No trobo l'ancora de registre a src/routes/index.ts");
     text = text.replace(
       anchor,
-      `  workspace.route("/${o.ruta}", ${camel}Routes);\n\n${anchor}`,
+      `  workspace.route("/${o.segment}", ${camel}Routes);\n\n${anchor}`,
     );
   }
 
@@ -364,7 +364,7 @@ function registerRoute(source: string, o: Options): string {
 function registerContract(source: string, o: Options): string {
   if (source.includes(`resource: "${o.dir}"`)) return source;
 
-  const url = o.admin ? `/${o.ruta}` : `/e/personal/${o.ruta}`;
+  const url = o.admin ? `/${o.segment}` : `/e/personal/${o.segment}`;
   const line = `  { resource: "${o.dir}", url: "${url}", what: "${o.title.toLowerCase()}" },`;
   const anchor = `];\n\n/**\n * The resources that have no page`;
 
@@ -419,7 +419,7 @@ for (const command of [
   await Bun.spawn(command, { stdout: "ignore", stderr: "ignore" }).exited;
 }
 
-const url = options.admin ? `/${options.ruta}` : `/e/<espai>/${options.ruta}`;
+const url = options.admin ? `/${options.segment}` : `/e/<espai>/${options.segment}`;
 console.log(`
 [nou-recurs] fet. «${options.dir}» ja es dibuixa a ${url}.
 

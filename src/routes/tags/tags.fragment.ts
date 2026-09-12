@@ -144,8 +144,8 @@ export function DetailTable({
   query: TagDetailQuery;
   knownTags: string[];
 }): Html {
-  const desde = page.total === 0 ? 0 : page.offset + 1;
-  const fins = Math.min(page.offset + page.limit, page.total);
+  const from = page.total === 0 ? 0 : page.offset + 1;
+  const to = Math.min(page.offset + page.limit, page.total);
   const enc = encodeURIComponent(name);
 
   return html`<div id="taula-etiqueta">
@@ -180,7 +180,7 @@ export function DetailTable({
           </div>
           <nav class="paginacio" aria-label="Paginacio">
             <span class="text-suau">
-              ${String(desde)}–${String(fins)} de ${String(page.total)} · suma
+              ${String(from)}–${String(to)} de ${String(page.total)} · suma
               ${formatMoney(page.totalAmount)}
             </span>
             ${DetailSteps({ code, enc, query, total: page.total })}

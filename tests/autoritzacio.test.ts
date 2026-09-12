@@ -178,9 +178,9 @@ describe("the authorization flow", () => {
     expect(res.status).toBe(204);
     expect(res.headers.get("HX-Redirect")).toBe("https://banc.example/sca?x=1");
 
-    const pendent = await connection();
-    expect(pendent?.status).toBe("pending");
-    const state = pendent?.ebAuthState ?? "";
+    const pending = await connection();
+    expect(pending?.status).toBe("pending");
+    const state = pending?.ebAuthState ?? "";
     expect(state).not.toBe("");
 
     const retorn = await bankCallback({ code: "codi-1", state: state });

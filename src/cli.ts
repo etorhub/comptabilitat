@@ -44,8 +44,8 @@ async function createUser(): Promise<void> {
     throw new Error("La contrasenya ha de tenir 10 carácters o mes");
   }
 
-  const existent = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
-  if (existent.length > 0) {
+  const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
+  if (existing.length > 0) {
     throw new Error(`Ja hi ha un usuari amb el correu ${email}`);
   }
 
@@ -199,15 +199,15 @@ if (process.env.SKIP_MIGRATIONS !== "true") {
 }
 
 const order = process.argv[2];
-const funcio = order === undefined ? undefined : orders[order];
+const fn = order === undefined ? undefined : orders[order];
 
-if (funcio === undefined) {
+if (fn === undefined) {
   console.error(`Ordres: ${Object.keys(orders).join(", ")}`);
   process.exit(1);
 }
 
 try {
-  await funcio();
+  await fn();
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;

@@ -7,12 +7,12 @@ import { and, eq, isNotNull } from "drizzle-orm";
 import { db } from "../../db/client.ts";
 import { bankConnections } from "../../db/schema/index.ts";
 import { checkConsents } from "../../services/consent.ts";
-import { sincronitzaConnection } from "../../services/sync.ts";
+import { syncConnection } from "../../services/sync.ts";
 
 export async function syncJob(
   options: { connectionId?: number | null; daysBack?: number | null } = {},
 ): Promise<string> {
-  const linies: string[] = [];
+  const lines: string[] = [];
 
   const connections =
     options.connectionId != null
@@ -28,18 +28,18 @@ export async function syncJob(
           );
 
   for (const connection of connections) {
-    const result = await sincronitzaConnection(connection, {
+    const result = await syncConnection(connection, {
       trigger: options.connectionId != null ? "manual" : "scheduled",
       daysBack: options.daysBack ?? null,
     });
-    linies.push(
+    lines.push(
       `${connection.aspspName}: ${result.inserits} nous, ${result.actualitzats} actualitzats` +
         (result.errors.length > 0 ? ` (${result.errors.length} errors)` : ""),
     );
   }
 
   const consents = await checkConsents();
-  if (consents > 0) linies.push(`${consents} avisos de consentiment`);
+  if (consents > 0) lines.push(`${consents} avisos de consentiment`);
 
-  return linies.length > 0 ? linies.join("\n") : "no hi ha cap connexio activa";
+  return lines.length > 0 ? lines.join("\n") : "no hi ha cap connexio activa";
 }

@@ -91,8 +91,8 @@ describe("the transaction table", () => {
 
   test("no form carries the same field twice", async () => {
     const formularis = fieldsPerForm(await table(true, 5));
-    for (const camps of formularis) {
-      expect(new Set(camps).size).toBe(camps.length);
+    for (const fields of formularis) {
+      expect(new Set(fields).size).toBe(fields.length);
     }
   });
 
@@ -100,24 +100,24 @@ describe("the transaction table", () => {
     // This is the crux of it: if they are all inside the same `<form>`, HTMX
     // sends them all and the last one shadows the one you touched.
     const markup = await table(true, 5);
-    for (const camps of fieldsPerForm(markup)) {
-      expect(camps.filter((c) => c === "category_id").length).toBeLessThanOrEqual(1);
+    for (const fields of fieldsPerForm(markup)) {
+      expect(fields.filter((c) => c === "category_id").length).toBeLessThanOrEqual(1);
     }
   });
 
   test("the row's tag field shares no form with the bar", async () => {
     const markup = await table(true, 3);
-    for (const camps of fieldsPerForm(markup)) {
-      const teFila = camps.includes("nova_etiqueta");
-      const teBarra = camps.includes("etiqueta_bloc") || camps.includes("category_id");
+    for (const fields of fieldsPerForm(markup)) {
+      const teFila = fields.includes("nova_etiqueta");
+      const hasBar = fields.includes("etiqueta_bloc") || fields.includes("category_id");
       // A row form only has nova_etiqueta (+ etiqueta when removing).
       // The bar has no form: it goes with hx-include.
       if (teFila) {
-        expect(camps).not.toContain("category_id");
-        expect(camps).not.toContain("etiqueta_bloc");
+        expect(fields).not.toContain("category_id");
+        expect(fields).not.toContain("etiqueta_bloc");
       }
-      if (teBarra && camps.includes("category_id")) {
-        expect(camps).not.toContain("nova_etiqueta");
+      if (hasBar && fields.includes("category_id")) {
+        expect(fields).not.toContain("nova_etiqueta");
       }
     }
     expect(markup).toContain('name="nova_etiqueta"');
@@ -148,7 +148,7 @@ describe("the transaction table", () => {
   });
 
   test("the card chip shows the last 4 and never the PAN", async () => {
-    const ambTargeta: TransactionView = {
+    const withCard: TransactionView = {
       ...transaction(9),
       description: "Amazon",
       descriptionHint: "COMPRA WWW.AMAZON, LUXEMBOURG",
@@ -159,7 +159,7 @@ describe("the transaction table", () => {
       await Table({
         code: "personal",
         page: {
-          items: [ambTargeta],
+          items: [withCard],
           total: 1,
           offset: 0,
           limit: 50,
@@ -177,7 +177,7 @@ describe("the transaction table", () => {
   });
 
   test("a transfer shows the label without being an own-account transfer", async () => {
-    const transferencia: TransactionView = {
+    const transfer: TransactionView = {
       ...transaction(10),
       description: "María Lourdes Cortés Braña",
       operationType: "transferencia",
@@ -187,7 +187,7 @@ describe("the transaction table", () => {
       await Table({
         code: "personal",
         page: {
-          items: [transferencia],
+          items: [transfer],
           total: 1,
           offset: 0,
           limit: 50,

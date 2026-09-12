@@ -33,7 +33,7 @@ import {
 } from "./import.ts";
 
 /** Past these hours, an «in progress» import is nothing of the sort. */
-const HORES_FINS_A_DONAR_PER_MORTA = 2;
+const HOURS_UNTIL_PRESUMED_DEAD = 2;
 
 export interface SyncResult {
   connectionId: number;
@@ -43,7 +43,7 @@ export interface SyncResult {
   errors: string[];
 }
 
-export async function sincronitzaConnection(
+export async function syncConnection(
   connection: BankConnection,
   options: { trigger?: SyncTrigger; daysBack?: number | null } = {},
 ): Promise<SyncResult> {
@@ -204,7 +204,7 @@ export async function runTheImport(
  * same connection is started.
  */
 export async function closeStuckImports(): Promise<number> {
-  const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
+  const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
 
   const tancades = await db
     .update(syncRuns)
@@ -224,7 +224,7 @@ export async function closeStuckImports(): Promise<number> {
 
 /** If there is already a live one for this connection, no other is started. */
 export async function alreadySyncing(connectionId: number): Promise<boolean> {
-  const limit = new Date(Date.now() - HORES_FINS_A_DONAR_PER_MORTA * 60 * 60 * 1000);
+  const limit = new Date(Date.now() - HOURS_UNTIL_PRESUMED_DEAD * 60 * 60 * 1000);
   const [viva] = await db
     .select({ id: syncRuns.id })
     .from(syncRuns)

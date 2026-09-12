@@ -10,13 +10,13 @@ import { classifyPending, summaryStats } from "../../services/classification.ts"
 import { detectTransfers } from "../../services/transfers.ts";
 
 export async function classificationJob(): Promise<string> {
-  const linies: string[] = [];
+  const lines: string[] = [];
 
   for (const workspace of await db.select().from(ledgers).where(eq(ledgers.isActive, true))) {
     const transfers = await detectTransfers(workspace.id);
     const stats = await classifyPending(workspace.id);
-    linies.push(`${workspace.name}: ${transfers} traspassos, ${summaryStats(stats)}`);
+    lines.push(`${workspace.name}: ${transfers} traspassos, ${summaryStats(stats)}`);
   }
 
-  return linies.join("\n") || "no hi ha cap espai actiu";
+  return lines.join("\n") || "no hi ha cap espai actiu";
 }

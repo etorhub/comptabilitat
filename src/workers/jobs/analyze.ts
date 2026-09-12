@@ -14,16 +14,16 @@ import {
 } from "../../services/recurring.ts";
 
 export async function analysisJob(): Promise<string> {
-  const linies: string[] = [];
+  const lines: string[] = [];
 
   for (const workspace of await db.select().from(ledgers).where(eq(ledgers.isActive, true))) {
     const recurring = await detectRecurring(workspace.id);
     const falten = await checkMissingBills(workspace.id);
     const overdrafts = await checkOverdrafts(workspace);
-    linies.push(
+    lines.push(
       `${workspace.name}: ${summaryRecurring(recurring)}, ${falten} rebuts que falten, ${overdrafts} avisos de descobert`,
     );
   }
 
-  return linies.join("\n") || "no hi ha cap espai actiu";
+  return lines.join("\n") || "no hi ha cap espai actiu";
 }

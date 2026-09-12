@@ -74,22 +74,22 @@ const activeWorkspaces = () =>
 // --- Page ------------------------------------------------------------------
 
 usersRoutes.get("/", async (c) => {
-  const jo = currentUser(c);
+  const me = currentUser(c);
   const [userList, workspaces, meus] = await Promise.all([
     listUsers(),
     activeWorkspaces(),
-    myWorkspaces(jo.id),
+    myWorkspaces(me.id),
   ]);
 
   return page(
     c,
     Layout({
       title: "Usuaris",
-      user: jo,
+      user: me,
       csrfToken: c.get("csrfToken") ?? "",
-      ruta: c.req.path,
+      path: c.req.path,
       workspaces: meus,
-      children: UsersPage({ userList, workspaces, jo: jo.id }),
+      children: UsersPage({ userList, workspaces, me: me.id }),
     }),
   );
 });
@@ -144,14 +144,14 @@ usersRoutes.post("/", async (c) => {
     isActive: true,
   });
 
-  const jo = currentUser(c);
+  const me = currentUser(c);
   const [userList, workspaces] = await Promise.all([listUsers(), activeWorkspaces()]);
 
   return fragment(
     c,
     await withOob(
       CreateForm({}),
-      List({ userList, workspaces, jo: jo.id, oob: true }),
+      List({ userList, workspaces, me: me.id, oob: true }),
       toast(`Usuari ${parsed.data.email} creat`, "success"),
     ),
   );
@@ -165,7 +165,7 @@ usersRoutes.post("/", async (c) => {
  */
 usersRoutes.post("/:id", async (c) => {
   const id = idFromRoute(c.req.param("id"), "Aquest usuari no existeix");
-  const jo = currentUser(c);
+  const me = currentUser(c);
   const body = await c.req.parseBody();
   const parsed = userUpdateSchema.safeParse(body);
 
@@ -177,7 +177,7 @@ usersRoutes.post("/:id", async (c) => {
         Card({
           user: { ...view, fullName: String(body.full_name ?? view.fullName) },
           workspaces,
-          jo: jo.id,
+          me: me.id,
           editErrors: zodErrors(parsed.error),
         }),
         toast("Revisa el formulari"),
@@ -189,7 +189,7 @@ usersRoutes.post("/:id", async (c) => {
   const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   if (!user) throw new NotFoundError("Aquest usuari no existeix");
 
-  if (id === jo.id && !parsed.data.is_admin) {
+  if (id === me.id && !parsed.data.is_admin) {
     throw new AppError("No et pots treure a tu mateix l'admin", 422);
   }
 
@@ -203,7 +203,7 @@ usersRoutes.post("/:id", async (c) => {
   return fragment(
     c,
     await withOob(
-      Card({ user: view, workspaces, jo: jo.id }),
+      Card({ user: view, workspaces, me: me.id }),
       toast("Usuari actualitzat", "success"),
     ),
   );
@@ -218,7 +218,7 @@ usersRoutes.post("/:id", async (c) => {
  */
 usersRoutes.post("/:id/contrasenya", async (c) => {
   const id = idFromRoute(c.req.param("id"), "Aquest usuari no existeix");
-  const jo = currentUser(c);
+  const me = currentUser(c);
   const body = await c.req.parseBody();
   const parsed = passwordResetSchema.safeParse(body);
 
@@ -230,7 +230,7 @@ usersRoutes.post("/:id/contrasenya", async (c) => {
         Card({
           user: view,
           workspaces,
-          jo: jo.id,
+          me: me.id,
           passwordErrors: zodErrors(parsed.error),
         }),
         toast("Revisa el formulari"),
@@ -247,7 +247,7 @@ usersRoutes.post("/:id/contrasenya", async (c) => {
     .set({ passwordHash: await hashPassword(parsed.data.password) })
     .where(eq(users.id, id));
 
-  if (id === jo.id) {
+  if (id === me.id) {
     const tokenHash = c.get("sessionTokenHash");
     if (tokenHash !== null) await destroyOtherSessions(id, tokenHash);
   } else {
@@ -259,7 +259,7 @@ usersRoutes.post("/:id/contrasenya", async (c) => {
   return fragment(
     c,
     await withOob(
-      Card({ user: view, workspaces, jo: jo.id }),
+      Card({ user: view, workspaces, me: me.id }),
       toast("Contrasenya reiniciada i sessions tancades", "success"),
     ),
   );
@@ -312,13 +312,13 @@ usersRoutes.post("/:id/acces", async (c) => {
     }
   }
 
-  const jo = currentUser(c);
+  const me = currentUser(c);
   const [view, workspaces] = await Promise.all([userView(id), activeWorkspaces()]);
 
   return fragment(
     c,
     await withOob(
-      Card({ user: view, workspaces, jo: jo.id }),
+      Card({ user: view, workspaces, me: me.id }),
       toast("Acces actualitzat", "success"),
     ),
   );
@@ -332,9 +332,9 @@ usersRoutes.post("/:id/acces", async (c) => {
  */
 usersRoutes.post("/:id/estat", async (c) => {
   const id = idFromRoute(c.req.param("id"), "Aquest usuari no existeix");
-  const jo = currentUser(c);
+  const me = currentUser(c);
 
-  if (id === jo.id) {
+  if (id === me.id) {
     throw new AppError("No et pots desactivar tu mateix", 422);
   }
 
@@ -350,7 +350,7 @@ usersRoutes.post("/:id/estat", async (c) => {
   return fragment(
     c,
     await withOob(
-      Card({ user: view, workspaces, jo: jo.id }),
+      Card({ user: view, workspaces, me: me.id }),
       toast(active ? "Usuari activat" : "Usuari desactivat i sessions tancades", "success"),
     ),
   );

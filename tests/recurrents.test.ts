@@ -44,7 +44,7 @@ let accountId = 0;
 async function transaction(
   key: string,
   date: string,
-  quantitat: string,
+  amount: string,
   categoryId: number | null,
   merchantId: number | null = null,
   extra: Partial<{ transferGroupId: string; isExcluded: boolean }> = {},
@@ -55,7 +55,7 @@ async function transaction(
     dedupKey: key,
     source: "manual",
     bookingDate: date,
-    amount: quantitat,
+    amount: amount,
     currency: "EUR",
     status: "booked",
     description: "Rebut",

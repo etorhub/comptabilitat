@@ -103,10 +103,10 @@ export function currentRole(c: Context): LedgerRole {
  * workspace exists, because they have access to it; what they lack is enough
  * permission.
  */
-export function requireRole(minim: LedgerRole): MiddlewareHandler {
+export function requireRole(min: LedgerRole): MiddlewareHandler {
   return async (c, next) => {
-    if (!roleAtLeast(c.get("role"), minim)) {
-      throw new ForbiddenError(`Cal ser com a minim ${minim} en aquest espai`);
+    if (!roleAtLeast(c.get("role"), min)) {
+      throw new ForbiddenError(`Cal ser com a minim ${min} en aquest espai`);
     }
     await next();
   };

@@ -32,7 +32,7 @@ import { SLUG_UNCATEGORIZED } from "../src/services/slugs.ts";
 import { hashPassword } from "../src/lib/auth.ts";
 
 let ledgerId = 0;
-let altreLedgerId = 0;
+let otherLedgerId = 0;
 let accountId = 0;
 
 async function categoryBySlug(slug: string, ledger = ledgerId) {
@@ -74,9 +74,9 @@ beforeAll(async () => {
     .returning();
 
   ledgerId = workspaces.find((e) => e.code === "personal")?.id ?? 0;
-  altreLedgerId = workspaces.find((e) => e.code === "calella")?.id ?? 0;
+  otherLedgerId = workspaces.find((e) => e.code === "calella")?.id ?? 0;
   await seedCategories(ledgerId);
-  await seedCategories(altreLedgerId);
+  await seedCategories(otherLedgerId);
 
   const [user] = await db
     .insert(users)
@@ -175,7 +175,7 @@ describe("creating categories", () => {
   });
 
   test("it cannot hang off a parent of another workspace", async () => {
-    const forana = await categoryBySlug("habitatge", altreLedgerId);
+    const forana = await categoryBySlug("habitatge", otherLedgerId);
     await expect(
       createCategory(ledgerId, {
         name: "Intrusa",
@@ -278,9 +278,9 @@ describe("deleting categories", () => {
     expect(orfes.every((t) => t.categoryId !== null)).toBe(true);
 
     // The rule was reassigned, not deleted.
-    const regles = await db.select().from(rules).where(eq(rules.ledgerId, ledgerId));
-    expect(regles).toHaveLength(1);
-    expect(regles[0]?.setCategoryId).toBe(desti.id);
+    const kept = await db.select().from(rules).where(eq(rules.ledgerId, ledgerId));
+    expect(kept).toHaveLength(1);
+    expect(kept[0]?.setCategoryId).toBe(desti.id);
   });
 
   test("it cannot be reassigned to a category of another workspace", async () => {
@@ -313,7 +313,7 @@ describe("deleting categories", () => {
       raw: {},
     });
 
-    const forana = await categoryBySlug("habitatge", altreLedgerId);
+    const forana = await categoryBySlug("habitatge", otherLedgerId);
     await expect(deleteCategory(c.id, ledgerId, forana.id)).rejects.toThrow();
 
     // Nothing was deleted and nothing was moved.
@@ -343,7 +343,7 @@ describe("the picker's options", () => {
     const foranes = await db
       .select({ id: categories.id })
       .from(categories)
-      .where(eq(categories.ledgerId, altreLedgerId));
+      .where(eq(categories.ledgerId, otherLedgerId));
     for (const forana of foranes) {
       expect(ids).not.toContain(forana.id);
     }

@@ -31,7 +31,7 @@ import {
 import { seedCategories } from "../src/services/seed.ts";
 
 let ledgerId = 0;
-let altreLedgerId = 0;
+let otherLedgerId = 0;
 let accountId = 0;
 let merchantId = 0;
 
@@ -103,9 +103,9 @@ beforeEach(async () => {
     )
     .returning();
   ledgerId = workspaces.find((e) => e.code === "personal")?.id ?? 0;
-  altreLedgerId = workspaces.find((e) => e.code === "calella")?.id ?? 0;
+  otherLedgerId = workspaces.find((e) => e.code === "calella")?.id ?? 0;
   await seedCategories(ledgerId);
-  await seedCategories(altreLedgerId);
+  await seedCategories(otherLedgerId);
 
   const [connection] = await db
     .insert(bankConnections)
@@ -201,7 +201,7 @@ describe("assigning a merchant's category", () => {
   });
 
   test("does not accept a category from another workspace", async () => {
-    const forana = await categoryBySlug("habitatge", altreLedgerId);
+    const forana = await categoryBySlug("habitatge", otherLedgerId);
     await expect(assignCategory(merchantId, ledgerId, forana.id)).rejects.toThrow(AppError);
   });
 
@@ -209,7 +209,7 @@ describe("assigning a merchant's category", () => {
     const [foraster] = await db
       .insert(merchants)
       .values({
-        ledgerId: altreLedgerId,
+        ledgerId: otherLedgerId,
         normalizedName: "ALTRE",
         displayName: "Altre",
         defaultCategoryId: null,
@@ -232,11 +232,11 @@ describe("getting or creating a merchant", () => {
 
   test("the same name in two workspaces are two different merchants", async () => {
     const a = await getOrCreateMerchant(ledgerId, "MERCADONA");
-    const b = await getOrCreateMerchant(altreLedgerId, "MERCADONA");
+    const b = await getOrCreateMerchant(otherLedgerId, "MERCADONA");
 
     expect(a?.id).not.toBe(b?.id);
     expect(a?.ledgerId).toBe(ledgerId);
-    expect(b?.ledgerId).toBe(altreLedgerId);
+    expect(b?.ledgerId).toBe(otherLedgerId);
   });
 
   test("counts the times and remembers the last date", async () => {
@@ -254,7 +254,7 @@ describe("getting or creating a merchant", () => {
 
 describe("the list", () => {
   test("only shows this workspace's merchants", async () => {
-    await getOrCreateMerchant(altreLedgerId, "FORASTER");
+    await getOrCreateMerchant(otherLedgerId, "FORASTER");
     const page = await listMerchants(ledgerId, {
       search: "",
       onlyUnclassified: false,

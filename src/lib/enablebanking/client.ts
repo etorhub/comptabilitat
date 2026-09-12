@@ -115,9 +115,9 @@ export class EnableBankingClient {
       }
     }
 
-    let resposta: Response;
+    let response: Response;
     try {
-      resposta = await fetch(url, {
+      response = await fetch(url, {
         method,
         headers: {
           Authorization: `Bearer ${await this.jwt()}`,
@@ -132,9 +132,9 @@ export class EnableBankingClient {
       );
     }
 
-    if (resposta.status >= 400) throw await aError(resposta);
+    if (response.status >= 400) throw await toError(response);
 
-    const text = await resposta.text();
+    const text = await response.text();
     if (!text) return {} as T;
     return JSON.parse(text) as T;
   }
@@ -262,9 +262,9 @@ export class EnableBankingClient {
  * Banks' messages vary a great deal, so this matches on words that always
  * appear in them, as Python did.
  */
-async function aError(resposta: Response): Promise<EnableBankingError> {
+async function toError(response: Response): Promise<EnableBankingError> {
   let payload: Record<string, unknown>;
-  const text = await resposta.text();
+  const text = await response.text();
   try {
     payload = JSON.parse(text) as Record<string, unknown>;
   } catch {
@@ -276,7 +276,7 @@ async function aError(resposta: Response): Promise<EnableBankingError> {
   const search = `${code ?? ""} ${message}`.toUpperCase();
 
   const options = {
-    statusCode: resposta.status,
+    statusCode: response.status,
     code: code === null ? null : String(code),
     payload,
   };
@@ -287,8 +287,8 @@ async function aError(resposta: Response): Promise<EnableBankingError> {
 
   // Banks limit how far back you can query; the wording varies a lot.
   if (
-    (resposta.status === 400 || resposta.status === 422) &&
-    ["DATE", "PERIOD", "RANGE", "FROM"].some((paraula) => search.includes(paraula))
+    (response.status === 400 || response.status === 422) &&
+    ["DATE", "PERIOD", "RANGE", "FROM"].some((word) => search.includes(word))
   ) {
     return new DateRangeError(message, options);
   }

@@ -64,11 +64,11 @@ analyticsRoutes.get("/", async (c) => {
     balance,
     mesActual,
     perRevisar,
-    senseClassificar,
-    nAvisos,
+    unclassified,
+    alertCount,
     monthly,
     categories,
-    saldos,
+    balances,
   ] = await Promise.all([
     workspaceBalance(workspace.id),
     incomeAndExpenses([workspace.id], inici, today),
@@ -93,12 +93,12 @@ analyticsRoutes.get("/", async (c) => {
         balanceDate: balance.date,
         mesActual,
         perRevisar,
-        senseClassificar,
-        activeAlerts: nAvisos,
+        unclassified,
+        activeAlerts: alertCount,
         canSeeAlerts: currentUser(c).isAdmin,
         monthly,
         categories,
-        saldos,
+        balances,
       }),
     ),
   );
@@ -110,18 +110,18 @@ async function reportData(ledgerId: number, query: Record<string, string>) {
   const filters = reportFiltersSchema.parse(query);
   const today = todayLocal();
   const des = filters.des ?? addDays(today, -filters.mesos * 31);
-  const fins = filters.fins ?? today;
+  const to = filters.to ?? today;
 
-  const [totals, monthly, despesesPerCategoria, incomeByCategory, merchantList] =
+  const [totals, monthly, expensesPerCategory, incomeByCategory, merchantList] =
     await Promise.all([
-      incomeAndExpenses([ledgerId], des, fins),
-      monthlySeries([ledgerId], des, fins),
-      categoryBreakdown([ledgerId], des, fins, true),
-      categoryBreakdown([ledgerId], des, fins, false),
-      merchantBreakdown([ledgerId], des, fins, 10),
+      incomeAndExpenses([ledgerId], des, to),
+      monthlySeries([ledgerId], des, to),
+      categoryBreakdown([ledgerId], des, to, true),
+      categoryBreakdown([ledgerId], des, to, false),
+      merchantBreakdown([ledgerId], des, to, 10),
     ]);
 
-  return { filters, totals, monthly, despesesPerCategoria, incomeByCategory, merchantList };
+  return { filters, totals, monthly, expensesPerCategory, incomeByCategory, merchantList };
 }
 
 analyticsRoutes.get("/informes", async (c) => {

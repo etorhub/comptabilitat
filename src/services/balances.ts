@@ -46,11 +46,11 @@ export async function lastBalance(accountId: number): Promise<BalanceKnown | nul
 
   if (candidats.length === 0) return null;
 
-  const posicio = (type: string) => {
+  const position = (type: string) => {
     const i = BALANCE_TYPE_PRIORITY.indexOf(type);
     return i === -1 ? BALANCE_TYPE_PRIORITY.length : i;
   };
-  candidats.sort((a, b) => posicio(a.balanceType) - posicio(b.balanceType));
+  candidats.sort((a, b) => position(a.balanceType) - position(b.balanceType));
 
   return candidats[0] ?? null;
 }

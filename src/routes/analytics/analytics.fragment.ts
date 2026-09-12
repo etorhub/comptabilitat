@@ -30,14 +30,14 @@ function Chart({
   type,
   id,
   title,
-  descripcio,
+  description,
   data,
   alçada = 260,
 }: {
   type: string;
   id: string;
   title: string;
-  descripcio: string;
+  description: string;
   data: unknown;
   alçada?: number;
 }): Html {
@@ -49,7 +49,7 @@ function Chart({
       class="grafic"
       style="--alçada:${String(alçada)}px"
       role="img"
-      aria-label="${descripcio}"
+      aria-label="${description}"
     >
       ${jsonScript(`${id}-dades`, data)}
     </div>
@@ -72,12 +72,12 @@ export function MonthlyChart(data: MonthlyPoint[]): Html {
     type: "mensual",
     id: "grafic-mensual",
     title: "Mes a mes",
-    descripcio: "Ingressos, despeses fixes i variables, i resultat de cada mes",
+    description: "Ingressos, despeses fixes i variables, i resultat de cada mes",
     data: data.map((d) => ({
       periode: d.periode,
       income: toChartNumber(d.income),
-      despesesFixes: toChartNumber(d.despesesFixes),
-      despesesVariables: toChartNumber(d.despesesVariables),
+      fixedExpenses: toChartNumber(d.fixedExpenses),
+      variableExpenses: toChartNumber(d.variableExpenses),
       cleaned: toChartNumber(d.cleaned),
     })),
   });
@@ -88,7 +88,7 @@ export function CategoryChart(data: CategoryPart[]): Html {
     type: "categories",
     id: "grafic-categories",
     title: "On van les despeses",
-    descripcio: "Repartiment de la despesa per categoria",
+    description: "Repartiment de la despesa per categoria",
     data: data.map((d) => ({
       categoryName: d.categoryName,
       color: d.color,
@@ -102,7 +102,7 @@ export function BalanceChart(data: BalancePoint[]): Html {
     type: "saldos",
     id: "grafic-saldos",
     title: "Evolucio del saldo",
-    descripcio: "Saldo dia a dia, reconstruit cap enrere des del saldo d'avui",
+    description: "Saldo dia a dia, reconstruit cap enrere des del saldo d'avui",
     data: data.map((d) => ({ day: d.day, balance: toChartNumber(d.balance) })),
   });
 }
@@ -112,7 +112,7 @@ export function MerchantChart(data: MerchantPart[]): Html {
     type: "comercos",
     id: "grafic-comercos",
     title: "On es gasta mes",
-    descripcio: "Els comerços amb mes despesa",
+    description: "Els comerços amb mes despesa",
     data: data.map((d) => ({
       merchantName: d.merchantName,
       amount: toChartNumber(d.amount),
@@ -127,7 +127,7 @@ export function ForecastChart(forecast: Forecast): Html {
     type: "previsio",
     id: "grafic-previsio",
     title: "Saldo previst",
-    descripcio: `Saldo real dels darrers ${forecast.horizonDays} dies i projeccio a ${forecast.horizonDays} dies`,
+    description: `Saldo real dels darrers ${forecast.horizonDays} dies i projeccio a ${forecast.horizonDays} dies`,
     data: {
       historic: forecast.historic.map((p) => ({
         day: p.day,
@@ -138,7 +138,7 @@ export function ForecastChart(forecast: Forecast): Html {
         esperat: toChartNumber(p.esperat),
         optimista: toChartNumber(p.optimista),
         pessimista: toChartNumber(p.pessimista),
-        tendencia: toChartNumber(p.tendencia),
+        trend: toChartNumber(p.trend),
       })),
       llindar: toChartNumber(forecast.llindar),
       firstOverdraft: forecast.firstOverdraft,

@@ -86,12 +86,12 @@ export interface BalanceAnalyzed {
 
 export function parseBalance(raw: Record<string, unknown>): BalanceAnalyzed | null {
   const bulk = asObject(raw.balance_amount);
-  const quantitat = decimal(bulk.amount);
-  if (quantitat === null) return null;
+  const amount = decimal(bulk.amount);
+  if (amount === null) return null;
 
   return {
     balanceType: String(raw.balance_type ?? raw.name ?? "OTHR"),
-    amount: quantitat.toFixed(2),
+    amount: amount.toFixed(2),
     currency: String(bulk.currency ?? "EUR"),
     referenceDate: date(raw.reference_date) ?? date(raw.last_change_date_time),
   };
@@ -102,7 +102,7 @@ function partName(raw: Record<string, unknown>, key: string): string {
   return String(part.name ?? "");
 }
 
-function remesa(raw: Record<string, unknown>): string {
+function batch(raw: Record<string, unknown>): string {
   const info = raw.remittance_information;
   if (Array.isArray(info)) {
     return info
@@ -115,7 +115,7 @@ function remesa(raw: Record<string, unknown>): string {
   return "";
 }
 
-function codiBank(raw: Record<string, unknown>): string {
+function bankCode(raw: Record<string, unknown>): string {
   const bulk = asObject(raw.bank_transaction_code);
   const parts = [bulk.code, bulk.sub_code].filter(Boolean).map(String);
   return parts.length > 0 ? parts.join("/") : String(bulk.description ?? "");
@@ -168,13 +168,13 @@ export function parseTransaction(raw: Record<string, unknown>): TransactionAnaly
   if (state === undefined) return null;
 
   const bulk = asObject(raw.transaction_amount);
-  let quantitat = decimal(bulk.amount);
-  if (quantitat === null) return null;
+  let amount = decimal(bulk.amount);
+  if (amount === null) return null;
 
-  quantitat = quantitat.abs();
+  amount = amount.abs();
   // The bank always gives the amount as a positive number, with the direction separately.
   if (String(raw.credit_debit_indicator ?? "").toUpperCase() !== "CRDT") {
-    quantitat = quantitat.negated();
+    amount = amount.negated();
   }
 
   const bookingDate =
@@ -184,22 +184,22 @@ export function parseTransaction(raw: Record<string, unknown>): TransactionAnaly
   const creditor = partName(raw, "creditor");
   const debtor = partName(raw, "debtor");
   // The counterparty is whoever receives the money on an expense and whoever sends it on income.
-  const counterparty = quantitat.isNegative() ? creditor : debtor;
+  const counterparty = amount.isNegative() ? creditor : debtor;
 
   const parts = [
-    remesa(raw),
+    batch(raw),
     counterparty,
     String(raw.note ?? ""),
     String(asObject(raw.bank_transaction_code).description ?? ""),
   ];
 
   const vistos = new Set<string>();
-  const descripcio: string[] = [];
+  const description: string[] = [];
   for (const part of parts) {
     const cleaned = part.split(/\s+/).filter(Boolean).join(" ");
     if (cleaned && !vistos.has(cleaned.toLowerCase())) {
       vistos.add(cleaned.toLowerCase());
-      descripcio.push(cleaned);
+      description.push(cleaned);
     }
   }
 
@@ -208,12 +208,12 @@ export function parseTransaction(raw: Record<string, unknown>): TransactionAnaly
     transactionId: raw.transaction_id ? String(raw.transaction_id) : null,
     bookingDate,
     valueDate: date(raw.value_date),
-    amount: quantitat.toFixed(2),
+    amount: amount.toFixed(2),
     currency: String(bulk.currency ?? "EUR"),
     status: state,
-    description: descripcio.join(" · ").slice(0, 1000),
+    description: description.join(" · ").slice(0, 1000),
     counterparty: counterparty.slice(0, 200),
-    bankTransactionCode: codiBank(raw).slice(0, 60),
+    bankTransactionCode: bankCode(raw).slice(0, 60),
     raw: raw,
   };
 }

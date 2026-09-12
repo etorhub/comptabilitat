@@ -8,7 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { informeAPdf, movimentsACsv, resumAXlsx } from "../../src/services/export.ts";
+import { reportToPdf, transactionsToCsv, resumAXlsx } from "../../src/services/export.ts";
 import type { TransactionView } from "../../src/services/transactions.ts";
 
 const normal: TransactionView = {
@@ -60,7 +60,7 @@ function textCsv(bytes: Uint8Array): string {
 
 describe("CSV", () => {
   test("goes with a BOM, semicolons and decimal commas", () => {
-    const bytes = movimentsACsv([normal]);
+    const bytes = transactionsToCsv([normal]);
     // The BOM is checked on the bytes: `TextDecoder` eats it when decoding.
     expect([bytes[0], bytes[1], bytes[2]]).toEqual([0xef, 0xbb, 0xbf]);
 
@@ -71,7 +71,7 @@ describe("CSV", () => {
   });
 
   test("a masked transaction comes out hidden", () => {
-    const csv = textCsv(movimentsACsv([amagat]));
+    const csv = textCsv(transactionsToCsv([amagat]));
     expect(csv).toContain("Despesa personal");
     expect(csv).not.toContain("CLINICA DISCRETA");
     expect(csv).not.toContain("Clinica Discreta");
@@ -84,7 +84,7 @@ describe("CSV", () => {
       descriptionHint: "COMPRA WWW.AMAZON, LUXEMBOURG",
       darrers4: "4017",
     };
-    const csv = textCsv(movimentsACsv([withPan]));
+    const csv = textCsv(transactionsToCsv([withPan]));
     expect(csv).toContain("Amazon");
     expect(csv).not.toContain("5489010385484017");
   });
@@ -95,7 +95,7 @@ describe("CSV", () => {
       description: 'Ell va dir "hola"; i prou',
       notes: "linia 1\nlinia 2",
     };
-    const csv = textCsv(movimentsACsv([complicat]));
+    const csv = textCsv(transactionsToCsv([complicat]));
     const rows = csv.replace("﻿", "").split("\r\n").filter(Boolean);
     // The header and one row; the newline inside goes in quotes.
     expect(csv).toContain('"Ell va dir ""hola""; i prou"');
@@ -111,8 +111,8 @@ describe("XLSX", () => {
           periode: "2026-01",
           income: "100.00",
           expenses: "50.00",
-          despesesFixes: "30.00",
-          despesesVariables: "20.00",
+          fixedExpenses: "30.00",
+          variableExpenses: "20.00",
           cleaned: "50.00",
         },
       ],
@@ -133,10 +133,10 @@ describe("XLSX", () => {
 
 describe("PDF", () => {
   test("it is a valid PDF and it is not empty", async () => {
-    const bytes = await informeAPdf({
+    const bytes = await reportToPdf({
       workspaceName: "Personal",
       des: "2026-01-01",
-      fins: "2026-03-31",
+      to: "2026-03-31",
       income: "1000.00",
       expenses: "400.00",
       cleaned: "600.00",
@@ -145,8 +145,8 @@ describe("PDF", () => {
           periode: "2026-01",
           income: "1000.00",
           expenses: "400.00",
-          despesesFixes: "250.00",
-          despesesVariables: "150.00",
+          fixedExpenses: "250.00",
+          variableExpenses: "150.00",
           cleaned: "600.00",
         },
       ],
@@ -172,8 +172,8 @@ describe("PDF", () => {
       periode: `20${20 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`,
       income: "1000.00",
       expenses: "400.00",
-      despesesFixes: "250.00",
-      despesesVariables: "150.00",
+      fixedExpenses: "250.00",
+      variableExpenses: "150.00",
       cleaned: "600.00",
     }));
     const categories = Array.from({ length: 40 }, (_, i) => ({
@@ -185,10 +185,10 @@ describe("PDF", () => {
       transactions: 1,
     }));
 
-    const bytes = await informeAPdf({
+    const bytes = await reportToPdf({
       workspaceName: "Personal",
       des: "2020-01-01",
-      fins: "2026-01-01",
+      to: "2026-01-01",
       income: "60000.00",
       expenses: "24000.00",
       cleaned: "36000.00",

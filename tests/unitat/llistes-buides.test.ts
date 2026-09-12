@@ -60,7 +60,7 @@ describe("DataTable", () => {
       columnes: COLUMNES,
       empty: "Res.",
       abans: html`<div id="barra"></div>` as Html,
-      peu: html`<div id="peu"></div>` as Html,
+      footer: html`<div id="peu"></div>` as Html,
     };
 
     const withRows = text(DataTable({ ...props, rows: [html`<tr></tr>` as Html] }));

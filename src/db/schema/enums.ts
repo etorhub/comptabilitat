@@ -33,9 +33,9 @@ export const LEDGER_ROLE_LEVEL: Record<LedgerRole, number> = {
   admin: 3,
 };
 
-export function roleAtLeast(role: LedgerRole | null, minim: LedgerRole): boolean {
+export function roleAtLeast(role: LedgerRole | null, min: LedgerRole): boolean {
   if (role === null) return false;
-  return LEDGER_ROLE_LEVEL[role] >= LEDGER_ROLE_LEVEL[minim];
+  return LEDGER_ROLE_LEVEL[role] >= LEDGER_ROLE_LEVEL[min];
 }
 
 // --- Bank connections ------------------------------------------------------

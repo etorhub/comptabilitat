@@ -14,7 +14,7 @@ import { formatDate } from "../../lib/time.ts";
 import { oobAttributes } from "../../lib/oob.ts";
 import { poll, pollExhausted } from "../../lib/sondeig.ts";
 
-const ESTATS: Record<ConnectionStatus, { text: string; cssClass: string }> = {
+const STATES: Record<ConnectionStatus, { text: string; cssClass: string }> = {
   pending: { text: "pendent d'autoritzar", cssClass: "etiqueta-suau" },
   active: { text: "activa", cssClass: "" },
   expired: { text: "consentiment caducat", cssClass: "etiqueta-perill" },
@@ -40,7 +40,7 @@ export interface ConnectionView {
   validUntil: Date | null;
   lastSyncAt: Date | null;
   lastError: string;
-  diesPerCaducar: number | null;
+  daysToExpiry: number | null;
   accountList: AccountView[];
 }
 
@@ -67,7 +67,7 @@ export function Card({
   connection: ConnectionView;
   workspaces: Ledger[];
 }): Html {
-  const state = ESTATS[connection.status];
+  const state = STATES[connection.status];
   const base = `/connexions/${connection.id}`;
 
   return html`<section id="connexio-${connection.id}" class="superficie targeta">
@@ -75,9 +75,9 @@ export function Card({
       <strong>${connection.aspspName}</strong>
       <span class="etiqueta ${state.cssClass}">${state.text}</span>
       ${
-        connection.diesPerCaducar !== null && connection.status === "active"
+        connection.daysToExpiry !== null && connection.status === "active"
           ? html`<span class="text-suau">
-            caduca ${connection.diesPerCaducar <= 0 ? "avui" : `en ${connection.diesPerCaducar} dies`}
+            caduca ${connection.daysToExpiry <= 0 ? "avui" : `en ${connection.daysToExpiry} dies`}
           </span>`
           : ""
       }

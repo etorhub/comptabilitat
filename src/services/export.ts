@@ -61,11 +61,11 @@ function escapaCsv(value: string): string {
  * CSV with semicolons and a BOM, which is what Spanish Excel expects; the
  * decimals with a comma, for the same reason.
  */
-export function movimentsACsv(transactionList: TransactionView[]): Uint8Array<ArrayBuffer> {
-  const linies: string[] = [COLUMNES.map(([name]) => escapaCsv(name)).join(";")];
+export function transactionsToCsv(transactionList: TransactionView[]): Uint8Array<ArrayBuffer> {
+  const lines: string[] = [COLUMNES.map(([name]) => escapaCsv(name)).join(";")];
 
   for (const transaction of transactionList) {
-    linies.push(
+    lines.push(
       row(transaction)
         .map((value, i) => {
           // The amount column goes with a decimal comma.
@@ -76,7 +76,7 @@ export function movimentsACsv(transactionList: TransactionView[]): Uint8Array<Ar
     );
   }
 
-  const text = `﻿${linies.join("\r\n")}\r\n`;
+  const text = `﻿${lines.join("\r\n")}\r\n`;
   return new TextEncoder().encode(text) as Uint8Array<ArrayBuffer>;
 }
 
@@ -140,10 +140,10 @@ export async function resumAXlsx(
  * browser, which matters because this has to work on a NAS. The tables are
  * drawn by hand, which is the price of depending on nothing else.
  */
-export interface DadesInforme {
+export interface ReportData {
   workspaceName: string;
   des: string;
-  fins: string;
+  to: string;
   income: string;
   expenses: string;
   cleaned: string;
@@ -151,7 +151,7 @@ export interface DadesInforme {
   categories: CategoryPart[];
 }
 
-export function informeAPdf(data: DadesInforme): Promise<Uint8Array<ArrayBuffer>> {
+export function reportToPdf(data: ReportData): Promise<Uint8Array<ArrayBuffer>> {
   return new Promise<Uint8Array<ArrayBuffer>>((resolve, reject) => {
     const doc = new PDFDocument({
       size: "A4",
@@ -172,7 +172,7 @@ export function informeAPdf(data: DadesInforme): Promise<Uint8Array<ArrayBuffer>
     const AMPLADA = doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
     doc.fontSize(20).fillColor("#0f172a").text(data.workspaceName);
-    doc.fontSize(10).fillColor("#64748b").text(`Informe del ${data.des} al ${data.fins}`);
+    doc.fontSize(10).fillColor("#64748b").text(`Informe del ${data.des} al ${data.to}`);
     doc.moveDown(1.2);
 
     // Summary

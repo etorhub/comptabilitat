@@ -326,9 +326,9 @@ describe("correcting a category", () => {
     });
 
     expect(res.status).toBe(200);
-    const [comercFila] = await db.select().from(merchants).where(eq(merchants.id, merchantId));
-    expect(comercFila?.defaultCategoryId).toBe(supermercat.id);
-    expect(comercFila?.isConfirmed).toBe(true);
+    const [rowMerchant] = await db.select().from(merchants).where(eq(merchants.id, merchantId));
+    expect(rowMerchant?.defaultCategoryId).toBe(supermercat.id);
+    expect(rowMerchant?.isConfirmed).toBe(true);
     expect((await read(segon)).categoryId).toBe(supermercat.id);
   });
 });

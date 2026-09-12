@@ -27,7 +27,7 @@ export interface FilterOptions {
   /** From this date, inclusive. */
   des?: string | null;
   /** Up to this date, inclusive. */
-  fins?: string | null;
+  to?: string | null;
   /** Only the ones that take money out. */
   onlyExpenses?: boolean;
 }
@@ -45,7 +45,7 @@ export function countableTransactions(options: FilterOptions): SQL | undefined {
   ];
 
   if (options.des != null) parts.push(gte(transactions.bookingDate, options.des));
-  if (options.fins != null) parts.push(lte(transactions.bookingDate, options.fins));
+  if (options.to != null) parts.push(lte(transactions.bookingDate, options.to));
   if (options.onlyExpenses === true) parts.push(lt(transactions.amount, "0"));
 
   return and(...parts);

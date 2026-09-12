@@ -74,61 +74,61 @@ function catalog(): { passes: JobEntry[]; individuals: JobEntry[] } {
     {
       id: "passada-diaria",
       title: "Passada diaria",
-      descripcio: "Sincronitza, classifica i analitza, en aquest ordre.",
+      description: "Sincronitza, classifica i analitza, en aquest ordre.",
     },
   ];
   if (config.ollamaEnabled) {
     passes.push({
       id: "passada-nocturna",
       title: "Passada nocturna",
-      descripcio: "El model local proposa categories i es torna a classificar.",
+      description: "El model local proposa categories i es torna a classificar.",
     });
   }
   passes.push({
     id: "totes",
     title: "Totes les feines",
-    descripcio: "Passada diaria, nocturna (si hi ha model), avisos i manteniment.",
+    description: "Passada diaria, nocturna (si hi ha model), avisos i manteniment.",
   });
 
   const individuals: JobEntry[] = [
     {
       id: "sync",
       title: "Sincronitzacio",
-      descripcio: "Importa els moviments de totes les connexions actives.",
+      description: "Importa els moviments de totes les connexions actives.",
     },
     {
       id: "classify",
       title: "Classificacio",
-      descripcio: "Aparella traspassos i classifica els moviments pendents.",
+      description: "Aparella traspassos i classifica els moviments pendents.",
     },
   ];
   if (config.ollamaEnabled) {
     individuals.push({
       id: "llm",
       title: "Model local",
-      descripcio: "Proposa una categoria per als comerços nous.",
+      description: "Proposa una categoria per als comerços nous.",
     });
   }
   individuals.push(
     {
       id: "analyze",
       title: "Analisi",
-      descripcio: "Recalcula recurrents, rebuts que falten i descoberts.",
+      description: "Recalcula recurrents, rebuts que falten i descoberts.",
     },
     {
       id: "notify",
       title: "Avisos",
-      descripcio: "Envia per correu tots els avisos pendents.",
+      description: "Envia per correu tots els avisos pendents.",
     },
     {
       id: "notify-urgents",
       title: "Avisos urgents",
-      descripcio: "Envia nomes els avisos critics pendents.",
+      description: "Envia nomes els avisos critics pendents.",
     },
     {
       id: "maintenance",
       title: "Manteniment",
-      descripcio: "Esborra sessions caducades, tanca importacions penjades i reassigna.",
+      description: "Esborra sessions caducades, tanca importacions penjades i reassigna.",
     },
   );
 
@@ -163,14 +163,14 @@ function resolveJob(id: JobId): () => Promise<string> {
 async function pageData(filters = historyFiltersSchema.parse({})) {
   const { passes, individuals } = catalog();
   const names = [...new Set([...passes, ...individuals].map((f) => f.id))];
-  const [darreres, enCursRuns, enCursNoms, salut, history] = await Promise.all([
+  const [darreres, enCursRuns, runningNames, salut, history] = await Promise.all([
     lastRunPerJob([...names, ...JOBS]),
     readRunning(),
     runningJobNames(),
     summaryHealth(),
     readHistory(filtersToService(filters)),
   ]);
-  return { passes, individuals, darreres, enCursRuns, enCursNoms, salut, history, filters };
+  return { passes, individuals, darreres, enCursRuns, runningNames, salut, history, filters };
 }
 
 async function oobMonitor(filters = historyFiltersSchema.parse({})) {
@@ -186,7 +186,7 @@ async function oobMonitor(filters = historyFiltersSchema.parse({})) {
       passes: data.passes,
       individuals: data.individuals,
       darreres: data.darreres,
-      enCurs: data.enCursNoms,
+      enCurs: data.runningNames,
       oob: true,
     }),
     HistoryList({ page: data.history, filters: data.filters, oob: true }),
@@ -196,8 +196,8 @@ async function oobMonitor(filters = historyFiltersSchema.parse({})) {
 // --- Page ------------------------------------------------------------------
 
 jobsRoutes.get("/", async (c) => {
-  const jo = currentUser(c);
-  const meus = await myWorkspaces(jo.id);
+  const me = currentUser(c);
+  const meus = await myWorkspaces(me.id);
   const filters = historyFiltersSchema.parse(c.req.query());
   const data = await pageData(filters);
 
@@ -205,9 +205,9 @@ jobsRoutes.get("/", async (c) => {
     c,
     Layout({
       title: "Feines",
-      user: jo,
+      user: me,
       csrfToken: c.get("csrfToken") ?? "",
-      ruta: c.req.path,
+      path: c.req.path,
       workspaces: meus,
       children: JobsPage(data),
     }),
@@ -242,7 +242,7 @@ jobsRoutes.get("/fragment/en-curs", async (c) => {
         passes: data.passes,
         individuals: data.individuals,
         darreres: data.darreres,
-        enCurs: data.enCursNoms,
+        enCurs: data.runningNames,
         oob: true,
       }),
       HistoryList({

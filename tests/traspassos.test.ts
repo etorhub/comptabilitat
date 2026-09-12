@@ -288,7 +288,7 @@ describe("both legs, or neither", () => {
  */
 describe("a rule's counter", () => {
   test("nothing is lost even when two passes write to it at once", async () => {
-    const [regla] = await db
+    const [rule] = await db
       .insert(rules)
       .values({
         ledgerId,
@@ -303,7 +303,7 @@ describe("a rule's counter", () => {
         matchCount: 0,
       })
       .returning();
-    const id = regla?.id ?? 0;
+    const id = rule?.id ?? 0;
 
     // Twenty increments at once, each on its own connection.
     await Promise.all(

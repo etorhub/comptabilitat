@@ -171,9 +171,9 @@ interface RawRow {
  * the concept is parsed for display only (without touching the DB).
  */
 export function transactionView(row: RawRow): TransactionView {
-  const emmascarat = row.displayDescription !== null && row.displayDescription !== "";
+  const masked = row.displayDescription !== null && row.displayDescription !== "";
 
-  if (emmascarat) {
+  if (masked) {
     return {
       id: row.id,
       accountId: row.accountId,
@@ -372,7 +372,7 @@ function searchClause(patro: string): SQL | undefined {
   );
 }
 
-function condicions(ledgerId: number, f: TransactionsFilters): SQL | undefined {
+function conditions(ledgerId: number, f: TransactionsFilters): SQL | undefined {
   const parts: (SQL | undefined)[] = [eq(transactions.ledgerId, ledgerId)];
 
   if (f.accountId !== null) parts.push(eq(transactions.accountId, f.accountId));
@@ -406,7 +406,7 @@ export async function listTransactions(
   ledgerId: number,
   filters: TransactionsFilters,
 ): Promise<TransactionsPage> {
-  const on = condicions(ledgerId, filters);
+  const on = conditions(ledgerId, filters);
 
   const [summary] = await db
     .select({ n: count(), total: sum(transactions.amount) })
@@ -533,7 +533,7 @@ export async function reviewQueue(
   >();
   if (merchantIds.length > 0) {
     const { llmSuggestions } = await import("../db/schema/index.ts");
-    const suggeriments = await db
+    const suggestions = await db
       .select({
         merchantId: llmSuggestions.merchantId,
         categoryId: llmSuggestions.suggestedCategoryId,
@@ -546,7 +546,7 @@ export async function reviewQueue(
       .where(inArray(llmSuggestions.merchantId, merchantIds))
       .orderBy(llmSuggestions.createdAt);
 
-    for (const s of suggeriments) {
+    for (const s of suggestions) {
       if (s.merchantId === null) continue;
       proposals.set(s.merchantId, {
         categoryId: s.categoryId,

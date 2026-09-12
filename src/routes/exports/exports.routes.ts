@@ -22,7 +22,7 @@ import { Hono } from "hono";
 import { AppError } from "../../lib/http.ts";
 import { addDays, todayLocal } from "../../lib/time.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
-import { informeAPdf, movimentsACsv, resumAXlsx } from "../../services/export.ts";
+import { reportToPdf, transactionsToCsv, resumAXlsx } from "../../services/export.ts";
 import { incomeAndExpenses, categoryBreakdown, monthlySeries } from "../../services/reports.ts";
 import { listTransactions } from "../../services/transactions.ts";
 import { exportFiltersSchema, MAX_ROWS, summarySchema } from "./exports.schema.ts";
@@ -49,7 +49,7 @@ async function transactionsToExport(ledgerId: number, query: Record<string, stri
   const page = await listTransactions(ledgerId, {
     accountId: null,
     dateFrom: filters.des,
-    dateTo: filters.fins,
+    dateTo: filters.to,
     categoryIds: filters.category === null ? [] : [filters.category],
     merchantId: null,
     search: filters.search,
@@ -78,7 +78,7 @@ transactionsExportRoutes.get("/moviments.csv", async (c) => {
   const transactionList = await transactionsToExport(workspace.id, c.req.query());
 
   return c.body(
-    movimentsACsv(transactionList),
+    transactionsToCsv(transactionList),
     200,
     capçaleres(fileName(workspace.code, "csv"), "text/csv; charset=utf-8"),
   );
@@ -111,18 +111,18 @@ reportsExportRoutes.get("/informe.pdf", async (c) => {
   const today = todayLocal();
   // By default, the current month.
   const des = filters.des ?? `${today.slice(0, 7)}-01`;
-  const fins = filters.fins ?? today;
+  const to = filters.to ?? today;
 
   const [totals, monthly, categories] = await Promise.all([
-    incomeAndExpenses([workspace.id], des, fins),
-    monthlySeries([workspace.id], des, fins),
-    categoryBreakdown([workspace.id], des, fins, true),
+    incomeAndExpenses([workspace.id], des, to),
+    monthlySeries([workspace.id], des, to),
+    categoryBreakdown([workspace.id], des, to, true),
   ]);
 
-  const pdf = await informeAPdf({
+  const pdf = await reportToPdf({
     workspaceName: workspace.name,
     des,
-    fins,
+    to,
     income: totals.income,
     expenses: totals.expenses,
     cleaned: totals.cleaned,

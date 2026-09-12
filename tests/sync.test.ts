@@ -56,13 +56,13 @@ function raw(over: Record<string, unknown> = {}): Record<string, unknown> {
  */
 async function importa(
   items: Record<string, unknown>[],
-  llistaIncompleta = false,
+  incompleteList = false,
 ): Promise<void> {
   const { saveTransactions } = await import("../src/services/import.ts");
   const analitzats = items
     .map(parseTransaction)
     .filter((x): x is NonNullable<typeof x> => x !== null);
-  await saveTransactions(account, analitzats, llistaIncompleta);
+  await saveTransactions(account, analitzats, incompleteList);
 }
 
 beforeEach(async () => {
@@ -219,13 +219,13 @@ describe("a pending entry that is booked", () => {
   });
 
   test("with a different amount, neither", async () => {
-    const pendent = raw({ status: "PDNG", booking_date: "2026-03-01" });
-    await importa([pendent]);
+    const pending = raw({ status: "PDNG", booking_date: "2026-03-01" });
+    await importa([pending]);
 
     // The bank keeps reporting the pending one and, on top of that, a new
     // entry of a different amount. As they do not match, they must not be paired.
     await importa([
-      pendent,
+      pending,
       raw({
         status: "BOOK",
         booking_date: "2026-03-02",

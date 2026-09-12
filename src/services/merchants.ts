@@ -65,7 +65,7 @@ export interface MerchantsPage {
   offset: number;
 }
 
-function condicions(ledgerId: number, filters: MerchantsFilters): SQL | undefined {
+function conditions(ledgerId: number, filters: MerchantsFilters): SQL | undefined {
   const parts: (SQL | undefined)[] = [eq(merchants.ledgerId, ledgerId)];
 
   const search = filters.search.trim();
@@ -89,7 +89,7 @@ export async function listMerchants(
   ledgerId: number,
   filters: MerchantsFilters,
 ): Promise<MerchantsPage> {
-  const on = condicions(ledgerId, filters);
+  const on = conditions(ledgerId, filters);
 
   const [total] = await db.select({ n: count() }).from(merchants).where(on);
 
@@ -237,7 +237,7 @@ export async function assignCategory(
  *
  * It is used by the synchronization, once per new transaction.
  *
- * @param incrementaComptador if false, it only gets or creates without
+ * @param incrementCounter if false, it only gets or creates without
  *   touching `transaction_count` (for batch reassignments that recount after).
  */
 export async function getOrCreateMerchant(
@@ -246,18 +246,18 @@ export async function getOrCreateMerchant(
   display = "",
   seenOn: string | null = null,
   connection: Transactor = db,
-  incrementaComptador = true,
+  incrementCounter = true,
 ): Promise<Merchant | null> {
   const name = (normalizedName || "").trim();
   if (!name) return null;
 
-  const [existent] = await connection
+  const [existing] = await connection
     .select()
     .from(merchants)
     .where(and(eq(merchants.ledgerId, ledgerId), eq(merchants.normalizedName, name)))
     .limit(1);
 
-  let merchant = existent;
+  let merchant = existing;
   if (!merchant) {
     const [creat] = await connection
       .insert(merchants)
@@ -276,14 +276,14 @@ export async function getOrCreateMerchant(
   }
   if (!merchant) return null;
 
-  if (!incrementaComptador) {
+  if (!incrementCounter) {
     if (seenOn !== null && (merchant.lastSeenAt === null || seenOn > merchant.lastSeenAt)) {
-      const [ambData] = await connection
+      const [withDate] = await connection
         .update(merchants)
         .set({ lastSeenAt: seenOn })
         .where(eq(merchants.id, merchant.id))
         .returning();
-      return ambData ?? merchant;
+      return withDate ?? merchant;
     }
     return merchant;
   }

@@ -101,7 +101,7 @@ app.onError((err, c) => {
  * a sudden death, an OOM — is picked up by the maintenance job with
  * `closeStuckImports()`.
  */
-function aturaEndreçadament(senyal: string): void {
+function shutdownGracefully(senyal: string): void {
   console.info(`[servidor] ${senyal}: aturant-se…`);
   void (async () => {
     try {
@@ -117,8 +117,8 @@ function aturaEndreçadament(senyal: string): void {
   })();
 }
 
-process.on("SIGTERM", () => aturaEndreçadament("SIGTERM"));
-process.on("SIGINT", () => aturaEndreçadament("SIGINT"));
+process.on("SIGTERM", () => shutdownGracefully("SIGTERM"));
+process.on("SIGINT", () => shutdownGracefully("SIGINT"));
 
 export default {
   port: config.port,

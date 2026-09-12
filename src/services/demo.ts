@@ -184,7 +184,7 @@ export async function fillForTests(
   const [japle] = await db.select({ id: accounts.id }).from(accounts).limit(1);
   if (japle) return { state: "ja hi havia dades; no s'ha tocat res" };
 
-  const atzar = generador(20260825);
+  const random = generador(20260825);
   const today = todayLocal();
 
   await seedLedgers();
@@ -266,7 +266,7 @@ export async function fillForTests(
   const add = async (
     account: { id: number; ledgerId: number },
     day: string,
-    quantitat: Decimal,
+    amount: Decimal,
     description: string,
   ) => {
     const counterparty = await resolveCounterparty(account.ledgerId, {
@@ -281,14 +281,14 @@ export async function fillForTests(
       entryReference: null,
       transactionId: null,
       dedupKey:
-        `demo-${account.id}-${day}-${toMoneyString(quantitat)}-${description.slice(0, 14)}`.slice(
+        `demo-${account.id}-${day}-${toMoneyString(amount)}-${description.slice(0, 14)}`.slice(
           0,
           64,
         ),
       source: "enablebanking",
       bookingDate: day,
       valueDate: day,
-      amount: toMoneyString(quantitat),
+      amount: toMoneyString(amount),
       currency: "EUR",
       status: "booked",
       description: description,
@@ -322,41 +322,41 @@ export async function fillForTests(
 
     // Day-to-day expenses.
     for (const account of accountList.values()) {
-      const quantes = 8 + Math.floor(atzar() * 10);
+      const quantes = 8 + Math.floor(random() * 10);
       for (let i = 0; i < quantes; i += 1) {
-        const row = Expenses[Math.floor(atzar() * Expenses.length)];
+        const row = Expenses[Math.floor(random() * Expenses.length)];
         if (!row) continue;
-        const [description, minim, maxim] = row;
-        const quantitat = new Decimal(minim + atzar() * (maxim - minim)).toDecimalPlaces(2);
-        await add(account, addDays(base, Math.floor(atzar() * 28)), quantitat, description);
+        const [description, min, max] = row;
+        const amount = new Decimal(min + random() * (max - min)).toDecimalPlaces(2);
+        await add(account, addDays(base, Math.floor(random() * 28)), amount, description);
       }
     }
 
     // Recurring direct debits.
-    for (const [description, quantitat, days, codiEspai] of Recurring) {
-      const account = accountList.get(codiEspai);
+    for (const [description, amount, days, workspaceCode] of Recurring) {
+      const account = accountList.get(workspaceCode);
       if (!account) continue;
       if (month % Math.max(1, Math.round(days / 30)) !== 0) continue;
-      await add(account, addDays(base, 3), new Decimal(quantitat), description);
+      await add(account, addDays(base, 3), new Decimal(amount), description);
     }
 
     // Transfers to a person with a declared periodicity (the rent). The
     // one-off ones (`dies === null`) are generated separately, once.
-    for (const [description, quantitat, days, codiEspai] of TRANSFERENCIES_PERSONALS) {
+    for (const [description, amount, days, workspaceCode] of TRANSFERENCIES_PERSONALS) {
       if (days === null) continue;
-      const account = accountList.get(codiEspai);
+      const account = accountList.get(workspaceCode);
       if (!account) continue;
       if (month % Math.max(1, Math.round(days / 30)) !== 0) continue;
-      await add(account, addDays(base, 5), new Decimal(quantitat), description);
+      await add(account, addDays(base, 5), new Decimal(amount), description);
     }
   }
 
   // The one-off transfers to a person: once only, not every month.
-  for (const [description, quantitat, days, codiEspai] of TRANSFERENCIES_PERSONALS) {
+  for (const [description, amount, days, workspaceCode] of TRANSFERENCIES_PERSONALS) {
     if (days !== null) continue;
-    const account = accountList.get(codiEspai);
+    const account = accountList.get(workspaceCode);
     if (!account) continue;
-    await add(account, addDays(today, -10), new Decimal(quantitat), description);
+    await add(account, addDays(today, -10), new Decimal(amount), description);
   }
 
   const calella = accountList.get("calella");
@@ -374,7 +374,7 @@ export async function fillForTests(
   // The two transactions above are not paired, but they do have a category:
   // they are a transfer between the owner's own accounts on either side. They
   // are classified directly, as whoever reviews the tray would do.
-  const TRANSFERS_ENTRE_WORKSPACES: [string, string, string][] = [
+  const TRANSFERS_BETWEEN_WORKSPACES: [string, string, string][] = [
     ["personal", "TRASPASO A CALELLA", "traspassos-traspas-entre-comptes-propis"],
     ["calella", "TRANSFERENCIA RECIBIDA DE TU", "traspassos-traspas-entre-comptes-propis"],
   ];
@@ -402,14 +402,14 @@ export async function fillForTests(
     perSlug.set(`${category.ledgerId}:${category.slug}`, category.id);
   }
 
-  const assignacions: [string, string][] = [
+  const assignments: [string, string][] = [
     ...Expenses.map(([description, , , slug]) => [description, slug] as [string, string]),
     ...Recurring.map(([description, , , , slug]) => [description, slug] as [string, string]),
     [NOMINA, "ingressos-del-treball-nomina"],
   ];
 
   for (const account of accountList.values()) {
-    for (const [description, slug] of assignacions) {
+    for (const [description, slug] of assignments) {
       const [normalitzat] = normalizeDescription(description, "");
       if (!normalitzat) continue;
 
@@ -436,15 +436,15 @@ export async function fillForTests(
   // whoever reviews the tray would really do, they are classified transaction
   // by transaction.
   const directClassification: [string, string, string][] = [
-    ...TRANSFERS_ENTRE_WORKSPACES,
+    ...TRANSFERS_BETWEEN_WORKSPACES,
     ...TRANSFERENCIES_PERSONALS.map(
-      ([description, , , codiEspai, slug]) =>
-        [codiEspai, description, slug] as [string, string, string],
+      ([description, , , workspaceCode, slug]) =>
+        [workspaceCode, description, slug] as [string, string, string],
     ),
   ];
 
-  for (const [codiEspai, description, slug] of directClassification) {
-    const account = accountList.get(codiEspai);
+  for (const [workspaceCode, description, slug] of directClassification) {
+    const account = accountList.get(workspaceCode);
     if (!account) continue;
 
     const categoryId = perSlug.get(`${account.ledgerId}:${slug}`);

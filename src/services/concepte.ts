@@ -70,7 +70,7 @@ function removeCard(text: string): { text: string; darrers4: string | null } {
   let darrers4: string | null = null;
   let cleaned = text;
 
-  const marcar = (digits: string) => {
+  const mark = (digits: string) => {
     const nets = digits.replace(/\D/g, "");
     if (nets.length >= 4) darrers4 = nets.slice(-4);
   };
@@ -79,24 +79,24 @@ function removeCard(text: string): { text: string; darrers4: string | null } {
   cleaned = cleaned.replace(
     /\bTARJ(?:ETA)?\.?\s*:?\s*\*?(\d{4,19})\b/gi,
     (_m, digits: string) => {
-      marcar(digits);
+      mark(digits);
       return " ";
     },
   );
 
   // PAN masked with X or *: 5402XXXXXXXX1234, 1234******5678
-  cleaned = cleaned.replace(/\b\d{2,6}[X*]{3,}(\d{2,6})\b/gi, (_m, cua: string) => {
-    marcar(cua);
+  cleaned = cleaned.replace(/\b\d{2,6}[X*]{3,}(\d{2,6})\b/gi, (_m, tail: string) => {
+    mark(tail);
     return " ";
   });
-  cleaned = cleaned.replace(/\b[X*]{4,}(\d{2,6})\b/gi, (_m, cua: string) => {
-    marcar(cua);
+  cleaned = cleaned.replace(/\b[X*]{4,}(\d{2,6})\b/gi, (_m, tail: string) => {
+    mark(tail);
     return " ";
   });
 
   // Residual labelled full PAN (in case it is left without the word TARJETA).
   cleaned = cleaned.replace(/\b(\d{13,19})\b/g, (_m, digits: string) => {
-    marcar(digits);
+    mark(digits);
     return " ";
   });
 
@@ -181,13 +181,13 @@ function stripTrailingSlot(text: string): string {
   const match = /^(.*?),\s*([A-ZÀ-ÜÑ][A-ZÀ-ÜÑa-zà-üñ' .-]{0,40})\s*,?\s*$/u.exec(text.trim());
   if (!match) return text.trim().replace(/,+\s*$/, "");
   const cap = (match[1] ?? "").trim();
-  const cua = (match[2] ?? "").trim();
+  const tail = (match[2] ?? "").trim();
   if (!cap) return text.trim();
   // The tail must not look like a long merchant name: 3 words max.
-  const paraules = cua.split(/\s+/).filter(Boolean);
-  if (paraules.length === 0 || paraules.length > 3) return text.trim();
+  const words = tail.split(/\s+/).filter(Boolean);
+  if (words.length === 0 || words.length > 3) return text.trim();
   // If the tail has business digits (Amazon codes, etc.), it is not a place.
-  if (/\d/.test(cua)) return text.trim();
+  if (/\d/.test(tail)) return text.trim();
   return cap;
 }
 
@@ -207,7 +207,7 @@ function collapseSpaces(text: string): string {
     .trim();
 }
 
-const CONNECTORS_TITOL = new Set([
+const TITLE_CONNECTORS = new Set([
   "DE",
   "DEL",
   "DELS",
@@ -221,7 +221,7 @@ const CONNECTORS_TITOL = new Set([
   "A",
 ]);
 
-const SUFIXOS_EMPRESA = new Set([
+const COMPANY_SUFFIXES = new Set([
   "SA",
   "SL",
   "SLU",
@@ -239,13 +239,13 @@ const SUFIXOS_EMPRESA = new Set([
  * Title-case for the UI. Unlike `displayName` (the merchant key), «APP» is
  * «App»: here we do not want three-letter acronyms.
  */
-function titolLlegible(majuscules: string): string {
-  return majuscules
+function readableTitle(upper: string): string {
+  return upper
     .split(/\s+/)
     .filter(Boolean)
     .map((word, i) => {
-      if (SUFIXOS_EMPRESA.has(word)) return word;
-      if (i > 0 && CONNECTORS_TITOL.has(word)) return word.toLowerCase();
+      if (COMPANY_SUFFIXES.has(word)) return word;
+      if (i > 0 && TITLE_CONNECTORS.has(word)) return word.toLowerCase();
       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
     })
     .join(" ");
@@ -272,7 +272,7 @@ function presenta(text: string): string {
           .toUpperCase()
           .replace(/[^A-Z0-9&'.\s]/g, " ")
           .trim();
-        return c ? titolLlegible(c) : part;
+        return c ? readableTitle(c) : part;
       })
       .join(" · ");
   }
@@ -285,7 +285,7 @@ function presenta(text: string): string {
     .replace(/[^A-Z0-9&'.\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  return key ? titolLlegible(key) : cleaned;
+  return key ? readableTitle(key) : cleaned;
 }
 
 /**
@@ -301,8 +301,8 @@ export function parseDescription(text: string): ParsedDescription {
   }
 
   const type = detectOperationType(raw);
-  const { text: senseTargeta, darrers4 } = removeCard(raw);
-  const withoutFee = stripFee(senseTargeta);
+  const { text: withoutCard, darrers4 } = removeCard(raw);
+  const withoutFee = stripFee(withoutCard);
   const cleanedOriginal = collapseSpaces(withoutFee);
 
   // «concepto:» — the title is what comes after.

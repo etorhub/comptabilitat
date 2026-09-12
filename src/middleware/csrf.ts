@@ -54,8 +54,8 @@ export const csrfMiddleware: MiddlewareHandler = async (c, next) => {
 
   // The header comes from the `<body>`'s `hx-headers`; the hidden field comes
   // from the forms that do not go through htmx (the login form).
-  let presentat = c.req.header(CSRF_HEADER);
-  if (presentat === undefined) {
+  let presented = c.req.header(CSRF_HEADER);
+  if (presented === undefined) {
     const type = c.req.header("Content-Type") ?? "";
     if (
       type.includes("application/x-www-form-urlencoded") ||
@@ -63,11 +63,11 @@ export const csrfMiddleware: MiddlewareHandler = async (c, next) => {
     ) {
       const body = await c.req.parseBody();
       const field = body[CSRF_FIELD];
-      if (typeof field === "string") presentat = field;
+      if (typeof field === "string") presented = field;
     }
   }
 
-  if (!(await csrfTokenValid(seed, presentat))) {
+  if (!(await csrfTokenValid(seed, presented))) {
     return toastOnly(c, "El formulari ha caducat. Torna a carregar la pagina.", 403);
   }
 

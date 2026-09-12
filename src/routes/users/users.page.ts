@@ -11,10 +11,10 @@ import { CreateForm, List, type UserView } from "./users.fragment.ts";
 export interface UsersPageProps {
   userList: UserView[];
   workspaces: Ledger[];
-  jo: number;
+  me: number;
 }
 
-export function UsersPage({ userList, workspaces, jo }: UsersPageProps): Html {
+export function UsersPage({ userList, workspaces, me }: UsersPageProps): Html {
   return html`
     <header class="capçalera">
       <h1>Usuaris</h1>
@@ -24,6 +24,6 @@ export function UsersPage({ userList, workspaces, jo }: UsersPageProps): Html {
       </p>
     </header>
 
-    ${CreateForm({})} ${List({ userList, workspaces, jo })}
+    ${CreateForm({})} ${List({ userList, workspaces, me })}
   ` as Html;
 }

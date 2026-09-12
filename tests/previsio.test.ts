@@ -35,7 +35,7 @@ let accountId = 0;
 async function transaction(
   key: string,
   date: string,
-  quantitat: string,
+  amount: string,
   extra: Partial<{
     transferGroupId: string;
     isExcluded: boolean;
@@ -52,7 +52,7 @@ async function transaction(
       dedupKey: key,
       source: "manual",
       bookingDate: date,
-      amount: quantitat,
+      amount: amount,
       currency: "EUR",
       status: extra.status ?? "booked",
       description: "M",
@@ -391,8 +391,8 @@ describe("the report aggregates", () => {
     expect(series).toHaveLength(2);
     expect(series[0]?.periode).toBe("2026-01");
     expect(Number(series[0]?.expenses)).toBe(100);
-    expect(Number(series[0]?.despesesVariables)).toBe(100);
-    expect(Number(series[0]?.despesesFixes)).toBe(0);
+    expect(Number(series[0]?.variableExpenses)).toBe(100);
+    expect(Number(series[0]?.fixedExpenses)).toBe(0);
     expect(series[1]?.periode).toBe("2026-02");
     expect(Number(series[1]?.expenses)).toBe(200);
     expect(Number(series[1]?.income)).toBe(300);
@@ -428,7 +428,7 @@ describe("the report aggregates", () => {
     const points = await monthlySeries([workspace.id], "2026-03-01", "2026-04-01");
     expect(points).toHaveLength(1);
     expect(Number(points[0]?.expenses)).toBe(120);
-    expect(Number(points[0]?.despesesFixes)).toBe(80);
-    expect(Number(points[0]?.despesesVariables)).toBe(40);
+    expect(Number(points[0]?.fixedExpenses)).toBe(80);
+    expect(Number(points[0]?.variableExpenses)).toBe(40);
   });
 });

@@ -147,11 +147,11 @@ export async function seriesOccurrences(
     .orderBy(desc(transactions.bookingDate), desc(transactions.id));
 
   return rows.map((f) => {
-    const emmascarat = f.displayDescription !== null && f.displayDescription !== "";
+    const masked = f.displayDescription !== null && f.displayDescription !== "";
     return {
       transactionId: f.transactionId,
       bookingDate: f.bookingDate,
-      description: emmascarat
+      description: masked
         ? (f.displayDescription ?? "")
         : parseDescription(f.description).title,
       amount: f.amount,

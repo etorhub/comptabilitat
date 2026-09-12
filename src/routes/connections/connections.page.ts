@@ -11,7 +11,7 @@ import { FormConnecta, List, type ConnectionView } from "./connections.fragment.
 export interface ConnectionsPageProps {
   connections: ConnectionView[];
   workspaces: Ledger[];
-  retorn?: { ok: boolean; motiu: string } | undefined;
+  retorn?: { ok: boolean; reason: string } | undefined;
 }
 
 export function ConnectionsPage({
@@ -36,7 +36,7 @@ export function ConnectionsPage({
             prem «Sincronitza».
           </p>`
           : html`<p class="form-error" role="alert">
-            El banc no ha completat l'autoritzacio${retorn.motiu ? html`: ${retorn.motiu}` : ""}.
+            El banc no ha completat l'autoritzacio${retorn.reason ? html`: ${retorn.reason}` : ""}.
           </p>`
         : ""
     }

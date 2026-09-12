@@ -42,7 +42,7 @@ class OllamaFals {
   readonly baseUrl = "http://proves";
   readonly model = "model-de-proves";
   readonly timeoutSeconds = 1;
-  readonly preguntats: string[] = [];
+  readonly asked: string[] = [];
 
   constructor(
     private readonly respostes: Record<string, Suggestion> = {},
@@ -59,11 +59,11 @@ class OllamaFals {
     _categories: readonly CategoryCatalog[],
   ): Promise<Suggestion> {
     void _categories;
-    this.preguntats.push(context.normalizedName);
+    this.asked.push(context.normalizedName);
     if (this.falla) return Promise.reject(new OllamaError("no respon"));
-    const resposta = this.respostes[context.normalizedName];
-    if (resposta === undefined) return Promise.reject(new OllamaError("sense resposta"));
-    return Promise.resolve(resposta);
+    const response = this.respostes[context.normalizedName];
+    if (response === undefined) return Promise.reject(new OllamaError("sense resposta"));
+    return Promise.resolve(response);
   }
 }
 
@@ -285,7 +285,7 @@ describe("when there is nothing to do or the model is not there", () => {
     const fals = new OllamaFals();
     const stats = await classifyMerchants(ledgerId, { client: asClient(fals) });
 
-    expect(fals.preguntats).toEqual([]);
+    expect(fals.asked).toEqual([]);
     expect(stats.omitted).toContain("no hi ha cap comerç nou");
   });
 

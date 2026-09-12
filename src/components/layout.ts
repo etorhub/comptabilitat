@@ -33,7 +33,7 @@ export interface LayoutProps {
    * and no template ever wrote it: the sidebar did not say where you were,
    * neither by colour nor to a screen reader.
    */
-  ruta?: string;
+  path?: string;
   /** The sidebar counters. They are out-of-band targets. */
   perRevisar?: number;
   newAlerts?: number;
@@ -92,7 +92,7 @@ export function Layout(props: LayoutProps): Html {
     workspace,
     perRevisar = 0,
     newAlerts = 0,
-    ruta = "",
+    path = "",
   } = props;
 
   return html`<!doctype html>
@@ -151,7 +151,7 @@ export function Layout(props: LayoutProps): Html {
           <!-- Tapping outside the drawer closes it. For sighted users only. -->
           <label for="menu-obert" class="rerefons-menu" aria-hidden="true"></label>
 
-          ${Sidebar({ user, workspaces, workspace, perRevisar, newAlerts, ruta })}
+          ${Sidebar({ user, workspaces, workspace, perRevisar, newAlerts, path })}
 
           <main id="contingut" class="principal">${props.children}</main>
         </div>
@@ -172,7 +172,7 @@ interface SidebarProps {
   workspace?: Ledger | undefined;
   perRevisar: number;
   newAlerts: number;
-  ruta: string;
+  path: string;
 }
 
 /**
@@ -182,15 +182,15 @@ interface SidebarProps {
  * others, and `/e/x/moviments` is the start of `/e/x/moviments/revisio`. With
  * first-match, "Panell" would be marked everywhere.
  */
-function activeLink(rutes: string[], ruta: string): string | undefined {
-  const paths = rutes.filter((href) => ruta === href || ruta.startsWith(`${href}/`));
+function activeLink(routes: string[], path: string): string | undefined {
+  const paths = routes.filter((href) => path === href || path.startsWith(`${href}/`));
   return paths.toSorted((a, b) => b.length - a.length)[0];
 }
 
-function Sidebar({ user, workspaces, workspace, perRevisar, newAlerts, ruta }: SidebarProps) {
+function Sidebar({ user, workspaces, workspace, perRevisar, newAlerts, path }: SidebarProps) {
   const code = workspace?.code;
 
-  const links: { href: string; text: string; comptador?: Html }[] = code
+  const links: { href: string; text: string; counter?: Html }[] = code
     ? [
         { href: `/e/${code}`, text: "Panell" },
         { href: `/e/${code}/moviments`, text: "Moviments" },
@@ -199,7 +199,7 @@ function Sidebar({ user, workspaces, workspace, perRevisar, newAlerts, ruta }: S
           // hangs off them. In the React app it was `/e/:codi/revisio`.
           href: `/e/${code}/moviments/revisio`,
           text: "Per revisar",
-          comptador: ReviewCounter(perRevisar),
+          counter: ReviewCounter(perRevisar),
         },
         { href: `/e/${code}/recurrents`, text: "Recurrents" },
         { href: `/e/${code}/previsio`, text: "Previsio" },
@@ -207,22 +207,22 @@ function Sidebar({ user, workspaces, workspace, perRevisar, newAlerts, ruta }: S
       ]
     : [];
 
-  const configuracio: { href: string; text: string; comptador?: Html }[] = code
+  const settings: { href: string; text: string; counter?: Html }[] = code
     ? [
         { href: `/e/${code}/configuracio`, text: "Espai" },
         { href: `/e/${code}/categories`, text: "Categories" },
         { href: `/e/${code}/etiquetes`, text: "Etiquetes" },
-        { href: `/e/${code}/avisos`, text: "Avisos", comptador: AlertCounter(newAlerts) },
+        { href: `/e/${code}/avisos`, text: "Avisos", counter: AlertCounter(newAlerts) },
       ]
     : [];
 
   const active = activeLink(
     [
       ...links.map((e) => e.href),
-      ...configuracio.map((e) => e.href),
+      ...settings.map((e) => e.href),
       ...(user.isAdmin ? ["/connexions", "/feines", "/usuaris"] : []),
     ],
-    ruta,
+    path,
   );
   // The space goes inside: without it, every link that is not the current one
   // would end up as `<a href="…" >`.
@@ -260,7 +260,7 @@ function Sidebar({ user, workspaces, workspace, perRevisar, newAlerts, ruta }: S
         (link) => html`<li>
           <a href="${link.href}"${marca(link.href)}>
             <span>${link.text}</span>
-            ${link.comptador ?? ""}
+            ${link.counter ?? ""}
           </a>
         </li>`,
       )}
@@ -271,11 +271,11 @@ function Sidebar({ user, workspaces, workspace, perRevisar, newAlerts, ruta }: S
         ? html`<div class="menu-seccio">
           <h2 class="menu-titol">Configuracio</h2>
           <ul class="menu">
-            ${configuracio.map(
+            ${settings.map(
               (link) => html`<li>
                 <a href="${link.href}"${marca(link.href)}>
                   <span>${link.text}</span>
-                  ${link.comptador ?? ""}
+                  ${link.counter ?? ""}
                 </a>
               </li>`,
             )}

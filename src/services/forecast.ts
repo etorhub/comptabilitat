@@ -29,7 +29,7 @@ export interface ForecastPoint {
   optimista: MoneyString;
   pessimista: MoneyString;
   /** Least-squares line over `esperat`: the overall trend. */
-  tendencia: MoneyString;
+  trend: MoneyString;
 }
 
 export interface Forecast {
@@ -112,7 +112,7 @@ export async function buildForecast(
 
   const llindar = money(workspace.overdraftThreshold);
 
-  const pointsWithoutTrend: Omit<ForecastPoint, "tendencia">[] = [];
+  const pointsWithoutTrend: Omit<ForecastPoint, "trend">[] = [];
   let corrent = money(balance);
   let firstOverdraft: string | null = null;
   let firstOverdraftAmount: MoneyString | null = null;
@@ -139,7 +139,7 @@ export async function buildForecast(
   const tendencias = leastSquaresLine(pointsWithoutTrend.map((p) => money(p.esperat)));
   const points: ForecastPoint[] = pointsWithoutTrend.map((p, i) => ({
     ...p,
-    tendencia: toMoneyString(tendencias[i] ?? ZERO),
+    trend: toMoneyString(tendencias[i] ?? ZERO),
   }));
 
   return {
@@ -184,10 +184,10 @@ export function leastSquaresLine(values: Decimal[]): Decimal[] {
     return values.map(() => mitjana.toDecimalPlaces(2));
   }
 
-  const pendent = nDec.times(sumXY).minus(sumX.times(sumY)).dividedBy(denominador);
-  const origin = sumY.minus(pendent.times(sumX)).dividedBy(nDec);
+  const slope = nDec.times(sumXY).minus(sumX.times(sumY)).dividedBy(denominador);
+  const origin = sumY.minus(slope.times(sumX)).dividedBy(nDec);
 
-  return values.map((_, i) => origin.plus(pendent.times(i)).toDecimalPlaces(2));
+  return values.map((_, i) => origin.plus(slope.times(i)).toDecimalPlaces(2));
 }
 
 function setmanaIso(isoDate: string): string {
@@ -208,7 +208,7 @@ export async function checkOverdrafts(
   if (forecast.firstOverdraft === null) return 0;
 
   const viewDays = daysBetween(todayLocal(), forecast.firstOverdraft);
-  const causa = forecast.events.find(
+  const cause = forecast.events.find(
     (e) => e.day <= (forecast.firstOverdraft as string) && money(e.amount).isNegative(),
   );
 
@@ -216,7 +216,7 @@ export async function checkOverdrafts(
     `Amb el saldo actual de ${money(forecast.openingBalance).toFixed(2)} EUR i els rebuts ` +
     `previstos confirmats, el saldo baixaria a ${money(forecast.firstOverdraftAmount).toFixed(2)} EUR el ` +
     `${forecast.firstOverdraft}.`;
-  if (causa) body += ` El primer rebut important previst es ${causa.label}.`;
+  if (cause) body += ` El primer rebut important previst es ${cause.label}.`;
 
   const creat = await createAlert({
     type: "projected_overdraft",

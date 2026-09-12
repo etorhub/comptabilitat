@@ -25,12 +25,12 @@ function baseFilter(
   dateFrom: string | null,
   dateTo: string | null,
 ): SQL | undefined {
-  return countableTransactions({ workspaces: ledgerIds, des: dateFrom, fins: dateTo });
+  return countableTransactions({ workspaces: ledgerIds, des: dateFrom, to: dateTo });
 }
 
 /** First day of the month and first day of the next month. */
-export function monthBounds(referencia?: string): [string, string] {
-  const base = referencia ?? todayLocal();
+export function monthBounds(reference?: string): [string, string] {
+  const base = reference ?? todayLocal();
   const any = Number(base.slice(0, 4));
   const month = Number(base.slice(5, 7));
   const first = `${base.slice(0, 7)}-01`;
@@ -79,9 +79,9 @@ export interface MonthlyPoint {
   /** Total expenses (= fixed + variable). */
   expenses: MoneyString;
   /** Expenses linked to an occurrence of a recurring series. */
-  despesesFixes: MoneyString;
+  fixedExpenses: MoneyString;
   /** Expenses that are not from a recurring series. */
-  despesesVariables: MoneyString;
+  variableExpenses: MoneyString;
   cleaned: MoneyString;
 }
 
@@ -106,8 +106,8 @@ export async function monthlySeries(
       periode,
       income: sql<string>`coalesce(sum(case when ${transactions.amount} > 0 then ${transactions.amount} else 0 end), 0)`,
       expenses: sql<string>`coalesce(sum(case when ${transactions.amount} < 0 then -${transactions.amount} else 0 end), 0)`,
-      despesesFixes: sql<string>`coalesce(sum(case when ${transactions.amount} < 0 and ${isFixedExpense} then -${transactions.amount} else 0 end), 0)`,
-      despesesVariables: sql<string>`coalesce(sum(case when ${transactions.amount} < 0 and not ${isFixedExpense} then -${transactions.amount} else 0 end), 0)`,
+      fixedExpenses: sql<string>`coalesce(sum(case when ${transactions.amount} < 0 and ${isFixedExpense} then -${transactions.amount} else 0 end), 0)`,
+      variableExpenses: sql<string>`coalesce(sum(case when ${transactions.amount} < 0 and not ${isFixedExpense} then -${transactions.amount} else 0 end), 0)`,
     })
     .from(transactions)
     .where(baseFilter(ledgerIds, dateFrom, dateTo))
@@ -121,8 +121,8 @@ export async function monthlySeries(
       periode: f.periode,
       income: toMoneyString(income),
       expenses: toMoneyString(expenses),
-      despesesFixes: toMoneyString(money(f.despesesFixes)),
-      despesesVariables: toMoneyString(money(f.despesesVariables)),
+      fixedExpenses: toMoneyString(money(f.fixedExpenses)),
+      variableExpenses: toMoneyString(money(f.variableExpenses)),
       cleaned: toMoneyString(income.minus(expenses)),
     };
   });
@@ -165,7 +165,7 @@ export async function categoryBreakdown(
       groupName: groupName,
       color: groupColor,
       amount: total,
-      transaccions: count(transactions.id),
+      transactionCount: count(transactions.id),
     })
     .from(transactions)
     .leftJoin(categories, eq(categories.id, transactions.categoryId))
@@ -188,7 +188,7 @@ export async function categoryBreakdown(
     color: f.color ?? "#94a3b8",
     amount: toMoneyString(money(f.amount)),
     share: suma.isZero() ? 0 : money(f.amount).dividedBy(suma).toNumber(),
-    transactions: f.transaccions,
+    transactions: f.transactionCount,
   }));
 }
 
@@ -221,7 +221,7 @@ export async function merchantBreakdown(
       merchantId: transactions.merchantId,
       merchantName: merchants.displayName,
       amount: total,
-      transaccions: count(transactions.id),
+      transactionCount: count(transactions.id),
     })
     .from(transactions)
     .innerJoin(merchants, eq(merchants.id, transactions.merchantId))
@@ -240,7 +240,7 @@ export async function merchantBreakdown(
     merchantId: f.merchantId,
     merchantName: f.merchantName ?? "—",
     amount: toMoneyString(money(f.amount)),
-    transactions: f.transaccions,
+    transactions: f.transactionCount,
   }));
 }
 

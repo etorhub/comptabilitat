@@ -84,7 +84,7 @@ export async function beginAuthorization(options: {
   if (!connection) throw new Error("No s'ha pogut crear la connexio");
 
   const client = new EnableBankingClient();
-  const resposta = await client.startAuthorization({
+  const response = await client.startAuthorization({
     aspspName,
     aspspCountry,
     redirectUrl: ebRedirectUrl,
@@ -92,7 +92,7 @@ export async function beginAuthorization(options: {
     psuType,
   });
 
-  const url = resposta.url ?? resposta.authorization_url;
+  const url = response.url ?? response.authorization_url;
   if (!url) throw new Error("El banc no ha tornat cap adreça d'autoritzacio");
 
   return { authorizationUrl: url, connectionId: connection.id };

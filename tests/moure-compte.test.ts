@@ -48,7 +48,7 @@ interface TransactionOptions {
   account?: number;
   ledgerId?: number;
   amount?: string;
-  descripcio?: string;
+  description?: string;
   categoryId?: number | null;
   categorySource?: "none" | "user" | "rule" | "merchant" | "llm";
   transferGroupId?: string | null;
@@ -66,7 +66,7 @@ async function transaction(o: TransactionOptions = {}): Promise<number> {
       amount: o.amount ?? "-30.00",
       currency: "EUR",
       status: "booked",
-      description: o.descripcio ?? "COMPRA EN MERCADONA",
+      description: o.description ?? "COMPRA EN MERCADONA",
       normalizedDescription: "MERCADONA",
       counterparty: "",
       bankTransactionCode: "",

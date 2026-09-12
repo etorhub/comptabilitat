@@ -31,7 +31,7 @@ export interface DataTableProps {
   /** Above the table: an action bar, say. Only shown when there are rows. */
   abans?: Html | "";
   /** Below the table: pagination, a summary. Only shown when there are rows. */
-  peu?: Html | "";
+  footer?: Html | "";
   /** An extra class for the `<table>`, when a view has its own. */
   cssClass?: string;
 }
@@ -47,7 +47,7 @@ export function DataTable({
   rows,
   empty,
   abans = "",
-  peu = "",
+  footer = "",
   cssClass,
 }: DataTableProps): Html {
   if (rows.length === 0) return EmptyState(empty);
@@ -65,7 +65,7 @@ export function DataTable({
         </tbody>
       </table>
     </div>
-    ${peu}` as Html;
+    ${footer}` as Html;
 }
 
 export interface Page {
@@ -91,12 +91,12 @@ export function Pagination({
   /** Next to the range: a total, a count. */
   summary?: Html | "";
 }): Html {
-  const desde = page.total === 0 ? 0 : page.offset + 1;
-  const fins = Math.min(page.offset + page.limit, page.total);
+  const from = page.total === 0 ? 0 : page.offset + 1;
+  const to = Math.min(page.offset + page.limit, page.total);
 
   return html`<nav class="paginacio" aria-label="Paginacio">
     <span class="text-suau">
-      ${String(desde)}–${String(fins)} de ${String(page.total)}${summary}
+      ${String(from)}–${String(to)} de ${String(page.total)}${summary}
     </span>
     ${passos}
   </nav>` as Html;

@@ -17,7 +17,7 @@ const PASSWORD = "provaprovaprova";
 
 interface Login {
   seedCookie: string;
-  csrfCamp: string;
+  csrfField: string;
 }
 
 async function prepareLogin(): Promise<Login> {
@@ -25,12 +25,12 @@ async function prepareLogin(): Promise<Login> {
   const html = await res.text();
   return {
     seedCookie: (res.headers.get("set-cookie") ?? "").split(";")[0] ?? "",
-    csrfCamp: /name="_csrf" value="([^"]+)"/.exec(html)?.[1] ?? "",
+    csrfField: /name="_csrf" value="([^"]+)"/.exec(html)?.[1] ?? "",
   };
 }
 
-function cosEntrada(camps: Record<string, string>): string {
-  return new URLSearchParams(camps).toString();
+function signInBody(fields: Record<string, string>): string {
+  return new URLSearchParams(fields).toString();
 }
 
 beforeAll(async () => {
@@ -52,7 +52,7 @@ describe("CSRF", () => {
     const res = await app.request("/entrada", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
-      body: cosEntrada({ email: "pau@exemple.cat", password: PASSWORD }),
+      body: signInBody({ email: "pau@exemple.cat", password: PASSWORD }),
     });
     expect(res.status).toBe(403);
   });
@@ -62,24 +62,24 @@ describe("CSRF", () => {
     const res = await app.request("/entrada", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
-      body: cosEntrada({ _csrf: "inventat", email: "pau@exemple.cat", password: PASSWORD }),
+      body: signInBody({ _csrf: "inventat", email: "pau@exemple.cat", password: PASSWORD }),
     });
     expect(res.status).toBe(403);
   });
 
   test("one session's token is no use for another", async () => {
-    const altre = await csrfTokenFor(hashToken(newSessionToken()));
+    const other = await csrfTokenFor(hashToken(newSessionToken()));
     const { seedCookie } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
-      body: cosEntrada({ _csrf: altre, email: "pau@exemple.cat", password: PASSWORD }),
+      body: signInBody({ _csrf: other, email: "pau@exemple.cat", password: PASSWORD }),
     });
     expect(res.status).toBe(403);
   });
 
   test("a request from another site is rejected even with a token", async () => {
-    const { seedCookie, csrfCamp } = await prepareLogin();
+    const { seedCookie, csrfField } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
       headers: {
@@ -87,7 +87,7 @@ describe("CSRF", () => {
         Cookie: seedCookie,
         "Sec-Fetch-Site": "cross-site",
       },
-      body: cosEntrada({ _csrf: csrfCamp, email: "pau@exemple.cat", password: PASSWORD }),
+      body: signInBody({ _csrf: csrfField, email: "pau@exemple.cat", password: PASSWORD }),
     });
     expect(res.status).toBe(403);
   });
@@ -95,11 +95,11 @@ describe("CSRF", () => {
 
 describe("sign-in", () => {
   test("with the right details, it opens a session", async () => {
-    const { seedCookie, csrfCamp } = await prepareLogin();
+    const { seedCookie, csrfField } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
-      body: cosEntrada({ _csrf: csrfCamp, email: "pau@exemple.cat", password: PASSWORD }),
+      body: signInBody({ _csrf: csrfField, email: "pau@exemple.cat", password: PASSWORD }),
     });
 
     expect(res.status).toBe(303);
@@ -110,11 +110,11 @@ describe("sign-in", () => {
   });
 
   test("of the session, the database only holds the digest", async () => {
-    const { seedCookie, csrfCamp } = await prepareLogin();
+    const { seedCookie, csrfField } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
-      body: cosEntrada({ _csrf: csrfCamp, email: "pau@exemple.cat", password: PASSWORD }),
+      body: signInBody({ _csrf: csrfField, email: "pau@exemple.cat", password: PASSWORD }),
     });
 
     const token = (res.headers.get("set-cookie") ?? "")
@@ -132,7 +132,7 @@ describe("sign-in", () => {
     // The same seed for both attempts: that way the only thing that changes
     // between the two responses is the email, and any other difference would
     // be a way of guessing who is registered.
-    const { seedCookie, csrfCamp } = await prepareLogin();
+    const { seedCookie, csrfField } = await prepareLogin();
     const capçaleres = {
       "Content-Type": "application/x-www-form-urlencoded",
       Cookie: seedCookie,
@@ -141,8 +141,8 @@ describe("sign-in", () => {
     const resDesconegut = await app.request("/entrada", {
       method: "POST",
       headers: capçaleres,
-      body: cosEntrada({
-        _csrf: csrfCamp,
+      body: signInBody({
+        _csrf: csrfField,
         email: "ningu@exemple.cat",
         password: "el-que-sigui",
       }),
@@ -151,7 +151,11 @@ describe("sign-in", () => {
     const resDolenta = await app.request("/entrada", {
       method: "POST",
       headers: capçaleres,
-      body: cosEntrada({ _csrf: csrfCamp, email: "pau@exemple.cat", password: "el-que-sigui" }),
+      body: signInBody({
+        _csrf: csrfField,
+        email: "pau@exemple.cat",
+        password: "el-que-sigui",
+      }),
     });
 
     expect(resDesconegut.status).toBe(resDolenta.status);
@@ -169,11 +173,11 @@ describe("sign-in", () => {
       isActive: false,
     });
 
-    const { seedCookie, csrfCamp } = await prepareLogin();
+    const { seedCookie, csrfField } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
-      body: cosEntrada({ _csrf: csrfCamp, email: "fora@exemple.cat", password: PASSWORD }),
+      body: signInBody({ _csrf: csrfField, email: "fora@exemple.cat", password: PASSWORD }),
     });
 
     expect(res.status).toBe(401);
@@ -190,12 +194,12 @@ describe("protected pages", () => {
   });
 
   test("the destination cannot lead to another website", async () => {
-    const { seedCookie, csrfCamp } = await prepareLogin();
+    const { seedCookie, csrfField } = await prepareLogin();
     const res = await app.request("/entrada", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: seedCookie },
-      body: cosEntrada({
-        _csrf: csrfCamp,
+      body: signInBody({
+        _csrf: csrfField,
         email: "pau@exemple.cat",
         password: PASSWORD,
         desti: "//maliciós.example.com/",

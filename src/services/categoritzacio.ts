@@ -66,12 +66,12 @@ export async function categorizeTransaction(
  * A half-done request would leave whoever made it not knowing what changed.
  */
 export async function categorizeBulk(
-  movimentIds: number[],
+  transactionIds: number[],
   ledgerId: number,
   categoryId: number | null,
   options: { rememberMerchant?: boolean } = {},
 ): Promise<{ aplicats: number }> {
-  const demanats = [...new Set(movimentIds)];
+  const demanats = [...new Set(transactionIds)];
 
   return db.transaction(async (tx) => {
     const meus = await tx

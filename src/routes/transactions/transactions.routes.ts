@@ -39,13 +39,7 @@ import {
   reviewQueue,
   cardsAvailable,
 } from "../../services/transactions.ts";
-import {
-  Row,
-  FilaConcepte,
-  FiltreTargetes,
-  ReviewDone,
-  Table,
-} from "./transactions.fragment.ts";
+import { Row, ConceptRow, CardFilter, ReviewDone, Table } from "./transactions.fragment.ts";
 import { ReviewPage, TransactionsPage } from "./transactions.page.ts";
 import {
   bulkCategorizeSchema,
@@ -67,7 +61,7 @@ async function data(ledgerId: number, query: Record<string, string | string[]>) 
     listTransactions(ledgerId, {
       accountId: filters.compte,
       dateFrom: filters.des,
-      dateTo: filters.fins,
+      dateTo: filters.to,
       categoryIds: filters.categoria === null ? [] : [filters.categoria],
       merchantId: null,
       search: filters.cerca,
@@ -172,7 +166,7 @@ transactionsRoutes.get("/fragment/taula", async (c) => {
         canEdit: roleAtLeast(currentRole(c), "editor"),
         knownTags,
       }),
-      FiltreTargetes({
+      CardFilter({
         cards: knownCards,
         seleccionades: filters.card,
         oob: true,
@@ -227,7 +221,7 @@ transactionsRoutes.get("/:id/fragment/categoria", requireEditor, async (c) => {
       transaction,
       groups,
       canEdit: true,
-      editantCategoria: true,
+      editingCategory: true,
       knownTags,
     }),
   );
@@ -240,7 +234,7 @@ transactionsRoutes.get("/:id/fragment/concepte", requireEditor, async (c) => {
     idFromRoute(c.req.param("id"), "Aquest moviment no existeix"),
     workspace.id,
   );
-  return fragment(c, FilaConcepte({ code: workspace.code, transaction }));
+  return fragment(c, ConceptRow({ code: workspace.code, transaction }));
 });
 
 // --- Mutations -------------------------------------------------------------
@@ -321,7 +315,7 @@ transactionsRoutes.post("/:id/concepte", requireEditor, async (c) => {
     return fragment(
       c,
       await withOob(
-        FilaConcepte({ code: workspace.code, transaction }),
+        ConceptRow({ code: workspace.code, transaction }),
         toast("El text es massa llarg"),
       ),
       422,
@@ -329,24 +323,24 @@ transactionsRoutes.post("/:id/concepte", requireEditor, async (c) => {
   }
 
   const row = await transactionRow(id, workspace.id);
-  const alies = parsed.data.display_description;
+  const alias = parsed.data.display_description;
 
   await db
     .update(transactions)
-    .set({ displayDescription: alies })
+    .set({ displayDescription: alias })
     .where(eq(transactions.id, id));
 
   if (row.transferGroupId !== null) {
     await db
       .update(transactions)
-      .set({ displayDescription: alies })
+      .set({ displayDescription: alias })
       .where(
         and(eq(transactions.transferGroupId, row.transferGroupId), ne(transactions.id, id)),
       );
   }
 
   return rowResponse(c, workspace.id, workspace.code, id, {
-    text: alies === null ? "El concepte del banc torna a ser visible" : "Concepte amagat",
+    text: alias === null ? "El concepte del banc torna a ser visible" : "Concepte amagat",
     to: "success",
   });
 });

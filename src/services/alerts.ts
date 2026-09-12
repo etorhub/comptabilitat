@@ -29,13 +29,13 @@ export async function createAlert(
   alert: AlertNew,
   connection: Transactor = db,
 ): Promise<Alert | null> {
-  const [existent] = await connection
+  const [existing] = await connection
     .select({ id: alerts.id })
     .from(alerts)
     .where(eq(alerts.dedupKey, alert.dedupKey))
     .limit(1);
 
-  if (existent) return null;
+  if (existing) return null;
 
   const [creat] = await connection
     .insert(alerts)
