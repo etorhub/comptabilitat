@@ -1,9 +1,9 @@
 /**
- * Rebuts previstos (schedules) i les seves aparicions.
+ * Expected bills (schedules) and their occurrences.
  *
- * El detector nomes proposa (`suggested`). La persona confirma (`active`) o
- * descarta (`dismissed`). La previsio de saldo nomes mira les series actives
- * amb `include_in_forecast`.
+ * The detector only proposes (`suggested`). The person confirms (`active`) or
+ * dismisses (`dismissed`). The balance forecast only looks at active series
+ * with `include_in_forecast`.
  */
 
 import {
@@ -31,8 +31,8 @@ export const recurringSeries = pgTable(
     id: serial().notNull(),
     ledgerId: integer("ledger_id").notNull(),
     /**
-     * Identifica la serie: `categoria|contrapart|sentit`, per exemple
-     * `c12|m34|in` o `c12|-|out` (vegeu `signatura()` a
+     * Identifies the series: `category|counterparty|direction`, for example
+     * `c12|m34|in` or `c12|-|out` (see the signature helper in
      * `services/recurring.ts`).
      */
     signature: varchar({ length: 220 }).notNull(),
@@ -42,7 +42,7 @@ export const recurringSeries = pgTable(
     cadence: domainEnum<Cadence>().notNull(),
     expectedAmount: money("expected_amount").notNull(),
     amountTolerance: money("amount_tolerance").notNull(),
-    /** `exact` = import confirmat; `average` = mitjana de les aparicions. */
+    /** `exact` = a confirmed amount; `average` = the mean of the occurrences. */
     amountMode: domainEnum<AmountMode>("amount_mode").notNull(),
     intervalDays: integer("interval_days").notNull(),
     confidence: doublePrecision().notNull(),
@@ -77,7 +77,7 @@ export const recurringSeries = pgTable(
   ],
 );
 
-/** Sense `TimestampMixin`. */
+/** No `TimestampMixin`. */
 export const recurringOccurrences = pgTable(
   "recurring_occurrences",
   {

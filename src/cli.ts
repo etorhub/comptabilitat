@@ -1,12 +1,15 @@
 /**
- * Ordres de manteniment.
+ * Maintenance commands.
+ *
+ * The command names and their flags stay Catalan: they are the operator's
+ * interface, like the URLs.
  *
  *   bun run src/cli.ts crea-espai  --codi nou --nom "Nom de l'espai" [--color #7c3aed]
  *   bun run src/cli.ts crea-usuari --email a@b.cat --password ... [--admin]
  *   bun run src/cli.ts dona-acces  --email a@b.cat --espai personal --rol admin
  *   bun run src/cli.ts neteja-sessions
  *
- * Equival al `python -m app.cli` d'abans.
+ * The equivalent of the old `python -m app.cli`.
  */
 
 import { and, desc, eq } from "drizzle-orm";
@@ -99,10 +102,11 @@ async function grantsAccess(): Promise<void> {
 }
 
 /**
- * Un espai nou, amb el seu pla de categories sencer.
+ * A new workspace, with its whole category plan.
  *
- * No es fa des de la interficie: crear un espai es una cosa d'una vegada i
- * fer-hi una pantalla no compensa. L'acces s'hi dona despres amb `dona-acces`.
+ * Not done from the interface: creating a workspace is a one-off and building
+ * a screen for it does not pay. Access is granted afterwards with
+ * `dona-acces`.
  */
 async function createWorkspace(): Promise<void> {
   const data = workspaceCreateSchema.parse({
@@ -155,7 +159,7 @@ async function cleanSessions(): Promise<void> {
   console.log(`${n} sessions caducades esborrades.`);
 }
 
-/** Crea els tres espais i el seu pla de categories, si no hi son. */
+/** Creates the three workspaces and their category plans, if absent. */
 async function inicia(): Promise<void> {
   const created = await seedLedgers();
   console.log(
@@ -165,7 +169,7 @@ async function inicia(): Promise<void> {
   );
 }
 
-/** Divuit mesos de moviments d'exemple. No fa res si ja hi ha dades. */
+/** Eighteen months of sample transactions. Does nothing if there is data. */
 async function demo(): Promise<void> {
   if (process.env.ENVIRONMENT === "production" && !process.argv.includes("--force")) {
     throw new Error("Aixo es produccio. Si de debò ho vols, torna-ho a provar amb --force.");
@@ -186,9 +190,9 @@ const ordres: Record<string, () => Promise<void>> = {
   "neteja-sessions": cleanSessions,
 };
 
-// Les migracions s'apliquen tambe aqui: `init` i `demo` es fan servir sobre
-// una base de dades acabada de crear, on encara no hi ha cap taula. Si ja hi
-// son, no fa res.
+// Migrations run here too: `init` and `demo` are used against a freshly
+// created database where there are no tables yet. If they are already there,
+// this does nothing.
 if (process.env.SKIP_MIGRATIONS !== "true") {
   const { applyMigrations } = await import("./db/migrate.ts");
   await applyMigrations();

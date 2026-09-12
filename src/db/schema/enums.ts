@@ -1,31 +1,31 @@
 /**
- * Enumeracions del domini.
+ * Domain enums.
  *
- * A la base de dades no son tipus natius de PostgreSQL: son `varchar(32)` que
- * hi desen el valor de text, i **sense cap restriccio CHECK** (aixo ho hem
- * comprovat contra l'esquema viu: zero check constraints a tot l'esquema).
- * Qui garanteix que el valor sigui bo, doncs, no es la base de dades sino
- * aquest fitxer: les taules els declaren amb `$type<...>()` i els formularis
- * els validen amb els esquemes de Zod que hi ha aqui sota.
+ * In the database these are not native PostgreSQL types: they are `varchar(32)`
+ * storing the text value, and **with no CHECK constraint** (checked against
+ * the live schema: zero check constraints in the whole thing). So what
+ * guarantees the value is good is not the database but this file: the tables
+ * declare them with `$type<...>()` and the forms validate them with the Zod
+ * schemas below.
  *
- * Els valors son exactament els de `backend/app/models/enums.py`. No se'n pot
- * canviar cap sense migrar les files que ja el fan servir.
+ * The values are exactly those of `backend/app/models/enums.py`. None can be
+ * changed without migrating the rows already using it.
  */
 
 import { z } from "zod/v4";
 
-/** Helper: una tupla no buida de literals, per fer-ne `z.enum` i un tipus. */
+/** Helper: a non-empty tuple of literals, to build a `z.enum` and a type from. */
 const values = <const T extends readonly [string, ...string[]]>(...v: T): T => v;
 
-// --- Espais de treball -----------------------------------------------------
+// --- Workspaces ------------------------------------------------------------
 
 export const LEDGER_ROLES = values("viewer", "editor", "admin");
 export type LedgerRole = (typeof LEDGER_ROLES)[number];
 export const ledgerRoleSchema = z.enum(LEDGER_ROLES);
 
 /**
- * Jerarquia de rols. `editor` pot tot el que pot `viewer`, i `admin` tot el
- * que pot `editor`. Es compara pel nivell, mai per igualtat.
+ * The role hierarchy. `editor` can do everything `viewer` can, and `admin`
+ * everything `editor` can. Compared by level, never by equality.
  */
 export const LEDGER_ROLE_LEVEL: Record<LedgerRole, number> = {
   viewer: 1,
@@ -38,7 +38,7 @@ export function roleAtLeast(role: LedgerRole | null, minim: LedgerRole): boolean
   return LEDGER_ROLE_LEVEL[role] >= LEDGER_ROLE_LEVEL[minim];
 }
 
-// --- Connexions bancaries --------------------------------------------------
+// --- Bank connections ------------------------------------------------------
 
 export const CONNECTION_STATUSES = values("pending", "active", "expired", "revoked", "error");
 export type ConnectionStatus = (typeof CONNECTION_STATUSES)[number];
@@ -48,7 +48,7 @@ export const SYNC_STATUSES = values("running", "success", "partial", "failed");
 export type SyncStatus = (typeof SYNC_STATUSES)[number];
 export const syncStatusSchema = z.enum(SYNC_STATUSES);
 
-/** Un `SyncRun` ja no es mou d'aqui: serveix per aturar el sondeig de la UI. */
+/** A `SyncRun` moves no further: this is what stops the UI's polling. */
 export const TERMINAL_SYNC_STATUSES: readonly SyncStatus[] = ["success", "partial", "failed"];
 
 export function isSyncFinished(status: SyncStatus): boolean {
@@ -59,9 +59,9 @@ export const SYNC_TRIGGERS = values("scheduled", "manual", "initial");
 export type SyncTrigger = (typeof SYNC_TRIGGERS)[number];
 export const syncTriggerSchema = z.enum(SYNC_TRIGGERS);
 
-// --- Feines del planificador -----------------------------------------------
+// --- Scheduler jobs --------------------------------------------------------
 
-/** Mateixos valors que `SyncStatus`: una execució de feina té el mateix cicle. */
+/** Same values as `SyncStatus`: a job run has the same lifecycle. */
 export const JOB_STATUSES = SYNC_STATUSES;
 export type JobStatus = SyncStatus;
 export const jobStatusSchema = syncStatusSchema;
@@ -71,12 +71,12 @@ export function isJobFinished(status: JobStatus): boolean {
   return isSyncFinished(status);
 }
 
-/** D'on s'ha engegat la feina. `manual` = UI d'administració. */
+/** Where the job was started from. `manual` = the admin UI. */
 export const JOB_TRIGGERS = values("scheduled", "manual", "cli");
 export type JobTrigger = (typeof JOB_TRIGGERS)[number];
 export const jobTriggerSchema = z.enum(JOB_TRIGGERS);
 
-// --- Moviments -------------------------------------------------------------
+// --- Transactions ----------------------------------------------------------
 
 export const TRANSACTION_STATUSES = values("booked", "pending");
 export type TransactionStatus = (typeof TRANSACTION_STATUSES)[number];
@@ -86,21 +86,22 @@ export const TRANSACTION_SOURCES = values("enablebanking", "manual");
 export type TransactionSource = (typeof TRANSACTION_SOURCES)[number];
 export const transactionSourceSchema = z.enum(TRANSACTION_SOURCES);
 
-// --- Categories i classificacio --------------------------------------------
+// --- Categories and classification -----------------------------------------
 
 export const CATEGORY_KINDS = values("income", "expense", "transfer");
 export type CategoryKind = (typeof CATEGORY_KINDS)[number];
 export const categoryKindSchema = z.enum(CATEGORY_KINDS);
 
 /**
- * D'on ve la categoria d'un moviment. L'ordre importa: `user` es la decisio
- * d'una persona i no la sobreescriu mai res (vegeu `services/classification`).
+ * Where a transaction's category came from. The order matters: `user` is a
+ * person's decision and nothing ever overwrites it (see
+ * `services/classification`).
  */
 export const CATEGORY_SOURCES = values("none", "merchant", "rule", "llm", "user");
 export type CategorySource = (typeof CATEGORY_SOURCES)[number];
 export const categorySourceSchema = z.enum(CATEGORY_SOURCES);
 
-// --- Regles ----------------------------------------------------------------
+// --- Rules -----------------------------------------------------------------
 
 export const RULE_SOURCES = values("user", "learned");
 export type RuleSource = (typeof RULE_SOURCES)[number];
@@ -121,7 +122,7 @@ export const RULE_OPERATORS = values("contains", "equals", "starts_with", "regex
 export type RuleOperator = (typeof RULE_OPERATORS)[number];
 export const ruleOperatorSchema = z.enum(RULE_OPERATORS);
 
-// --- Recurrents ------------------------------------------------------------
+// --- Recurring series ------------------------------------------------------
 
 export const CADENCES = values(
   "weekly",
@@ -135,7 +136,7 @@ export const CADENCES = values(
 export type Cadence = (typeof CADENCES)[number];
 export const cadenceSchema = z.enum(CADENCES);
 
-/** Dies que dura cada cadencia, per encaixar-hi un interval observat. */
+/** How many days each cadence lasts, so an observed interval can be matched. */
 export const CADENCE_DAYS: Record<Cadence, number> = {
   weekly: 7,
   biweekly: 14,
@@ -147,23 +148,23 @@ export const CADENCE_DAYS: Record<Cadence, number> = {
 };
 
 /**
- * Cicle d'un rebut previst (schedule): el detector nomes **proposa**
- * (`suggested`); la persona confirma (`active`) o descarta (`dismissed`).
- * `ended` es quan deixa d'aparèixer.
+ * The lifecycle of an expected bill (a schedule): the detector only
+ * **proposes** (`suggested`); the person confirms (`active`) or dismisses
+ * (`dismissed`). `ended` is when it stops appearing.
  */
 export const SERIES_STATUSES = values("suggested", "active", "ended", "dismissed");
 export type SeriesStatus = (typeof SERIES_STATUSES)[number];
 export const seriesStatusSchema = z.enum(SERIES_STATUSES);
 
 /**
- * Com s'estima l'import a la previsio: fix confirmat, o mitjana de les
- * aparicions recents (aigua, llum…).
+ * How the amount is estimated in the forecast: a confirmed fixed value, or the
+ * average of recent occurrences (water, electricity).
  */
 export const AMOUNT_MODES = values("exact", "average");
 export type AmountMode = (typeof AMOUNT_MODES)[number];
 export const amountModeSchema = z.enum(AMOUNT_MODES);
 
-// --- Avisos ----------------------------------------------------------------
+// --- Alerts ----------------------------------------------------------------
 
 export const ALERT_TYPES = values(
   "projected_overdraft",

@@ -1,8 +1,8 @@
 /**
- * Historial d'execucions de les feines del planificador.
+ * The run history of the scheduler's jobs.
  *
- * Una fila per cada invocació (cron, UI o CLI). Les passades compostes
- * (`passada-diaria`, …) creen una fila pare i una per cada pas fill.
+ * One row per invocation (cron, UI or CLI). Composite passes
+ * (`passada-diaria`, and so on) create a parent row plus one per child step.
  */
 
 import {
@@ -19,7 +19,7 @@ import {
 import { domainEnum, tz } from "./columns.ts";
 import type { JobStatus, JobTrigger } from "./enums.ts";
 
-/** Sense TimestampMixin: cada intent porta el seu `started_at`, com `sync_runs`. */
+/** No TimestampMixin: each attempt carries its own `started_at`, like `sync_runs`. */
 export const jobRuns = pgTable(
   "job_runs",
   {
@@ -27,7 +27,7 @@ export const jobRuns = pgTable(
     jobName: varchar("job_name", { length: 32 }).notNull(),
     trigger: domainEnum<JobTrigger>().notNull(),
     status: domainEnum<JobStatus>().notNull(),
-    /** Nul = execució de primer nivell; si no, pas d'una passada. */
+    /** Null = a top-level run; otherwise, a step of a pass. */
     parentId: integer("parent_id"),
     startedAt: tz("started_at").notNull(),
     finishedAt: tz("finished_at"),

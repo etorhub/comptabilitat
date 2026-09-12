@@ -1,15 +1,14 @@
 /**
- * Esquema de la base de dades.
+ * The database schema.
  *
- * Descriu **exactament** la base de dades que ja hi ha: fins al canvi de pila
- * les migracions les feia Alembic, i el darrer cap seu es `b2c3d4e5f6a7`.
- * La prova que aixo es cert es que `bun run db:generate` no ha de proposar cap
- * DDL. Si en proposa, el que esta malament es aquest esquema, no la base de
- * dades.
+ * It describes **exactly** the database that already exists: until the stack
+ * change Alembic ran the migrations, and its last head is `b2c3d4e5f6a7`. The
+ * proof that this is true is that `bun run db:generate` must propose no DDL.
+ * If it proposes any, what is wrong is this schema, not the database.
  *
- * Els fitxers segueixen la divisio de `backend/app/models/`, no la de
- * `src/routes/`: van per agregat, perque les claus foranes es creuen entre
- * taules que la interficie tracta com a recursos diferents.
+ * The files follow `backend/app/models/`'s split, not `src/routes/`'s: they go
+ * by aggregate, because foreign keys cross between tables the interface treats
+ * as separate resources.
  */
 
 export * from "./alerts.ts";

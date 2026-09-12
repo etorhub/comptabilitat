@@ -1,9 +1,8 @@
 /**
- * Espais de treball (*espais estancs*).
+ * Workspaces (*espais estancs*, sealed workspaces).
  *
- * Cada espai es una comptabilitat sencera i separada: els seus comptes, el seu
- * pla de categories, els seus comerços, les seves regles i els seus usuaris.
- * No hi ha cap vista que en barregi mes d'un.
+ * Each one is a whole, separate set of books: its own accounts, category plan,
+ * merchants, rules and users. There is no view that mixes more than one.
  */
 
 import {
@@ -26,17 +25,17 @@ export const ledgers = pgTable(
   "ledgers",
   {
     id: serial().notNull(),
-    /** Codi curt de l'adreça: `personal`, `calella`, `pardals`. */
+    /** The short code in the URL: `personal`, `calella`, `pardals`. */
     code: varchar({ length: 50 }).notNull(),
     name: varchar({ length: 120 }).notNull(),
     description: varchar({ length: 500 }).notNull(),
     currency: varchar({ length: 3 }).notNull(),
     color: varchar({ length: 9 }).notNull(),
-    /** Per sota d'aquest saldo previst salta l'avis de descobert. */
+    /** Below this projected balance, the overdraft alert fires. */
     overdraftThreshold: money("overdraft_threshold").notNull(),
     position: integer().notNull(),
     isActive: boolean("is_active").notNull(),
-    /** Destinataris dels avisos d'aquest espai; si es buit, els generals. */
+    /** This workspace's alert recipients; when empty, the general ones. */
     alertRecipients: varchar("alert_recipients", { length: 255 }).array().notNull(),
     ...timestamps,
   },
@@ -47,9 +46,9 @@ export const ledgers = pgTable(
 );
 
 /**
- * Acces d'un usuari a un espai. Aquesta taula es l'unica font de veritat de
- * qui hi entra: ser administrador de l'aplicacio (`users.is_admin`) **no**
- * dona acces a cap espai.
+ * A user's access to a workspace. This table is the only source of truth for
+ * who gets in: being an administrator of the application (`users.is_admin`)
+ * grants **no** workspace access.
  */
 export const userLedgerPermissions = pgTable(
   "user_ledger_permissions",

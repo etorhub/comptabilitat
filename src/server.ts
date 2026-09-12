@@ -1,9 +1,8 @@
 /**
- * Servidor.
+ * The server.
  *
- * L'ordre dels middlewares importa: la sessio abans que el CSRF (que
- * necessita el resum del testimoni per validar), i tots dos abans que cap
- * ruta.
+ * Middleware order matters: the session before the CSRF check (which needs the
+ * token digest in order to validate), and both before any route.
  */
 
 import { Hono } from "hono";
@@ -20,9 +19,12 @@ import { registerRoutes } from "./routes/index.ts";
 
 validateConfig();
 
-// Les migracions s'apliquen abans d'acceptar cap peticio, com feia
-// l'entrypoint de Python amb Alembic. Vegeu `db/migrate.ts` per al cas del
-// primer arrencada sobre una base de dades que ja existeix.
+// Migrations run before any request is accepted, as the Python entrypoint did
+// with Alembic. See `db/migrate.ts` for the first-boot case against a database
+// that already exists.
+//
+// Careful: this import-time migration is also why `bun test` races on a fresh
+// database when several test files import `app`. Use `bun run test:bd`.
 if (process.env.SKIP_MIGRATIONS !== "true") {
   const { applyMigrations } = await import("./db/migrate.ts");
   await applyMigrations();
@@ -34,13 +36,13 @@ if (config.debug) {
   app.use("*", logger());
 }
 
-// Fitxers estatics: HTMX, ECharts, el full d'estil i el favicon. Els serveix
-// l'aplicacio mateixa, de manera que no cal cap servidor web al davant: amb el
-// canvi de pila, l'nginx que servia la interficie de React ja no hi es.
+// Static files: htmx, ECharts, the stylesheet and the favicon. The
+// application serves them itself, so no web server is needed in front: with
+// the stack change, the nginx that served the React interface is gone.
 //
-// `immutable` d'un any: el navegador no els torna a demanar. Les plantilles
-// hi afegeixen `?v=<resum>` (vegeu `lib/estatics.ts`) perquè un desplegament
-// no deixi bytes vells a la memòria cau.
+// A one-year `immutable`: the browser does not ask again. Templates append
+// `?v=<digest>` (see `lib/estatics.ts`) so a deployment does not leave stale
+// bytes in the cache.
 const cacheEstatic = (_path: string, c: Context) => {
   c.header("Cache-Control", "public, max-age=31536000, immutable");
 };
@@ -61,8 +63,8 @@ app.use("*", csrfMiddleware);
 registerRoutes(app);
 
 /**
- * 404. En una navegacio, la pagina sencera; en una peticio d'HTMX, un avis.
- * Es el mateix tant si el recurs no existeix com si no hi tens acces.
+ * 404. On a navigation, the whole page; on an htmx request, a notice. The same
+ * whether the resource does not exist or you have no access to it.
  */
 app.notFound((c) => {
   if (c.req.header("HX-Request") === "true") {
@@ -73,8 +75,8 @@ app.notFound((c) => {
 });
 
 /**
- * Qualsevol error que arribi fins aqui. El detall del que ha petat va al
- * registre, no a la pantalla: podria dur-hi dades del banc.
+ * Any error that reaches this far. The detail of what broke goes to the log,
+ * not to the screen: it could carry data from the bank.
  */
 app.onError((err, c) => {
   const { status, message, detail } = describeError(err);
@@ -86,17 +88,18 @@ app.onError((err, c) => {
 });
 
 /**
- * Aturada endreçada.
+ * Graceful shutdown.
  *
- * El planificador ja en tenia; el servidor, no, i aixo es nota: la importacio
- * del banc corre en segon pla dins d'aquest proces, i un `docker compose stop`
- * el mata enmig. La fila de `sync_runs` es queda en `running` per sempre, i el
- * fragment de la pagina de connexions nomes s'atura quan l'estat es terminal:
- * es queda sondejant cada dos segons, per a tothom qui la miri.
+ * The scheduler already had one; the server did not, and it showed: the bank
+ * import runs in the background inside this process, and a
+ * `docker compose stop` kills it midway. The `sync_runs` row then stays
+ * `running` for ever, and the connections page's fragment only stops when the
+ * state is terminal: it keeps polling every two seconds, for everyone looking
+ * at it.
  *
- * Aqui es tanca la piscina i es marquen les importacions que hi hagi obertes.
- * El que se n'escapi —una mort sobtada, un OOM— el recull la feina de
- * manteniment amb `tancaImportacionsPenjades()`.
+ * Here the pool is closed and any open imports are marked. Whatever escapes —
+ * a sudden death, an OOM — is picked up by the maintenance job with
+ * `closeStuckImports()`.
  */
 function aturaEndreçadament(senyal: string): void {
   console.info(`[servidor] ${senyal}: aturant-se…`);
@@ -120,8 +123,8 @@ process.on("SIGINT", () => aturaEndreçadament("SIGINT"));
 export default {
   port: config.port,
   fetch: app.fetch,
-  // La primera importacio d'un historic de 24 mesos triga; nginx ja espera
-  // 300 s i el servidor no ha de tallar abans.
+  // The first import of 24 months of history takes a while; nginx already
+  // waits 300 s and the server must not cut it short.
   idleTimeout: 120,
 };
 

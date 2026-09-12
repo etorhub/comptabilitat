@@ -1,10 +1,10 @@
 /**
- * Connexions bancaries, comptes, saldos i intents de sincronitzacio.
+ * Bank connections, accounts, balances and sync attempts.
  *
- * Les connexions **es comparteixen** entre espais: qui les gestiona es
- * l'administrador de la instal·lacio. Els comptes, en canvi, s'assignen a un
- * espai (`ledgerId`), i mentre no en tinguin cap els seus moviments no es
- * veuen enlloc.
+ * Connections are **shared** between workspaces: the installation's
+ * administrator manages them. Accounts, by contrast, are assigned to a
+ * workspace (`ledgerId`), and until they have one their transactions are not
+ * visible anywhere.
  */
 
 import {
@@ -35,16 +35,16 @@ export const bankConnections = pgTable(
     aspspName: varchar("aspsp_name", { length: 120 }).notNull(),
     aspspCountry: varchar("aspsp_country", { length: 2 }).notNull(),
     psuType: varchar("psu_type", { length: 20 }).notNull(),
-    /** Sessio oberta a Enable Banking despres de l'autenticacio forta. */
+    /** The Enable Banking session opened after strong authentication. */
     ebSessionId: varchar("eb_session_id", { length: 128 }),
     /**
-     * Estat d'un sol us per lligar el retorn del banc amb la connexio que el
-     * va iniciar. Es el secret que protegeix la ruta de retorn, que no pot
-     * anar autenticada perque qui hi arriba ve del banc.
+     * A single-use state tying the bank's callback to the connection that
+     * started it. It is the secret protecting the callback route, which cannot
+     * be authenticated because whoever arrives there comes from the bank.
      */
     ebAuthState: varchar("eb_auth_state", { length: 128 }),
     status: domainEnum<ConnectionStatus>().notNull(),
-    /** Caducitat del consentiment: sota PSD2, 90 dies com a molt. */
+    /** Consent expiry: under PSD2, 90 days at most. */
     validUntil: tz("valid_until"),
     lastSyncAt: tz("last_sync_at"),
     lastError: text("last_error").notNull(),
@@ -68,23 +68,23 @@ export const accounts = pgTable(
   {
     id: serial().notNull(),
     connectionId: integer("connection_id").notNull(),
-    /** Nul = compte encara sense espai assignat: no es veu des de cap espai. */
+    /** Null = an account with no workspace yet: not visible from any of them. */
     ledgerId: integer("ledger_id"),
     ebAccountUid: varchar("eb_account_uid", { length: 128 }).notNull(),
     name: varchar({ length: 160 }).notNull(),
     product: varchar({ length: 120 }).notNull(),
-    /** Dada personal: a les plantilles nomes hi arriba emmascarat. */
+    /** Personal data: only the masked form ever reaches a template. */
     iban: varchar({ length: 34 }).notNull(),
     currency: varchar({ length: 3 }).notNull(),
     cashAccountType: varchar("cash_account_type", { length: 20 }).notNull(),
     usage: varchar({ length: 20 }).notNull(),
     isActive: boolean("is_active").notNull(),
     historyStartDate: date("history_start_date"),
-    /** Fins on hem baixat moviments; d'aqui surt la finestra de la sincronitzacio. */
+    /** How far transactions have been fetched; the sync window starts from here. */
     lastBookedDate: date("last_booked_date"),
     /**
-     * Resposta sencera del banc. Conte dades personals (noms, IBAN). No es
-     * renderitza mai ni entra en cap fragment: vegeu `AGENTS.md`.
+     * The bank's whole response. It contains personal data (names, IBANs). It
+     * is never rendered and never enters a fragment: see `AGENTS.md`.
      */
     raw: jsonb().notNull().$type<Record<string, unknown>>(),
     ...timestamps,
@@ -107,7 +107,7 @@ export const accounts = pgTable(
   ],
 );
 
-/** Sense `TimestampMixin`: `fetched_at` el posa qui insereix. */
+/** No `TimestampMixin`: whoever inserts sets `fetched_at`. */
 export const balances = pgTable(
   "balances",
   {
@@ -131,7 +131,7 @@ export const balances = pgTable(
   ],
 );
 
-/** Sense `TimestampMixin`: cada intent porta el seu `started_at`. */
+/** No `TimestampMixin`: each attempt carries its own `started_at`. */
 export const syncRuns = pgTable(
   "sync_runs",
   {
@@ -149,7 +149,7 @@ export const syncRuns = pgTable(
   (t) => [
     primaryKey({ name: "pk_sync_runs", columns: [t.id] }),
     index("ix_sync_runs_connection_id").on(t.connectionId),
-    // Serveix per comprovar el limit de crides diaries que imposa el banc.
+    // Used to check the daily call limit the bank imposes.
     index("ix_sync_runs_started_at").on(t.startedAt),
     foreignKey({
       name: "fk_sync_runs_connection_id_bank_connections",

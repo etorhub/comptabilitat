@@ -1,8 +1,8 @@
 /**
- * Avisos.
+ * Alerts.
  *
- * `ledgerId` nul vol dir que l'avis no es de cap espai (una sincronitzacio
- * fallida, un consentiment caducat): aquests van als destinataris generals.
+ * A null `ledgerId` means the alert belongs to no workspace (a failed sync, an
+ * expired consent): those go to the general recipients.
  */
 
 import {
@@ -31,9 +31,9 @@ export const alerts = pgTable(
     severity: domainEnum<AlertSeverity>().notNull(),
     status: domainEnum<AlertStatus>().notNull(),
     /**
-     * Unica **globalment**, no per espai. La clau inclou el periode, de manera
-     * que la mateixa condicio no torna a avisar cada dia; i com que un avis
-     * descartat conserva la fila, tampoc no ressuscita.
+     * Unique **globally**, not per workspace. The key includes the period, so
+     * the same condition does not raise an alert again every day; and since a
+     * dismissed alert keeps its row, it does not come back either.
      */
     dedupKey: varchar("dedup_key", { length: 200 }).notNull(),
     title: varchar({ length: 250 }).notNull(),
