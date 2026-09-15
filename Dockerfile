@@ -11,6 +11,8 @@ RUN bun install --frozen-lockfile --production
 
 COPY tsconfig.json drizzle.config.ts ./
 COPY src ./src
+# `src/lib/polling.ts` importa `htmx-contract/poll.ts` en temps d'execucio.
+COPY htmx-contract ./htmx-contract
 COPY drizzle ./drizzle
 COPY public ./public
 COPY docker-entrypoint.sh ./
