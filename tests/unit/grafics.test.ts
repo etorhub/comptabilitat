@@ -92,8 +92,8 @@ describe("grafics contract", () => {
       events: [],
     };
     const data = payloadOf(ForecastChart(forecast)) as Record<string, unknown>;
-    expect(Object.keys(data).sort()).toEqual(
-      ["billDays", "firstOverdraft", "history", "points", "threshold"].sort(),
+    expect(Object.keys(data).toSorted()).toEqual(
+      ["billDays", "firstOverdraft", "history", "points", "threshold"].toSorted(),
     );
     expect(graficsJs).toContain("dades.history");
     expect(graficsJs).toContain("dades.points");
