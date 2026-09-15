@@ -97,7 +97,7 @@
           type: "bar",
           itemStyle: { color: c.text },
           data: dades.map(function (d) {
-            return d.ingressos;
+            return d.income;
           }),
         },
         {
@@ -106,7 +106,7 @@
           stack: "despeses",
           itemStyle: { color: c.fort },
           data: dades.map(function (d) {
-            return d.despesesFixes;
+            return d.fixedExpenses;
           }),
         },
         {
@@ -115,7 +115,7 @@
           stack: "despeses",
           itemStyle: { color: c.fluix },
           data: dades.map(function (d) {
-            return d.despesesVariables;
+            return d.variableExpenses;
           }),
         },
         {
@@ -126,7 +126,7 @@
           lineStyle: { color: c.accent },
           itemStyle: { color: c.accent },
           data: dades.map(function (d) {
-            return d.net;
+            return d.cleaned;
           }),
         },
       ];
@@ -171,7 +171,7 @@
       opcions.xAxis = {
         type: "category",
         data: dades.map(function (d) {
-          return d.dia;
+          return d.day;
         }),
         axisLine: { lineStyle: { color: c.vora } },
         axisLabel: { color: c.suau },
@@ -191,7 +191,7 @@
           lineStyle: { color: c.accent, width: 2 },
           itemStyle: { color: c.accent },
           data: dades.map(function (d) {
-            return d.saldo;
+            return d.balance;
           }),
         },
       ];
@@ -206,32 +206,32 @@
       var opcions = base(c);
       opcions.tooltip.trigger = "axis";
 
-      var historic = dades.historic || [];
-      var punts = dades.punts || [];
-      var avui = punts.length > 0 ? punts[0].dia : null;
+      var historic = dades.history || [];
+      var punts = dades.points || [];
+      var avui = punts.length > 0 ? punts[0].day : null;
 
       var eixX = [];
       var vist = {};
       historic.forEach(function (h) {
-        if (!vist[h.dia]) {
-          vist[h.dia] = true;
-          eixX.push(h.dia);
+        if (!vist[h.day]) {
+          vist[h.day] = true;
+          eixX.push(h.day);
         }
       });
       punts.forEach(function (p) {
-        if (!vist[p.dia]) {
-          vist[p.dia] = true;
-          eixX.push(p.dia);
+        if (!vist[p.day]) {
+          vist[p.day] = true;
+          eixX.push(p.day);
         }
       });
 
       var saldoPerDia = {};
       historic.forEach(function (h) {
-        saldoPerDia[h.dia] = h.saldo;
+        saldoPerDia[h.day] = h.balance;
       });
       var previsPerDia = {};
       punts.forEach(function (p) {
-        previsPerDia[p.dia] = p;
+        previsPerDia[p.day] = p;
       });
 
       opcions.xAxis = {
@@ -248,8 +248,8 @@
       };
 
       var markPoint = null;
-      if (dades.primerDescobert) {
-        var puntDescobert = previsPerDia[dades.primerDescobert];
+      if (dades.firstOverdraft) {
+        var puntDescobert = previsPerDia[dades.firstOverdraft];
         if (puntDescobert) {
           markPoint = {
             silent: true,
@@ -260,18 +260,18 @@
             data: [
               {
                 name: "Descobert",
-                coord: [dades.primerDescobert, puntDescobert.esperat],
+                coord: [dades.firstOverdraft, puntDescobert.expected],
               },
             ],
           };
         }
       }
 
-      var diesRebut = dades.diesRebut || [];
+      var diesRebut = dades.billDays || [];
       var puntsRebut = diesRebut
         .map(function (dia) {
           var p = previsPerDia[dia];
-          return p ? [dia, p.esperat] : null;
+          return p ? [dia, p.expected] : null;
         })
         .filter(Boolean);
 
@@ -293,14 +293,14 @@
         lineStyle: { color: c.accent, width: 2 },
         itemStyle: { color: c.accent },
         data: eixX.map(function (dia) {
-          return valorPrevis(dia, "esperat");
+          return valorPrevis(dia, "expected");
         }),
         markLine: {
           silent: true,
           symbol: "none",
           lineStyle: { color: c.alerta, type: "dashed" },
           label: { formatter: "Llindar", color: c.alerta },
-          data: [{ yAxis: dades.llindar }],
+          data: [{ yAxis: dades.threshold }],
         },
       };
       if (markPoint) serieEsperat.markPoint = markPoint;
@@ -335,7 +335,7 @@
           lineStyle: { color: c.fluix, type: "dashed", width: 1 },
           itemStyle: { color: c.fluix },
           data: eixX.map(function (dia) {
-            return valorPrevis(dia, "pessimista");
+            return valorPrevis(dia, "pessimistic");
           }),
         },
         {
@@ -346,7 +346,7 @@
           lineStyle: { color: c.suau, width: 1.5, type: "dotted" },
           itemStyle: { color: c.suau },
           data: eixX.map(function (dia) {
-            return valorPrevis(dia, "tendencia");
+            return valorPrevis(dia, "trend");
           }),
         },
       ];
