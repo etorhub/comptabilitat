@@ -19,8 +19,10 @@
 
   /**
    * Els colors surten dels mateixos testimonis CSS que la resta de la
-   * pàgina. Nomes tinta i un accent: cap serie de cap gràfic fa servir
-   * vermell/verd/taronja. Vegeu `handoff/README.md`, seccio 4, «Charts».
+   * pàgina. Només tinta i l'accent cian: cap sèrie no fa servir
+   * vermell/verd/taronja. Al «Mes a mes», els ingressos van d'accent,
+   * les fixes de tinta i les variables d'accent clar —mateixa família
+   * que `--amount-positive`, sense semàfor.
    */
   function colors() {
     var estil = getComputedStyle(document.documentElement);
@@ -34,6 +36,8 @@
       fluix: token("--ink-40", "#7d7979"),
       vora: token("--rule", "rgba(32,30,29,0.16)"),
       accent: token("--accent", "#0088b0"),
+      accentInk: token("--accent-ink", "#006786"),
+      accentBright: token("--accent-bright", "#62c5ee"),
       alerta: token("--alert", "#d6006c"),
       paper: token("--paper", "#f3f2f2"),
     };
@@ -95,7 +99,7 @@
         {
           name: "Ingressos",
           type: "bar",
-          itemStyle: { color: c.text },
+          itemStyle: { color: c.accent, borderRadius: [2, 2, 0, 0] },
           data: dades.map(function (d) {
             return d.income;
           }),
@@ -113,7 +117,7 @@
           name: "Variables",
           type: "bar",
           stack: "despeses",
-          itemStyle: { color: c.fluix },
+          itemStyle: { color: c.accentBright, borderRadius: [2, 2, 0, 0] },
           data: dades.map(function (d) {
             return d.variableExpenses;
           }),
@@ -123,8 +127,9 @@
           type: "line",
           smooth: true,
           symbol: "circle",
-          lineStyle: { color: c.accent },
-          itemStyle: { color: c.accent },
+          symbolSize: 6,
+          lineStyle: { color: c.accentInk, width: 2 },
+          itemStyle: { color: c.accentInk },
           data: dades.map(function (d) {
             return d.cleaned;
           }),
