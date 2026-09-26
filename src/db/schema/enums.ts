@@ -76,6 +76,32 @@ export const JOB_TRIGGERS = values("scheduled", "manual", "cli");
 export type JobTrigger = (typeof JOB_TRIGGERS)[number];
 export const jobTriggerSchema = z.enum(JOB_TRIGGERS);
 
+// --- Chat ------------------------------------------------------------------
+
+export const CHAT_ROLES = values("user", "assistant");
+export type ChatRole = (typeof CHAT_ROLES)[number];
+export const chatRoleSchema = z.enum(CHAT_ROLES);
+
+/** `pending` while the local model is still writing: that is what the page polls on. */
+export const CHAT_MESSAGE_STATUSES = values("pending", "done", "error");
+export type ChatMessageStatus = (typeof CHAT_MESSAGE_STATUSES)[number];
+export const chatMessageStatusSchema = z.enum(CHAT_MESSAGE_STATUSES);
+
+export const CHAT_ACTION_KINDS = values(
+  "recategorize",
+  "merchant_rule",
+  "tag_add",
+  "tag_remove",
+  "note_set",
+);
+export type ChatActionKind = (typeof CHAT_ACTION_KINDS)[number];
+export const chatActionKindSchema = z.enum(CHAT_ACTION_KINDS);
+
+/** The model only proposes; a person applies. */
+export const CHAT_ACTION_STATUSES = values("proposed", "applied", "undone");
+export type ChatActionStatus = (typeof CHAT_ACTION_STATUSES)[number];
+export const chatActionStatusSchema = z.enum(CHAT_ACTION_STATUSES);
+
 // --- Transactions ----------------------------------------------------------
 
 export const TRANSACTION_STATUSES = values("booked", "pending");

@@ -354,7 +354,7 @@ export async function cardsAvailable(
  * counterparty: only by the alias a person has set and by the notes.
  * Otherwise what has been hidden could be guessed by trying words.
  */
-function searchClause(pattern: string): SQL | undefined {
+export function searchClause(pattern: string): SQL | undefined {
   return or(
     and(
       isNotNull(transactions.displayDescription),
@@ -433,6 +433,34 @@ export async function listTransactions(
     limit: filters.limit,
     offset: filters.offset,
   };
+}
+
+/**
+ * Transactions matching a condition the caller built, ready to show.
+ *
+ * The condition **must** already restrict to one workspace: this adds nothing.
+ */
+export async function transactionViewsWhere(
+  where: SQL | undefined,
+  orderBy: "date" | "amount",
+  limit: number,
+): Promise<TransactionView[]> {
+  const rows = await db
+    .select(Fields)
+    .from(transactions)
+    .leftJoin(accounts, eq(accounts.id, transactions.accountId))
+    .leftJoin(merchants, eq(merchants.id, transactions.merchantId))
+    .leftJoin(categories, eq(categories.id, transactions.categoryId))
+    .leftJoin(recurringOccurrences, eq(recurringOccurrences.transactionId, transactions.id))
+    .leftJoin(recurringSeries, eq(recurringSeries.id, recurringOccurrences.seriesId))
+    .where(where)
+    .orderBy(
+      ...(orderBy === "amount"
+        ? [sql`abs(${transactions.amount}) desc`, desc(transactions.bookingDate)]
+        : [desc(transactions.bookingDate), desc(transactions.id)]),
+    )
+    .limit(limit);
+  return rows.map(transactionView);
 }
 
 /** A transaction of this workspace, ready to show, or 404. */

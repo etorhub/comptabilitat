@@ -9,6 +9,8 @@
  */
 
 import { purgeExpiredSessions } from "../../lib/auth.ts";
+import { config } from "../../lib/config.ts";
+import { failStuckMessages } from "../../services/chat.ts";
 import { closeStuckJobs } from "../../services/job-runs.ts";
 import { reassignNormalization } from "../../services/merchants.ts";
 import { closeStuckImports } from "../../services/sync.ts";
@@ -22,12 +24,15 @@ export async function maintenanceJob(): Promise<string> {
   // every two seconds for ever.
   const stuck = await closeStuckImports();
   const jobsStuck = await closeStuckJobs();
+  // A chat answer is at most one model call: twice its timeout is long past lost.
+  const answersStuck = await failStuckMessages(config.ollamaChatTimeoutSeconds * 2);
   const reassignment = await reassignNormalization();
 
   return (
     `${deleted} sessions caducades esborrades; ` +
     `${stuck} importacions penjades tancades; ` +
     `${jobsStuck} feines penjades tancades; ` +
+    `${answersStuck} respostes del xat penjades tancades; ` +
     `normalitzacio: ${reassignment.changed} de ${reassignment.reviewed} moviments reassignats`
   );
 }

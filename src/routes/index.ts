@@ -13,6 +13,7 @@
 
 import { Hono } from "hono";
 
+import { chatRoutes } from "./chat/chat.routes.ts";
 import { alertsRoutes } from "./alerts/alerts.routes.ts";
 import { callbackRoute, connectionsRoutes } from "./connections/connections.routes.ts";
 import { analyticsRoutes } from "./analytics/analytics.routes.ts";
@@ -97,6 +98,8 @@ export function registerRoutes(app: Hono): void {
   // and once at a junk one (`/moviments/informe.xlsx`).
   workspace.route("/moviments", transactionsExportRoutes);
   workspace.route("/informes", reportsExportRoutes);
+
+  workspace.route("/xat", chatRoutes);
 
   // Analytics carries the workspace root, the reports and the forecast.
   workspace.route("/", analyticsRoutes);

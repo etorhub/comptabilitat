@@ -204,6 +204,7 @@ function Sidebar({ user, workspaces, workspace, toReview, newAlerts, path }: Sid
         { href: `/e/${code}/recurrents`, text: "Recurrents" },
         { href: `/e/${code}/previsio`, text: "Previsio" },
         { href: `/e/${code}/informes`, text: "Informes" },
+        { href: `/e/${code}/xat`, text: "Xat" },
       ]
     : [];
 

@@ -1828,3 +1828,111 @@ tr.exclos {
   background: var(--paper-sunken);
   overflow-x: auto;
 }
+
+/* --- Xat ----------------------------------------------------------------- */
+
+/* La llista de converses a l'esquerra, la conversa a la dreta; en un mobil,
+   una sota l'altra. */
+.xat {
+  display: grid;
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+@media (max-width: 48rem) {
+  .xat {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.xat-converses ul {
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.xat-converses a:not(.boto) {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  color: var(--ink-70);
+  text-decoration: none;
+  font-size: var(--text-meta);
+  overflow-wrap: anywhere;
+}
+
+.xat-converses a[aria-current="page"] {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+.xat-missatges {
+  list-style: none;
+  margin: 0 0 var(--space-6);
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+
+.xat-missatge p {
+  margin: 0 0 var(--space-2);
+}
+
+.xat-pregunta {
+  justify-self: end;
+  max-width: 40rem;
+  padding: var(--space-3) var(--space-4);
+  background: var(--paper-sunken);
+  overflow-wrap: anywhere;
+}
+
+.xat-resposta {
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--accent);
+  min-width: 0;
+}
+
+.xat-error {
+  border-left-color: var(--alert);
+}
+
+.xat-titular {
+  font-size: var(--text-amount);
+}
+
+.xat-context,
+.xat-enllac {
+  font-size: var(--text-meta);
+}
+
+.xat-opcions,
+.xat-avisos {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-5);
+}
+
+.xat-accio {
+  margin-top: var(--space-3);
+}
+
+.xat-accions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.xat-grafic {
+  margin: var(--space-3) 0;
+}
+
+.xat-formulari textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+}
+
+.xat-buit ul {
+  padding-left: var(--space-5);
+}

@@ -174,6 +174,29 @@ Si el model va massa lent, prova `llama3.2:3b`. Si prefereixes no fer-lo servir,
 `OLLAMA_ENABLED=false`: tot funciona igual amb regles i memòria de comerços, només que hi
 haurà més coses a la safata de revisió.
 
+### El xat
+
+Amb `OLLAMA_ENABLED=true` també funciona el xat de cada espai (`/e/<espai>/xat`): preguntes
+com «quant he gastat a Glovo el darrer any?» i ordres com «mou tots els moviments de Glovo
+a Menjar a domicili».
+
+- El model **només interpreta la pregunta**: una crida per missatge, sense veure cap
+  moviment. Les xifres les calcula l'aplicació i les edicions sempre es proposen primer;
+  es poden desfer (només la darrera aplicada de l'espai).
+- En un processador sense gràfica cada resposta pot trigar de 10 segons a un minut. La
+  pàgina espera sola i, si passen `OLLAMA_CHAT_TIMEOUT_SECONDS` (300 per defecte) més un
+  marge, deixa de preguntar i ho diu.
+- Per defecte fa servir el mateix model que la classificació. Un model una mica més gran
+  entén millor les preguntes, a canvi d'anar més lent:
+
+  ```ini
+  OLLAMA_CHAT_MODEL=qwen3:8b
+  ```
+
+  Si és diferent del de classificar, descarrega'l també (`ollama pull qwen3:8b`). Amb
+  `OLLAMA_MAX_LOADED_MODELS=1` Ollama només en té un a memòria, i canviar-ne costa uns
+  segons la primera pregunta després de la classificació de la nit.
+
 ## 6. Comprovacions després de desplegar
 
 ```bash

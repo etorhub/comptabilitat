@@ -63,6 +63,7 @@ const Pages: { resource: string; url: string; what: string }[] = [
   { resource: "connections", url: "/connexions", what: "connexions bancaries" },
   { resource: "jobs", url: "/feines", what: "feines del planificador" },
   { resource: "users", url: "/usuaris", what: "usuaris" },
+  { resource: "chat", url: "/e/personal/xat", what: "xat" },
 ];
 
 /**
