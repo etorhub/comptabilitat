@@ -52,6 +52,7 @@ import {
   duplicateFieldInForm,
   duplicateId,
   emptyAfterOob,
+  oobTableCorrupted,
   targetIdentityLost,
   unboundedPoll,
   type Violation,
@@ -139,6 +140,7 @@ export async function checkResponse(options: ResponseOptions): Promise<Violation
     ...deadOob(responseSnapshot, known),
     ...(await emptyAfterOob(response, reswap)),
     ...(await targetIdentityLost(response, target, swap)),
+    ...(await oobTableCorrupted(response)),
   ];
 }
 

@@ -12,7 +12,9 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  BARE_ROW_THEN_OOB_TABLE,
   BOUNDED_POLL,
+  COMMENT_THEN_OOB_TABLE,
   DELETE_ROW_ONLY,
   DELETE_WHOLE_LIST,
   LIST_WITH_ONE_ROW,
@@ -173,6 +175,40 @@ describe("da64cb1 — deleting the last row left a header over nothing", () => {
     expect(html).toContain('id="llista-regles"');
     expect(html).toContain("No hi ha cap regla.");
     expect(html).not.toContain('id="regla-1"');
+  });
+});
+
+describe("4c9498f — deleting a category emptied the whole list", () => {
+  test("a bare row ahead of an out-of-band table is caught", async () => {
+    const found = await checkResponse({
+      page: PAGE,
+      response: BARE_ROW_THEN_OOB_TABLE,
+      target: "#categoria-5",
+      swap: "outerHTML",
+    });
+    expect(rules(found)).toContain("oob-table-corrupted");
+  });
+
+  test("a comment in its place is not", async () => {
+    const found = await checkResponse({
+      page: PAGE,
+      response: COMMENT_THEN_OOB_TABLE,
+      target: "#categoria-5",
+      swap: "outerHTML",
+    });
+    expect(rules(found)).not.toContain("oob-table-corrupted");
+  });
+
+  test("an out-of-band table with nothing ahead of it is not flagged either", async () => {
+    // routes/transactions returns its Table() first and other markup after: the
+    // rule only fires when the orphan comes *before* the table it corrupts.
+    const found = await checkResponse({
+      page: PAGE,
+      response: `<div id="taula-moviments" hx-swap-oob="true"><table><tbody><tr id="moviment-1"><td>x</td></tr></tbody></table></div><tr id="categoria-5" hidden></tr>`,
+      target: "#categoria-5",
+      swap: "outerHTML",
+    });
+    expect(rules(found)).not.toContain("oob-table-corrupted");
   });
 });
 

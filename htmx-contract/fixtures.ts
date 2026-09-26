@@ -98,6 +98,22 @@ export const UNBOUNDED_POLL = `<div id="sync-4" hx-get="/connexions/4/fragment/s
 /** The same fragment declaring a bound. */
 export const BOUNDED_POLL = `<div id="sync-4" hx-get="/connexions/4/fragment/sync?intent=8" hx-target="#sync-4" hx-swap="outerHTML" hx-trigger="every 2s" data-poll-max="900">Important…</div>`;
 
+/**
+ * `4c9498f` — "Esborrar una categoria buidava tota la llista".
+ *
+ * The delete route's main swap was a bare `<tr>` (the row, hidden), sent ahead
+ * of an out-of-band `<div>` carrying the whole rebuilt `<table>`. htmx parses a
+ * response inside one `<template>`, which is the only reason the orphan `<tr>`
+ * survives at all — but it leaves the parser in a table-insertion mode for
+ * everything after it, and the real `<table>` that follows, one `<template>`
+ * deep, is not inserted: it is ignored outright. The out-of-band div came back
+ * empty, and with it the whole plan of accounts, until the next full reload.
+ */
+export const BARE_ROW_THEN_OOB_TABLE = `<tr id="categoria-5" hidden></tr><div id="arbre-categories" hx-swap-oob="true"><table class="dades"><thead><tr><th>Categoria</th></tr></thead><tbody><tr id="categoria-1"><td>Menjar</td></tr></tbody></table></div>`;
+
+/** The same response done right: a comment instead of the row, since the row's removal already travels out of band. */
+export const COMMENT_THEN_OOB_TABLE = `<!-- categoria-5 esborrada --><div id="arbre-categories" hx-swap-oob="true"><table class="dades"><thead><tr><th>Categoria</th></tr></thead><tbody><tr id="categoria-1"><td>Menjar</td></tr></tbody></table></div>`;
+
 /** A minimal page to swap things into. */
 export const PAGE = `<!doctype html>
 <html lang="ca">

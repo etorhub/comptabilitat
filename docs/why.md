@@ -24,9 +24,9 @@ instance, had **no** CSRF defense at all.
 
 ---
 
-## The four bugs in the HTMX seam
+## The five bugs in the HTMX seam
 
-These four explain half the rules, and all four were found by a person with a
+These five explain half the rules, and all five were found by a person with a
 browser open, counting rows. Not one was caught by `tsc`, by oxlint, or by a
 route test.
 
@@ -80,6 +80,34 @@ forever, without saying anywhere that the list had run out.
 
 That is why `DataTable` asks for `rows` and `empty` together: **there is no way
 to draw the one without also saying the other.**
+
+### `4c9498f` — deleting a category emptied the whole list
+
+The delete route's main swap was `DeletedRow(id)`, a bare `<tr>`, sent ahead of
+the out-of-band `Tree` — which carries the whole `<table>` back, rebuilt, so the
+parents' totals stay right. The browser parses one response as one document. A
+`<tr>` with no enclosing `<table>` only survives at all because HTMX wraps the
+response in a `<template>`, whose content model tolerates orphan table tags —
+but tolerating it means the parser is now parked in a table-insertion mode for
+everything that follows. The real `<table>` inside the `Tree` div arrived while
+the parser was still in that mode, nested one `<template>` deep, and the spec's
+rule there is to **ignore** a `<table>` start tag outright. The div came back
+empty. Not `hidden`, not one row short: **empty**, `Despeses` and all the other
+groups included, because the corruption did not stop at the row that was meant
+to disappear.
+
+Checked in the browser: delete a leaf category with a browser open, and the
+whole plan of accounts vanishes down to the two headings, forever, until a
+reload asks the server fresh. The toast still said «Categoria esborrada» —
+nothing was wrong with the delete itself, only with what came back to say so.
+
+`routes/recurring` had already found the fix, by having tried it before this
+one existed to compare against: send a **comment** (`<!-- serie-N confirmada
+-->`) as the main swap when the real content already travels out of band. A
+comment carries no table-insertion baggage, so whatever follows it — a `<table>`
+included — parses exactly as if it were the first thing in the response.
+**Any main swap that precedes an out-of-band `<table>` in the same response has
+to be that harmless, or the table is what pays for it.**
 
 ### `f80df91` — an interrupted import polled forever
 

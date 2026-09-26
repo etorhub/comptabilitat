@@ -259,11 +259,17 @@ categoriesRoutes.delete("/:id", requireEditor, async (c) => {
 
   // Deleting one changes the parents' accumulated totals, so the tree comes
   // back whole.
+  //
+  // The main swap is a comment, not `DeletedRow`: a bare `<tr>` ahead of the
+  // tree's own `<table>` in the same response corrupts how the browser parses
+  // everything after it, and the table that comes back out of band is what
+  // silently loses all its rows (see `docs/why.md`). `routes/recurring`
+  // already uses a comment for the same reason.
   const tree = await categoryTree(workspace.id);
   return fragment(
     c,
     await withOob(
-      DeletedRow(id),
+      `<!-- categoria-${id} esborrada -->`,
       Tree({ code: workspace.code, tree, canEdit: true, oob: true }),
       toast("Categoria esborrada", "success"),
     ),
