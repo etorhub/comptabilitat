@@ -13,6 +13,7 @@
 
 export * from "./alerts.ts";
 export * from "./banking.ts";
+export * from "./chat.ts";
 export * from "./columns.ts";
 export * from "./enums.ts";
 export * from "./jobs.ts";

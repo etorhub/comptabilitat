@@ -48,6 +48,7 @@ its scope.
 | `analytics/`    | yes       | yes     | yes         | yes       |
 | `auth/`         | yes       | yes     | yes         | yes       |
 | `categories/`   | yes       | yes     | yes         | yes       |
+| `chat/`         | yes       | yes     | yes         | yes       |
 | `connections/`  | yes       | yes     | yes         | yes       |
 | `exports/`      | yes       | —       | —           | yes       |
 | `home/`         | yes       | —       | —           | —         |

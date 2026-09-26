@@ -171,6 +171,27 @@ the Python (`routes/alerts.py:39,47`). It looks like an oversight, but tightenin
 it is a behavior change and has to be decided separately. **Still to be
 decided.**
 
+### The chat asks the model once and writes the answer itself
+
+The chat at `/e/:codi/xat` runs on the same local model as the classifier, on a
+NAS with no graphics card. There a 4–8B model takes tens of seconds per call and
+is unreliable at choosing tools in a loop. So the model is asked **once** per
+message, with a closed JSON schema: which of a fixed set of intents, and with
+what filters. The server resolves the names against the database, runs the query
+and writes the answer from Catalan templates.
+
+Two things follow. The figures on the screen come from the database, never from
+the model, so it cannot invent an amount. And the prompt carries the category
+names, the account names and the question, **never a transaction**: nothing
+from the bank goes into the model.
+
+Edits are never applied by the model. It proposes; the person confirms; the
+previous state of every row is kept so the last action can be undone.
+
+Because a call can take a minute, the answer is written in the background and the
+page polls for it. That is the third poll, and it goes through `lib/polling.ts`
+like the other two.
+
 ---
 
 ## Why the documentation is generated

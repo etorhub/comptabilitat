@@ -84,6 +84,9 @@ const rawConfig = {
   ollamaModel: env.OLLAMA_MODEL ?? "qwen3:4b",
   ollamaTimeoutSeconds: int(env.OLLAMA_TIMEOUT_SECONDS, 180),
   ollamaMinConfidence: num(env.OLLAMA_MIN_CONFIDENCE, 0.55),
+  /** The chat's model. The classifier's by default; a bigger one reads questions better. */
+  ollamaChatModel: env.OLLAMA_CHAT_MODEL || env.OLLAMA_MODEL || "qwen3:4b",
+  ollamaChatTimeoutSeconds: int(env.OLLAMA_CHAT_TIMEOUT_SECONDS, 300),
 
   // --- Mail ---
   smtpHost: env.SMTP_HOST ?? "",

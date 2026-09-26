@@ -166,6 +166,70 @@ export class OllamaClient {
   }
 }
 
+export interface ChatModelOptions {
+  baseUrl?: string;
+  model?: string;
+  timeoutSeconds?: number;
+}
+
+/** What the chat needs from a model. The tests pass a fake with this shape. */
+export interface ChatModel {
+  readonly model: string;
+  /** One call: the parsed JSON, or `null` if the reply is not JSON. Throws `OllamaError` when unreachable. */
+  interpret(system: string, prompt: string, schema: object): Promise<unknown>;
+}
+
+export class OllamaChatModel implements ChatModel {
+  readonly baseUrl: string;
+  readonly model: string;
+  readonly timeoutSeconds: number;
+
+  constructor(options: ChatModelOptions = {}) {
+    this.baseUrl = (options.baseUrl ?? config.ollamaBaseUrl).replace(/\/$/, "");
+    this.model = options.model ?? config.ollamaChatModel;
+    this.timeoutSeconds = options.timeoutSeconds ?? config.ollamaChatTimeoutSeconds;
+  }
+
+  async interpret(system: string, prompt: string, schema: object): Promise<unknown> {
+    const body = {
+      model: this.model,
+      stream: false,
+      format: schema,
+      // Reasoning models (qwen3) would otherwise think for minutes on a CPU
+      // before writing a dozen tokens of JSON.
+      think: false,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: prompt },
+      ],
+      options: { temperature: 0, num_predict: 300 },
+    };
+
+    let data: unknown;
+    try {
+      const response = await fetch(`${this.baseUrl}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(this.timeoutSeconds * 1000),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      data = await response.json();
+    } catch (error) {
+      throw new OllamaError(`Ollama no ha respost: ${message(error)}`);
+    }
+
+    // A reply that is not JSON is the model not understanding, not the model
+    // being down: the caller turns `null` into «I cannot do that».
+    const text = chatResponse.parse(data).message?.content ?? "";
+    try {
+      return JSON.parse(text);
+    } catch {
+      return null;
+    }
+  }
+}
+
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }

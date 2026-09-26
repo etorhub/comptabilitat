@@ -1,9 +1,10 @@
 /**
  * The application's polls.
  *
- * There are two — the state of an import on `/connexions`, and the running
- * jobs on `/feines` — and they are the one exception to the `AGENTS.md` rule
- * that says never to poll.
+ * There are three — the state of an import on `/connexions`, the running
+ * jobs on `/feines`, and a chat answer the local model is still writing on
+ * `/e/:codi/xat` — and they are the one exception to the `AGENTS.md` rule that
+ * says never to poll.
  *
  * Both of them used to stop **only** when the server said the work had
  * finished. That is correct as long as the work finishes. When it does not — a

@@ -97,9 +97,10 @@ app.onError((err, c) => {
  * state is terminal: it keeps polling every two seconds, for everyone looking
  * at it.
  *
- * Here the pool is closed and any open imports are marked. Whatever escapes —
- * a sudden death, an OOM — is picked up by the maintenance job with
- * `closeStuckImports()`.
+ * Here the pool is closed and any open imports are marked, and so are the chat
+ * answers still in its queue, which lives in this process too. Whatever
+ * escapes — a sudden death, an OOM — is picked up by the maintenance job with
+ * `closeStuckImports()` and `failStuckMessages()`.
  */
 function shutdownGracefully(signal: string): void {
   console.info(`[servidor] ${signal}: aturant-se…`);
@@ -107,6 +108,8 @@ function shutdownGracefully(signal: string): void {
     try {
       const { closeOpenImports } = await import("./services/sync.ts");
       await closeOpenImports();
+      const { failStuckMessages } = await import("./services/chat.ts");
+      await failStuckMessages(0);
     } catch (error) {
       console.error("[servidor] no s'han pogut tancar les importacions:", error);
     } finally {

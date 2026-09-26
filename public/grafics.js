@@ -370,6 +370,36 @@
       return opcions;
     },
 
+    /** Un import per mes: la resposta del xat a «evolució de …». */
+    evolucio: function (dades, c) {
+      var opcions = base(c);
+      opcions.tooltip.trigger = "axis";
+      opcions.legend = { show: false };
+      opcions.xAxis = {
+        type: "category",
+        data: dades.map(function (d) {
+          return d.periode;
+        }),
+        axisLine: { lineStyle: { color: c.vora } },
+        axisLabel: { color: c.suau },
+      };
+      opcions.yAxis = {
+        type: "value",
+        splitLine: { lineStyle: { color: c.vora } },
+        axisLabel: { color: c.suau, formatter: euros },
+      };
+      opcions.series = [
+        {
+          type: "bar",
+          itemStyle: { color: c.accent, borderRadius: [2, 2, 0, 0] },
+          data: dades.map(function (d) {
+            return d.amount;
+          }),
+        },
+      ];
+      return opcions;
+    },
+
     /** On es gasta més, de més a menys. */
     comercos: function (dades, c) {
       var opcions = base(c);
