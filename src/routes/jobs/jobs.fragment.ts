@@ -187,7 +187,7 @@ export function ButtonJob({
 }: JobEntry & { last: JobRun | null; running: Set<string> }): Html {
   const blocked = buttonBlocked(id, running);
   return html`<div class="superficie targeta">
-    <div class="item-cap">
+    <div class="item-cap feines-item-cap">
       <div>
         <strong>${title}</strong>
         ${
@@ -237,7 +237,7 @@ export function JobsList({
       )}
     </section>
     <section>
-      <h2 class="menu-titol">Feines</h2>
+      <h2 class="menu-titol">Tasques</h2>
       ${individuals.map((job) =>
         ButtonJob({
           ...job,
@@ -299,7 +299,7 @@ export function Running({
             </li>`,
           )}
         </ul>`
-        : html`<p class="text-suau">Cap feina corrent ara mateix.</p>`
+        : html`<p class="text-suau">Cap tasca corrent ara mateix.</p>`
     }
   </section>` as Html;
 }
@@ -315,7 +315,7 @@ export function HistoryFilterBar({ filters }: { filters: HistoryFilters }): Html
   >
     ${Select({
       name: "feina",
-      tag: "Feina",
+      tag: "Tasca",
       value: filters.feina ?? "",
       empty: "Totes",
       options: jobOptions,
@@ -448,7 +448,7 @@ export function HistoryList({
     ${HistoryFilterBar({ filters })}
     ${DataTable({
       columns:
-        html`<th>Feina</th><th>Origen</th><th>Estat</th><th>Inici</th><th>Durada</th><th>Resultat</th>` as Html,
+        html`<th>Tasca</th><th>Origen</th><th>Estat</th><th>Inici</th><th>Durada</th><th>Resultat</th>` as Html,
       rows: page.items.map((run) => RunRow(run, page.children.get(run.id) ?? [])),
       empty: "Encara no hi ha cap execució registrada.",
       footer:
