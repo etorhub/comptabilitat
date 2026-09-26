@@ -67,11 +67,12 @@ services:
       - app
     networks: [interna, externa]
 
-  # Opcional: s'arrenca amb `docker compose --profile ai up -d`.
+  # El model local: classificacio de comerços i xat. Sense perfil, perque
+  # Portainer no arrenca els serveis que en tenen; l'aplicacio no el fa servir
+  # fins que OLLAMA_ENABLED=true.
   ollama:
     image: ollama/ollama:latest
     restart: unless-stopped
-    profiles: [ai]
     volumes:
       - ollama_models:/root/.ollama
     environment:
@@ -79,7 +80,9 @@ services:
       OLLAMA_MAX_LOADED_MODELS: "1"
       OLLAMA_KEEP_ALIVE: "10m"
       OLLAMA_NUM_PARALLEL: "1"
-    networks: [interna]
+    # `externa` nomes perque `ollama pull` pugui baixar els models: `interna`
+    # no te sortida a internet.
+    networks: [interna, externa]
 
   # Copia de seguretat diaria de la base de dades.
   backup:

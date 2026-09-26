@@ -84,6 +84,20 @@ La contrasenya es genera automàticament si no en passes una de tercer argument.
 3. Assigna cada compte al seu espai
 4. **Sincronitza**
 
+## Model local (classificació i xat)
+
+El contenidor `ollama` ja forma part de l'stack, però l'aplicació no el fa servir
+fins que l'actives:
+
+1. **Stacks → comptabilitat → Environment variables**: afegeix
+   `OLLAMA_ENABLED=true` (i, si vols, `OLLAMA_MODEL=qwen3:4b`).
+2. **Pull and redeploy**.
+3. **Containers → ollama → Console** (`/bin/sh`): `ollama pull qwen3:4b`.
+   `ollama list` ha de mostrar el model.
+
+Sense el pas 1, el xat mostra «El model local no està activat en aquesta
+instal·lació»; sense el pas 3, respon que el model local no ha contestat.
+
 ## Actualitzacions
 
 L'stack es crea des del git (`docker-compose.yml` a l'arrel, branca `master`).
