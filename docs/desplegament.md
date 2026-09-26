@@ -99,11 +99,8 @@ O per línia d'ordres:
 cd deploy && docker compose up -d --build
 ```
 
-Amb el model local (opcional, vegeu més avall):
-
-```bash
-docker compose --profile ai up -d --build
-```
+El contenidor `ollama` s'arrenca sempre, però l'aplicació no el fa servir fins que
+`OLLAMA_ENABLED=true` (vegeu més avall).
 
 Què fa cada servei:
 
@@ -114,7 +111,7 @@ Què fa cada servei:
 | `worker`      | interna + externa | Feines programades; necessita sortida per parlar amb el banc i l'SMTP                      |
 | `cloudflared` | interna + externa | Túnel                                                                                      |
 | `backup`      | interna           | `pg_dump` diari a `deploy/backups/`                                                        |
-| `ollama`      | interna           | Només amb el perfil `ai`                                                                   |
+| `ollama`      | interna, externa  | Sempre en marxa; `externa` només per baixar models. Inactiu fins a `OLLAMA_ENABLED=true`   |
 
 La xarxa `interna` està marcada com a `internal: true`: la base de dades no té sortida a
 internet.
@@ -155,9 +152,11 @@ docker compose exec app bun run cli dona-acces --email tu@example.com --espai pa
 L'N100 no té targeta gràfica, així que cal un model petit i feina en lots de matinada:
 
 ```bash
-docker compose --profile ai up -d ollama
 docker compose exec ollama ollama pull qwen3:4b
 ```
+
+Des de Portainer, el mateix: **Containers → ollama → Console** (`/bin/sh`) i
+`ollama pull qwen3:4b`; `ollama list` confirma que hi és.
 
 I a `deploy/.env`:
 
