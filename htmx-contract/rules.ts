@@ -21,7 +21,8 @@ export type RuleName =
   | "dead-target"
   | "dead-oob"
   | "target-identity-lost"
-  | "unbounded-poll";
+  | "unbounded-poll"
+  | "oob-table-corrupted";
 
 export interface Violation {
   rule: RuleName;
@@ -228,4 +229,85 @@ export async function targetIdentityLost(
         "the page targets it any more and the next interaction goes nowhere.",
     },
   ];
+}
+
+/** Table-context tags that only survive outside a `<table>` because htmx parses responses inside a `<template>`. */
+const TABLE_FRAGMENT_TAGS = new Set([
+  "tr",
+  "td",
+  "th",
+  "tbody",
+  "thead",
+  "tfoot",
+  "caption",
+  "col",
+  "colgroup",
+]);
+
+/**
+ * A bare table-context element (`<tr>`, `<td>`, …) with no enclosing `<table>`,
+ * followed later in the same response by an out-of-band node whose own markup
+ * contains a real `<table>`.
+ *
+ * htmx parses a response inside a `<template>`, and that is the only reason a
+ * stray `<tr>` survives at all: `<template>` content tolerates orphan table
+ * tags that a plain element would drop. The cost is that the parser is left in
+ * a table-insertion mode for everything that comes after — and a `<table>`
+ * encountered one `<template>` deep while in that mode is not inserted, it is
+ * **ignored**. The out-of-band node that was meant to carry a whole rebuilt
+ * table back lands empty instead, silently, with no console error and no
+ * server-side symptom: `4c9498f` is what that did to the category list.
+ *
+ * The fix used throughout this application is to answer the main swap with a
+ * comment when the real content already travels out of band — see
+ * `routes/recurring` and `routes/categories`.
+ */
+export async function oobTableCorrupted(responseHtml: string): Promise<Violation[]> {
+  let tableDepth = 0;
+  let oobDepth = 0;
+  let orphanSeen = false;
+  let violation: Violation | null = null;
+
+  await new HTMLRewriter()
+    .on("*", {
+      element(el) {
+        const tag = el.tagName.toLowerCase();
+        const isOob = el.hasAttribute("hx-swap-oob") || el.hasAttribute("data-hx-swap-oob");
+
+        if (tag === "table") {
+          if (orphanSeen && oobDepth > 0 && violation === null) {
+            violation = {
+              rule: "oob-table-corrupted",
+              message:
+                "an out-of-band <table> follows a bare table-context element in the same response",
+              detail:
+                "htmx parses the whole response inside one <template>, and a table tag " +
+                "encountered there while the parser is still in table-insertion mode " +
+                "(left behind by the earlier orphan tag) is silently ignored, not inserted. " +
+                "The out-of-band table comes back empty. Answer the main swap with a " +
+                "comment instead, as routes/recurring and routes/categories do.",
+            };
+          }
+          tableDepth++;
+          if (!el.selfClosing) {
+            el.onEndTag(() => {
+              tableDepth--;
+            });
+          }
+        } else if (TABLE_FRAGMENT_TAGS.has(tag) && tableDepth === 0) {
+          orphanSeen = true;
+        }
+
+        if (isOob && !el.selfClosing) {
+          oobDepth++;
+          el.onEndTag(() => {
+            oobDepth--;
+          });
+        }
+      },
+    })
+    .transform(new Response(responseHtml))
+    .text();
+
+  return violation === null ? [] : [violation];
 }
