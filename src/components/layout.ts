@@ -293,7 +293,7 @@ function Sidebar({ user, workspaces, workspace, toReview, newAlerts, path }: Sid
             <li>
               <a href="/connexions"${brand("/connexions")}>Connexions bancaries</a>
             </li>
-            <li><a href="/feines"${brand("/feines")}>Feines</a></li>
+            <li><a href="/feines"${brand("/feines")}>Tasques</a></li>
             <li><a href="/usuaris"${brand("/usuaris")}>Usuaris</a></li>
           </ul>
         </div>`

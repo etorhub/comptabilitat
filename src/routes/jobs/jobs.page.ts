@@ -34,9 +34,9 @@ export function JobsPage(props: JobsPageProps): Html {
 
   return html`
     <header class="capçalera">
-      <h1>Feines</h1>
+      <h1>Tasques</h1>
       <p class="text-suau">
-        Les mateixes feines que el planificador i que
+        Les mateixes tasques que el planificador i que
         <code>bun run jobs …</code>. Aqui pots engegar-les a ma i veure cada
         execució: horaris, durada, errors i resultats.
       </p>

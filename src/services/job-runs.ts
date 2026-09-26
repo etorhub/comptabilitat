@@ -58,7 +58,7 @@ async function openRun(
       error: "",
     })
     .returning();
-  if (row === undefined) throw new Error("No s'ha pogut obrir l'execució de la feina");
+  if (row === undefined) throw new Error("No s'ha pogut obrir l'execució de la tasca");
   return row;
 }
 
@@ -121,7 +121,7 @@ export async function startJob(
   fn: () => Promise<string>,
 ): Promise<JobRun> {
   if (context.getStore() !== undefined) {
-    throw new Error("engegaFeina no es pot cridar dins d'una altra feina");
+    throw new Error("engegaFeina no es pot cridar dins d'una altra tasca");
   }
 
   const run = await openRun(jobName, trigger, null);
@@ -384,7 +384,7 @@ export async function closeStuckJobs(): Promise<number> {
     .set({
       status: "failed",
       finishedAt: new Date(),
-      error: "La feina es va quedar a mitges (el procés es va aturar).",
+      error: "La tasca es va quedar a mitges (el procés es va aturar).",
     })
     .where(and(eq(jobRuns.status, "running"), lt(jobRuns.startedAt, limit)))
     .returning({ id: jobRuns.id });

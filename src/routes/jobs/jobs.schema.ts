@@ -22,7 +22,7 @@ export const JOBS = [
 export type JobId = (typeof JOBS)[number];
 
 export const jobSchema = z.object({
-  job: z.enum(JOBS),
+  feina: z.enum(JOBS),
 });
 
 /** Short labels for the UI. */
@@ -36,7 +36,7 @@ export const JOB_LABELS: Record<JobId, string> = {
   notify: "Avisos",
   "notify-urgents": "Avisos urgents",
   maintenance: "Manteniment",
-  totes: "Totes les feines",
+  totes: "Totes les tasques",
 };
 
 export const TRIGGER_LABELS: Record<(typeof JOB_TRIGGERS)[number], string> = {

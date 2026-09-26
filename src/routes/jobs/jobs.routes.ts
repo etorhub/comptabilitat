@@ -86,7 +86,7 @@ function catalog(): { passes: JobEntry[]; individuals: JobEntry[] } {
   }
   passes.push({
     id: "totes",
-    title: "Totes les feines",
+    title: "Totes les tasques",
     description: "Passada diaria, nocturna (si hi ha model), avisos i manteniment.",
   });
 
@@ -204,7 +204,7 @@ jobsRoutes.get("/", async (c) => {
   return page(
     c,
     Layout({
-      title: "Feines",
+      title: "Tasques",
       user: me,
       csrfToken: c.get("csrfToken") ?? "",
       path: c.req.path,
@@ -268,16 +268,16 @@ jobsRoutes.post("/", async (c) => {
   const parsed = jobSchema.safeParse(await c.req.parseBody());
   if (!parsed.success) {
     c.header("HX-Reswap", "none");
-    return fragment(c, toast("Aquesta feina no existeix"), 422);
+    return fragment(c, toast("Aquesta tasca no existeix"), 422);
   }
 
-  const id = parsed.data.job;
+  const id = parsed.data.feina;
   if (JOBS_MODEL.has(id) && !config.ollamaEnabled) {
     throw new AppError("El model local no esta actiu", 422);
   }
 
   if (await jobRunning(id)) {
-    throw new ConflictError("Aquesta feina ja esta corrent");
+    throw new ConflictError("Aquesta tasca ja esta corrent");
   }
 
   await startJob(id, "manual", resolveJob(id));
@@ -285,6 +285,6 @@ jobsRoutes.post("/", async (c) => {
   c.header("HX-Reswap", "none");
   return fragment(
     c,
-    await withOob(toast("La feina ha començat", "success"), ...(await oobMonitor())),
+    await withOob(toast("La tasca ha començat", "success"), ...(await oobMonitor())),
   );
 });

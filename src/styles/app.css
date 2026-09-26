@@ -1769,12 +1769,18 @@ tr.exclos {
 .feines-comptadors {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-5) var(--space-8);
+  gap: var(--space-3);
   margin: var(--space-3) 0 var(--space-4);
 }
 
 .feines-comptadors p {
   margin: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--paper-sunken);
+  border-radius: var(--radius-badge);
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
 }
 
 .feines-agenda {
@@ -1782,7 +1788,6 @@ tr.exclos {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: var(--space-2);
 }
 
 .feines-agenda li {
@@ -1790,6 +1795,16 @@ tr.exclos {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 0.75rem;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.feines-agenda li:last-child {
+  border-bottom: none;
+}
+
+.feines-agenda li > strong {
+  flex: 1 1 auto;
 }
 
 .feines-en-curs {
@@ -1797,7 +1812,6 @@ tr.exclos {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.6rem;
 }
 
 .feines-en-curs li {
@@ -1805,6 +1819,26 @@ tr.exclos {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.feines-en-curs li:last-child {
+  border-bottom: none;
+}
+
+.feines-en-curs li > strong {
+  flex: 1 1 auto;
+}
+
+/* `.item-cap` sizes its first child by content (shrink-to-fit): a short
+   title left room for the button beside it while a longer description
+   still wrapped underneath, so the button landed next to the title on some
+   cards and below it on others. A fixed basis makes every card wrap the
+   same way. */
+.feines-item-cap > div:first-child {
+  flex: 1 1 14rem;
+  min-width: 0;
 }
 
 .feines-fills {

@@ -120,7 +120,7 @@ describe("the jobs screen", () => {
             "X-CSRF-Token": csrf,
             "HX-Request": "true",
           },
-          body: new URLSearchParams({ job: "maintenance" }).toString(),
+          body: new URLSearchParams({ feina: "maintenance" }).toString(),
         })
       ).status,
     ).toBe(404);
@@ -136,10 +136,10 @@ describe("the jobs screen", () => {
         "X-CSRF-Token": csrf,
         "HX-Request": "true",
       },
-      body: new URLSearchParams({ job: "inexistent" }).toString(),
+      body: new URLSearchParams({ feina: "inexistent" }).toString(),
     });
     expect(res.status).toBe(422);
-    expect(await res.text()).toContain("Aquesta feina no existeix");
+    expect(await res.text()).toContain("Aquesta tasca no existeix");
   });
 
   test("starts a job, records it and answers with a toast and fragments", async () => {
@@ -152,12 +152,12 @@ describe("the jobs screen", () => {
         "X-CSRF-Token": csrf,
         "HX-Request": "true",
       },
-      body: new URLSearchParams({ job: "maintenance" }).toString(),
+      body: new URLSearchParams({ feina: "maintenance" }).toString(),
     });
     expect(res.status).toBe(200);
     expect(res.headers.get("HX-Reswap")).toBe("none");
     const body = await res.text();
-    expect(body).toContain("La feina ha començat");
+    expect(body).toContain("La tasca ha començat");
     expect(body).toContain('id="en-curs"');
     expect(body).toContain('id="historial-feines"');
 
@@ -194,7 +194,7 @@ describe("the jobs screen", () => {
         "X-CSRF-Token": csrf,
         "HX-Request": "true",
       },
-      body: new URLSearchParams({ job: "maintenance" }).toString(),
+      body: new URLSearchParams({ feina: "maintenance" }).toString(),
     });
     expect(res.status).toBe(409);
     expect(await res.text()).toContain("ja esta corrent");
