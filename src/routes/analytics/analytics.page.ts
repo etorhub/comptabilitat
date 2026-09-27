@@ -7,7 +7,7 @@ import { html } from "hono/html";
 import type { Html } from "../../lib/html.ts";
 import { formatMoney, money } from "../../lib/money.ts";
 import { formatDate } from "../../lib/time.ts";
-import type { BalancePoint } from "../../services/balances.ts";
+import type { BalancePoint, MonthlyBalanceChanges } from "../../services/balances.ts";
 import type { Forecast } from "../../services/forecast.ts";
 import type {
   IncomeAndExpenses,
@@ -45,6 +45,7 @@ export interface DashboardPageProps {
   monthly: MonthlyPoint[];
   categories: CategoryPart[];
   balances: BalancePoint[];
+  balanceChanges: MonthlyBalanceChanges;
   /** The latest written brief, when the local model has written one. */
   brief: Brief | null;
   /** Whether the local model is on: without it there are no written reports. */
@@ -66,6 +67,7 @@ export function DashboardPage(props: DashboardPageProps): Html {
     monthly,
     categories,
     balances,
+    balanceChanges,
     brief,
     briefsEnabled,
   } = props;
@@ -104,7 +106,7 @@ export function DashboardPage(props: DashboardPageProps): Html {
 
     <div class="dues-columnes">
       ${CategoryChart(categories)}
-      ${BalanceChart(balances)}
+      ${BalanceChart(balances, balanceChanges)}
     </div>
   ` as Html;
 }

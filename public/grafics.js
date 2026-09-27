@@ -169,7 +169,7 @@
       return opcions;
     },
 
-    /** Evolució del saldo. */
+    /** Evolució del saldo, amb la recta de mínims quadrats dels mateixos dies. */
     saldos: function (dades, c) {
       var opcions = base(c);
       opcions.tooltip.trigger = "axis";
@@ -197,6 +197,16 @@
           itemStyle: { color: c.accent },
           data: dades.map(function (d) {
             return d.balance;
+          }),
+        },
+        {
+          name: "Tendència",
+          type: "line",
+          showSymbol: false,
+          lineStyle: { color: c.suau, width: 1.5, type: "dotted" },
+          itemStyle: { color: c.suau },
+          data: dades.map(function (d) {
+            return d.trend;
           }),
         },
       ];

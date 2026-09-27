@@ -54,3 +54,20 @@ const formatter = new Intl.DateTimeFormat("ca-ES", {
 export function formatDate(isoDate: string): string {
   return formatter.format(new Date(`${isoDate}T00:00:00Z`));
 }
+
+/** Moves a `YYYY-MM` month by `months` (negative goes back) and returns another one. */
+export function addMonths(month: string, months: number): string {
+  const index = Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7)) - 1 + months;
+  return `${String(Math.floor(index / 12))}-${String((index % 12) + 1).padStart(2, "0")}`;
+}
+
+/** Formats a `YYYY-MM` month for display: «agost del 2026». Catalan, because it is shown. */
+const monthFormatter = new Intl.DateTimeFormat("ca-ES", {
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+export function formatMonth(month: string): string {
+  return monthFormatter.format(new Date(`${month}-01T00:00:00Z`));
+}

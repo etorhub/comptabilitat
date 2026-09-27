@@ -61,11 +61,19 @@ describe("grafics contract", () => {
 
   test("balance and forecast chart keys are the ones grafics.js reads", () => {
     const balances = payloadOf(
-      BalanceChart([{ day: "2026-01-01", balance: "12.50" }]),
+      BalanceChart(
+        [
+          { day: "2026-01-01", balance: "12.50" },
+          { day: "2026-01-02", balance: "14.50" },
+        ],
+        { lastMonth: null, average: null },
+      ),
     ) as Record<string, number | string>[];
-    expect(balances[0]).toEqual({ day: "2026-01-01", balance: 12.5 });
+    expect(balances[0]).toEqual({ day: "2026-01-01", balance: 12.5, trend: 12.5 });
+    expect(balances[1]).toEqual({ day: "2026-01-02", balance: 14.5, trend: 14.5 });
     expect(graficsJs).toContain("d.day");
     expect(graficsJs).toContain("d.balance");
+    expect(graficsJs).toContain("d.trend");
     expect(graficsJs).not.toContain("d.dia");
     expect(graficsJs).not.toContain("d.saldo");
 

@@ -15,7 +15,11 @@ import { fragment, page, pushUrl } from "../../lib/http.ts";
 import { addDays, todayLocal } from "../../lib/time.ts";
 import { currentUser } from "../../middleware/session.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
-import { workspaceBalance, balanceSeries } from "../../services/balances.ts";
+import {
+  workspaceBalance,
+  balanceSeries,
+  monthlyBalanceChanges,
+} from "../../services/balances.ts";
 import { latestDaily, type ReportView } from "../../services/ai-reports.ts";
 import { buildForecast } from "../../services/forecast.ts";
 import {
@@ -79,6 +83,7 @@ analyticsRoutes.get("/", async (c) => {
     monthly,
     categories,
     balances,
+    balanceChanges,
     latest,
   ] = await Promise.all([
     workspaceBalance(workspace.id),
@@ -89,6 +94,7 @@ analyticsRoutes.get("/", async (c) => {
     monthlySeries([workspace.id], monthlyFrom, today),
     categoryBreakdown([workspace.id], null, null, true, 9),
     balanceSeries([workspace.id], addDays(today, -days), today),
+    monthlyBalanceChanges([workspace.id], today),
     latestDaily(workspace.id),
   ]);
 
@@ -111,6 +117,7 @@ analyticsRoutes.get("/", async (c) => {
         monthly,
         categories,
         balances,
+        balanceChanges,
         brief: briefOf(latest),
         briefsEnabled: config.ollamaEnabled,
       }),

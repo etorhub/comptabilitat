@@ -8,12 +8,12 @@
  * A translation of `backend/app/services/balances.py`.
  */
 
-import { and, asc, eq, gt, inArray, lte, max, sum } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, lt, lte, max, min, sql, sum } from "drizzle-orm";
 
 import { db } from "../db/client.ts";
 import { accounts, balances, transactions } from "../db/schema/index.ts";
 import { Decimal, money, toMoneyString, type MoneyString } from "../lib/money.ts";
-import { addDays } from "../lib/time.ts";
+import { addDays, addMonths } from "../lib/time.ts";
 
 /** Order of preference: closing booked, available, and then any. */
 const BALANCE_TYPE_PRIORITY = ["CLBD", "CLAV", "ITAV", "XPCD", "OTHR"];
@@ -126,4 +126,73 @@ export async function balanceSeries(
   }
   series.reverse();
   return series;
+}
+
+/** How many closed months the monthly average looks back over. */
+export const AVERAGE_MONTHS = 12;
+
+export interface MonthlyBalanceChanges {
+  /** The last closed month: how much the balance went up or down in it. */
+  lastMonth: { period: string; change: MoneyString } | null;
+  /** The average monthly change over the last closed months that are fully covered. */
+  average: { change: MoneyString; months: number } | null;
+}
+
+/**
+ * How much the balance moves in a month: the last closed one, and the average
+ * over the last `AVERAGE_MONTHS` closed ones.
+ *
+ * A month's change is the sum of **all** its transactions, the same ones
+ * `balanceSeries()` subtracts, so the figure matches the curve. A month only
+ * counts when the history covers it whole: the first month imported usually
+ * starts halfway and would drag the average. A covered month with no
+ * transactions counts, as zero.
+ */
+export async function monthlyBalanceChanges(
+  ledgerIds: number[],
+  today: string,
+): Promise<MonthlyBalanceChanges> {
+  const none = { lastMonth: null, average: null };
+  if (ledgerIds.length === 0) return none;
+
+  const currentMonth = today.slice(0, 7);
+  const lastMonth = addMonths(currentMonth, -1);
+  const oldestMonth = addMonths(currentMonth, -AVERAGE_MONTHS);
+
+  const [first] = await db
+    .select({ day: min(transactions.bookingDate) })
+    .from(transactions)
+    .where(inArray(transactions.ledgerId, ledgerIds));
+  if (!first?.day) return none;
+
+  const period = sql<string>`substring(${transactions.bookingDate}::text, 1, 7)`;
+  const rows = await db
+    .select({ period, total: sum(transactions.amount) })
+    .from(transactions)
+    .where(
+      and(
+        inArray(transactions.ledgerId, ledgerIds),
+        gte(transactions.bookingDate, `${oldestMonth}-01`),
+        lt(transactions.bookingDate, `${currentMonth}-01`),
+      ),
+    )
+    .groupBy(period);
+  const byMonth = new Map(rows.map((r) => [r.period, money(r.total ?? "0")]));
+
+  const changes: Decimal[] = [];
+  let lastChange: Decimal | null = null;
+  for (let month = oldestMonth; month <= lastMonth; month = addMonths(month, 1)) {
+    if (`${month}-01` < first.day) continue;
+    const change = byMonth.get(month) ?? new Decimal(0);
+    changes.push(change);
+    if (month === lastMonth) lastChange = change;
+  }
+
+  if (changes.length === 0) return none;
+  const total = changes.reduce((acc, c) => acc.plus(c), new Decimal(0));
+  return {
+    lastMonth:
+      lastChange === null ? null : { period: lastMonth, change: toMoneyString(lastChange) },
+    average: { change: toMoneyString(total.dividedBy(changes.length)), months: changes.length },
+  };
 }
