@@ -16,7 +16,7 @@ import { addDays, todayLocal } from "../../lib/time.ts";
 import { currentUser } from "../../middleware/session.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
 import { workspaceBalance, balanceSeries } from "../../services/balances.ts";
-import { latestDaily } from "../../services/ai-reports.ts";
+import { latestDaily, type ReportView } from "../../services/ai-reports.ts";
 import { buildForecast } from "../../services/forecast.ts";
 import {
   countPendingReview,
@@ -34,6 +34,7 @@ import {
   ForecastPage,
   ReportsPage,
 } from "./analytics.page.ts";
+import type { Brief } from "./analytics.fragment.ts";
 import {
   dashboardSchema,
   forecastSchema,
@@ -51,6 +52,12 @@ async function activeAlerts(ledgerId: number): Promise<number> {
     .from(alerts)
     .where(and(eq(alerts.ledgerId, ledgerId), inArray(alerts.status, ["new", "read"])));
   return row?.n ?? 0;
+}
+
+/** The latest brief as the cards draw it, only once the model has written it. */
+function briefOf(report: ReportView | null): Brief | null {
+  if (report?.text == null) return null;
+  return { period: report.period, resum: report.text.resum, punts: report.text.punts };
 }
 
 // --- Dashboard -------------------------------------------------------------
@@ -72,6 +79,7 @@ analyticsRoutes.get("/", async (c) => {
     monthly,
     categories,
     balances,
+    latest,
   ] = await Promise.all([
     workspaceBalance(workspace.id),
     incomeAndExpenses([workspace.id], start, today),
@@ -81,6 +89,7 @@ analyticsRoutes.get("/", async (c) => {
     monthlySeries([workspace.id], monthlyFrom, today),
     categoryBreakdown([workspace.id], null, null, true, 9),
     balanceSeries([workspace.id], addDays(today, -days), today),
+    latestDaily(workspace.id),
   ]);
 
   return page(
@@ -102,6 +111,8 @@ analyticsRoutes.get("/", async (c) => {
         monthly,
         categories,
         balances,
+        brief: briefOf(latest),
+        briefsEnabled: config.ollamaEnabled,
       }),
     ),
   );
@@ -131,7 +142,7 @@ analyticsRoutes.get("/informes", async (c) => {
     reportData(workspace.id, c.req.query()),
     latestDaily(workspace.id),
   ]);
-  const brief = latest?.text ? { period: latest.period, resum: latest.text.resum } : null;
+  const brief = briefOf(latest);
 
   return page(
     c,

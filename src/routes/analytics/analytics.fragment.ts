@@ -243,3 +243,50 @@ export function HeaderBalance({
     </small>
   </div>` as Html;
 }
+
+// --- The written brief -------------------------------------------------------
+
+/** The latest daily brief the local model wrote, as the cards draw it. */
+export interface Brief {
+  period: string;
+  resum: string;
+  punts: string[];
+}
+
+/**
+ * «Com va el mes»: the latest daily brief, on the dashboard and on Informes.
+ *
+ * Only what the model wrote, escaped as plain text, and a link to the full
+ * report with its figures. The date is always there: before this morning's
+ * brief is written, the one shown is yesterday's, and it has to say so.
+ * Without the model and without a brief, nothing at all.
+ */
+export function BriefCard({
+  code,
+  brief,
+  enabled,
+}: {
+  code: string;
+  brief: Brief | null;
+  enabled: boolean;
+}): Html | "" {
+  if (brief === null && !enabled) return "";
+
+  return html`<section class="superficie targeta">
+    <h2>Com va el mes</h2>
+    ${
+      brief
+        ? html`<p>${brief.resum}</p>
+          ${
+            brief.punts.length > 0
+              ? html`<ul>
+                ${brief.punts.map((p) => html`<li>${p}</li>`)}
+              </ul>`
+              : ""
+          }
+          <p class="text-suau"><small>Resum del ${formatDate(brief.period)}.</small></p>`
+        : html`<p class="text-suau">Encara no hi ha cap resum redactat.</p>`
+    }
+    <p><a href="/e/${code}/resums">Resum complet i informes mensuals →</a></p>
+  </section>` as Html;
+}

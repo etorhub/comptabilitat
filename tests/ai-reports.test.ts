@@ -574,6 +574,23 @@ describe("housekeeping", () => {
 // --- The pages ---------------------------------------------------------------
 
 describe("the pages", () => {
+  test("the dashboard shows the latest brief and links to the full one", async () => {
+    await generateReport({ ...personal, id: personalId }, "daily", todayLocal());
+
+    const html = await (await requestAs(pere, "/e/personal")).text();
+    expect(html).toContain("Com va el mes");
+    expect(html).toContain("El mes ha anat bé");
+    expect(html).toContain("La llum ha pujat.");
+    expect(html).toContain('href="/e/personal/resums"');
+    expect(formatViolations(await checkDocument(html))).toBe("no violations");
+  });
+
+  test("without the model and without a brief, the dashboard has no card", async () => {
+    settings.ollamaEnabled = false;
+    const html = await (await requestAs(pere, "/e/personal")).text();
+    expect(html).not.toContain("Com va el mes");
+  });
+
   test("any member reads them; only editors see the button", async () => {
     await generateReport({ ...personal, id: personalId }, "monthly", "2026-08");
 

@@ -21,10 +21,12 @@ import {
   MonthlyChart,
   ForecastChart,
   BalanceChart,
+  BriefCard,
   HeaderBalance,
   CategoriesTable,
   EventsTable,
   Stat,
+  type Brief,
 } from "./analytics.fragment.ts";
 import { reportFiltersToQuery, type ReportFilters } from "./analytics.schema.ts";
 
@@ -43,6 +45,10 @@ export interface DashboardPageProps {
   monthly: MonthlyPoint[];
   categories: CategoryPart[];
   balances: BalancePoint[];
+  /** The latest written brief, when the local model has written one. */
+  brief: Brief | null;
+  /** Whether the local model is on: without it there are no written reports. */
+  briefsEnabled: boolean;
 }
 
 export function DashboardPage(props: DashboardPageProps): Html {
@@ -60,6 +66,8 @@ export function DashboardPage(props: DashboardPageProps): Html {
     monthly,
     categories,
     balances,
+    brief,
+    briefsEnabled,
   } = props;
 
   return html`
@@ -92,7 +100,7 @@ export function DashboardPage(props: DashboardPageProps): Html {
       })}
     </div>
 
-    ${MonthlyChart(monthly)}
+    ${BriefCard({ code, brief, enabled: briefsEnabled })} ${MonthlyChart(monthly)}
 
     <div class="dues-columnes">
       ${CategoryChart(categories)}
@@ -104,7 +112,7 @@ export function DashboardPage(props: DashboardPageProps): Html {
 export interface ReportsPageProps {
   code: string;
   /** The latest written brief, when the local model has written one. */
-  brief: { period: string; resum: string } | null;
+  brief: Brief | null;
   /** Whether the local model is on: without it there are no written reports. */
   briefsEnabled: boolean;
   filters: ReportFilters;
@@ -133,20 +141,7 @@ export function ReportsPage(props: ReportsPageProps): Html {
       <h1>Informes</h1>
     </header>
 
-    ${
-      brief || briefsEnabled
-        ? html`<section class="superficie targeta">
-          <h2>Com va el mes</h2>
-          ${
-            brief
-              ? html`<p>${brief.resum}</p>
-                <p class="text-suau"><small>Resum del ${formatDate(brief.period)}.</small></p>`
-              : html`<p class="text-suau">Encara no hi ha cap resum redactat.</p>`
-          }
-          <p><a href="/e/${code}/resums">Resum complet i informes mensuals →</a></p>
-        </section>`
-        : ""
-    }
+    ${BriefCard({ code, brief, enabled: briefsEnabled })}
 
     <form
       class="filtres superficie targeta"
