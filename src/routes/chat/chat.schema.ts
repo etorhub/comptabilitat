@@ -18,6 +18,22 @@ export const questionSchema = z.object({
     .max(MAX_QUESTION, `Com a molt ${MAX_QUESTION} caràcters`),
 });
 
+/**
+ * Deleting from the sidebar says which conversation is open (`actual`, empty on
+ * the new-conversation page), so deleting another one only redraws the list
+ * instead of leaving the page. The header's button sends no `actual`.
+ */
+export const deleteSchema = z.object({
+  actual: z
+    .string()
+    .optional()
+    .transform((v) => {
+      if (v === undefined) return undefined;
+      const n = Number(v);
+      return Number.isInteger(n) && n > 0 ? n : null;
+    }),
+});
+
 /** Every three seconds: a CPU answer takes tens of seconds and there is no hurry. */
 export const POLL_SECONDS = 3;
 

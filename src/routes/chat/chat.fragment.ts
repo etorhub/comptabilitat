@@ -19,6 +19,7 @@ import type { Html } from "../../lib/html.ts";
 import { jsonScript } from "../../lib/http.ts";
 import { formatMoney, toChartNumber } from "../../lib/money.ts";
 import { poll, pollExhausted } from "../../lib/polling.ts";
+import { LOCAL_TZ, localDateOf, todayLocal } from "../../lib/time.ts";
 import type { ActionView } from "../../services/chat-actions.ts";
 import { shortDate } from "../../services/chat-intents.ts";
 import type {
@@ -46,6 +47,48 @@ export interface ConversationProps {
 
 // --- The list of conversations ---------------------------------------------
 
+const iconDelete = html`<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="14"
+  height="14"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+>
+  <path d="M3 6h18" />
+  <path d="M8 6V4h8v2" />
+  <path d="M19 6l-1 14H6L5 6" />
+</svg>`;
+
+const dayFormat = new Intl.DateTimeFormat("ca-ES", {
+  day: "numeric",
+  month: "short",
+  timeZone: LOCAL_TZ,
+});
+const timeFormat = new Intl.DateTimeFormat("ca-ES", {
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: LOCAL_TZ,
+});
+
+/** «14:05» for today, «3 de set.» for any other day. */
+function when(instant: Date): string {
+  return localDateOf(instant) === todayLocal()
+    ? timeFormat.format(instant)
+    : dayFormat.format(instant);
+}
+
+/**
+ * The sidebar of past conversations. Deleting one that is not open swaps this
+ * list in place; deleting the open one takes you back to an empty chat.
+ *
+ * On a phone it goes under the conversation and leaves the open one out, so
+ * the question you just asked is not drawn twice in a row.
+ */
 export function ConversationList({
   code,
   conversations,
@@ -55,19 +98,39 @@ export function ConversationList({
   conversations: ConversationSummary[];
   current: number | null;
 }): Html {
-  return html`<nav class="xat-converses" aria-label="Converses">
-    <a class="boto boto-discret" href="/e/${code}/xat">Nova conversa</a>
+  const others = conversations.filter((c) => c.id !== current).length;
+  return html`<nav
+    id="xat-converses"
+    class="xat-converses${others === 0 ? " xat-converses-sense-altres" : ""}"
+    aria-label="Converses"
+  >
+    <h2 class="xat-converses-titol">Converses</h2>
     ${
       conversations.length === 0
-        ? html`<p class="text-suau">Encara no hi ha cap conversa.</p>`
+        ? html`<p class="text-suau">Encara no n'hi ha cap.</p>`
         : html`<ul>
           ${conversations.map(
-            (c) => html`<li>
+            (c) => html`<li class="xat-conversa-item">
               <a
                 href="/e/${code}/xat/${String(c.id)}"
                 ${c.id === current ? raw('aria-current="page"') : ""}
-                >${c.title}</a
               >
+                <span class="xat-conversa-titol">${c.title}</span>
+                <span class="xat-conversa-data">${when(c.updatedAt)}</span>
+              </a>
+              <button
+                type="button"
+                class="boto-icona xat-conversa-esborra"
+                aria-label="Esborra la conversa «${c.title}»"
+                title="Esborra la conversa"
+                hx-post="/e/${code}/xat/${String(c.id)}/esborra"
+                hx-vals="${JSON.stringify({ actual: current === null ? "" : String(current) })}"
+                hx-target="#xat-converses"
+                hx-swap="outerHTML"
+                hx-confirm="Esborrar aquesta conversa? Els canvis que ja hagis aplicat es queden."
+              >
+                ${iconDelete}
+              </button>
             </li>`,
           )}
         </ul>`
@@ -77,24 +140,48 @@ export function ConversationList({
 
 // --- The conversation ------------------------------------------------------
 
+const SUGGESTIONS = [
+  "Quant he gastat a Glovo el darrer any?",
+  "En què he gastat més aquest any?",
+  "Evolució mensual de la categoria Restaurants",
+];
+const EDIT_SUGGESTION = "Mou tots els moviments que continguin glovo a Menjar a domicili";
+
+function Welcome({ code, canEdit, enabled }: ConversationProps): Html {
+  const suggestions = canEdit ? [...SUGGESTIONS, EDIT_SUGGESTION] : SUGGESTIONS;
+  return html`<div class="xat-buit">
+    <p class="xat-buit-titol">Pregunta sobre els moviments d'aquest espai.</p>
+    ${
+      enabled
+        ? html`<p class="text-suau">Per exemple:</p>
+          <ul class="xat-suggeriments">
+            ${suggestions.map(
+              (q) => html`<li>
+                <button
+                  type="button"
+                  class="xat-suggeriment"
+                  hx-post="/e/${code}/xat"
+                  hx-vals="${JSON.stringify({ pregunta: q })}"
+                  hx-target="#conversa"
+                  hx-swap="outerHTML"
+                  hx-disabled-elt="this"
+                >
+                  ${q}
+                </button>
+              </li>`,
+            )}
+          </ul>`
+        : ""
+    }
+  </div>` as Html;
+}
+
 export function Conversation(props: ConversationProps): Html {
   const { code, conversationId, messages, actions, canEdit } = props;
   return html`<section id="conversa" class="xat-conversa">
     ${
       messages.length === 0
-        ? html`<div class="xat-buit text-suau">
-          <p>Pregunta sobre els moviments d'aquest espai. Per exemple:</p>
-          <ul>
-            <li>Quant he gastat a Glovo el darrer any?</li>
-            <li>En què he gastat més aquest any?</li>
-            <li>Evolució mensual de la categoria Restaurants</li>
-            ${canEdit ? html`<li>Mou tots els moviments que continguin glovo a Menjar a domicili</li>` : ""}
-          </ul>
-          <p>
-            Les xifres les calcula l'aplicació; el model local només interpreta la
-            pregunta. Les edicions sempre es proposen primer, i les pots desfer.
-          </p>
-        </div>`
+        ? Welcome(props)
         : html`<ol class="xat-missatges">
           ${messages.map((m) =>
             conversationId === null
@@ -121,17 +208,20 @@ function QuestionForm({
     class="xat-formulari"
     hx-post="${url}"
     hx-target="#conversa"
-    hx-swap="outerHTML"
+    hx-swap="outerHTML show:#pregunta:bottom"
     hx-disabled-elt="find button"
   >
     <label class="camp">
-      <span class="camp-etiqueta">La teva pregunta</span>
+      <span class="${conversationId === null ? "camp-etiqueta" : "visualment-ocult"}"
+        >La teva pregunta</span
+      >
       <textarea
         name="pregunta"
         id="pregunta"
         rows="2"
         maxlength="500"
         required
+        placeholder="${conversationId === null ? "Escriu la teva pregunta…" : "Continua la conversa…"}"
         ${enabled ? "" : raw("disabled")}
         ${error ? raw('aria-invalid="true" aria-describedby="pregunta-error"') : ""}
       >${question}</textarea>
@@ -139,7 +229,13 @@ function QuestionForm({
     </label>
     ${
       enabled
-        ? html`<button type="submit" class="boto">Envia ${Spinner()}</button>`
+        ? html`<div class="xat-formulari-peu">
+          <p class="xat-nota text-suau">
+            Les xifres les calcula l'aplicació; el model local només interpreta la
+            pregunta. Les edicions sempre es proposen primer, i les pots desfer.
+          </p>
+          <button type="submit" class="boto">Envia ${Spinner()}</button>
+        </div>`
         : html`<p class="text-suau">
           El model local no està activat en aquesta instal·lació
           (<code>OLLAMA_ENABLED</code>), i sense ell el xat no entén les preguntes.

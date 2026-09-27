@@ -1865,60 +1865,164 @@ tr.exclos {
 
 /* --- Xat ----------------------------------------------------------------- */
 
-/* La llista de converses a l'esquerra, la conversa a la dreta; en un mobil,
-   una sota l'altra. */
+/* La llista de converses a l'esquerra, la conversa a la dreta. En un mobil,
+   la conversa primer i les altres a sota, sense repetir la que tens oberta. */
 .xat {
   display: grid;
-  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 16rem) minmax(0, 1fr);
   gap: var(--space-6);
   align-items: start;
+}
+
+.xat-converses {
+  position: sticky;
+  top: var(--space-4);
+  max-height: calc(100dvh - 2 * var(--space-4));
+  overflow-y: auto;
+  background: var(--paper-sunken);
+  padding: var(--space-4) var(--space-2);
+}
+
+.xat-converses-titol {
+  margin: 0 0 var(--space-2);
+  padding: 0 var(--space-3);
+  font-size: var(--text-label);
+  font-weight: var(--weight-regular);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--ink-40);
+}
+
+.xat-converses > p {
+  margin: 0;
+  padding: 0 var(--space-3);
+  font-size: var(--text-meta);
+}
+
+.xat-converses ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.xat-conversa-item {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border-left: 2px solid transparent;
+}
+
+.xat-conversa-item:hover {
+  background: var(--paper-raised);
+}
+
+.xat-conversa-item:has([aria-current]) {
+  background: var(--paper);
+  border-left-color: var(--accent);
+  box-shadow: var(--shadow-raised);
+}
+
+.xat-conversa-item a {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  color: var(--ink-70);
+  text-decoration: none;
+}
+
+.xat-conversa-item a[aria-current="page"] {
+  color: var(--ink);
+}
+
+.xat-conversa-titol {
+  font-size: var(--text-meta);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.xat-conversa-data {
+  font-size: var(--text-small);
+  color: var(--ink-40);
+}
+
+/* L'esborrar apareix on hi ha el punter o el focus; amb el dit, sempre. */
+.xat-conversa-esborra {
+  flex: none;
+  padding: 0 var(--space-2);
+  opacity: 0;
+}
+
+.xat-conversa-item:hover .xat-conversa-esborra,
+.xat-conversa-esborra:focus-visible {
+  opacity: 1;
+}
+
+.xat-conversa-esborra:hover {
+  color: var(--alert);
+}
+
+@media (pointer: coarse) {
+  .xat-conversa-esborra {
+    opacity: 1;
+  }
 }
 
 @media (max-width: 48rem) {
   .xat {
     grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-8);
+  }
+
+  .xat-converses {
+    order: 2;
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .xat-conversa-item:has([aria-current]),
+  .xat-converses-sense-altres {
+    display: none;
   }
 }
 
-.xat-converses ul {
-  list-style: none;
-  margin: var(--space-4) 0 0;
-  padding: 0;
-  display: grid;
-  gap: var(--space-1);
-}
-
-.xat-converses a:not(.boto) {
-  display: block;
-  padding: var(--space-2) var(--space-3);
-  color: var(--ink-70);
-  text-decoration: none;
-  font-size: var(--text-meta);
-  overflow-wrap: anywhere;
-}
-
-.xat-converses a[aria-current="page"] {
-  background: var(--paper-sunken);
-  color: var(--ink);
+.xat-conversa {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .xat-missatges {
   list-style: none;
-  margin: 0 0 var(--space-6);
+  margin: 0 0 var(--space-5);
   padding: 0;
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 
 .xat-missatge p {
   margin: 0 0 var(--space-2);
 }
 
+.xat-missatge > p:last-child {
+  margin-bottom: 0;
+}
+
 .xat-pregunta {
   justify-self: end;
-  max-width: 40rem;
+  max-width: min(40rem, 85%);
   padding: var(--space-3) var(--space-4);
-  background: var(--paper-sunken);
+  background: var(--accent-wash);
+  border: 1px solid var(--accent-line);
   overflow-wrap: anywhere;
 }
 
@@ -1961,12 +2065,84 @@ tr.exclos {
   margin: var(--space-3) 0;
 }
 
+/* El formulari es queda a baix de la pantalla mentre llegeixes la conversa. */
+.xat-formulari {
+  position: sticky;
+  bottom: 0;
+  background: var(--paper);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--rule-soft);
+}
+
 .xat-formulari textarea {
   width: 100%;
   resize: vertical;
   font: inherit;
 }
 
-.xat-buit ul {
-  padding-left: var(--space-5);
+.xat-formulari-peu {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.xat-nota {
+  margin: 0;
+  font-size: var(--text-small);
+  max-width: 34rem;
+}
+
+.xat-formulari-peu .boto {
+  flex: none;
+}
+
+.xat-buit {
+  margin-bottom: var(--space-5);
+}
+
+.xat-buit p {
+  margin: 0 0 var(--space-2);
+}
+
+.xat-buit-titol {
+  font-size: var(--text-amount);
+}
+
+.xat-suggeriments {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.xat-suggeriment {
+  font: var(--text-meta) var(--font);
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  min-height: var(--touch-min);
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--rule-control);
+  cursor: pointer;
+}
+
+.xat-suggeriment:hover {
+  background: var(--paper-sunken);
+  border-color: var(--accent);
+}
+
+@media (max-width: 40rem) {
+  .xat-suggeriments li,
+  .xat-suggeriment {
+    width: 100%;
+  }
+
+  .xat-formulari-peu {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
 }
