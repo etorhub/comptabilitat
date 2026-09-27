@@ -12,12 +12,17 @@ export const LOCAL_TZ = config.timezone;
 
 /** Today's date in the application's zone, as `YYYY-MM-DD`. */
 export function todayLocal(): string {
+  return localDateOf(new Date());
+}
+
+/** The calendar date an instant falls on in the application's zone, as `YYYY-MM-DD`. */
+export function localDateOf(instant: Date): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: LOCAL_TZ,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date());
+  }).format(instant);
 }
 
 /** Adds days to a `YYYY-MM-DD` date and returns another one. */

@@ -6,7 +6,9 @@
  * GET  /xat/:id                            → page: that conversation.
  * POST /xat/:id/missatges                  → asks; returns the conversation.
  * GET  /xat/:id/fragment/missatge/:m       → one answer, polled while pending.
- * POST /xat/:id/esborra                    → deletes the conversation.
+ * POST /xat/:id/esborra                    → deletes the conversation: back to
+ *                                            /xat if it was the open one (`actual`),
+ *                                            otherwise the redrawn sidebar list.
  * POST /xat/accions/:id/aplica             → applies a proposal (editors).
  * POST /xat/accions/:id/desfes             → undoes the last one (editors).
  *
@@ -52,9 +54,15 @@ import {
   startConversation,
 } from "../../services/chat.ts";
 import { countToReview } from "../../services/counters.ts";
-import { ActionCard, Conversation, Message, type ConversationProps } from "./chat.fragment.ts";
+import {
+  ActionCard,
+  Conversation,
+  ConversationList,
+  Message,
+  type ConversationProps,
+} from "./chat.fragment.ts";
 import { ChatPage } from "./chat.page.ts";
-import { questionSchema } from "./chat.schema.ts";
+import { deleteSchema, questionSchema } from "./chat.schema.ts";
 
 export const chatRoutes = new Hono();
 
@@ -217,7 +225,21 @@ chatRoutes.post("/:id/esborra", async (c) => {
   const { workspace, userId } = who(c);
   const id = idFromRoute(c.req.param("id"), "Aquesta conversa no existeix");
   await deleteConversation(id, workspace.id, userId);
-  return redirect(c, `/e/${workspace.code}/xat`);
+
+  const parsed = deleteSchema.safeParse(await c.req.parseBody());
+  const actual = parsed.success ? parsed.data.actual : undefined;
+  if (actual === undefined || actual === id) {
+    return redirect(c, `/e/${workspace.code}/xat`);
+  }
+  // The open conversation stays; only the list changed.
+  const conversations = await listConversations(workspace.id, userId);
+  return fragment(
+    c,
+    await withOob(
+      ConversationList({ code: workspace.code, conversations, current: actual }),
+      toast("Conversa esborrada.", "success"),
+    ),
+  );
 });
 
 // --- Proposals -------------------------------------------------------------

@@ -25,13 +25,14 @@ export function ChatPage({
           conversationId === null
             ? ""
             : html`<div class="capçalera-accions">
+              <a class="boto boto-discret" href="/e/${code}/xat">Nova conversa</a>
               <button
                 type="button"
                 class="boto boto-discret"
                 hx-post="/e/${code}/xat/${String(conversationId)}/esborra"
                 hx-confirm="Esborrar aquesta conversa? Els canvis que ja hagis aplicat es queden."
               >
-                Esborra la conversa
+                Esborra
               </button>
             </div>`
         }

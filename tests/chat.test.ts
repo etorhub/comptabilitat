@@ -616,6 +616,53 @@ describe("proposals", () => {
 
 // --- Who sees what ---------------------------------------------------------
 
+describe("the sidebar", () => {
+  function remove(session: Session, id: number, actual?: string): Promise<Response> {
+    const values: Record<string, string> = actual === undefined ? {} : { actual };
+    return requestAs(session, `/e/personal/xat/${id}/esborra`, {
+      ...form(values),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "HX-Request": "true",
+      },
+    });
+  }
+
+  test("deleting another conversation redraws the list in place; deleting the open one leaves", async () => {
+    const first = await ask(anna, "quant he gastat el primer cop?");
+    const second = await ask(anna, "quant he gastat el segon cop?");
+
+    // The open conversation is `second`: deleting `first` only redraws the list.
+    const res = await remove(anna, first.id, String(second.id));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("HX-Redirect")).toBeNull();
+    const body = await res.text();
+    expect(body).toContain('id="xat-converses"');
+    expect(body).toContain("el segon cop");
+    expect(body).not.toContain("el primer cop");
+    expect(body).toContain("Conversa esborrada");
+    expect(formatViolations(await checkDocument(body, { fragment: true }))).toBe(
+      "no violations",
+    );
+
+    // Deleting the open one goes back to an empty chat.
+    const leave = await remove(anna, second.id, String(second.id));
+    expect(leave.status).toBe(204);
+    expect(leave.headers.get("HX-Redirect")).toBe("/e/personal/xat");
+    expect(await db.select().from(chatConversations)).toHaveLength(0);
+  });
+
+  test("the page draws the question once, and somebody else cannot delete it", async () => {
+    const { id, html } = await ask(anna, "quant he gastat aquest any?");
+    // Once in the sidebar, once as the question: the empty state is gone.
+    expect(html).not.toContain("Per exemple");
+    expect(formatViolations(await checkDocument(html))).toBe("no violations");
+
+    expect((await remove(maria, id, "")).status).toBe(404);
+    expect(await db.select().from(chatConversations)).toHaveLength(1);
+  });
+});
+
 describe("who sees what", () => {
   beforeEach(() => {
     script[MOVE] = {
