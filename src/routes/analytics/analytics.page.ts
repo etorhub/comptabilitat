@@ -103,6 +103,10 @@ export function DashboardPage(props: DashboardPageProps): Html {
 
 export interface ReportsPageProps {
   code: string;
+  /** The latest written brief, when the local model has written one. */
+  brief: { period: string; resum: string } | null;
+  /** Whether the local model is on: without it there are no written reports. */
+  briefsEnabled: boolean;
   filters: ReportFilters;
   totals: IncomeAndExpenses;
   monthly: MonthlyPoint[];
@@ -114,6 +118,8 @@ export interface ReportsPageProps {
 export function ReportsPage(props: ReportsPageProps): Html {
   const {
     code,
+    brief,
+    briefsEnabled,
     filters,
     totals,
     monthly,
@@ -126,6 +132,21 @@ export function ReportsPage(props: ReportsPageProps): Html {
     <header class="capçalera">
       <h1>Informes</h1>
     </header>
+
+    ${
+      brief || briefsEnabled
+        ? html`<section class="superficie targeta">
+          <h2>Com va el mes</h2>
+          ${
+            brief
+              ? html`<p>${brief.resum}</p>
+                <p class="text-suau"><small>Resum del ${formatDate(brief.period)}.</small></p>`
+              : html`<p class="text-suau">Encara no hi ha cap resum redactat.</p>`
+          }
+          <p><a href="/e/${code}/resums">Resum complet i informes mensuals →</a></p>
+        </section>`
+        : ""
+    }
 
     <form
       class="filtres superficie targeta"

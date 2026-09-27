@@ -139,8 +139,8 @@ The list: [`docs/reference.md`](docs/reference.md).
 ## Polling
 
 The exception to the rule above: the state of a synchronization, the jobs in
-progress at `/feines`, and a chat answer the local model is still writing at
-`/e/:codi/xat`.
+progress at `/feines`, and a chat answer or a report the local model is still
+writing at `/e/:codi/xat` and `/e/:codi/resums`.
 
 - **Every poll goes through `lib/polling.ts`.** None is written by hand: an
   `hx-trigger="every …"` with no declared limit fails the `unbounded-poll` rule.

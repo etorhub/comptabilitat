@@ -2,17 +2,27 @@
 
 ## Què passa sol i quan
 
-| Hora      | Feina          | Què fa                                                                                |
-| --------- | -------------- | ------------------------------------------------------------------------------------- |
-| 03:15     | Model local    | Proposa categoria per als comerços nous (només si Ollama està actiu)                  |
-| 04:45     | Anàlisi        | Recalcula recurrents, previsions i avisos de descobert                                |
-| 06:30     | Sincronització | Baixa els moviments del banc, els classifica, aparella traspassos i torna a analitzar |
-| 08:00     | Resum d'avisos | Un correu amb tots els avisos nous                                                    |
-| cada hora | Avisos urgents | Correu immediat per als crítics (descobert imminent, consentiment caducat)            |
-| 04:30     | Manteniment    | Esborra les sessions caducades                                                        |
+| Hora      | Feina           | Què fa                                                                                   |
+| --------- | --------------- | ---------------------------------------------------------------------------------------- |
+| 02:00     | Informe mensual | A partir del dia 3, redacta l'informe del mes passat de cada espai (només amb Ollama)    |
+| 03:15     | Model local     | Proposa categoria per als comerços nous (només si Ollama està actiu)                     |
+| 04:45     | Anàlisi         | Recalcula recurrents, previsions i avisos de descobert                                   |
+| 06:30     | Sincronització  | Baixa els moviments del banc, els classifica, aparella traspassos i torna a analitzar    |
+| ~07:00    | Resum diari     | Just després de la sincronització, redacta com va el mes a cada espai (només amb Ollama) |
+| 08:00     | Resum d'avisos  | Un correu amb tots els avisos nous                                                       |
+| cada hora | Avisos urgents  | Correu immediat per als crítics (descobert imminent, consentiment caducat)               |
+| 04:30     | Manteniment     | Esborra les sessions caducades                                                           |
 
-Els horaris es canvien amb `SYNC_CRON_HOUR`, `CLASSIFY_CRON_HOUR`, `ANALYSIS_CRON_HOUR` i
-`NOTIFY_CRON_HOUR` a `deploy/.env`.
+Els horaris es canvien amb `SYNC_CRON_HOUR`, `CLASSIFY_CRON_HOUR`, `ANALYSIS_CRON_HOUR`,
+`NOTIFY_CRON_HOUR`, `REPORT_MONTHLY_HOUR` i `REPORT_MONTHLY_DAY` a `deploy/.env`.
+
+Les feines que fan servir el model local (passada nocturna, resums diaris i informes
+mensuals) **no s'encavalquen mai**: el planificador les posa en una sola cua i les fa
+d'una en una, encara que una s'allargui. Dins de cada feina els espais van un darrere
+l'altre, amb una pausa de `REPORT_PAUSE_SECONDS` (20 s per defecte) entre espai i espai
+perquè el NAS respiri i una pregunta del xat pugui passar al davant. L'informe mensual
+es prova cada nit a partir del dia 3: si Ollama no hi era, es torna a provar l'endemà,
+fins a 3 vegades; després només es fa a mà.
 
 Per llançar-les a mà, des de **Administracio → Feines** (`/feines`) o per CLI:
 
@@ -20,6 +30,8 @@ Per llançar-les a mà, des de **Administracio → Feines** (`/feines`) o per CL
 docker compose exec worker bun run jobs sync        # sincronitza ara
 docker compose exec worker bun run jobs classify    # torna a classificar
 docker compose exec worker bun run jobs llm         # passa el model local pels comerços nous
+docker compose exec worker bun run jobs resums      # redacta el resum d'avui de cada espai
+docker compose exec worker bun run jobs informes    # redacta (o refà) l'informe del mes passat
 docker compose exec worker bun run jobs analyze     # recurrents i previsions
 docker compose exec worker bun run jobs notify      # envia els avisos pendents
 docker compose exec worker bun run jobs maintenance # esborra les sessions caducades

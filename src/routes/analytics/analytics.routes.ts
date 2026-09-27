@@ -10,11 +10,13 @@ import { Hono } from "hono";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { alerts } from "../../db/schema/index.ts";
+import { config } from "../../lib/config.ts";
 import { fragment, page, pushUrl } from "../../lib/http.ts";
 import { addDays, todayLocal } from "../../lib/time.ts";
 import { currentUser } from "../../middleware/session.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
 import { workspaceBalance, balanceSeries } from "../../services/balances.ts";
+import { latestDaily } from "../../services/ai-reports.ts";
 import { buildForecast } from "../../services/forecast.ts";
 import {
   countPendingReview,
@@ -126,11 +128,24 @@ async function reportData(ledgerId: number, query: Record<string, string>) {
 
 analyticsRoutes.get("/informes", async (c) => {
   const workspace = currentWorkspace(c);
-  const data = await reportData(workspace.id, c.req.query());
+  const [data, latest] = await Promise.all([
+    reportData(workspace.id, c.req.query()),
+    latestDaily(workspace.id),
+  ]);
+  const brief = latest?.text ? { period: latest.period, resum: latest.text.resum } : null;
 
   return page(
     c,
-    await workspacePage(c, "Informes", ReportsPage({ code: workspace.code, ...data })),
+    await workspacePage(
+      c,
+      "Informes",
+      ReportsPage({
+        code: workspace.code,
+        brief,
+        briefsEnabled: config.ollamaEnabled,
+        ...data,
+      }),
+    ),
   );
 });
 

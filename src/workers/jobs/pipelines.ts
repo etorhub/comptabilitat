@@ -17,6 +17,7 @@ import { classificationJob } from "./classify.ts";
 import { localModelJob } from "./llm.ts";
 import { maintenanceJob } from "./maintenance.ts";
 import { alertsJob } from "./notify.ts";
+import { dailyReportsJob, monthlyReportsJob } from "./reports.ts";
 import { syncJob } from "./sync.ts";
 
 /** Import, classify and analyse, in that order. */
@@ -40,7 +41,8 @@ export async function nightlyPass(): Promise<string> {
 
 /**
  * Everything the scheduler would end up doing over a day, in one go: the daily
- * pass, the nightly one (when Ollama is there), alerts and maintenance.
+ * pass, the nightly one and the written reports (when Ollama is there), alerts
+ * and maintenance.
  *
  * The urgent alerts are not included: `alertsJob` already covers the critical
  * ones, and sending them again would duplicate them.
@@ -50,6 +52,8 @@ export async function passAll(withLocalModel: boolean = config.ollamaEnabled): P
   parts.push(await runStep("passada-diaria", dailyPass));
   if (withLocalModel) {
     parts.push(await runStep("passada-nocturna", nightlyPass));
+    parts.push(await runStep("resums-diaris", () => dailyReportsJob()));
+    parts.push(await runStep("informes-mensuals", () => monthlyReportsJob()));
   }
   parts.push(await runStep("notify", alertsJob));
   parts.push(await runStep("maintenance", maintenanceJob));

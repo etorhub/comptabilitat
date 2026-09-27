@@ -102,6 +102,18 @@ export const CHAT_ACTION_STATUSES = values("proposed", "applied", "undone");
 export type ChatActionStatus = (typeof CHAT_ACTION_STATUSES)[number];
 export const chatActionStatusSchema = z.enum(CHAT_ACTION_STATUSES);
 
+// --- Written reports -------------------------------------------------------
+
+/** `daily` = the morning brief; `monthly` = the report on a closed month. */
+export const AI_REPORT_KINDS = values("daily", "monthly");
+export type AiReportKind = (typeof AI_REPORT_KINDS)[number];
+export const aiReportKindSchema = z.enum(AI_REPORT_KINDS);
+
+/** `pending` while the local model is still writing: that is what the page polls on. */
+export const AI_REPORT_STATUSES = values("pending", "done", "error");
+export type AiReportStatus = (typeof AI_REPORT_STATUSES)[number];
+export const aiReportStatusSchema = z.enum(AI_REPORT_STATUSES);
+
 // --- Transactions ----------------------------------------------------------
 
 export const TRANSACTION_STATUSES = values("booked", "pending");

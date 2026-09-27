@@ -98,7 +98,7 @@ app.onError((err, c) => {
  * at it.
  *
  * Here the pool is closed and any open imports are marked, and so are the chat
- * answers still in its queue, which lives in this process too. Whatever
+ * answers and the reports still in their queues, which live in this process too. Whatever
  * escapes — a sudden death, an OOM — is picked up by the maintenance job with
  * `closeStuckImports()` and `failStuckMessages()`.
  */
@@ -110,6 +110,10 @@ function shutdownGracefully(signal: string): void {
       await closeOpenImports();
       const { failStuckMessages } = await import("./services/chat.ts");
       await failStuckMessages(0);
+      // The same for reports being regenerated from the page. One the worker
+      // is writing gets its text anyway: finishing overwrites the status.
+      const { failStuckReports } = await import("./services/ai-reports.ts");
+      await failStuckReports(0);
     } catch (error) {
       console.error("[servidor] no s'han pogut tancar les importacions:", error);
     } finally {
