@@ -54,6 +54,7 @@ its scope.
 | `home/`         | yes       | —       | —           | —         |
 | `jobs/`         | yes       | yes     | yes         | yes       |
 | `recurring/`    | yes       | yes     | yes         | yes       |
+| `summaries/`    | yes       | yes     | yes         | yes       |
 | `tags/`         | yes       | yes     | yes         | yes       |
 | `transactions/` | yes       | yes     | yes         | yes       |
 | `users/`        | yes       | yes     | yes         | yes       |

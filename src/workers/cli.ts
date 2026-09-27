@@ -6,6 +6,8 @@
  *   bun run src/workers/cli.ts sync [--connexio 1] [--dies 30]
  *   bun run src/workers/cli.ts classify
  *   bun run src/workers/cli.ts llm [--limit 50]
+ *   bun run src/workers/cli.ts resums
+ *   bun run src/workers/cli.ts informes
  *   bun run src/workers/cli.ts analyze
  *   bun run src/workers/cli.ts notify [--urgents]
  *   bun run src/workers/cli.ts maintenance
@@ -23,6 +25,7 @@ import { classificationJob } from "./jobs/classify.ts";
 import { localModelJob } from "./jobs/llm.ts";
 import { maintenanceJob } from "./jobs/maintenance.ts";
 import { alertsJob, urgentAlertsJob } from "./jobs/notify.ts";
+import { dailyReportsJob, monthlyReportsJob } from "./jobs/reports.ts";
 import { syncJob } from "./jobs/sync.ts";
 
 function arg(name: string): string | undefined {
@@ -42,6 +45,9 @@ const jobs: Record<string, () => Promise<string>> = {
     ),
   classify: () => runJob("classify", "cli", classificationJob),
   llm: () => runJob("llm", "cli", () => localModelJob(enter("limit") ?? 50)),
+  resums: () => runJob("resums-diaris", "cli", () => dailyReportsJob()),
+  // By hand it is always written, even if it exists or failed before.
+  informes: () => runJob("informes-mensuals", "cli", () => monthlyReportsJob({ force: true })),
   analyze: () => runJob("analyze", "cli", analysisJob),
   notify: () =>
     runJob(process.argv.includes("--urgents") ? "notify-urgents" : "notify", "cli", () =>

@@ -19,5 +19,6 @@ export * from "./enums.ts";
 export * from "./jobs.ts";
 export * from "./ledgers.ts";
 export * from "./recurring.ts";
+export * from "./reports.ts";
 export * from "./transactions.ts";
 export * from "./users.ts";

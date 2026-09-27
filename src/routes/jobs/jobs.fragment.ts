@@ -557,6 +557,20 @@ export function scheduleEntries(latest: Map<string, JobRun>): ScheduleEntry[] {
       time: `${pad2(config.classifyCronHour)}:15`,
       last: latest.get("passada-nocturna") ?? null,
     });
+    items.push(
+      {
+        id: "resums-diaris",
+        title: "Resums diaris",
+        time: "despres de la passada diaria",
+        last: latest.get("resums-diaris") ?? null,
+      },
+      {
+        id: "informes-mensuals",
+        title: "Informes mensuals",
+        time: `${pad2(config.reportMonthlyHour)}:00, a partir del dia ${config.reportMonthlyDay}`,
+        last: latest.get("informes-mensuals") ?? null,
+      },
+    );
   }
   items.push(
     {

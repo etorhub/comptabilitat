@@ -1,5 +1,5 @@
 /**
- * Ollama client, for classification with a local model.
+ * Ollama client: classification, the chat and the written reports.
  *
  * Translated from `backend/app/integrations/ollama/client.py`.
  */
@@ -15,6 +15,7 @@ import {
   type CategoryCatalog,
   type MerchantContext,
 } from "./prompts.ts";
+import { REPORT_RESPONSE_SCHEMA } from "./report-prompts.ts";
 
 /** The local model did not answer, or answered badly. */
 export class OllamaError extends Error {
@@ -227,6 +228,88 @@ export class OllamaChatModel implements ChatModel {
     } catch {
       return null;
     }
+  }
+}
+
+/** What a written report looks like once the model has answered. */
+export interface ReportText {
+  resum: string;
+  punts: string[];
+}
+
+/** What the reports need from a model. The tests pass a fake with this shape. */
+export interface ReportModel {
+  readonly model: string;
+  /** One call. Throws `OllamaError` when unreachable or when the answer is unusable. */
+  write(system: string, prompt: string): Promise<ReportText>;
+}
+
+const reportContent = z.object({
+  resum: z.string().trim().min(1),
+  punts: z.array(z.string()).default([]),
+});
+
+export class OllamaReportModel implements ReportModel {
+  readonly baseUrl: string;
+  readonly model: string;
+  readonly timeoutSeconds: number;
+
+  constructor(options: ChatModelOptions = {}) {
+    this.baseUrl = (options.baseUrl ?? config.ollamaBaseUrl).replace(/\/$/, "");
+    this.model = options.model ?? config.ollamaReportModel;
+    this.timeoutSeconds = options.timeoutSeconds ?? config.ollamaReportTimeoutSeconds;
+  }
+
+  async write(system: string, prompt: string): Promise<ReportText> {
+    const body = {
+      model: this.model,
+      stream: false,
+      format: REPORT_RESPONSE_SCHEMA,
+      // Same as the chat: without it qwen3 spends minutes thinking on a CPU.
+      think: false,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: prompt },
+      ],
+      // A little warmth for prose; the figures are pinned down by the prompt.
+      options: { temperature: 0.3, num_predict: 700 },
+    };
+
+    let data: unknown;
+    try {
+      const response = await fetch(`${this.baseUrl}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(this.timeoutSeconds * 1000),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      data = await response.json();
+    } catch (error) {
+      throw new OllamaError(`Ollama no ha respost: ${message(error)}`);
+    }
+
+    const text = chatResponse.parse(data).message?.content ?? "";
+    let raw: unknown;
+    try {
+      raw = JSON.parse(text);
+    } catch {
+      throw new OllamaError(`Resposta no interpretable: ${text.slice(0, 200)}`);
+    }
+
+    const parsed = reportContent.safeParse(raw);
+    if (!parsed.success) {
+      throw new OllamaError(`Resposta no interpretable: ${text.slice(0, 200)}`);
+    }
+
+    return {
+      resum: parsed.data.resum.slice(0, 2000),
+      punts: parsed.data.punts
+        .map((p) => p.trim())
+        .filter((p) => p !== "")
+        .slice(0, 8)
+        .map((p) => p.slice(0, 500)),
+    };
   }
 }
 

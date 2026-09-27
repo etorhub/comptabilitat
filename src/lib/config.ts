@@ -87,6 +87,11 @@ const rawConfig = {
   /** The chat's model. The classifier's by default; a bigger one reads questions better. */
   ollamaChatModel: env.OLLAMA_CHAT_MODEL || env.OLLAMA_MODEL || "qwen3:4b",
   ollamaChatTimeoutSeconds: int(env.OLLAMA_CHAT_TIMEOUT_SECONDS, 300),
+  /** The written reports' model. The chat's by default: it is prose, not a category. */
+  ollamaReportModel:
+    env.OLLAMA_REPORT_MODEL || env.OLLAMA_CHAT_MODEL || env.OLLAMA_MODEL || "qwen3:4b",
+  /** A report is a few hundred words: on a CPU that is minutes, not seconds. */
+  ollamaReportTimeoutSeconds: int(env.OLLAMA_REPORT_TIMEOUT_SECONDS, 600),
 
   // --- Mail ---
   smtpHost: env.SMTP_HOST ?? "",
@@ -104,6 +109,12 @@ const rawConfig = {
   classifyCronHour: int(env.CLASSIFY_CRON_HOUR, 3),
   analysisCronHour: int(env.ANALYSIS_CRON_HOUR, 4),
   notifyCronHour: int(env.NOTIFY_CRON_HOUR, 8),
+  /** The monthly report is written from this day of the next month on (late bookings). */
+  reportMonthlyDay: int(env.REPORT_MONTHLY_DAY, 3),
+  /** At this hour, in the quiet of the night, before the nightly pass. */
+  reportMonthlyHour: int(env.REPORT_MONTHLY_HOUR, 2),
+  /** Rest between one workspace's report and the next, so the NAS breathes. */
+  reportPauseSeconds: int(env.REPORT_PAUSE_SECONDS, 20),
 
   // --- Forecast ---
   forecastHorizonDays: int(env.FORECAST_HORIZON_DAYS, 90),

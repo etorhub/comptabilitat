@@ -10,11 +10,13 @@ import { Hono } from "hono";
 import { workspacePage } from "../../components/workspace-page.ts";
 import { db } from "../../db/client.ts";
 import { alerts } from "../../db/schema/index.ts";
+import { config } from "../../lib/config.ts";
 import { fragment, page, pushUrl } from "../../lib/http.ts";
 import { addDays, todayLocal } from "../../lib/time.ts";
 import { currentUser } from "../../middleware/session.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
 import { workspaceBalance, balanceSeries } from "../../services/balances.ts";
+import { latestDaily, type ReportView } from "../../services/ai-reports.ts";
 import { buildForecast } from "../../services/forecast.ts";
 import {
   countPendingReview,
@@ -32,11 +34,13 @@ import {
   ForecastPage,
   ReportsPage,
 } from "./analytics.page.ts";
+import type { Brief } from "./analytics.fragment.ts";
 import {
   dashboardSchema,
   forecastSchema,
   reportFiltersSchema,
   reportFiltersToQuery,
+  reportRange,
 } from "./analytics.schema.ts";
 
 export const analyticsRoutes = new Hono();
@@ -48,6 +52,12 @@ async function activeAlerts(ledgerId: number): Promise<number> {
     .from(alerts)
     .where(and(eq(alerts.ledgerId, ledgerId), inArray(alerts.status, ["new", "read"])));
   return row?.n ?? 0;
+}
+
+/** The latest brief as the cards draw it, only once the model has written it. */
+function briefOf(report: ReportView | null): Brief | null {
+  if (report?.text == null) return null;
+  return { period: report.period, resum: report.text.resum, punts: report.text.punts };
 }
 
 // --- Dashboard -------------------------------------------------------------
@@ -69,6 +79,7 @@ analyticsRoutes.get("/", async (c) => {
     monthly,
     categories,
     balances,
+    latest,
   ] = await Promise.all([
     workspaceBalance(workspace.id),
     incomeAndExpenses([workspace.id], start, today),
@@ -78,6 +89,7 @@ analyticsRoutes.get("/", async (c) => {
     monthlySeries([workspace.id], monthlyFrom, today),
     categoryBreakdown([workspace.id], null, null, true, 9),
     balanceSeries([workspace.id], addDays(today, -days), today),
+    latestDaily(workspace.id),
   ]);
 
   return page(
@@ -99,6 +111,8 @@ analyticsRoutes.get("/", async (c) => {
         monthly,
         categories,
         balances,
+        brief: briefOf(latest),
+        briefsEnabled: config.ollamaEnabled,
       }),
     ),
   );
@@ -108,9 +122,7 @@ analyticsRoutes.get("/", async (c) => {
 
 async function reportData(ledgerId: number, query: Record<string, string>) {
   const filters = reportFiltersSchema.parse(query);
-  const today = todayLocal();
-  const des = filters.des ?? addDays(today, -filters.months * 31);
-  const to = filters.to ?? today;
+  const [des, to] = reportRange(filters, todayLocal());
 
   const [totals, monthly, expensesPerCategory, incomeByCategory, merchantList] =
     await Promise.all([
@@ -126,11 +138,24 @@ async function reportData(ledgerId: number, query: Record<string, string>) {
 
 analyticsRoutes.get("/informes", async (c) => {
   const workspace = currentWorkspace(c);
-  const data = await reportData(workspace.id, c.req.query());
+  const [data, latest] = await Promise.all([
+    reportData(workspace.id, c.req.query()),
+    latestDaily(workspace.id),
+  ]);
+  const brief = briefOf(latest);
 
   return page(
     c,
-    await workspacePage(c, "Informes", ReportsPage({ code: workspace.code, ...data })),
+    await workspacePage(
+      c,
+      "Informes",
+      ReportsPage({
+        code: workspace.code,
+        brief,
+        briefsEnabled: config.ollamaEnabled,
+        ...data,
+      }),
+    ),
   );
 });
 
@@ -140,7 +165,7 @@ analyticsRoutes.get("/informes/fragment/contingut", async (c) => {
 
   pushUrl(c, `/e/${workspace.code}/informes${reportFiltersToQuery(filters)}`);
 
-  return fragment(c, ReportsContent(data));
+  return fragment(c, ReportsContent({ code: workspace.code, filters, ...data }));
 });
 
 // --- Forecast --------------------------------------------------------------

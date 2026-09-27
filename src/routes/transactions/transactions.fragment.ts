@@ -85,7 +85,25 @@ export function Table({
   // `taula-carregant` is not decoration: it is the hook that makes the bulk
   // bar's `hx-indicator` dim the rows while the request is in flight. The
   // stylesheet had it and nobody was setting it.
+  // The download lives inside the swapped piece so it follows the filters:
+  // what you download is what you are looking at. All pages, not this one.
+  const download =
+    page.total > 0
+      ? html`<p class="descarregues-linia">
+          <a
+            class="boto boto-discret"
+            href="/e/${code}/moviments/moviments.csv${transactionFiltersToQuery({
+              ...filters,
+              pagina: 0,
+            })}"
+          >
+            Descarrega en CSV
+          </a>
+        </p>`
+      : "";
+
   return html`<div id="taula-moviments" class="taula-carregant">
+    ${download}
     ${DataTable({
       // `taula-fitxes`: below 40rem each row is drawn as a card instead of a
       // row. The name of each column comes from the cell's `data-etiqueta`,

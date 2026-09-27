@@ -21,12 +21,14 @@ import {
   MonthlyChart,
   ForecastChart,
   BalanceChart,
+  BriefCard,
   HeaderBalance,
   CategoriesTable,
   EventsTable,
   Stat,
+  type Brief,
 } from "./analytics.fragment.ts";
-import type { ReportFilters } from "./analytics.schema.ts";
+import { reportFiltersToQuery, type ReportFilters } from "./analytics.schema.ts";
 
 export interface DashboardPageProps {
   code: string;
@@ -43,6 +45,10 @@ export interface DashboardPageProps {
   monthly: MonthlyPoint[];
   categories: CategoryPart[];
   balances: BalancePoint[];
+  /** The latest written brief, when the local model has written one. */
+  brief: Brief | null;
+  /** Whether the local model is on: without it there are no written reports. */
+  briefsEnabled: boolean;
 }
 
 export function DashboardPage(props: DashboardPageProps): Html {
@@ -60,6 +66,8 @@ export function DashboardPage(props: DashboardPageProps): Html {
     monthly,
     categories,
     balances,
+    brief,
+    briefsEnabled,
   } = props;
 
   return html`
@@ -92,7 +100,7 @@ export function DashboardPage(props: DashboardPageProps): Html {
       })}
     </div>
 
-    ${MonthlyChart(monthly)}
+    ${BriefCard({ code, brief, enabled: briefsEnabled })} ${MonthlyChart(monthly)}
 
     <div class="dues-columnes">
       ${CategoryChart(categories)}
@@ -103,6 +111,10 @@ export function DashboardPage(props: DashboardPageProps): Html {
 
 export interface ReportsPageProps {
   code: string;
+  /** The latest written brief, when the local model has written one. */
+  brief: Brief | null;
+  /** Whether the local model is on: without it there are no written reports. */
+  briefsEnabled: boolean;
   filters: ReportFilters;
   totals: IncomeAndExpenses;
   monthly: MonthlyPoint[];
@@ -114,6 +126,8 @@ export interface ReportsPageProps {
 export function ReportsPage(props: ReportsPageProps): Html {
   const {
     code,
+    brief,
+    briefsEnabled,
     filters,
     totals,
     monthly,
@@ -126,6 +140,8 @@ export function ReportsPage(props: ReportsPageProps): Html {
     <header class="capçalera">
       <h1>Informes</h1>
     </header>
+
+    ${BriefCard({ code, brief, enabled: briefsEnabled })}
 
     <form
       class="filtres superficie targeta"
@@ -151,16 +167,11 @@ export function ReportsPage(props: ReportsPageProps): Html {
           )}
         </select>
       </label>
-
-      <span class="descarregues">
-        <a class="boto boto-discret" href="/e/${code}/informes/informe.xlsx?mesos=${filters.months}">
-          Excel
-        </a>
-        <a class="boto boto-discret" href="/e/${code}/informes/informe.pdf">PDF</a>
-      </span>
     </form>
 
     ${ReportsContent({
+      code,
+      filters,
       totals,
       monthly,
       expensesPerCategory,
@@ -171,6 +182,8 @@ export function ReportsPage(props: ReportsPageProps): Html {
 }
 
 export interface ReportsContentProps {
+  code: string;
+  filters: ReportFilters;
   totals: IncomeAndExpenses;
   monthly: MonthlyPoint[];
   expensesPerCategory: CategoryPart[];
@@ -179,9 +192,25 @@ export interface ReportsContentProps {
 }
 
 export function ReportsContent(props: ReportsContentProps): Html {
-  const { totals, monthly, expensesPerCategory, incomeByCategory, merchantList } = props;
+  const {
+    code,
+    filters,
+    totals,
+    monthly,
+    expensesPerCategory,
+    incomeByCategory,
+    merchantList,
+  } = props;
+  // Inside the swapped piece, so they follow the filters: what you download is
+  // what you are looking at.
+  const query = reportFiltersToQuery(filters);
 
   return html`<div id="contingut-informes">
+    <p class="descarregues-linia">
+      <a class="boto boto-discret" href="/e/${code}/informes/informe.xlsx${query}">Excel</a>
+      <a class="boto boto-discret" href="/e/${code}/informes/informe.pdf${query}">PDF</a>
+    </p>
+
     <div class="xifres">
       ${Stat({ tag: "Ingressos", value: formatMoney(totals.income), to: "positiu" })}
       ${Stat({ tag: "Despeses", value: formatMoney(totals.expenses), to: "negatiu" })}

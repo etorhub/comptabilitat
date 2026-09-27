@@ -10,6 +10,7 @@
 
 import { purgeExpiredSessions } from "../../lib/auth.ts";
 import { config } from "../../lib/config.ts";
+import { failStuckReports, pruneDailyReports } from "../../services/ai-reports.ts";
 import { failStuckMessages } from "../../services/chat.ts";
 import { closeStuckJobs } from "../../services/job-runs.ts";
 import { reassignNormalization } from "../../services/merchants.ts";
@@ -26,6 +27,8 @@ export async function maintenanceJob(): Promise<string> {
   const jobsStuck = await closeStuckJobs();
   // A chat answer is at most one model call: twice its timeout is long past lost.
   const answersStuck = await failStuckMessages(config.ollamaChatTimeoutSeconds * 2);
+  const reportsStuck = await failStuckReports();
+  const briefsDeleted = await pruneDailyReports();
   const reassignment = await reassignNormalization();
 
   return (
@@ -33,6 +36,8 @@ export async function maintenanceJob(): Promise<string> {
     `${stuck} importacions penjades tancades; ` +
     `${jobsStuck} feines penjades tancades; ` +
     `${answersStuck} respostes del xat penjades tancades; ` +
+    `${reportsStuck} informes penjats tancats; ` +
+    `${briefsDeleted} resums diaris antics esborrats; ` +
     `normalitzacio: ${reassignment.changed} de ${reassignment.reviewed} moviments reassignats`
   );
 }

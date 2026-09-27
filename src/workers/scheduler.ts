@@ -22,6 +22,8 @@ import { analysisJob } from "./jobs/analyze.ts";
 import { maintenanceJob } from "./jobs/maintenance.ts";
 import { alertsJob, urgentAlertsJob } from "./jobs/notify.ts";
 import { dailyPass, nightlyPass } from "./jobs/pipelines.ts";
+import { dailyReportsJob, monthlyReportsJob } from "./jobs/reports.ts";
+import { createLane } from "./lane.ts";
 
 validateConfig();
 
@@ -51,13 +53,19 @@ function main(): void {
 
   const options = { timezone: config.timezone, protect: true } as const;
   const jobs: Cron[] = [];
+  // Every job that talks to the local model queues here: never two at once.
+  const modelLane = createLane();
 
   // The daily pass. Only one: under PSD2 the bank limits queries made without
-  // the user present, and overusing them spends the allowance.
+  // the user present, and overusing them spends the allowance. The morning
+  // brief follows it, so it already counts yesterday's transactions.
   jobs.push(
-    new Cron(`${config.syncCronMinute} ${config.syncCronHour} * * *`, options, () =>
-      run("passada-diaria", dailyPass),
-    ),
+    new Cron(`${config.syncCronMinute} ${config.syncCronHour} * * *`, options, async () => {
+      await run("passada-diaria", dailyPass);
+      if (config.ollamaEnabled) {
+        await modelLane(() => run("resums-diaris", () => dailyReportsJob()));
+      }
+    }),
   );
 
   // A separate analysis, in case anything was categorised by hand during the day.
@@ -70,7 +78,15 @@ function main(): void {
   if (config.ollamaEnabled) {
     jobs.push(
       new Cron(`15 ${config.classifyCronHour} * * *`, options, () =>
-        run("passada-nocturna", nightlyPass),
+        modelLane(() => run("passada-nocturna", nightlyPass)),
+      ),
+    );
+
+    // Last month's report, in the quiet hours and before the nightly pass. It
+    // fires every night and only writes what is due and missing.
+    jobs.push(
+      new Cron(`0 ${config.reportMonthlyHour} * * *`, options, () =>
+        modelLane(() => run("informes-mensuals", () => monthlyReportsJob())),
       ),
     );
   }

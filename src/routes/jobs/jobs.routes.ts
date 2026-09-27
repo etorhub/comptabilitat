@@ -43,6 +43,7 @@ import { classificationJob } from "../../workers/jobs/classify.ts";
 import { localModelJob } from "../../workers/jobs/llm.ts";
 import { maintenanceJob } from "../../workers/jobs/maintenance.ts";
 import { alertsJob, urgentAlertsJob } from "../../workers/jobs/notify.ts";
+import { dailyReportsJob, monthlyReportsJob } from "../../workers/jobs/reports.ts";
 import { dailyPass, nightlyPass, passAll } from "../../workers/jobs/pipelines.ts";
 import { syncJob } from "../../workers/jobs/sync.ts";
 import {
@@ -67,7 +68,12 @@ import {
 
 export const jobsRoutes = new Hono();
 
-const JOBS_MODEL: ReadonlySet<JobId> = new Set(["passada-nocturna", "llm"]);
+const JOBS_MODEL: ReadonlySet<JobId> = new Set([
+  "passada-nocturna",
+  "llm",
+  "resums-diaris",
+  "informes-mensuals",
+]);
 
 function catalog(): { passes: JobEntry[]; individuals: JobEntry[] } {
   const passes: JobEntry[] = [
@@ -103,11 +109,23 @@ function catalog(): { passes: JobEntry[]; individuals: JobEntry[] } {
     },
   ];
   if (config.ollamaEnabled) {
-    individuals.push({
-      id: "llm",
-      title: "Model local",
-      description: "Proposa una categoria per als comerços nous.",
-    });
+    individuals.push(
+      {
+        id: "llm",
+        title: "Model local",
+        description: "Proposa una categoria per als comerços nous.",
+      },
+      {
+        id: "resums-diaris",
+        title: "Resums diaris",
+        description: "Redacta el resum d'avui de com va el mes, espai per espai.",
+      },
+      {
+        id: "informes-mensuals",
+        title: "Informes mensuals",
+        description: "Redacta (o refà) l'informe del mes passat de cada espai.",
+      },
+    );
   }
   individuals.push(
     {
@@ -147,6 +165,11 @@ function resolveJob(id: JobId): () => Promise<string> {
       return classificationJob;
     case "llm":
       return () => localModelJob();
+    case "resums-diaris":
+      return () => dailyReportsJob();
+    case "informes-mensuals":
+      // A person asked for it: write it even if it exists or failed before.
+      return () => monthlyReportsJob({ force: true });
     case "analyze":
       return analysisJob;
     case "notify":
