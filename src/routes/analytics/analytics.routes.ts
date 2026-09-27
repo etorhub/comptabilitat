@@ -39,6 +39,7 @@ import {
   forecastSchema,
   reportFiltersSchema,
   reportFiltersToQuery,
+  reportRange,
 } from "./analytics.schema.ts";
 
 export const analyticsRoutes = new Hono();
@@ -110,9 +111,7 @@ analyticsRoutes.get("/", async (c) => {
 
 async function reportData(ledgerId: number, query: Record<string, string>) {
   const filters = reportFiltersSchema.parse(query);
-  const today = todayLocal();
-  const des = filters.des ?? addDays(today, -filters.months * 31);
-  const to = filters.to ?? today;
+  const [des, to] = reportRange(filters, todayLocal());
 
   const [totals, monthly, expensesPerCategory, incomeByCategory, merchantList] =
     await Promise.all([
@@ -155,7 +154,7 @@ analyticsRoutes.get("/informes/fragment/contingut", async (c) => {
 
   pushUrl(c, `/e/${workspace.code}/informes${reportFiltersToQuery(filters)}`);
 
-  return fragment(c, ReportsContent(data));
+  return fragment(c, ReportsContent({ code: workspace.code, filters, ...data }));
 });
 
 // --- Forecast --------------------------------------------------------------

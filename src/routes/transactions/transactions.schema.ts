@@ -39,32 +39,58 @@ const cardSchema = z
     return [...new Set(rawValues.filter((x) => /^\d{4}$/.test(x)))];
   });
 
-export const transactionFiltersSchema = z.object({
-  cerca: z.string().trim().max(200).default(""),
-  des: date,
-  to: date,
-  compte: z
-    .union([z.literal(""), z.coerce.number().int().positive()])
-    .optional()
-    .transform((v) => (v === "" || v === undefined ? null : v)),
-  categoria: z
-    .union([z.literal(""), z.coerce.number().int().positive()])
-    .optional()
-    .transform((v) => (v === "" || v === undefined ? null : v)),
-  etiqueta: z
-    .string()
-    .trim()
-    .max(40)
-    .optional()
-    .or(z.literal(""))
-    .transform((v) => (v ? v : null)),
-  type: typeSchema,
-  card: cardSchema,
-  sense_classificar: checkbox,
-  revisio: checkbox,
-  traspassos: checkbox,
-  pagina: z.coerce.number().int().min(0).default(0),
-});
+/**
+ * The transaction filters.
+ *
+ * The keys are the wire format, the names the form and
+ * `transactionFiltersToQuery()` send. `fins` is translated to `to` in the
+ * transform: it was once renamed along with the identifiers, and from then on
+ * «Fins a» was silently ignored. (`type` and `card` arrive already mapped from
+ * the repeated `tipus` and `targeta`: see `filtersQuery()`.)
+ */
+export const transactionFiltersSchema = z
+  .object({
+    cerca: z.string().trim().max(200).default(""),
+    des: date,
+    fins: date,
+    compte: z
+      .union([z.literal(""), z.coerce.number().int().positive()])
+      .optional()
+      .transform((v) => (v === "" || v === undefined ? null : v)),
+    categoria: z
+      .union([z.literal(""), z.coerce.number().int().positive()])
+      .optional()
+      .transform((v) => (v === "" || v === undefined ? null : v)),
+    etiqueta: z
+      .string()
+      .trim()
+      .max(40)
+      .optional()
+      .or(z.literal(""))
+      .transform((v) => (v ? v : null)),
+    type: typeSchema,
+    card: cardSchema,
+    sense_classificar: checkbox,
+    revisio: checkbox,
+    traspassos: checkbox,
+    pagina: z.coerce.number().int().min(0).default(0),
+  })
+  .transform(({ fins, ...rest }) => ({ ...rest, to: fins }));
+
+/**
+ * The query string as the schema reads it: `tipus` and `targeta` are repeated
+ * checkboxes, and only `queries()` sees every value.
+ */
+export function filtersQuery(c: {
+  req: { query: () => Record<string, string>; queries: (k: string) => string[] | undefined };
+}): Record<string, string | string[]> {
+  let q: Record<string, string | string[]> = c.req.query();
+  const type = c.req.queries("tipus") ?? [];
+  if (type.length > 0) q = { ...q, type };
+  const card = c.req.queries("targeta") ?? [];
+  if (card.length > 0) q = { ...q, card };
+  return q;
+}
 
 export type TransactionFilters = z.infer<typeof transactionFiltersSchema>;
 

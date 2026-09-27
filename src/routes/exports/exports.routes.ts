@@ -20,12 +20,14 @@
 import { Hono } from "hono";
 
 import { AppError } from "../../lib/http.ts";
-import { addDays, todayLocal } from "../../lib/time.ts";
+import { todayLocal } from "../../lib/time.ts";
 import { currentWorkspace } from "../../middleware/workspace.ts";
 import { reportToPdf, transactionsToCsv, summaryToXlsx } from "../../services/export.ts";
 import { incomeAndExpenses, categoryBreakdown, monthlySeries } from "../../services/reports.ts";
 import { listTransactions } from "../../services/transactions.ts";
-import { exportFiltersSchema, MAX_ROWS, summarySchema } from "./exports.schema.ts";
+import { reportFiltersSchema, reportRange } from "../analytics/analytics.schema.ts";
+import { filtersQuery, transactionFiltersSchema } from "../transactions/transactions.schema.ts";
+import { MAX_ROWS } from "./exports.schema.ts";
 
 export const transactionsExportRoutes = new Hono();
 export const reportsExportRoutes = new Hono();
@@ -44,21 +46,25 @@ function headers(name: string, type: string): Record<string, string> {
   };
 }
 
-async function transactionsToExport(ledgerId: number, query: Record<string, string>) {
-  const filters = exportFiltersSchema.parse(query);
+/** Every filter of the transactions page; not its page number, though: it is all of them. */
+async function transactionsToExport(
+  ledgerId: number,
+  query: Record<string, string | string[]>,
+) {
+  const filters = transactionFiltersSchema.parse(query);
   const page = await listTransactions(ledgerId, {
-    accountId: null,
+    accountId: filters.compte,
     dateFrom: filters.des,
     dateTo: filters.to,
-    categoryIds: filters.category === null ? [] : [filters.category],
+    categoryIds: filters.categoria === null ? [] : [filters.categoria],
     merchantId: null,
-    search: filters.search,
-    tag: null,
-    operationType: [],
-    cards: [],
-    onlyReview: false,
-    onlyUnclassified: false,
-    includeTransfers: filters.transfers,
+    search: filters.cerca,
+    tag: filters.etiqueta,
+    operationType: filters.type,
+    cards: filters.card,
+    onlyReview: filters.revisio,
+    onlyUnclassified: filters.sense_classificar,
+    includeTransfers: filters.traspassos,
     limit: MAX_ROWS,
     offset: 0,
   });
@@ -75,7 +81,7 @@ async function transactionsToExport(ledgerId: number, query: Record<string, stri
 
 transactionsExportRoutes.get("/moviments.csv", async (c) => {
   const workspace = currentWorkspace(c);
-  const transactionList = await transactionsToExport(workspace.id, c.req.query());
+  const transactionList = await transactionsToExport(workspace.id, filtersQuery(c));
 
   return c.body(
     transactionsToCsv(transactionList),
@@ -86,13 +92,12 @@ transactionsExportRoutes.get("/moviments.csv", async (c) => {
 
 reportsExportRoutes.get("/informe.xlsx", async (c) => {
   const workspace = currentWorkspace(c);
-  const { months } = summarySchema.parse(c.req.query());
   const today = todayLocal();
-  const des = addDays(today, -months * 31);
+  const [des, to] = reportRange(reportFiltersSchema.parse(c.req.query()), today);
 
   const [monthly, categories] = await Promise.all([
-    monthlySeries([workspace.id], des, today),
-    categoryBreakdown([workspace.id], des, today, true),
+    monthlySeries([workspace.id], des, to),
+    categoryBreakdown([workspace.id], des, to, true),
   ]);
 
   return c.body(
@@ -107,11 +112,9 @@ reportsExportRoutes.get("/informe.xlsx", async (c) => {
 
 reportsExportRoutes.get("/informe.pdf", async (c) => {
   const workspace = currentWorkspace(c);
-  const filters = exportFiltersSchema.parse(c.req.query());
   const today = todayLocal();
-  // By default, the current month.
-  const des = filters.des ?? `${today.slice(0, 7)}-01`;
-  const to = filters.to ?? today;
+  // The same range as the page: the link carries its filters.
+  const [des, to] = reportRange(reportFiltersSchema.parse(c.req.query()), today);
 
   const [totals, monthly, categories] = await Promise.all([
     incomeAndExpenses([workspace.id], des, to),

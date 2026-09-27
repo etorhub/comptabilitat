@@ -26,7 +26,7 @@ import {
   EventsTable,
   Stat,
 } from "./analytics.fragment.ts";
-import type { ReportFilters } from "./analytics.schema.ts";
+import { reportFiltersToQuery, type ReportFilters } from "./analytics.schema.ts";
 
 export interface DashboardPageProps {
   code: string;
@@ -172,16 +172,11 @@ export function ReportsPage(props: ReportsPageProps): Html {
           )}
         </select>
       </label>
-
-      <span class="descarregues">
-        <a class="boto boto-discret" href="/e/${code}/informes/informe.xlsx?mesos=${filters.months}">
-          Excel
-        </a>
-        <a class="boto boto-discret" href="/e/${code}/informes/informe.pdf">PDF</a>
-      </span>
     </form>
 
     ${ReportsContent({
+      code,
+      filters,
       totals,
       monthly,
       expensesPerCategory,
@@ -192,6 +187,8 @@ export function ReportsPage(props: ReportsPageProps): Html {
 }
 
 export interface ReportsContentProps {
+  code: string;
+  filters: ReportFilters;
   totals: IncomeAndExpenses;
   monthly: MonthlyPoint[];
   expensesPerCategory: CategoryPart[];
@@ -200,9 +197,25 @@ export interface ReportsContentProps {
 }
 
 export function ReportsContent(props: ReportsContentProps): Html {
-  const { totals, monthly, expensesPerCategory, incomeByCategory, merchantList } = props;
+  const {
+    code,
+    filters,
+    totals,
+    monthly,
+    expensesPerCategory,
+    incomeByCategory,
+    merchantList,
+  } = props;
+  // Inside the swapped piece, so they follow the filters: what you download is
+  // what you are looking at.
+  const query = reportFiltersToQuery(filters);
 
   return html`<div id="contingut-informes">
+    <p class="descarregues-linia">
+      <a class="boto boto-discret" href="/e/${code}/informes/informe.xlsx${query}">Excel</a>
+      <a class="boto boto-discret" href="/e/${code}/informes/informe.pdf${query}">PDF</a>
+    </p>
+
     <div class="xifres">
       ${Stat({ tag: "Ingressos", value: formatMoney(totals.income), to: "positiu" })}
       ${Stat({ tag: "Despeses", value: formatMoney(totals.expenses), to: "negatiu" })}

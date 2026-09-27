@@ -49,6 +49,7 @@ import {
   PER_PAGE,
   tagAddRowSchema,
   tagMutationSchema,
+  filtersQuery,
   transactionFiltersSchema,
   transactionFiltersToQuery,
 } from "./transactions.schema.ts";
@@ -86,18 +87,6 @@ async function data(ledgerId: number, query: Record<string, string | string[]>) 
   return { filters, page: paged, groups, accountList, knownTags, knownCards };
 }
 
-/** Query string with `tipus` and `targeta` repeated (multiple checkboxes). */
-function requestQuery(c: {
-  req: { query: () => Record<string, string>; queries: (k: string) => string[] | undefined };
-}) {
-  let q: Record<string, string | string[]> = c.req.query();
-  const type = c.req.queries("tipus") ?? [];
-  if (type.length > 0) q = { ...q, type };
-  const card = c.req.queries("targeta") ?? [];
-  if (card.length > 0) q = { ...q, card };
-  return q;
-}
-
 /** The category must belong to this workspace. */
 async function validCategory(categoryId: number | null, ledgerId: number): Promise<boolean> {
   if (categoryId === null) return true;
@@ -120,7 +109,7 @@ transactionsRoutes.get("/", async (c) => {
     accountList,
     knownTags,
     knownCards,
-  } = await data(workspace.id, requestQuery(c));
+  } = await data(workspace.id, filtersQuery(c));
 
   return page(
     c,
@@ -151,7 +140,7 @@ transactionsRoutes.get("/fragment/taula", async (c) => {
     groups,
     knownTags,
     knownCards,
-  } = await data(workspace.id, requestQuery(c));
+  } = await data(workspace.id, filtersQuery(c));
 
   pushUrl(c, `/e/${workspace.code}/moviments${transactionFiltersToQuery(filters)}`);
 
@@ -375,7 +364,7 @@ transactionsRoutes.post("/bloc", requireEditor, async (c) => {
     { rememberMerchant: parsed.data.recorda_comerc },
   );
 
-  const { page: paged, filters, groups, knownTags } = await data(workspace.id, requestQuery(c));
+  const { page: paged, filters, groups, knownTags } = await data(workspace.id, filtersQuery(c));
   const toReview = await countToReview(workspace.id);
 
   // The filters arrive in the URL of the `hx-post`, so the table comes back
@@ -429,7 +418,7 @@ transactionsRoutes.post("/bloc/etiquetes", requireEditor, async (c) => {
     throw err;
   }
 
-  const { page: paged, filters, groups, knownTags } = await data(workspace.id, requestQuery(c));
+  const { page: paged, filters, groups, knownTags } = await data(workspace.id, filtersQuery(c));
   pushUrl(c, `/e/${workspace.code}/moviments${transactionFiltersToQuery(filters)}`);
 
   return fragment(

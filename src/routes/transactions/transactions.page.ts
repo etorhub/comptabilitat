@@ -8,11 +8,7 @@ import type { Html } from "../../lib/html.ts";
 import type { CategoryGroup } from "../../services/categories.ts";
 import type { ReviewItem, TransactionsPage } from "../../services/transactions.ts";
 import { FilterBar, ReviewQueue, Table } from "./transactions.fragment.ts";
-import {
-  hasActiveFilters,
-  transactionFiltersToQuery,
-  type TransactionFilters,
-} from "./transactions.schema.ts";
+import { hasActiveFilters, type TransactionFilters } from "./transactions.schema.ts";
 
 export interface TransactionsPageProps {
   code: string;
@@ -36,8 +32,6 @@ export function TransactionsPage(props: TransactionsPageProps): Html {
     knownTags = [],
     knownCards = [],
   } = props;
-  // What you download is what you are looking at: the same filters.
-  const query = transactionFiltersToQuery(filters);
   const searchOpen = hasActiveFilters(filters);
 
   return html`
@@ -51,9 +45,6 @@ export function TransactionsPage(props: TransactionsPageProps): Html {
       <header class="capçalera capçalera-fila">
         <h1>Moviments</h1>
         <div class="capçalera-accions">
-          <a class="boto boto-discret" href="/e/${code}/moviments/moviments.csv${query}">
-            Descarrega en CSV
-          </a>
           <label for="cerca-oberta" class="boto boto-discret">Cerca</label>
         </div>
       </header>
