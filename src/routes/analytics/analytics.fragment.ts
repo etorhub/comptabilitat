@@ -13,10 +13,14 @@ import { html } from "hono/html";
 import { DataTable } from "../../components/views.ts";
 import type { Html } from "../../lib/html.ts";
 import { jsonScript } from "../../lib/http.ts";
-import { formatMoney, toChartNumber } from "../../lib/money.ts";
-import { formatDate } from "../../lib/time.ts";
-import type { BalancePoint } from "../../services/balances.ts";
-import type { Forecast } from "../../services/forecast.ts";
+import { formatMoney, money, toChartNumber } from "../../lib/money.ts";
+import { formatDate, formatMonth } from "../../lib/time.ts";
+import {
+  AVERAGE_MONTHS,
+  type BalancePoint,
+  type MonthlyBalanceChanges,
+} from "../../services/balances.ts";
+import { leastSquaresLine, type Forecast } from "../../services/forecast.ts";
 import type { MonthlyPoint, CategoryPart, MerchantPart } from "../../services/reports.ts";
 
 /**
@@ -33,6 +37,7 @@ function Chart({
   description,
   data,
   height = 260,
+  header = "",
 }: {
   type: string;
   id: string;
@@ -40,9 +45,12 @@ function Chart({
   description: string;
   data: unknown;
   height?: number;
+  /** What goes between the title and the chart: the figures that sum it up. */
+  header?: Html | "";
 }): Html {
   return html`<section class="superficie targeta">
     <h2>${title}</h2>
+    ${header}
     <div
       data-grafic="${type}"
       id="${id}"
@@ -97,14 +105,66 @@ export function CategoryChart(data: CategoryPart[]): Html {
   });
 }
 
-export function BalanceChart(data: BalancePoint[]): Html {
+/**
+ * The balance day by day, its least-squares line over the same days, and two
+ * figures: how much it moved in the last closed month and in an average month.
+ *
+ * The line follows what is drawn (`?days=` changes it); the figures do not,
+ * they always look at whole calendar months.
+ */
+export function BalanceChart(data: BalancePoint[], changes: MonthlyBalanceChanges): Html {
+  const trend = leastSquaresLine(data.map((d) => money(d.balance)));
   return Chart({
     type: "saldos",
     id: "grafic-saldos",
-    title: "Evolucio del saldo",
-    description: "Saldo dia a dia, reconstruit cap enrere des del saldo d'avui",
-    data: data.map((d) => ({ day: d.day, balance: toChartNumber(d.balance) })),
+    title: "Evolució del saldo",
+    description:
+      "Saldo dia a dia, reconstruit cap enrere des del saldo d'avui, i la seva tendència",
+    header: BalanceChanges(changes),
+    data: data.map((d, i) => ({
+      day: d.day,
+      balance: toChartNumber(d.balance),
+      trend: toChartNumber(trend[i] ?? money(d.balance)),
+    })),
   });
+}
+
+function signed(amount: string): string {
+  return amount.startsWith("-") ? formatMoney(amount) : `+${formatMoney(amount)}`;
+}
+
+function signOf(amount: string): "positiu" | "negatiu" {
+  return amount.startsWith("-") ? "negatiu" : "positiu";
+}
+
+export function BalanceChanges({ lastMonth, average }: MonthlyBalanceChanges): Html {
+  return html`<div class="xifres xifres-compactes">
+    ${
+      lastMonth
+        ? Stat({
+            tag: "Últim mes",
+            value: signed(lastMonth.change),
+            to: signOf(lastMonth.change),
+            detail: formatMonth(lastMonth.period),
+          })
+        : Stat({ tag: "Últim mes", value: "—", detail: "encara no hi ha cap mes sencer" })
+    }
+    ${
+      average
+        ? Stat({
+            tag: "Mitjana mensual",
+            value: signed(average.change),
+            to: signOf(average.change),
+            detail:
+              average.months >= AVERAGE_MONTHS
+                ? `últims ${String(AVERAGE_MONTHS)} mesos`
+                : average.months === 1
+                  ? "mitjana d'1 mes"
+                  : `mitjana de ${String(average.months)} mesos`,
+          })
+        : Stat({ tag: "Mitjana mensual", value: "—", detail: "encara no hi ha cap mes sencer" })
+    }
+  </div>` as Html;
 }
 
 export function MerchantChart(data: MerchantPart[]): Html {

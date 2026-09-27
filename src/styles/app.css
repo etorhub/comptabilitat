@@ -1474,6 +1474,20 @@ tr.exclos {
   margin-bottom: var(--space-6);
 }
 
+/*
+ * Dins d'una targeta, sota el títol d'una gràfica: el filet gruixut ja el
+ * posa la targeta, i les xifres han de pesar menys que la gràfica.
+ */
+.xifres-compactes {
+  border-top: 1px solid var(--rule);
+  padding: var(--space-3) 0;
+  margin-bottom: var(--space-4);
+}
+
+.xifres-compactes .xifra-valor {
+  font-size: 1.25rem;
+}
+
 .xifra {
   display: flex;
   flex-direction: column;

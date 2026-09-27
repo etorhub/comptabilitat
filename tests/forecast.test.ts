@@ -22,6 +22,7 @@ import {
   transactions,
   type Ledger,
 } from "../src/db/schema/index.ts";
+import { monthlyBalanceChanges } from "../src/services/balances.ts";
 import { checkOverdrafts, buildForecast, eventsExpected } from "../src/services/forecast.ts";
 import { confirmSeries, detectRecurring } from "../src/services/recurring.ts";
 import { incomeAndExpenses, monthlySeries } from "../src/services/reports.ts";
@@ -427,5 +428,42 @@ describe("the report aggregates", () => {
     expect(Number(points[0]?.expenses)).toBe(120);
     expect(Number(points[0]?.fixedExpenses)).toBe(80);
     expect(Number(points[0]?.variableExpenses)).toBe(40);
+  });
+});
+
+describe("monthlyBalanceChanges", () => {
+  test("last closed month and average over whole months only", async () => {
+    // History starts on 15 June: June is half there and does not count.
+    await transaction("m-jun", "2026-06-15", "999.00");
+    await transaction("m-jul-1", "2026-07-03", "300.00");
+    await transaction("m-jul-2", "2026-07-20", "-100.00");
+    // August: nothing at all, which is a change of zero.
+    await transaction("m-sep", "2026-09-10", "-60.00");
+    // The current month is not closed yet.
+    await transaction("m-oct", "2026-10-02", "5000.00");
+
+    const changes = await monthlyBalanceChanges([workspace.id], "2026-10-15");
+    expect(changes.lastMonth).toEqual({ period: "2026-09", change: "-60.00" });
+    // (200 + 0 - 60) / 3
+    expect(changes.average).toEqual({ change: "46.67", months: 3 });
+  });
+
+  test("no more than twelve closed months", async () => {
+    await transaction("m-old", "2024-01-01", "1.00");
+    for (let m = 1; m <= 12; m += 1) {
+      await transaction(`m-${String(m)}`, `2025-${String(m).padStart(2, "0")}-05`, "10.00");
+    }
+    await transaction("m-dec-24", "2024-12-05", "9999.00");
+
+    const changes = await monthlyBalanceChanges([workspace.id], "2026-01-20");
+    expect(changes.average).toEqual({ change: "10.00", months: 12 });
+  });
+
+  test("with no whole month there is nothing to say", async () => {
+    await transaction("m-late", "2026-09-03", "10.00");
+    expect(await monthlyBalanceChanges([workspace.id], "2026-09-20")).toEqual({
+      lastMonth: null,
+      average: null,
+    });
   });
 });
