@@ -13,7 +13,7 @@
  */
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { attributeOf, checkDocument, formatViolations } from "../htmx-contract/index.ts";
 import { db } from "../src/db/client.ts";
@@ -79,7 +79,6 @@ afterAll(async () => {
 
 let personalId = 0;
 let accountId = 0;
-let deliveryId = 0;
 let restaurantsId = 0;
 let anna: Session;
 let maria: Session;
@@ -230,7 +229,7 @@ beforeEach(async () => {
   accountId = account?.id ?? 0;
 
   restaurantsId = await category("Restaurants", "restaurants");
-  deliveryId = await category("Menjar a domicili", "menjar-a-domicili");
+  await category("Menjar a domicili", "menjar-a-domicili");
 
   glovoIds = [
     await movement({ description: "COMPRA GLOVO BARCELONA", amount: "-20.00" }),
@@ -464,35 +463,34 @@ describe("the answer's poll", () => {
 
 // --- Proposals -------------------------------------------------------------
 
-const MOVE = "mou tots els moviments que continguin glovo a Menjar a domicili";
+const MOVE = "etiqueta amb glovo tots els moviments que continguin glovo";
 
-async function categoryOf(id: number) {
+async function tagsOf(id: number) {
   const [row] = await db
-    .select({ categoryId: transactions.categoryId, source: transactions.categorySource })
+    .select({ tags: transactions.tags })
     .from(transactions)
     .where(eq(transactions.id, id));
-  return row;
+  return row?.tags;
 }
 
 describe("proposals", () => {
   beforeEach(() => {
     script[MOVE] = {
-      intent: "recategorize",
+      intent: "tag_add",
       text: "glovo",
-      target_category: "Menjar a domicili",
+      tag: "glovo",
     };
   });
 
-  test("nothing changes until a person applies it, and it warns about hand-made choices", async () => {
+  test("nothing changes until a person applies it", async () => {
     const { html } = await ask(anna, MOVE);
 
-    expect(html).toContain("Moure 3 moviments");
-    expect(html).toContain("classificat tu a mà, i també es mourà");
+    expect(html).toContain("Afegir l&#39;etiqueta");
     expect(html).toContain("/aplica");
-    for (const id of glovoIds) expect((await categoryOf(id))?.categoryId).not.toBe(deliveryId);
+    for (const id of glovoIds) expect(await tagsOf(id)).toEqual([]);
   });
 
-  test("applying moves the rows, updates the review counter out of band, and undo puts them back", async () => {
+  test("applying edits the rows, updates the review counter out of band, and undo puts them back", async () => {
     await ask(anna, MOVE);
     const action = await lastAction();
 
@@ -504,39 +502,32 @@ describe("proposals", () => {
     expect(body).toContain("Aplicat.");
     expect(body).toContain("/desfes");
 
-    for (const id of glovoIds) {
-      expect(await categoryOf(id)).toEqual({ categoryId: deliveryId, source: "user" });
-    }
+    for (const id of glovoIds) expect(await tagsOf(id)).toEqual(["glovo"]);
 
     // Somebody changes one of them afterwards: undo must leave that one alone.
     const [touched, ...rest] = glovoIds;
     await db
       .update(transactions)
-      .set({ categoryId: restaurantsId })
+      .set({ tags: ["altra"] })
       .where(eq(transactions.id, touched ?? 0));
 
     const undone = await htmx(anna, `/e/personal/xat/accions/${action.id}/desfes`);
     expect(undone.status).toBe(200);
     expect(await undone.text()).toContain("s&#39;havien tornat a tocar");
 
-    expect((await categoryOf(touched ?? 0))?.categoryId).toBe(restaurantsId);
-    const [first, handMade] = rest;
-    expect(await categoryOf(first ?? 0)).toEqual({ categoryId: null, source: "none" });
-    expect(await categoryOf(handMade ?? 0)).toEqual({
-      categoryId: restaurantsId,
-      source: "user",
-    });
+    expect(await tagsOf(touched ?? 0)).toEqual(["altra"]);
+    for (const id of rest) expect(await tagsOf(id)).toEqual([]);
   });
 
   test("only the last applied action can be undone", async () => {
-    script["afegeix l'etiqueta glovo als de glovo"] = {
-      intent: "tag_add",
+    script["posa una nota als de glovo"] = {
+      intent: "note_set",
       text: "glovo",
-      tag: "glovo",
+      note: "revisat",
     };
     await ask(anna, MOVE);
     const first = await lastAction();
-    await ask(anna, "afegeix l'etiqueta glovo als de glovo");
+    await ask(anna, "posa una nota als de glovo");
     const second = await lastAction();
 
     await htmx(anna, `/e/personal/xat/accions/${first.id}/aplica`);
@@ -548,69 +539,20 @@ describe("proposals", () => {
 
     expect((await htmx(anna, `/e/personal/xat/accions/${second.id}/desfes`)).status).toBe(200);
     const [row] = await db
-      .select({ tags: transactions.tags })
+      .select({ notes: transactions.notes })
       .from(transactions)
       .where(eq(transactions.id, glovoIds[0] ?? 0));
-    expect(row?.tags).toEqual([]);
+    expect(row?.notes).toBe("");
   });
 
   test("an edit with no filter is asked back instead of touching the whole workspace", async () => {
-    script["mou-ho tot a Restaurants"] = {
-      intent: "recategorize",
-      target_category: "Restaurants",
+    script["etiqueta-ho tot"] = {
+      intent: "tag_add",
+      tag: "glovo",
     };
-    const { html } = await ask(anna, "mou-ho tot a Restaurants");
+    const { html } = await ask(anna, "etiqueta-ho tot");
     expect(html).toContain("necessito saber quins");
     expect(await db.select().from(chatActions)).toHaveLength(0);
-  });
-
-  test("a merchant rule fixes the merchant for the future and leaves hand-made choices", async () => {
-    const [merchant] = await db
-      .insert(merchants)
-      .values({
-        ledgerId: personalId,
-        normalizedName: "GLOVO",
-        displayName: "Glovo",
-        categorySource: "none",
-        isConfirmed: false,
-        transactionCount: 3,
-      })
-      .returning();
-    await db
-      .update(transactions)
-      .set({ merchantId: merchant?.id ?? 0 })
-      .where(
-        and(
-          eq(transactions.ledgerId, personalId),
-          sql`${transactions.description} like '%GLOVO BARCELONA%'`,
-        ),
-      );
-
-    script["glovo sempre a menjar a domicili"] = {
-      intent: "merchant_rule",
-      merchant: "glovo",
-      target_category: "Menjar a domicili",
-    };
-    await ask(anna, "glovo sempre a menjar a domicili");
-    const action = await lastAction();
-    await htmx(anna, `/e/personal/xat/accions/${action.id}/aplica`);
-
-    const [after] = await db
-      .select()
-      .from(merchants)
-      .where(eq(merchants.id, merchant?.id ?? 0));
-    expect(after?.defaultCategoryId).toBe(deliveryId);
-    expect(after?.isConfirmed).toBe(true);
-    // The one a person had categorised stays where it was.
-    expect((await categoryOf(glovoIds[2] ?? 0))?.categoryId).toBe(restaurantsId);
-
-    await htmx(anna, `/e/personal/xat/accions/${action.id}/desfes`);
-    const [restored] = await db
-      .select()
-      .from(merchants)
-      .where(eq(merchants.id, merchant?.id ?? 0));
-    expect(restored?.defaultCategoryId).toBeNull();
-    expect(restored?.isConfirmed).toBe(false);
   });
 });
 
@@ -666,9 +608,9 @@ describe("the sidebar", () => {
 describe("who sees what", () => {
   beforeEach(() => {
     script[MOVE] = {
-      intent: "recategorize",
+      intent: "tag_add",
       text: "glovo",
-      target_category: "Menjar a domicili",
+      tag: "glovo",
     };
   });
 

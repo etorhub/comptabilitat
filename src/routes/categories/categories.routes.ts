@@ -11,15 +11,7 @@ import { Hono } from "hono";
 
 import { zodErrors } from "../../components/form.ts";
 import { workspacePage } from "../../components/workspace-page.ts";
-import {
-  ConflictError,
-  clearToast,
-  fragment,
-  idFromRoute,
-  page,
-  toast,
-  withOob,
-} from "../../lib/http.ts";
+import { clearToast, fragment, idFromRoute, page, toast, withOob } from "../../lib/http.ts";
 import { roleAtLeast } from "../../db/schema/index.ts";
 import { currentRole, currentWorkspace, requireEditor } from "../../middleware/workspace.ts";
 import {
@@ -27,24 +19,12 @@ import {
   categoryInWorkspace,
   createCategory,
   deleteCategory,
-  transactionsOf,
   categoryOptions,
   renameCategory,
 } from "../../services/categories.ts";
-import {
-  Tree,
-  Row,
-  EditRow,
-  DeletedRow,
-  CreateForm,
-  ReassignmentForm,
-} from "./categories.fragment.ts";
+import { Tree, Row, EditRow, DeletedRow, CreateForm } from "./categories.fragment.ts";
 import { CategoriesPage } from "./categories.page.ts";
-import {
-  categoryCreateSchema,
-  categoryDeleteSchema,
-  categoryUpdateSchema,
-} from "./categories.schema.ts";
+import { categoryCreateSchema, categoryUpdateSchema } from "./categories.schema.ts";
 
 export const categoriesRoutes = new Hono();
 
@@ -85,7 +65,7 @@ categoriesRoutes.get("/", async (c) => {
 
 // --- Fragments -------------------------------------------------------------
 
-/** A single row: used to cancel an edit or a reassignment. */
+/** A single row: used to cancel an edit. */
 categoriesRoutes.get("/:id/fragment/fila", async (c) => {
   const workspace = currentWorkspace(c);
   const id = idFromRoute(c.req.param("id"), "Aquesta categoria no existeix");
@@ -215,47 +195,15 @@ categoriesRoutes.patch("/:id", requireEditor, async (c) => {
 /**
  * Deletion.
  *
- * If it has transactions and no destination has been given, `deleteCategory`
- * throws a 409 and here we turn it into the reassignment form. The rest of
- * the errors (protected, has children) go to the `#toast` as always.
+ * A category with transactions cannot be deleted: they are never moved to
+ * another one. `deleteCategory` throws a 409 and the error handler answers
+ * with the `#toast` alone.
  */
 categoriesRoutes.delete("/:id", requireEditor, async (c) => {
   const workspace = currentWorkspace(c);
   const id = idFromRoute(c.req.param("id"), "Aquesta categoria no existeix");
-  const parsed = categoryDeleteSchema.safeParse({
-    ...(await c.req.parseBody().catch(() => ({}))),
-    ...c.req.query(),
-  });
-  const reassignTo = parsed.success ? parsed.data.reassign_to : null;
 
-  try {
-    await deleteCategory(id, workspace.id, reassignTo);
-  } catch (error) {
-    if (error instanceof ConflictError) {
-      const found = await viewOf(id, workspace.id);
-      if (!found) return fragment(c, DeletedRow(id));
-
-      // All but itself and its children: moving the transactions there would
-      // be pointless if it disappears anyway.
-      const exclude = [id, ...found.childIds];
-      const groups = await categoryOptions(workspace.id, exclude);
-
-      return fragment(
-        c,
-        await withOob(
-          ReassignmentForm({
-            code: workspace.code,
-            category: found.view,
-            transactionList: await transactionsOf(id),
-            groups,
-          }),
-          toast(error.message, "info", error.detail),
-        ),
-        409,
-      );
-    }
-    throw error;
-  }
+  await deleteCategory(id, workspace.id);
 
   // Deleting one changes the parents' accumulated totals, so the tree comes
   // back whole.

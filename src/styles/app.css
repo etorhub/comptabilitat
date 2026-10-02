@@ -925,14 +925,8 @@ tr.pare .nom {
   white-space: nowrap;
 }
 
-tr.editant td,
-tr.reassignant td {
+tr.editant td {
   background: var(--paper-raised);
-}
-
-.reassignant-text {
-  flex-basis: 100%;
-  margin: 0;
 }
 
 /* --- Avisos --------------------------------------------------------------- */

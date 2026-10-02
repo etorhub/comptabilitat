@@ -29,7 +29,7 @@ interface Candidate {
   accountId: number;
   bookingDate: string;
   amount: string;
-  categorySource: string;
+  categoryId: number | null;
 }
 
 /** Pairs equivalent debits and credits between accounts of the same workspace. */
@@ -42,7 +42,7 @@ export async function detectTransfers(ledgerId: number, lookbackDays = 120): Pro
       accountId: transactions.accountId,
       bookingDate: transactions.bookingDate,
       amount: transactions.amount,
-      categorySource: transactions.categorySource,
+      categoryId: transactions.categoryId,
     })
     .from(transactions)
     // The same filter the reports use. The `is_excluded` here is not a detail:
@@ -78,9 +78,9 @@ export async function detectTransfers(ledgerId: number, lookbackDays = 120): Pro
         // compile, instead of being written silently.
         const changes: Partial<typeof transactions.$inferInsert> = { transferGroupId: group };
 
-        // Nobody picks the category of a transfer every time, but if a person
-        // has set one, it is respected.
-        if (category !== null && item.categorySource !== "user") {
+        // Only a leg with no category gets the transfer one: whatever is
+        // already categorized is never edited.
+        if (category !== null && item.categoryId === null) {
           changes.categoryId = category.id;
           changes.categorySource = "rule";
           changes.categoryConfidence = 1;

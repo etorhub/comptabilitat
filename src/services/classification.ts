@@ -13,7 +13,7 @@
  * (without the rules step, which was dropped from the product).
  */
 
-import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import { db, type Transactor } from "../db/client.ts";
 import {
@@ -74,7 +74,8 @@ export async function classifyTransaction(
           categoryConfidence: merchant.isConfirmed ? 1 : 0.8,
           needsReview: !merchant.isConfirmed,
         })
-        .where(eq(transactions.id, transaction.id));
+        // A transaction that already has a category is never rewritten.
+        .where(and(eq(transactions.id, transaction.id), isNull(transactions.categoryId)));
       return "merchant";
     }
   }
@@ -82,7 +83,7 @@ export async function classifyTransaction(
   await connection
     .update(transactions)
     .set({ categorySource: "none", needsReview: true })
-    .where(eq(transactions.id, transaction.id));
+    .where(and(eq(transactions.id, transaction.id), isNull(transactions.categoryId)));
   return "none";
 }
 
@@ -97,8 +98,7 @@ const FIELDS_CLASSIFICATION = {
 /**
  * Classifies a workspace's transactions that still have no category.
  *
- * It only looks at those coming from `none` or `merchant`: the ones a person
- * set are not touched.
+ * A transaction that already has a category is never reclassified.
  */
 export async function classifyPending(
   ledgerId: number,
@@ -115,8 +115,8 @@ export async function classifyPending(
     .where(
       and(
         eq(transactions.ledgerId, ledgerId),
+        isNull(transactions.categoryId),
         inArray(transactions.categorySource, ["none", "merchant"]),
-        or(isNull(transactions.categoryId), eq(transactions.needsReview, true)),
       ),
     )
     .orderBy(desc(transactions.bookingDate));

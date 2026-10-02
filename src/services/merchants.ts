@@ -10,32 +10,13 @@
  * `classification.remember_merchant_choice` part.
  */
 
-import {
-  and,
-  asc,
-  count,
-  desc,
-  eq,
-  ilike,
-  inArray,
-  isNull,
-  ne,
-  or,
-  type SQL,
-} from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, isNull, or, type SQL } from "drizzle-orm";
 
 import { db, type Transactor } from "../db/client.ts";
 import { categories, merchants, transactions, type Merchant } from "../db/schema/index.ts";
 import { AppError, NotFoundError } from "../lib/http.ts";
 import { classifyTransaction } from "./classification.ts";
 import { resolveCounterparty } from "./contraparts.ts";
-
-/** Special buckets that used to swallow purchases with «COMISION» at the end. */
-const SPECIAL_BUCKETS = new Set([
-  "COMISSIO BANCARIA",
-  "REINTEGRO EFECTIU",
-  "TRASPAS ENTRE COMPTES",
-]);
 
 /** Filters of the merchant list. */
 export interface MerchantsFilters {
@@ -154,58 +135,28 @@ export async function merchantView(id: number, ledgerId: number): Promise<Mercha
 }
 
 /**
- * Saves a person's decision about a merchant and propagates it within their workspace.
+ * Saves a person's decision about a merchant, for the transactions that
+ * arrive from now on.
  *
- * Transactions that already have a category set **by a person**
- * (`category_source = 'user'`) are never touched: that decision outranks
- * everything. Returns how many transactions were changed.
- *
- * The two writes go together. If you only do the first, the merchant says
- * «confirmed, category X» and its transactions keep the previous one; and
- * that does not fix itself, because `classifyPending` only picks up
- * transactions with no category or marked for review, and these are neither.
+ * **It never rewrites a transaction that already exists**: a category already
+ * set is not edited retroactively, whoever set it.
  *
  * `connexio.transaction()` works both for the pool and for a transaction that
  * is already open: inside another one, Postgres just puts a savepoint there.
- * seguretat i prou.
  */
 export async function rememberMerchantChoice(
   merchant: Merchant,
   categoryId: number | null,
-  applyToExisting = true,
   connection: Transactor = db,
-): Promise<number> {
-  return connection.transaction(async (tx) => {
-    await tx
-      .update(merchants)
-      .set({
-        defaultCategoryId: categoryId,
-        categorySource: "user",
-        isConfirmed: true,
-      })
-      .where(eq(merchants.id, merchant.id));
-
-    if (!applyToExisting) return 0;
-
-    const changed = await tx
-      .update(transactions)
-      .set({
-        categoryId,
-        categorySource: "merchant",
-        categoryConfidence: 1,
-        needsReview: false,
-      })
-      .where(
-        and(
-          eq(transactions.merchantId, merchant.id),
-          // Nothing overwrites a person's decision.
-          ne(transactions.categorySource, "user"),
-        ),
-      )
-      .returning({ id: transactions.id });
-
-    return changed.length;
-  });
+): Promise<void> {
+  await connection
+    .update(merchants)
+    .set({
+      defaultCategoryId: categoryId,
+      categorySource: "user",
+      isConfirmed: true,
+    })
+    .where(eq(merchants.id, merchant.id));
 }
 
 /**
@@ -218,8 +169,7 @@ export async function assignCategory(
   id: number,
   ledgerId: number,
   categoryId: number | null,
-  applyToExisting = true,
-): Promise<number> {
+): Promise<void> {
   const merchant = await merchantInWorkspace(id, ledgerId);
 
   if (categoryId !== null) {
@@ -231,7 +181,7 @@ export async function assignCategory(
     if (!category) throw new AppError("La categoria no es d'aquest espai", 422);
   }
 
-  return rememberMerchantChoice(merchant, categoryId, applyToExisting);
+  await rememberMerchantChoice(merchant, categoryId);
 }
 
 /**
@@ -336,7 +286,7 @@ export interface ReassignmentResult {
  * Renormalizes the transactions and corrects wrongly assigned merchants.
  *
  * A maintenance pass after changing the normalization (accidental commission,
- * empty prefix). It never touches `category_source = 'user'`.
+ * empty prefix). It never edits a category that is already set.
  */
 export async function reassignNormalization(
   ledgerId?: number,
@@ -400,25 +350,15 @@ export async function reassignNormalization(
       })
       .where(eq(transactions.id, transaction.id));
 
-    if (transaction.categorySource === "user") continue;
-    if (transaction.ledgerId === null) continue;
-
-    // If it came from a special bucket (or the key changed), classify it again.
-    const cameFromBucket =
-      transaction.categorySource === "merchant" &&
-      SPECIAL_BUCKETS.has(transaction.normalizedDescription);
-
-    if (!mustChangeKey && !cameFromBucket && keepsCounterparty) {
-      continue;
-    }
+    // Only a transaction with no category gets a fresh suggestion.
+    if (transaction.categoryId !== null || transaction.ledgerId === null) continue;
 
     await classifyTransaction(
       {
         id: transaction.id,
         ledgerId: transaction.ledgerId,
         merchantId: newMerchantId,
-        // We force a fresh decision: the bucket's category is removed.
-        categorySource: "none",
+        categorySource: transaction.categorySource,
       },
       connection,
     );

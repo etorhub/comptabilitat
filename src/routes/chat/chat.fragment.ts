@@ -521,18 +521,6 @@ export function ActionCard({
   const p = action.params;
   const id = `accio-${action.id}`;
   const notes: string[] = [];
-  if (p.manualCount > 0) {
-    notes.push(
-      p.manualCount === 1
-        ? "Atenció: un d'aquests moviments l'havies classificat tu a mà, i també es mourà."
-        : `Atenció: ${p.manualCount} d'aquests moviments els havies classificat tu a mà, i també es mouran.`,
-    );
-  }
-  if (p.keptManualCount > 0) {
-    notes.push(
-      `${plural(p.keptManualCount, "moviment classificat", "moviments classificats")} a mà es queden com estan.`,
-    );
-  }
   if (p.overwriteCount > 0) {
     notes.push(
       `${plural(p.overwriteCount, "moviment ja té", "moviments ja tenen")} una nota, que se substituirà.`,
@@ -540,9 +528,6 @@ export function ActionCard({
   }
   if (p.alreadyCount > 0) {
     notes.push(`${plural(p.alreadyCount, "moviment ja estava", "moviments ja estaven")} així.`);
-  }
-  if (p.remember === true) {
-    notes.push("També ho recordaré per als comerços d'aquests moviments, per als que vinguin.");
   }
 
   const more = p.count - p.sample.length;

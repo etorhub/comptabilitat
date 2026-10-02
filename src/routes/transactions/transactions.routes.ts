@@ -258,7 +258,7 @@ async function rowResponse(
  *
  * This is a person's decision: it is stored with `category_source = 'user'`
  * and no merchant will touch it again. By default it is also remembered for
- * every transaction of that merchant in this workspace.
+ * the merchant's future transactions; existing ones are never touched.
  */
 transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
   const workspace = currentWorkspace(c);
@@ -272,19 +272,11 @@ transactionsRoutes.post("/:id/categoria", requireEditor, async (c) => {
 
   const row = await transactionRow(id, workspace.id);
 
-  const { remembered } = await categorizeTransaction(id, row, parsed.data.category_id, {
+  await categorizeTransaction(id, row, parsed.data.category_id, {
     rememberMerchant: parsed.data.recorda_comerc,
   });
 
-  return rowResponse(
-    c,
-    workspace.id,
-    workspace.code,
-    id,
-    remembered > 1
-      ? { text: `Recordat per a ${remembered} moviments d'aquest comerç`, to: "success" }
-      : undefined,
-  );
+  return rowResponse(c, workspace.id, workspace.code, id);
 });
 
 /**

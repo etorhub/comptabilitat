@@ -67,9 +67,10 @@ Es fa des de **Connexions bancàries** (cal ser administrador de l'aplicació). 
 tot l'historial del compte a l'espai nou.
 
 Compte: com que les categories, els comerços i les regles són de cada espai, les
-classificacions anteriors deixen de ser vàlides. L'aplicació les neteja, torna a crear els
-comerços dins de l'espai nou i hi aplica les seves regles; el que no encaixi queda a la
-safata de revisió. **No és una operació per fer sovint.**
+ids antics no valen a l'espai nou. L'aplicació conserva les categories ja posades,
+reenllaçades per _slug_, torna a crear els comerços dins de l'espai nou i suggereix només
+els moviments que no tenien categoria o la categoria dels quals no existeix a l'espai nou;
+aquests queden a la safata de revisió. **No és una operació per fer sovint.**
 
 ## Avisos
 

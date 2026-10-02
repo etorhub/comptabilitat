@@ -12,7 +12,7 @@
  * newer one had already built on.
  */
 
-import { and, count, desc, eq, inArray, ne, not, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, inArray, ne, not, type SQL } from "drizzle-orm";
 import { z } from "zod/v4";
 
 import { db, type Transactor } from "../db/client.ts";
@@ -33,16 +33,12 @@ import { hasNarrowingFilter, type EditIntent } from "./chat-intents.ts";
 import {
   describeFilter,
   filterWhere,
-  resolveCategory,
   resolveFilter,
-  resolveMerchant,
   type Answer,
   type Clarification,
   type ListRow,
   type ResolvedFilter,
 } from "./chat-queries.ts";
-import { HUMAN_DECISION } from "./categorization.ts";
-import { rememberMerchantChoice } from "./merchants.ts";
 import { hasTag, sameTag, workspaceSpelling } from "./tags.ts";
 import { transactionViewsWhere } from "./transactions.ts";
 
@@ -67,20 +63,11 @@ const paramsSchema = z.object({
   filter: z.string(),
   transactionIds: z.array(z.number().int()),
   count: z.number().int(),
-  /** Rows a person had categorised by hand that this will overwrite. */
-  manualCount: z.number().int().default(0),
-  /** Rows a person had categorised by hand that a merchant rule leaves alone. */
-  keptManualCount: z.number().int().default(0),
   /** Rows that already had a note, which this replaces. */
   overwriteCount: z.number().int().default(0),
   /** Rows the filter matched that are already as asked. */
   alreadyCount: z.number().int().default(0),
   sample: z.array(listRowSchema),
-  targetCategoryId: z.number().int().optional(),
-  targetCategoryName: z.string().optional(),
-  remember: z.boolean().optional(),
-  merchantId: z.number().int().optional(),
-  merchantName: z.string().optional(),
   tag: z.string().optional(),
   note: z.string().optional(),
 });
@@ -160,88 +147,18 @@ export async function propose(
   intent: EditIntent,
   today: string,
 ): Promise<Answer | Clarification> {
-  if (intent.kind !== "merchant_rule" && !hasNarrowingFilter(intent.filter)) {
+  if (!hasNarrowingFilter(intent.filter)) {
     return clarify(
       "Per canviar moviments en bloc necessito saber quins: un text, un comerç, una categoria o un compte.",
     );
   }
 
-  const resolved = await resolveFilter(ledgerId, intent.filter, today, {
-    singleMerchant: intent.kind === "merchant_rule",
-  });
+  const resolved = await resolveFilter(ledgerId, intent.filter, today);
   if (!resolved.ok) return resolved.clarify;
   const f = resolved.value;
 
   let params: ActionParams;
   switch (intent.kind) {
-    case "recategorize": {
-      if (!intent.targetCategory) return clarify("A quina categoria els vols moure?");
-      const target = await resolveCategory(ledgerId, intent.targetCategory, true);
-      if (!target.ok) return target.clarify;
-      const [category] = target.value;
-      if (!category) return clarify("A quina categoria els vols moure?");
-
-      const rows = await candidates(filterWhere(f, "edit"));
-      if (rows.length > MAX_ROWS) return tooMany();
-      const changing = rows.filter((r) => r.categoryId !== category.id);
-      const manual = changing.filter((r) => r.categorySource === "user").length;
-      params = {
-        summary: `Moure ${plural(changing.length, "moviment", "moviments")} ${scope(f)} a ${category.fullName}.`,
-        period: f.range.label,
-        filter: describeFilter(f),
-        transactionIds: changing.map((r) => r.id),
-        count: changing.length,
-        manualCount: manual,
-        keptManualCount: 0,
-        overwriteCount: 0,
-        alreadyCount: rows.length - changing.length,
-        sample: await sample(changing.map((r) => r.id)),
-        targetCategoryId: category.id,
-        targetCategoryName: category.fullName,
-        remember: intent.remember,
-      };
-      break;
-    }
-
-    case "merchant_rule": {
-      if (!intent.filter.merchant) return clarify("De quin comerç vols fixar la categoria?");
-      if (!intent.targetCategory) return clarify("Quina categoria vols per a aquest comerç?");
-      const merchant = await resolveMerchant(ledgerId, intent.filter.merchant, true);
-      if (!merchant.ok) return merchant.clarify;
-      const [m] = merchant.value;
-      const target = await resolveCategory(ledgerId, intent.targetCategory, true);
-      if (!target.ok) return target.clarify;
-      const [category] = target.value;
-      if (!m || !category) return clarify("Quina categoria vols per a aquest comerç?");
-
-      const rows = await candidates(
-        and(eq(transactions.ledgerId, ledgerId), eq(transactions.merchantId, m.id)),
-      );
-      const changing = rows.filter(
-        (r) => r.categorySource !== "user" && r.categoryId !== category.id,
-      );
-      const kept = rows.filter(
-        (r) => r.categorySource === "user" && r.categoryId !== category.id,
-      ).length;
-      params = {
-        summary: `Fixar ${category.fullName} com a categoria de ${m.name}, per als moviments d'ara (${plural(changing.length, "canvia", "canvien")}) i els que vinguin.`,
-        period: "tot l'historial",
-        filter: `del comerç ${m.name}`,
-        transactionIds: changing.map((r) => r.id),
-        count: changing.length,
-        manualCount: 0,
-        keptManualCount: kept,
-        overwriteCount: 0,
-        alreadyCount: rows.length - changing.length - kept,
-        sample: await sample(changing.map((r) => r.id)),
-        targetCategoryId: category.id,
-        targetCategoryName: category.fullName,
-        merchantId: m.id,
-        merchantName: m.name,
-      };
-      break;
-    }
-
     case "tag_add":
     case "tag_remove": {
       if (!intent.tag) return clarify("Quina etiqueta?");
@@ -268,8 +185,6 @@ export async function propose(
         filter: describeFilter(f),
         transactionIds: rows.map((r) => r.id),
         count: rows.length,
-        manualCount: 0,
-        keptManualCount: 0,
         overwriteCount: 0,
         alreadyCount: already?.n ?? 0,
         sample: await sample(rows.map((r) => r.id)),
@@ -290,8 +205,6 @@ export async function propose(
         filter: describeFilter(f),
         transactionIds: rows.map((r) => r.id),
         count: rows.length,
-        manualCount: 0,
-        keptManualCount: 0,
         overwriteCount: rows.filter((r) => r.notes.trim() !== "").length,
         alreadyCount: 0,
         sample: await sample(rows.map((r) => r.id)),
@@ -301,7 +214,7 @@ export async function propose(
     }
   }
 
-  if (params.count === 0 && intent.kind !== "merchant_rule") {
+  if (params.count === 0) {
     return clarify(
       params.alreadyCount > 0
         ? `No hi ha res a canviar: els ${params.alreadyCount} moviments que hi encaixen ja estan així.`
@@ -406,17 +319,6 @@ const TRANSACTION_STATE = {
   notes: transactions.notes,
 } as const;
 
-type TransactionStateKey = keyof typeof TRANSACTION_STATE;
-
-const CATEGORY_KEYS: TransactionStateKey[] = [
-  "categoryId",
-  "categorySource",
-  "categoryConfidence",
-  "needsReview",
-];
-
-const MERCHANT_KEYS = ["defaultCategoryId", "categorySource", "isConfirmed"] as const;
-
 /**
  * A saved state, read back before it is written. It came from our own rows,
  * but it went through JSON on the way, and only these columns may come back.
@@ -441,11 +343,6 @@ const merchantStateSchema = z
   })
   .partial()
   .strict();
-
-function pick<K extends string>(row: object, keys: readonly K[]): Record<K, unknown> {
-  const source = row as Record<string, unknown>;
-  return Object.fromEntries(keys.map((k) => [k, source[k] ?? null])) as Record<K, unknown>;
-}
 
 /** `inArray` over an empty list is `false` in Drizzle: no special case needed. */
 async function transactionStates(tx: Transactor, ledgerId: number, ids: number[]) {
@@ -487,21 +384,6 @@ async function saveItems(
   }
 }
 
-async function targetCategoryStillHere(
-  tx: Transactor,
-  ledgerId: number,
-  id: number | undefined,
-) {
-  if (id === undefined) throw new ConflictError("La proposta no diu a quina categoria");
-  const [row] = await tx.execute<{ present: boolean }>(
-    sql`select exists (select 1 from categories where id = ${id} and ledger_id = ${ledgerId}) as present`,
-  );
-  if (!row?.present) {
-    throw new ConflictError("La categoria d'aquesta proposta ja no existeix");
-  }
-  return id;
-}
-
 export interface ApplyResult {
   changed: number;
 }
@@ -523,84 +405,6 @@ export async function applyAction(
     const items: Parameters<typeof saveItems>[2] = [];
 
     switch (action.kind) {
-      case "recategorize": {
-        const categoryId = await targetCategoryStillHere(tx, ledgerId, params.targetCategoryId);
-        const after = { categoryId, ...HUMAN_DECISION };
-        if (ids.length > 0) {
-          await tx
-            .update(transactions)
-            .set(after)
-            .where(and(eq(transactions.ledgerId, ledgerId), inArray(transactions.id, ids)));
-        }
-        for (const [id, state] of states) {
-          items.push({ transactionId: id, before: pick(state, CATEGORY_KEYS), after });
-        }
-
-        if (params.remember === true) {
-          const merchantIds = await tx
-            .selectDistinct({ id: transactions.merchantId })
-            .from(transactions)
-            .where(inArray(transactions.id, ids));
-          const found = await merchantStates(
-            tx,
-            ledgerId,
-            merchantIds.map((m) => m.id).filter((x): x is number => x !== null),
-          );
-          for (const merchant of found) {
-            await rememberMerchantChoice(merchant, categoryId, false, tx);
-            items.push({
-              merchantId: merchant.id,
-              before: pick(merchant, MERCHANT_KEYS),
-              after: {
-                defaultCategoryId: categoryId,
-                categorySource: "user",
-                isConfirmed: true,
-              },
-            });
-          }
-        }
-        break;
-      }
-
-      case "merchant_rule": {
-        const categoryId = await targetCategoryStillHere(tx, ledgerId, params.targetCategoryId);
-        const [merchant] = await merchantStates(
-          tx,
-          ledgerId,
-          params.merchantId === undefined ? [] : [params.merchantId],
-        );
-        if (!merchant) throw new ConflictError("El comerç d'aquesta proposta ja no existeix");
-
-        // Everything `rememberMerchantChoice()` is about to touch, as it is now.
-        const touched = await tx
-          .select({ id: transactions.id, ...TRANSACTION_STATE })
-          .from(transactions)
-          .where(
-            and(
-              eq(transactions.ledgerId, ledgerId),
-              eq(transactions.merchantId, merchant.id),
-              ne(transactions.categorySource, "user"),
-            ),
-          );
-        await rememberMerchantChoice(merchant, categoryId, true, tx);
-
-        const after = {
-          categoryId,
-          categorySource: "merchant",
-          categoryConfidence: 1,
-          needsReview: false,
-        };
-        for (const row of touched) {
-          items.push({ transactionId: row.id, before: pick(row, CATEGORY_KEYS), after });
-        }
-        items.push({
-          merchantId: merchant.id,
-          before: pick(merchant, MERCHANT_KEYS),
-          after: { defaultCategoryId: categoryId, categorySource: "user", isConfirmed: true },
-        });
-        break;
-      }
-
       case "tag_add":
       case "tag_remove": {
         const tag = params.tag;

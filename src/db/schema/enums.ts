@@ -87,13 +87,7 @@ export const CHAT_MESSAGE_STATUSES = values("pending", "done", "error");
 export type ChatMessageStatus = (typeof CHAT_MESSAGE_STATUSES)[number];
 export const chatMessageStatusSchema = z.enum(CHAT_MESSAGE_STATUSES);
 
-export const CHAT_ACTION_KINDS = values(
-  "recategorize",
-  "merchant_rule",
-  "tag_add",
-  "tag_remove",
-  "note_set",
-);
+export const CHAT_ACTION_KINDS = values("tag_add", "tag_remove", "note_set");
 export type ChatActionKind = (typeof CHAT_ACTION_KINDS)[number];
 export const chatActionKindSchema = z.enum(CHAT_ACTION_KINDS);
 

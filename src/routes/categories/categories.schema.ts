@@ -41,8 +41,3 @@ export const categoryCreateSchema = base.pick({ name: true }).extend({
 export const categoryUpdateSchema = z.object({
   name: z.string().trim().min(1, "Cal un nom").max(120, "El nom es massa llarg"),
 });
-
-export const categoryDeleteSchema = z.object({
-  /** Where any transactions it has should go. */
-  reassign_to: optionalId,
-});

@@ -1,5 +1,5 @@
 /**
- * Categories: the two-level plan and deletion with reassignment.
+ * Categories: the two-level plan and deletion.
  *
  * A translation of `backend/tests/test_categories.py`. The important case is
  * the 409: deleting a category that has transactions must never lose them.
@@ -197,22 +197,22 @@ describe("deleting categories", () => {
       color: "#94a3b8",
       icon: "",
     });
-    await deleteCategory(c.id, ledgerId, null);
+    await deleteCategory(c.id, ledgerId);
     await expect(categoryInWorkspace(c.id, ledgerId)).rejects.toThrow();
   });
 
   test("the protected system ones cannot be deleted", async () => {
     const c = await categoryBySlug(SLUG_UNCATEGORIZED);
-    await expect(deleteCategory(c.id, ledgerId, null)).rejects.toThrow(AppError);
+    await expect(deleteCategory(c.id, ledgerId)).rejects.toThrow(AppError);
     expect(await categoryInWorkspace(c.id, ledgerId)).toBeDefined();
   });
 
   test("one with subcategories asks you to move them first", async () => {
     const parent = await categoryBySlug("habitatge");
-    await expect(deleteCategory(parent.id, ledgerId, null)).rejects.toThrow(AppError);
+    await expect(deleteCategory(parent.id, ledgerId)).rejects.toThrow(AppError);
   });
 
-  test("one with transactions and no destination is a 409", async () => {
+  test("one with transactions is a 409 and nothing is moved", async () => {
     const c = await categoryBySlug("restauracio-restaurants");
     await db.insert(transactions).values({
       accountId,
@@ -236,88 +236,13 @@ describe("deleting categories", () => {
       raw: {},
     });
 
-    await expect(deleteCategory(c.id, ledgerId, null)).rejects.toThrow(ConflictError);
+    await expect(deleteCategory(c.id, ledgerId)).rejects.toThrow(ConflictError);
     // And above all: the transaction is still there.
     const remain = await db
       .select()
       .from(transactions)
       .where(eq(transactions.categoryId, c.id));
     expect(remain).toHaveLength(1);
-  });
-
-  test("with a destination, the transactions go there and none is lost", async () => {
-    const origin = await categoryBySlug("restauracio-restaurants");
-    const target = await categoryBySlug("restauracio-bars-i-cafeteries");
-
-    // A rule that assigns the source category: the foreign key is CASCADE, so
-    // if the category were deleted first, the rule would disappear.
-    await db.insert(rules).values({
-      name: "Regla de prova",
-      ledgerId,
-      priority: 100,
-      isActive: true,
-      conditions: [{ field: "description", operator: "contains", value: "SOPAR" }],
-      setCategoryId: origin.id,
-      setTags: [],
-      source: "user",
-      matchCount: 0,
-    });
-
-    await deleteCategory(origin.id, ledgerId, target.id);
-
-    const moved = await db
-      .select()
-      .from(transactions)
-      .where(eq(transactions.categoryId, target.id));
-    expect(moved).toHaveLength(1);
-
-    const orphans = await db
-      .select()
-      .from(transactions)
-      .where(eq(transactions.ledgerId, ledgerId));
-    expect(orphans.every((t) => t.categoryId !== null)).toBe(true);
-
-    // The rule was reassigned, not deleted.
-    const kept = await db.select().from(rules).where(eq(rules.ledgerId, ledgerId));
-    expect(kept).toHaveLength(1);
-    expect(kept[0]?.setCategoryId).toBe(target.id);
-  });
-
-  test("it cannot be reassigned to a category of another workspace", async () => {
-    const c = await createCategory(ledgerId, {
-      name: "Amb moviment",
-      kind: "expense",
-      parentId: null,
-      color: "#94a3b8",
-      icon: "",
-    });
-    await db.insert(transactions).values({
-      accountId,
-      ledgerId,
-      dedupKey: "prova-forana",
-      source: "manual",
-      bookingDate: "2026-01-16",
-      amount: "-3.00",
-      currency: "EUR",
-      status: "booked",
-      description: "Cafe",
-      normalizedDescription: "CAFE",
-      counterparty: "",
-      bankTransactionCode: "",
-      categoryId: c.id,
-      categorySource: "user",
-      needsReview: false,
-      notes: "",
-      tags: [],
-      isExcluded: false,
-      raw: {},
-    });
-
-    const foreign = await categoryBySlug("habitatge", otherLedgerId);
-    await expect(deleteCategory(c.id, ledgerId, foreign.id)).rejects.toThrow();
-
-    // Nothing was deleted and nothing was moved.
-    expect(await categoryInWorkspace(c.id, ledgerId)).toBeDefined();
   });
 });
 

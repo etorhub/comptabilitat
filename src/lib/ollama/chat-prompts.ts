@@ -20,8 +20,6 @@ export const CHAT_INTENTS = [
   "breakdown",
   "series",
   "compare",
-  "recategorize",
-  "merchant_rule",
   "tag_add",
   "tag_remove",
   "note_set",
@@ -62,8 +60,6 @@ export const CHAT_RESPONSE_SCHEMA = {
     group_by: { type: "string", enum: ["category", "merchant"] },
     order_by: { type: "string", enum: ["date", "amount"] },
     limit: { type: "integer" },
-    target_category: { type: "string" },
-    remember: { type: "boolean" },
     tag: { type: "string" },
     note: { type: "string" },
   },
@@ -78,8 +74,6 @@ Intencions:
 - breakdown: repartiment o rànquing per categoria o per comerç ("en què he gastat més", "top 10 comerços"). Posa group_by.
 - series: evolució mes a mes.
 - compare: comparar dos períodes. Posa period i compare_period.
-- recategorize: canviar la categoria dels moviments que compleixen el filtre. Posa target_category. Si diu "a partir d'ara" o "sempre", remember=true.
-- merchant_rule: fixar la categoria per defecte d'un comerç, per als moviments d'ara i els futurs. Posa merchant i target_category.
 - tag_add / tag_remove: afegir o treure l'etiqueta tag als moviments del filtre.
 - note_set: posar la nota note als moviments del filtre.
 - unknown: qualsevol altra cosa (esborrar dades, preguntes que no són sobre els moviments, salutacions).
@@ -125,7 +119,7 @@ export function buildChatPrompt(context: ChatContext): string {
     `Comptes:\n${list(context.accounts)}\n\n` +
     "Exemples:\n" +
     'Pregunta: quant he gastat a glovo el darrer any?\nIntenció: {"intent":"total","text":"glovo","direction":"expense","period":"last_12_months"}\n' +
-    'Pregunta: mou tots els moviments que continguin glovo a Menjar a domicili\nIntenció: {"intent":"recategorize","text":"glovo","target_category":"Menjar a domicili"}\n' +
+    'Pregunta: posa l\'etiqueta viatge a tots els moviments que continguin ryanair\nIntenció: {"intent":"tag_add","text":"ryanair","tag":"viatge"}\n' +
     'Pregunta: en què he gastat més aquest any?\nIntenció: {"intent":"breakdown","group_by":"category","direction":"expense","period":"this_year"}\n' +
     'Pregunta: ensenya\'m els moviments de més de 100 euros del mes passat\nIntenció: {"intent":"list","amount_min":100,"period":"last_month","order_by":"amount"}\n' +
     'Pregunta: compara el que he gastat a Supermercat enguany amb l\'any passat\nIntenció: {"intent":"compare","category":"Supermercat","direction":"expense","period":"this_year","compare_period":"last_year"}\n\n' +

@@ -172,15 +172,14 @@ describe("what a person chose", () => {
     expect(row.needsReview).toBe(false);
   });
 
-  test("and what a rule had set is not", async () => {
+  test("and so is what a rule had set: nothing categorized is edited", async () => {
     const origin = await category(personalId, "alimentacio-supermercat");
     const id = await transaction({ categoryId: origin.id, categorySource: "rule" });
 
     const summary = await moveAccountToWorkspace(accountA, calellaId);
 
-    expect(summary.kept).toBe(0);
-    // It goes to the tray: in the new workspace its own rules apply.
-    expect((await read(id)).categorySource).not.toBe("user");
+    expect(summary.kept).toBe(1);
+    expect((await read(id)).categorySource).toBe("rule");
   });
 
   test("if the category only existed in the old workspace, it goes to review", async () => {
