@@ -153,57 +153,6 @@ export function DeletedRow(id: number): Html {
   return html`<tr id="categoria-${id}" hidden></tr>` as Html;
 }
 
-export interface ReassignmentFormProps {
-  code: string;
-  category: CategoryView;
-  transactionList: number;
-  groups: CategoryGroup[];
-}
-
-/**
- * The body of the 409: not a dead end, but the question that is missing. It
- * goes inside the same row, so it appears next to the category that was being
- * deleted.
- */
-export function ReassignmentForm({
-  code,
-  category,
-  transactionList,
-  groups,
-}: ReassignmentFormProps): Html {
-  return html`<tr id="categoria-${category.id}" class="reassignant">
-    <td colspan="4">
-      <form
-        class="linia"
-        hx-delete="/e/${code}/categories/${category.id}"
-        hx-target="#categoria-${category.id}"
-        hx-swap="outerHTML"
-      >
-        <p class="reassignant-text">
-          «${category.name}» te
-          ${String(transactionList)} ${transactionList === 1 ? "moviment" : "moviments"}. On han d'anar?
-        </p>
-        ${Select({
-          name: "reassign_to",
-          tag: "Mou-los a",
-          groups,
-          empty: "— tria una categoria —",
-        })}
-        <button type="submit" class="boto boto-perill">Esborra-la i mou-los</button>
-        <button
-          type="button"
-          class="boto boto-discret"
-          hx-get="/e/${code}/categories/${category.id}/fragment/fila"
-          hx-target="#categoria-${category.id}"
-          hx-swap="outerHTML"
-        >
-          Cancel·la
-        </button>
-      </form>
-    </td>
-  </tr>` as Html;
-}
-
 export interface CreateFormProps {
   code: string;
   groups: CategoryGroup[];

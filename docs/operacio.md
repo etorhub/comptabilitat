@@ -59,9 +59,11 @@ L'ordre és sempre el mateix, del més barat i explícit al més car:
 4. **Model local**, només per als comerços que no han encaixat enlloc.
 5. La resta va a **Per revisar**.
 
-Quan corregeixes la categoria d'un moviment, per defecte la decisió es recorda per a **tot
-el comerç d'aquell espai** i es propaga als moviments passats que no haguessis tocat tu. Si
-a més marques «crea una regla», queda una regla apresa visible a **Regles**.
+Quan corregeixes la categoria d'un moviment, per defecte la decisió es recorda per al
+**comerç d'aquell espai**, però només s'aplica als moviments que arribin **a partir d'ara**.
+**Mai es recategoritza res de l'historial**: un moviment que ja té categoria no es torna a
+editar, ni per la memòria de comerços, ni pel model local, ni per cap feina programada ni
+per cap acció del xat. Només els moviments nous, sense categoria, reben un suggeriment.
 
 El model local mai confirma res pel seu compte: quan proposa una categoria, el moviment
 queda marcat per revisar amb la seva confiança i la seva justificació.

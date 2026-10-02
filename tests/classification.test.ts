@@ -311,7 +311,7 @@ describe("the review queue", () => {
 });
 
 describe("correcting a category", () => {
-  test("remembers the merchant and propagates it to its transactions", async () => {
+  test("remembers the merchant for the future and never edits the existing transactions", async () => {
     const merchantId = await merchant();
     const first = await transaction({ merchantId: merchantId });
     const second = await transaction({
@@ -329,7 +329,33 @@ describe("correcting a category", () => {
     const [rowMerchant] = await db.select().from(merchants).where(eq(merchants.id, merchantId));
     expect(rowMerchant?.defaultCategoryId).toBe(supermercat.id);
     expect(rowMerchant?.isConfirmed).toBe(true);
+    expect((await read(second)).categoryId).toBeNull();
+
+    // The next one to arrive is the one that gets the suggestion.
+    await classify(second);
     expect((await read(second)).categoryId).toBe(supermercat.id);
+  });
+
+  test("a transaction that already has a category is never reclassified", async () => {
+    const supermercat = await category(personalId);
+    const restaurants = await category(personalId, "restauracio-restaurants");
+    const merchantId = await merchant("MERCADONA", {
+      defaultCategoryId: supermercat.id,
+      isConfirmed: true,
+    });
+    const id = await transaction({
+      merchantId: merchantId,
+      categoryId: restaurants.id,
+      categorySource: "merchant",
+      needsReview: true,
+    });
+
+    await classify(id);
+    await classifyPending(personalId);
+
+    const row = await read(id);
+    expect(row.categoryId).toBe(restaurants.id);
+    expect(row.needsReview).toBe(true);
   });
 });
 

@@ -52,9 +52,10 @@ in each workspace.
 cheapest and most explicit to the most expensive: what you decided (which is never
 touched), the rules by priority, the merchant memory and, only for the merchants
 that fitted nowhere, the local model. The rest goes to the review tray. When you
-correct a category, the decision is remembered for every transaction of that
-merchant **in that workspace**: your mother-in-law classifying in Calella touches
-nothing in your Personal.
+correct a category, the decision is remembered for that merchant **in that
+workspace** and applies to the transactions that arrive from then on: a transaction
+that already has a category is never edited retroactively. Your mother-in-law
+classifying in Calella touches nothing in your Personal.
 
 **The local model classifies by merchant, not by transaction.** That is what makes
 a NAS with no graphics card viable: in normal running, few new merchants appear

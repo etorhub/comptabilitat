@@ -64,8 +64,8 @@ MERCADONA, BARCELONA` i companyia), repartides pels tres espais:
   avisos i qui hi té accés.
 
 Val la pena provar el cicle que faràs de debò: ves a **Moviments**, canvia la categoria
-d'un moviment i mira com la resta de moviments del mateix comerç canvien també — i com el
-mateix comerç en un altre espai **no** es mou.
+d'un moviment i comprova que la resta de moviments del mateix comerç **no** canvien (la
+decisió només val per als que arribin després), ni tampoc en un altre espai.
 
 També hi ha un moviment de 400 € que va de Personal a Calella: el veuràs com una sortida a
 Personal i com una entrada a Calella, sense aparellar-se. És el que toca amb comptabilitats

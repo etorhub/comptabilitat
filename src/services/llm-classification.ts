@@ -236,6 +236,8 @@ export async function classifyMerchants(
         .where(
           and(
             eq(transactions.merchantId, merchant.id),
+            // Only a transaction with no category: nothing categorized is rewritten.
+            isNull(transactions.categoryId),
             inArray(transactions.categorySource, ["none"]),
           ),
         );

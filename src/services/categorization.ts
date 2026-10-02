@@ -1,8 +1,8 @@
 /**
  * Setting a transaction's category because a person said so.
  *
- * It is the decision that **nothing else touches**: no rule, no merchant
- * memory and no local model will change it again. That is all
+ * It is the decision that **nothing else touches**: no merchant memory and
+ * no local model will change it again. That is all
  * `category_source = "user"` means, and that is why the four fields that say
  * it go together in one place: they were written by hand four times inside
  * the same route file, and changing the policy meant finding them all.
@@ -23,13 +23,8 @@ export const HUMAN_DECISION = {
 } as const;
 
 export interface CategorizeOptions {
-  /** Remember it for every transaction of this merchant in this workspace. */
+  /** Remember it for this merchant's future transactions. Existing ones are never touched. */
   rememberMerchant?: boolean;
-}
-
-export interface CategorizeResult {
-  /** How many transactions of the same merchant inherited the decision. */
-  remembered: number;
 }
 
 /**
@@ -43,19 +38,16 @@ export async function categorizeTransaction(
   row: { merchantId: number | null },
   categoryId: number | null,
   options: CategorizeOptions = {},
-): Promise<CategorizeResult> {
+): Promise<void> {
   return db.transaction(async (tx) => {
     await tx
       .update(transactions)
       .set({ categoryId, ...HUMAN_DECISION })
       .where(eq(transactions.id, transactionId));
 
-    let remembered = 0;
     if (options.rememberMerchant === true && row.merchantId !== null) {
-      remembered = await rememberMerchantFromRow(tx, row.merchantId, categoryId);
+      await rememberMerchantFromRow(tx, row.merchantId, categoryId);
     }
-
-    return { remembered };
   });
 }
 
@@ -117,10 +109,9 @@ export async function confirmFromReview(
   row: { merchantId: number | null },
   categoryId: number,
   options: CategorizeOptions = {},
-): Promise<CategorizeResult> {
-  const result = await categorizeTransaction(transactionId, row, categoryId, options);
+): Promise<void> {
+  await categorizeTransaction(transactionId, row, categoryId, options);
   await closeModelProposal(row.merchantId, categoryId);
-  return result;
 }
 
 /** Says whether the model's proposal for this merchant was good. */
@@ -150,12 +141,12 @@ async function rememberMerchantFromRow(
   tx: Transactor,
   merchantId: number,
   categoryId: number | null,
-): Promise<number> {
+): Promise<void> {
   const [merchant] = await tx
     .select()
     .from(merchants)
     .where(eq(merchants.id, merchantId))
     .limit(1);
-  if (!merchant) return 0;
-  return rememberMerchantChoice(merchant, categoryId, true, tx);
+  if (!merchant) return;
+  await rememberMerchantChoice(merchant, categoryId, tx);
 }

@@ -47,7 +47,7 @@ async function categoryBySlug(slug: string, ledger = ledgerId) {
 
 async function transaction(
   dedupKey: string,
-  source: "user" | "none",
+  source: "user" | "merchant" | "none",
   categoryId: number | null,
 ) {
   await db.insert(transactions).values({
@@ -153,30 +153,33 @@ beforeEach(async () => {
 });
 
 describe("assigning a merchant's category", () => {
-  test("never touches what a person classified", async () => {
+  test("never edits a transaction that already exists", async () => {
     const restaurants = await categoryBySlug("restauracio-restaurants");
     const bars = await categoryBySlug("restauracio-bars-i-cafeteries");
 
     await transaction("meu", "user", restaurants.id);
     await transaction("automatic-1", "none", null);
-    await transaction("automatic-2", "none", null);
+    await transaction("automatic-2", "merchant", restaurants.id);
 
-    const changed = await assignCategory(merchantId, ledgerId, bars.id);
-    expect(changed).toBe(2);
+    await assignCategory(merchantId, ledgerId, bars.id);
 
     const [own] = await db.select().from(transactions).where(eq(transactions.dedupKey, "meu"));
-    // Neither the category nor the source: the person's decision rules.
     expect(own?.categoryId).toBe(restaurants.id);
     expect(own?.categorySource).toBe("user");
 
-    const automatic = await db
+    const [empty] = await db
       .select()
       .from(transactions)
-      .where(eq(transactions.categorySource, "merchant"));
-    expect(automatic).toHaveLength(2);
-    expect(automatic.every((t) => t.categoryId === bars.id)).toBe(true);
-    // And they leave the review tray.
-    expect(automatic.every((t) => t.needsReview === false)).toBe(true);
+      .where(eq(transactions.dedupKey, "automatic-1"));
+    expect(empty?.categoryId).toBeNull();
+    expect(empty?.categorySource).toBe("none");
+
+    const [automatic] = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.dedupKey, "automatic-2"));
+    expect(automatic?.categoryId).toBe(restaurants.id);
+    expect(automatic?.categorySource).toBe("merchant");
   });
 
   test("leaves the merchant confirmed", async () => {
@@ -187,17 +190,6 @@ describe("assigning a merchant's category", () => {
     expect(merchant?.isConfirmed).toBe(true);
     expect(merchant?.categorySource).toBe("user");
     expect(merchant?.defaultCategoryId).toBe(bars.id);
-  });
-
-  test("it can be asked not to apply to the existing ones", async () => {
-    const bars = await categoryBySlug("restauracio-bars-i-cafeteries");
-    await transaction("automatic-1", "none", null);
-
-    const changed = await assignCategory(merchantId, ledgerId, bars.id, false);
-    expect(changed).toBe(0);
-
-    const [t] = await db.select().from(transactions);
-    expect(t?.categoryId).toBeNull();
   });
 
   test("does not accept a category from another workspace", async () => {

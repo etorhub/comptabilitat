@@ -431,7 +431,7 @@ export async function fillForTests(
         .limit(1);
       if (!merchant) continue;
 
-      await rememberMerchantChoice(merchant, categoryId, true);
+      await rememberMerchantChoice(merchant, categoryId);
     }
   }
 

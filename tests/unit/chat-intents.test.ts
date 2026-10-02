@@ -155,29 +155,14 @@ describe("the intent", () => {
     expect(intent.filter.period).toEqual({ kind: "year", year: 2024 });
   });
 
-  test("a merchant rule takes the merchant from `text` when the model put it there", () => {
-    const intent = toIntent({
-      intent: "merchant_rule",
-      text: "glovo",
-      target_category: "Menjar a domicili",
-    });
-    expect(intent).toMatchObject({
-      kind: "merchant_rule",
-      filter: { merchant: "glovo", text: "" },
-      targetCategory: "Menjar a domicili",
-    });
-    expect(isEdit(intent)).toBe(true);
-  });
-
   test("an edit needs something narrower than a period", () => {
     const loose = toIntent({
-      intent: "recategorize",
+      intent: "tag_add",
       period: "this_year",
-      target_category: "X",
+      tag: "x",
     });
-    const narrow = toIntent({ intent: "recategorize", text: "glovo", target_category: "X" });
-    if (loose.kind !== "recategorize" || narrow.kind !== "recategorize")
-      throw new Error("edit");
+    const narrow = toIntent({ intent: "tag_add", text: "glovo", tag: "x" });
+    if (loose.kind !== "tag_add" || narrow.kind !== "tag_add") throw new Error("edit");
     expect(hasNarrowingFilter(loose.filter)).toBe(false);
     expect(hasNarrowingFilter(narrow.filter)).toBe(true);
     expect(isEdit(toIntent({ intent: "total" }))).toBe(false);

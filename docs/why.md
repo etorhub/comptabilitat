@@ -250,3 +250,12 @@ does not see the CSS, nor whether the layout's `htmx:*` hooks run, nor the
 ECharts islands, nor any divergence between the model and the real algorithm.
 The list is in the [`htmx-contract/` README](../htmx-contract/README.md), and it
 is what has to be re-read whenever `public/htmx.min.js` is bumped.
+
+## No retroactive recategorization
+
+A transaction that already has a category is never edited again by anything
+automatic or bulk: not the merchant memory, not `classifyPending`, not the
+nightly model, not `detectTransfers`, not `reassignNormalization`, not moving an
+account, not deleting a category (it is a 409 while it has transactions) and not
+the chat. Only a person changing one transaction by hand rewrites its category.
+New transactions, with no category, are the only ones that get a suggestion.

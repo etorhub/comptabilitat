@@ -1,5 +1,5 @@
 /**
- * Categories: tree, statistics and deletion with reassignment.
+ * Categories: tree, statistics and deletion.
  *
  * A translation of `backend/app/api/routes/categories.py`, with the logic
  * taken out of the route and put here.
@@ -10,9 +10,6 @@ import { and, count, eq, isNotNull, sum } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import {
   categories,
-  llmSuggestions,
-  merchants,
-  rules,
   transactions,
   type Category,
   type CategoryKind,
@@ -247,18 +244,10 @@ async function hasChildren(id: number, ledgerId: number): Promise<number> {
 /**
  * Deletes a category.
  *
- * If it has transactions and no destination is given, it is a **409**: the
- * interface uses it to ask whoever it is to pick a destination category.
- *
- * Mind the order: everything has to be reassigned **before** deleting,
- * because the foreign key of `rules.set_category_id` is CASCADE and deleting
- * first would take away the rules that pointed at it.
+ * If it has transactions it is a **409**: a transaction that already has a
+ * category is never moved to another one, so the category stays until it is empty.
  */
-export async function deleteCategory(
-  id: number,
-  ledgerId: number,
-  reassignTo: number | null,
-): Promise<void> {
+export async function deleteCategory(id: number, ledgerId: number): Promise<void> {
   const category = await categoryInWorkspace(id, ledgerId);
 
   if (PROTECTED_SLUGS.includes(category.slug)) {
@@ -270,49 +259,14 @@ export async function deleteCategory(
   }
 
   const used = await transactionsOf(id);
-  if (used > 0 && reassignTo === null) {
+  if (used > 0) {
     throw new ConflictError(
       `Hi ha ${used} ${used === 1 ? "moviment" : "moviments"} en aquesta categoria`,
-      "Tria a quina categoria han d'anar a parar.",
+      "No es poden esborrar categories amb moviments.",
     );
   }
 
-  await db.transaction(async (tx) => {
-    if (reassignTo !== null) {
-      if (reassignTo === id) {
-        throw new AppError("No es pot reassignar a la mateixa categoria", 422);
-      }
-      // It must belong to this workspace: otherwise transactions could be moved to another one.
-      const [target] = await tx
-        .select({ id: categories.id })
-        .from(categories)
-        .where(and(eq(categories.id, reassignTo), eq(categories.ledgerId, ledgerId)))
-        .limit(1);
-      if (!target) throw new NotFoundError("La categoria de desti no existeix");
-
-      await tx
-        .update(transactions)
-        .set({ categoryId: reassignTo })
-        .where(and(eq(transactions.ledgerId, ledgerId), eq(transactions.categoryId, id)));
-      await tx
-        .update(merchants)
-        .set({ defaultCategoryId: reassignTo })
-        .where(and(eq(merchants.ledgerId, ledgerId), eq(merchants.defaultCategoryId, id)));
-      await tx
-        .update(rules)
-        .set({ setCategoryId: reassignTo })
-        .where(and(eq(rules.ledgerId, ledgerId), eq(rules.setCategoryId, id)));
-      // The recurring series of this category are deleted in cascade
-      // (`fk_recurring_series_category_id_categories`). If the destination one
-      // has the same pattern, `detectRecurring` proposes them again.
-      await tx
-        .update(llmSuggestions)
-        .set({ suggestedCategoryId: reassignTo })
-        .where(eq(llmSuggestions.suggestedCategoryId, id));
-    }
-
-    await tx.delete(categories).where(eq(categories.id, id));
-  });
+  await db.delete(categories).where(eq(categories.id, id));
 }
 
 /**

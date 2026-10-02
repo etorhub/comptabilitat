@@ -18,13 +18,7 @@ import { addDays } from "../lib/time.ts";
 export type PeriodKind = (typeof CHAT_PERIODS)[number];
 export type Direction = "expense" | "income" | "any";
 
-const EDIT_KINDS = [
-  "recategorize",
-  "merchant_rule",
-  "tag_add",
-  "tag_remove",
-  "note_set",
-] as const;
+const EDIT_KINDS = ["tag_add", "tag_remove", "note_set"] as const;
 export type EditKind = (typeof EDIT_KINDS)[number];
 
 /** A string the model wrote: trimmed, bounded, and absent when empty. */
@@ -77,8 +71,6 @@ export const modelAnswerSchema = z.object({
   group_by: z.enum(["category", "merchant"]).optional().catch(undefined),
   order_by: z.enum(["date", "amount"]).optional().catch(undefined),
   limit: z.coerce.number().int().min(1).max(50).optional().catch(undefined),
-  target_category: words(100),
-  remember: z.boolean().optional().catch(undefined),
   tag: words(40),
   note: words(500),
 });
@@ -218,8 +210,6 @@ export type Intent =
   | { kind: "breakdown"; filter: NamedFilter; groupBy: "category" | "merchant"; limit: number }
   | { kind: "series"; filter: NamedFilter }
   | { kind: "compare"; filter: NamedFilter; other: PeriodSpec | null }
-  | { kind: "recategorize"; filter: NamedFilter; targetCategory: string; remember: boolean }
-  | { kind: "merchant_rule"; filter: NamedFilter; targetCategory: string }
   | { kind: "tag_add" | "tag_remove"; filter: NamedFilter; tag: string }
   | { kind: "note_set"; filter: NamedFilter; note: string }
   | { kind: "unknown" };
@@ -277,20 +267,6 @@ export function toIntent(answer: ModelAnswer): Intent {
           : periodOf(answer.compare_period, answer.compare_year);
       return { kind: "compare", filter, other };
     }
-    case "recategorize":
-      return {
-        kind: "recategorize",
-        filter,
-        targetCategory: answer.target_category ?? "",
-        remember: answer.remember ?? false,
-      };
-    case "merchant_rule":
-      return {
-        kind: "merchant_rule",
-        // The model sometimes puts the merchant in `text`: either will do here.
-        filter: { ...filter, merchant: filter.merchant || filter.text, text: "" },
-        targetCategory: answer.target_category ?? "",
-      };
     case "tag_add":
     case "tag_remove":
       return { kind: answer.intent, filter, tag: answer.tag ?? "" };

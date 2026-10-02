@@ -9,7 +9,13 @@
 import { and, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 
 import { db } from "../db/client.ts";
-import { accounts, categories, ledgers, transactions } from "../db/schema/index.ts";
+import {
+  accounts,
+  categories,
+  ledgers,
+  transactions,
+  type CategorySource,
+} from "../db/schema/index.ts";
 import { NotFoundError } from "../lib/http.ts";
 import { classifyPending } from "./classification.ts";
 import { getOrCreateMerchant } from "./merchants.ts";
@@ -65,15 +71,19 @@ export async function moveAccountToWorkspace(
   const summary = await db.transaction(async (tx) => {
     // --- What has to be remembered before deleting it ---
 
-    // A person's decisions, noted by slug, which is what means the same in
-    // every workspace.
+    // Every category already set, noted by slug, which is what means the
+    // same in every workspace. None of them is edited by the move.
     const decisions = await tx
-      .select({ transactionId: transactions.id, slug: categories.slug })
+      .select({
+        transactionId: transactions.id,
+        slug: categories.slug,
+        categorySource: transactions.categorySource,
+        categoryConfidence: transactions.categoryConfidence,
+        needsReview: transactions.needsReview,
+      })
       .from(transactions)
       .innerJoin(categories, eq(categories.id, transactions.categoryId))
-      .where(
-        and(eq(transactions.accountId, accountId), eq(transactions.categorySource, "user")),
-      );
+      .where(eq(transactions.accountId, accountId));
 
     // The transfers where this account was one of the two legs. The other one
     // stays in the old workspace, and if we do not remove its group it is left
@@ -156,7 +166,13 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 async function returnsLesDecisions(
   tx: Tx,
   newWorkspace: number,
-  decisions: { transactionId: number; slug: string }[],
+  decisions: {
+    transactionId: number;
+    slug: string;
+    categorySource: CategorySource;
+    categoryConfidence: number | null;
+    needsReview: boolean;
+  }[],
 ): Promise<number> {
   if (decisions.length === 0) return 0;
 
@@ -168,25 +184,32 @@ async function returnsLesDecisions(
 
   const perSlug = new Map(targets.map((c) => [c.slug, c.id]));
 
-  // One `update` per destination category, not per transaction.
-  const byCategory = new Map<number, number[]>();
+  // One `update` per destination category and state, not per transaction.
+  type Change = {
+    categoryId: number;
+    categorySource: CategorySource;
+    categoryConfidence: number | null;
+    needsReview: boolean;
+  };
+  const groups = new Map<string, { set: Change; ids: number[] }>();
   for (const decision of decisions) {
     const categoryId = perSlug.get(decision.slug);
     if (categoryId === undefined) continue;
-    byCategory.set(categoryId, [...(byCategory.get(categoryId) ?? []), decision.transactionId]);
+    const set: Change = {
+      categoryId,
+      categorySource: decision.categorySource,
+      categoryConfidence: decision.categoryConfidence,
+      needsReview: decision.needsReview,
+    };
+    const key = JSON.stringify(set);
+    const group = groups.get(key) ?? { set, ids: [] };
+    group.ids.push(decision.transactionId);
+    groups.set(key, group);
   }
 
   let kept = 0;
-  for (const [categoryId, ids] of byCategory) {
-    await tx
-      .update(transactions)
-      .set({
-        categoryId: categoryId,
-        categorySource: "user",
-        categoryConfidence: 1,
-        needsReview: false,
-      })
-      .where(inArray(transactions.id, ids));
+  for (const { set, ids } of groups.values()) {
+    await tx.update(transactions).set(set).where(inArray(transactions.id, ids));
     kept += ids.length;
   }
 
