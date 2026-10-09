@@ -16,6 +16,7 @@ import type { Html } from "../lib/html.ts";
 import type { Ledger, LedgerRole, User } from "../db/schema/index.ts";
 import { CSRF_HEADER } from "../lib/csrf.ts";
 import { staticHref } from "../lib/static-files.ts";
+import { accentStyle } from "../lib/theme.ts";
 import { oobAttributes } from "../lib/oob.ts";
 
 export interface LayoutProps {
@@ -95,6 +96,8 @@ export function Layout(props: LayoutProps): Html {
     path = "",
   } = props;
 
+  const accent = accentStyle(workspace?.color);
+
   return html`<!doctype html>
     <html lang="ca">
       <head>
@@ -111,9 +114,18 @@ export function Layout(props: LayoutProps): Html {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
         />
         <link rel="stylesheet" href="${staticHref("app.css")}" />
+        ${
+          accent
+            ? html`<style>
+          :root {
+            ${raw(accent)};
+          }
+        </style>`
+            : ""
+        }
         <script src="${staticHref("htmx.min.js")}" defer></script>
         <!--
           The charts are an island: ECharts plus one file that reads the data

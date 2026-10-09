@@ -20,24 +20,24 @@
  */
 
 @theme {
-  --font-sans: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 :root {
   /* ---- Paper i tinta ---------------------------------------------------- */
-  --paper: #f3f2f2; /* superficie de l'app, taules, capçaleres de fons */
-  --paper-sunken: #eae9e9; /* barra lateral, capçal de taula, grups */
-  --paper-raised: #f8f4f4; /* hover de fila, franges de grup per dia */
-  --ink: #201e1d; /* text principal, filets forts */
-  --ink-70: #444141; /* text secundari, elements de navegacio */
-  --ink-55: #605d5d; /* text de metadades, peus, comptadors */
-  --ink-40: #7d7979; /* etiquetes, eyebrows, inactiu */
+  --paper: #ffffff; /* superficie de l'app, taules, capçaleres de fons */
+  --paper-sunken: #f4f5f7; /* barra lateral, capçal de taula, grups */
+  --paper-raised: #f9fafb; /* hover de fila, franges de grup per dia */
+  --ink: #17191c; /* text principal, filets forts */
+  --ink-70: #3d4249; /* text secundari, elements de navegacio */
+  --ink-55: #5b616a; /* text de metadades, peus, comptadors */
+  --ink-40: #7b818a; /* etiquetes, eyebrows, inactiu */
 
   /* ---- Filets i vores ----------------------------------------------------- */
-  --rule-strong: #201e1d; /* 1px, sota el capçal de taula */
-  --rule: rgba(32, 30, 29, 0.16); /* marc, camps, xapes */
-  --rule-soft: rgba(32, 30, 29, 0.1); /* entre files de taula */
-  --rule-control: rgba(32, 30, 29, 0.3); /* vora del boto secundari */
+  --rule-strong: rgba(23, 25, 28, 0.14); /* 1px, sota el capçal de taula */
+  --rule: rgba(23, 25, 28, 0.12); /* marc, camps, xapes */
+  --rule-soft: rgba(23, 25, 28, 0.07); /* entre files de taula */
+  --rule-control: rgba(23, 25, 28, 0.25); /* vora del boto secundari */
 
   /* ---- Accent: cian. L'UNIC color interactiu. ----------------------------- */
   --accent: #0088b0; /* fons del boto primari, marcador de navegacio actiu */
@@ -48,8 +48,8 @@
 
   /* ---- Avis: magenta. Reservat. Comptadors i accions destructives. ------- */
   --alert: #d6006c;
-  --on-accent: #f3f2f2;
-  --on-ink: #f3f2f2;
+  --on-accent: #ffffff;
+  --on-ink: #ffffff;
 
   /* Els imports son tinta, no vermell/verd: el signe menys ja ho diu.
      Els ingressos poden fer servir --amount-positive. Mai els dos colors
@@ -58,17 +58,17 @@
   --amount-positive: var(--accent-ink);
 
   /* ---- Tipografia ---------------------------------------------------------- */
-  --font: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   /* Els numeros SEMPRE amb font-variant-numeric: tabular-nums. Sense excepcions. */
 
-  --text-display: 34px; /* titol de pagina (h1 al principal)   600 / 1.05 */
-  --text-title: 26px; /* titol de seccio                     600 / 1.1  */
-  --text-figure: 27px; /* xifra grossa, tabular               400 / 1    */
-  --text-amount: 17px; /* import de taula, tabular             400       */
-  --text-body: 16px; /* files, navegacio, camps              400 / 1.45 */
-  --text-meta: 15px; /* cel·les secundaries, peus            400       */
-  --text-small: 13px; /* subratlla d'una fila                 400       */
-  --text-label: 11px; /* eyebrow / capçal de columna: 400, majuscules,
+  --text-display: 30px; /* titol de pagina (h1 al principal)   600 / 1.05 */
+  --text-title: 22px; /* titol de seccio                     600 / 1.1  */
+  --text-figure: 26px; /* xifra grossa, tabular               400 / 1    */
+  --text-amount: 15px; /* import de taula, tabular             400       */
+  --text-body: 15px; /* files, navegacio, camps              400 / 1.45 */
+  --text-meta: 14px; /* cel·les secundaries, peus            400       */
+  --text-small: 12.5px; /* subratlla d'una fila                 400       */
+  --text-label: 12px; /* eyebrow / capçal de columna: 400, majuscules,
                              lletrejat .15em, color --ink-40 */
 
   --weight-regular: 400;
@@ -90,10 +90,11 @@
   --sidebar-w: 236px;
 
   /* ---- Forma ---------------------------------------------------------------- */
-  --radius: 0; /* quadrat per defecte: botons, camps, xapes, targetes */
-  --radius-badge: 9px; /* nomes els comptadors */
-  --shadow-raised: 0 1px 2px rgba(45, 43, 43, 0.14); /* element de navegacio actiu */
-  --shadow-float: 0 12px 32px rgba(45, 43, 43, 0.18); /* menus, calaix mobil */
+  --radius: 8px; /* quadrat per defecte: botons, camps, xapes, targetes */
+  --radius-badge: 999px; /* nomes els comptadors */
+  --shadow-raised:
+    0 1px 2px rgba(23, 25, 28, 0.08), 0 1px 3px rgba(23, 25, 28, 0.06); /* element de navegacio actiu */
+  --shadow-float: 0 12px 32px rgba(23, 25, 28, 0.16); /* menus, calaix mobil */
 
   /* ---- Tacte ------------------------------------------------------------------ */
   --touch-min: 44px; /* cada objectiu de tacte a l'iOS/mobil */
@@ -221,7 +222,7 @@ h3 {
 .menu-titol {
   font-size: var(--text-label);
   text-transform: uppercase;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.06em;
   color: var(--ink-40);
   margin: 0 0 6px 0.6rem;
 }
@@ -406,7 +407,7 @@ h3 {
   font-size: var(--text-label);
   font-weight: var(--weight-regular);
   text-transform: uppercase;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.06em;
   color: var(--ink-40);
 }
 
@@ -461,6 +462,33 @@ textarea {
   padding: 8px 11px;
   color: var(--ink);
   font: var(--text-body) / 1.4 var(--font);
+}
+
+/*
+ * El selector de color. Heretava el farciment de `input` i quedava en una
+ * ratlla: ara es una mostra gran, quadrada, amb el color a tot el requadre.
+ */
+input[type="color"] {
+  width: 100%;
+  min-width: 96px;
+  height: 56px;
+  padding: 4px;
+  cursor: pointer;
+  background: var(--paper);
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: 1px solid var(--rule-control);
+  border-radius: var(--radius);
+}
+
+input[type="color"]::-moz-color-swatch {
+  border: 1px solid var(--rule-control);
+  border-radius: var(--radius);
 }
 
 input:focus-visible,
@@ -578,7 +606,7 @@ table.dades th {
   font-weight: var(--weight-regular);
   font-size: var(--text-label);
   text-transform: uppercase;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.06em;
   color: var(--ink-40);
   padding: 0 0.75rem var(--space-2);
   border-bottom: 1px solid var(--rule-strong);
@@ -848,7 +876,7 @@ table.dades tbody tr:hover {
   padding: 0 0.25rem;
   font-size: var(--text-label);
   text-transform: uppercase;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.06em;
   color: var(--ink-40);
 }
 
@@ -1075,7 +1103,7 @@ tr.inactiva {
 .condicions-camp legend {
   font-size: var(--text-label);
   text-transform: uppercase;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.06em;
   color: var(--ink-40);
   padding: 0 0.35rem;
 }
@@ -1310,7 +1338,7 @@ tr.exclos {
     content: attr(data-etiqueta);
     font-size: var(--text-label);
     text-transform: uppercase;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.06em;
     color: var(--ink-40);
   }
 
@@ -1514,7 +1542,7 @@ tr.exclos {
 .xifra-etiqueta {
   font-size: var(--text-label);
   text-transform: uppercase;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.06em;
   color: var(--ink-40);
 }
 
@@ -1897,7 +1925,7 @@ tr.exclos {
   font-size: var(--text-label);
   font-weight: var(--weight-regular);
   text-transform: uppercase;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.06em;
   color: var(--ink-40);
 }
 
@@ -2153,4 +2181,42 @@ tr.exclos {
     flex-direction: column-reverse;
     align-items: stretch;
   }
+}
+
+/* --- Aspecte modern: targetes suaus, titols ajustats ---------------------- */
+
+body {
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.015em;
+}
+
+.targeta {
+  border: 1px solid var(--rule);
+  border-radius: calc(var(--radius) + 4px);
+  box-shadow: var(--shadow-raised);
+  padding: var(--space-5);
+}
+
+.boto,
+input,
+select,
+textarea {
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-line);
+  outline: none;
 }
