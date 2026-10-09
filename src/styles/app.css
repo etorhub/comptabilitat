@@ -463,6 +463,33 @@ textarea {
   font: var(--text-body) / 1.4 var(--font);
 }
 
+/*
+ * El selector de color. Heretava el farciment de `input` i quedava en una
+ * ratlla: ara es una mostra gran, quadrada, amb el color a tot el requadre.
+ */
+input[type="color"] {
+  width: 100%;
+  min-width: 96px;
+  height: 56px;
+  padding: 4px;
+  cursor: pointer;
+  background: var(--paper);
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: 1px solid var(--rule-control);
+  border-radius: var(--radius);
+}
+
+input[type="color"]::-moz-color-swatch {
+  border: 1px solid var(--rule-control);
+  border-radius: var(--radius);
+}
+
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
