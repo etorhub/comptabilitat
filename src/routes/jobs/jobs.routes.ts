@@ -64,6 +64,7 @@ import {
   filtersToService,
   historyFiltersSchema,
   historyFiltersToQuery,
+  PIPELINE_STEPS,
 } from "./jobs.schema.ts";
 
 export const jobsRoutes = new Hono();
@@ -198,9 +199,9 @@ async function pageData(filters = historyFiltersSchema.parse({})) {
 
 async function oobMonitor(filters = historyFiltersSchema.parse({})) {
   const data = await pageData(filters);
+  const entries = scheduleEntries(data.latest);
   return [
     ScheduleHealth({
-      entries: scheduleEntries(data.latest),
       health: data.health,
       oob: true,
     }),
@@ -210,6 +211,7 @@ async function oobMonitor(filters = historyFiltersSchema.parse({})) {
       individuals: data.individuals,
       latest: data.latest,
       running: data.runningNames,
+      entries,
       oob: true,
     }),
     HistoryList({ page: data.history, filters: data.filters, oob: true }),
@@ -252,12 +254,12 @@ jobsRoutes.get("/fragment/en-curs", async (c) => {
   // holds it, not the client. See `lib/polling.ts`.
   const attempt = attemptFromQuery(c.req.query(ATTEMPT_PARAM));
   // The main target is `#en-curs` (no oob); the rest goes out of band.
+  const entries = scheduleEntries(data.latest);
   return fragment(
     c,
     await withOob(
       Running({ runs: data.runningJobs, attempt }),
       ScheduleHealth({
-        entries: scheduleEntries(data.latest),
         health: data.health,
         oob: true,
       }),
@@ -266,6 +268,7 @@ jobsRoutes.get("/fragment/en-curs", async (c) => {
         individuals: data.individuals,
         latest: data.latest,
         running: data.runningNames,
+        entries,
         oob: true,
       }),
       HistoryList({
@@ -282,7 +285,15 @@ jobsRoutes.get("/fragment/execucio/:id", async (c) => {
   const run = await readRun(id);
   if (run === null) throw new NotFoundError("Aquesta execució no existeix");
   const [children, syncs] = await Promise.all([readChildren(id), syncRunsForRun(run)]);
-  return fragment(c, RunDetail({ run, children, syncs }));
+  const nested = new Map<number, Awaited<ReturnType<typeof readChildren>>>();
+  await Promise.all(
+    children.map(async (child) => {
+      if (PIPELINE_STEPS[child.jobName as JobId]) {
+        nested.set(child.id, await readChildren(child.id));
+      }
+    }),
+  );
+  return fragment(c, RunDetail({ run, children, nested, syncs }));
 });
 
 // --- Mutations -------------------------------------------------------------

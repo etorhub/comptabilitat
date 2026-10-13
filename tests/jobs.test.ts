@@ -96,11 +96,14 @@ describe("the jobs screen", () => {
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain("Passada diaria");
-    expect(html).toContain("Agenda i salut");
+    expect(html).toContain("Estat");
+    expect(html).toContain("Engegar");
+    expect(html).toContain("Registre");
     expect(html).toContain("Historial");
     expect(html).toContain('id="en-curs"');
     expect(html).toContain('name="feina" value="maintenance"');
     expect(html).toContain('hx-post="/feines"');
+    expect(html).toContain("feines-pipeline");
     expect(html).not.toContain('hx-trigger="every 2s"');
   });
 
