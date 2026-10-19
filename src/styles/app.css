@@ -2317,3 +2317,9 @@ textarea:focus {
   box-shadow: 0 0 0 3px var(--accent-line);
   outline: none;
 }
+
+.etiqueta-parcial {
+  background: color-mix(in srgb, var(--accent-wash) 55%, transparent);
+  border-color: var(--accent-line);
+  color: var(--ink);
+}
