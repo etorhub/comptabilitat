@@ -43,6 +43,16 @@ export const JOB_LABELS: Record<JobId, string> = {
   totes: "Totes les tasques",
 };
 
+/**
+ * Ordered steps of each composite pass. Mirrors `workers/jobs/pipelines.ts`.
+ * Used for the static pipeline diagram on the launch cards.
+ */
+export const PIPELINE_STEPS: Partial<Record<JobId, readonly JobId[]>> = {
+  "passada-diaria": ["sync", "classify", "analyze"],
+  "passada-nocturna": ["llm", "classify"],
+  totes: ["passada-diaria", "passada-nocturna", "notify", "maintenance"],
+};
+
 export const TRIGGER_LABELS: Record<(typeof JOB_TRIGGERS)[number], string> = {
   scheduled: "Cron",
   manual: "UI",

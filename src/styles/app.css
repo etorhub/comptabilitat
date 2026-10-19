@@ -1802,11 +1802,27 @@ tr.exclos {
 
 /* --- Feines / monitoratge ------------------------------------------------- */
 
+.feines-zona {
+  margin-bottom: var(--space-8);
+}
+
+.feines-zona > .menu-titol {
+  margin-bottom: var(--space-4);
+}
+
+.feines-bloc {
+  margin-bottom: var(--space-6);
+}
+
+.feines-estat-salut {
+  margin-bottom: var(--space-3);
+}
+
 .feines-comptadors {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
-  margin: var(--space-3) 0 var(--space-4);
+  gap: var(--space-5) var(--space-8);
+  margin: 0;
 }
 
 .feines-comptadors p {
@@ -1843,6 +1859,10 @@ tr.exclos {
   flex: 1 1 auto;
 }
 
+.feines-en-curs-bloc {
+  margin-top: var(--space-2);
+}
+
 .feines-en-curs {
   list-style: none;
   margin: 0;
@@ -1877,16 +1897,93 @@ tr.exclos {
   min-width: 0;
 }
 
+.feines-passada {
+  margin-bottom: var(--space-4);
+}
+
+.feines-llista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.feines-feina {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.feines-feina:last-child {
+  border-bottom: none;
+}
+
+.feines-feina p {
+  margin: 0.25rem 0 0;
+}
+
+.feines-pipeline {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-2) 0;
+}
+
+.feines-pipeline-pas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.35rem 0.5rem;
+}
+
+.feines-pipeline-fletxa {
+  color: var(--ink-55);
+  padding-top: 0.35rem;
+  margin: 0 0.15rem;
+}
+
+.feines-pipeline-node {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.45rem 0.65rem;
+  background: var(--paper-sunken);
+  border-radius: var(--radius);
+  border: 1px solid var(--rule);
+  min-width: 7rem;
+}
+
+.feines-pipeline-node > .feines-pipeline {
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--rule);
+}
+
+.feines-pipeline-compacta .feines-pipeline-node {
+  min-width: 0;
+  padding: 0.3rem 0.5rem;
+  font-size: var(--text-small);
+}
+
 .feines-fills {
   margin-top: 0.35rem;
 }
 
-.feines-fills ul {
-  list-style: none;
-  margin: 0.35rem 0 0;
-  padding: 0 0 0 0.75rem;
-  display: grid;
-  gap: 0.25rem;
+.feines-fills .feines-pipeline {
+  margin-top: 0.35rem;
+}
+
+.feines-registre {
+  align-items: start;
+  grid-template-columns: minmax(0, 1.4fr) minmax(14rem, 1fr);
 }
 
 .feines-resum {
@@ -2219,4 +2316,10 @@ textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-line);
   outline: none;
+}
+
+.etiqueta-parcial {
+  background: color-mix(in srgb, var(--accent-wash) 55%, transparent);
+  border-color: var(--accent-line);
+  color: var(--ink);
 }

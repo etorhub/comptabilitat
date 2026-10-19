@@ -26,6 +26,7 @@ import {
   type HistoryFilters,
   historyFiltersToQuery,
   PASSES_CONTAINING,
+  PIPELINE_STEPS,
 } from "./jobs.schema.ts";
 
 export interface JobEntry {
@@ -62,7 +63,7 @@ function stateClass(status: JobStatus): string {
     case "running":
       return "etiqueta";
     case "partial":
-      return "etiqueta etiqueta-suau";
+      return "etiqueta etiqueta-parcial";
     default:
       return "etiqueta etiqueta-suau";
   }
@@ -89,6 +90,64 @@ function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
 
+/** Steps shown on a pass card; skips the nightly pass when Ollama is off. */
+function staticSteps(id: JobId): JobId[] {
+  const steps = PIPELINE_STEPS[id] ?? [];
+  if (id === "totes" && !config.ollamaEnabled) {
+    return steps.filter((s) => s !== "passada-nocturna");
+  }
+  return [...steps];
+}
+
+/**
+ * Horizontal pipeline of steps. Static (planned order) or live (runs with
+ * status). Nested children of a nested pass render as a sub-chain.
+ */
+export function PipelineDiagram({
+  steps,
+  runs,
+  nested,
+  compact = false,
+}: {
+  steps?: readonly JobId[];
+  runs?: JobRun[];
+  nested?: Map<number, JobRun[]>;
+  compact?: boolean;
+}): Html {
+  if (runs && runs.length > 0) {
+    return html`<ol class="feines-pipeline ${compact ? "feines-pipeline-compacta" : ""}">
+      ${runs.map((run, i) => {
+        const kids = nested?.get(run.id) ?? [];
+        return html`<li class="feines-pipeline-pas">
+          ${i > 0 ? html`<span class="feines-pipeline-fletxa" aria-hidden="true">→</span>` : ""}
+          <div class="feines-pipeline-node">
+            <span class="${stateClass(run.status)}">${STATUS_LABELS[run.status]}</span>
+            <strong>${jobLabel(run.jobName)}</strong>
+            <span class="text-suau">${duration(run)}</span>
+            ${kids.length > 0 ? PipelineDiagram({ runs: kids, compact: true }) : ""}
+          </div>
+        </li>`;
+      })}
+    </ol>` as Html;
+  }
+
+  const ids = steps ?? [];
+  if (ids.length === 0) return html`` as Html;
+
+  return html`<ol class="feines-pipeline ${compact ? "feines-pipeline-compacta" : ""}">
+    ${ids.map((id, i) => {
+      const sub = staticSteps(id);
+      return html`<li class="feines-pipeline-pas">
+        ${i > 0 ? html`<span class="feines-pipeline-fletxa" aria-hidden="true">→</span>` : ""}
+        <div class="feines-pipeline-node">
+          <strong>${jobLabel(id)}</strong>
+          ${sub.length > 0 ? PipelineDiagram({ steps: sub, compact: true }) : ""}
+        </div>
+      </li>`;
+    })}
+  </ol>` as Html;
+}
+
 export interface ScheduleEntry {
   id: JobId;
   title: string;
@@ -96,21 +155,16 @@ export interface ScheduleEntry {
   last: JobRun | null;
 }
 
+/** Health counters only; agenda lives under Engegar with the launch list. */
 export function ScheduleHealth({
-  entries,
   health,
   oob = false,
 }: {
-  entries: ScheduleEntry[];
   health: HealthSummary;
   oob?: boolean;
 }): Html {
   const pass = health.lastDailyPass;
-  return html`<section
-    ${oobAttributes("agenda-salut", oob)}
-    class="superficie targeta"
-  >
-    <h2 class="menu-titol">Agenda i salut</h2>
+  return html`<div ${oobAttributes("agenda-salut", oob)} class="feines-estat-salut">
     <div class="feines-comptadors">
       <p>
         <strong>${String(health.running)}</strong>
@@ -132,21 +186,24 @@ export function ScheduleHealth({
         }
       </p>
     </div>
-    <ul class="feines-agenda">
-      ${entries.map(
-        (e) => html`<li>
-          <strong>${e.title}</strong>
-          <span class="text-suau">${e.time}</span>
-          ${
-            e.last
-              ? html`<span class="${stateClass(e.last.status)}">${STATUS_LABELS[e.last.status]}</span>
-                <span class="text-suau">${duration(e.last)}</span>`
-              : html`<span class="text-suau">—</span>`
-          }
-        </li>`,
-      )}
-    </ul>
-  </section>` as Html;
+  </div>` as Html;
+}
+
+export function AgendaList({ entries }: { entries: ScheduleEntry[] }): Html {
+  return html`<ul class="feines-agenda">
+    ${entries.map(
+      (e) => html`<li>
+        <strong>${e.title}</strong>
+        <span class="text-suau">${e.time}</span>
+        ${
+          e.last
+            ? html`<span class="${stateClass(e.last.status)}">${STATUS_LABELS[e.last.status]}</span>
+              <span class="text-suau">${duration(e.last)}</span>`
+            : html`<span class="text-suau">—</span>`
+        }
+      </li>`,
+    )}
+  </ul>` as Html;
 }
 
 function buttonBlocked(id: JobId, running: Set<string>): boolean {
@@ -178,7 +235,20 @@ function buttonBlocked(id: JobId, running: Set<string>): boolean {
   return false;
 }
 
-export function ButtonJob({
+function ExecutaForm({ id, blocked }: { id: JobId; blocked: boolean }): Html {
+  return html`<form
+    hx-post="/feines"
+    hx-swap="none"
+    hx-disabled-elt="find button"
+  >
+    <input type="hidden" name="feina" value="${id}" />
+    <button type="submit" class="boto" ${blocked ? raw("disabled") : ""}>
+      ${blocked ? "En curs…" : "Executa"}
+    </button>
+  </form>` as Html;
+}
+
+export function ButtonPass({
   id,
   title,
   description,
@@ -186,7 +256,8 @@ export function ButtonJob({
   running,
 }: JobEntry & { last: JobRun | null; running: Set<string> }): Html {
   const blocked = buttonBlocked(id, running);
-  return html`<div class="superficie targeta">
+  const steps = staticSteps(id);
+  return html`<div class="superficie targeta feines-passada">
     <div class="item-cap feines-item-cap">
       <div>
         <strong>${title}</strong>
@@ -198,18 +269,33 @@ export function ButtonJob({
         }
         <p class="text-suau">${description}</p>
       </div>
-      <form
-        hx-post="/feines"
-        hx-swap="none"
-        hx-disabled-elt="find button"
-      >
-        <input type="hidden" name="feina" value="${id}" />
-        <button type="submit" class="boto" ${blocked ? raw("disabled") : ""}>
-          ${blocked ? "En curs…" : "Executa"}
-        </button>
-      </form>
+      ${ExecutaForm({ id, blocked })}
     </div>
+    ${steps.length > 0 ? PipelineDiagram({ steps }) : ""}
   </div>` as Html;
+}
+
+export function ButtonJob({
+  id,
+  title,
+  description,
+  last,
+  running,
+}: JobEntry & { last: JobRun | null; running: Set<string> }): Html {
+  const blocked = buttonBlocked(id, running);
+  return html`<li class="feines-feina">
+    <div>
+      <strong>${title}</strong>
+      ${
+        last
+          ? html`<span class="${stateClass(last.status)}">${STATUS_LABELS[last.status]}</span>
+            <span class="text-suau">${dateShort.format(last.startedAt)} · ${duration(last)}</span>`
+          : html`<span class="etiqueta etiqueta-suau">Mai</span>`
+      }
+      <p class="text-suau">${description}</p>
+    </div>
+    ${ExecutaForm({ id, blocked })}
+  </li>` as Html;
 }
 
 export function JobsList({
@@ -217,34 +303,42 @@ export function JobsList({
   individuals,
   latest,
   running,
+  entries,
   oob = false,
 }: {
   passes: JobEntry[];
   individuals: JobEntry[];
   latest: Map<string, JobRun>;
   running: Set<string>;
+  entries: ScheduleEntry[];
   oob?: boolean;
 }): Html {
   return html`<div ${oobAttributes("llista-feines", oob)}>
-    <section>
-      <h2 class="menu-titol">Passades</h2>
+    <section class="feines-bloc">
+      <h3 class="menu-titol">Agenda</h3>
+      ${AgendaList({ entries })}
+    </section>
+    <section class="feines-bloc">
+      <h3 class="menu-titol">Passades</h3>
       ${passes.map((job) =>
-        ButtonJob({
+        ButtonPass({
           ...job,
           last: latest.get(job.id) ?? null,
           running,
         }),
       )}
     </section>
-    <section>
-      <h2 class="menu-titol">Tasques</h2>
-      ${individuals.map((job) =>
-        ButtonJob({
-          ...job,
-          last: latest.get(job.id) ?? null,
-          running,
-        }),
-      )}
+    <section class="feines-bloc">
+      <h3 class="menu-titol">Tasques</h3>
+      <ul class="feines-llista">
+        ${individuals.map((job) =>
+          ButtonJob({
+            ...job,
+            last: latest.get(job.id) ?? null,
+            running,
+          }),
+        )}
+      </ul>
     </section>
   </div>` as Html;
 }
@@ -269,14 +363,13 @@ export function Running({
 }): Html {
   const running = runs.length > 0;
   const exhausted = running && pollExhausted(attempt);
-  return html`<section
+  return html`<div
     ${oobAttributes("en-curs", oob)}
-    class="superficie targeta"
+    class="feines-en-curs-bloc"
     ${running ? poll({ url: "/feines/fragment/en-curs", target: "#en-curs", attempt }) : ""}
     role="status"
     aria-live="polite"
   >
-    <h2 class="menu-titol">En curs</h2>
     ${
       exhausted
         ? html`<p class="text-suau">
@@ -301,7 +394,7 @@ export function Running({
         </ul>`
         : html`<p class="text-suau">Cap tasca corrent ara mateix.</p>`
     }
-  </section>` as Html;
+  </div>` as Html;
 }
 
 export function HistoryFilterBar({ filters }: { filters: HistoryFilters }): Html {
@@ -374,15 +467,7 @@ function RunRow(run: JobRun, children: JobRun[]): Html {
         children.length > 0
           ? html`<details class="feines-fills">
             <summary class="text-suau">${String(children.length)} passos</summary>
-            <ul>
-              ${children.map(
-                (f) => html`<li>
-                  <span class="${stateClass(f.status)}">${STATUS_LABELS[f.status]}</span>
-                  ${jobLabel(f.jobName)}
-                  <span class="text-suau">${duration(f)}</span>
-                </li>`,
-              )}
-            </ul>
+            ${PipelineDiagram({ runs: children, compact: true })}
           </details>`
           : ""
       }
@@ -463,16 +548,18 @@ export function HistoryList({
 export function RunDetail({
   run,
   children,
+  nested,
   syncs,
 }: {
   run: JobRun;
   children: JobRun[];
+  nested?: Map<number, JobRun[]>;
   syncs: SyncRun[];
 }): Html {
   return html`<article id="execucio-${run.id}" class="superficie targeta">
     <header class="item-cap">
       <div>
-        <h2>${jobLabel(run.jobName)}</h2>
+        <h3>${jobLabel(run.jobName)}</h3>
         <p class="text-suau">
           <span class="${stateClass(run.status)}">${STATUS_LABELS[run.status]}</span>
           · ${TRIGGER_LABELS[run.trigger]}
@@ -483,6 +570,15 @@ export function RunDetail({
     </header>
 
     ${
+      children.length > 0
+        ? html`<section class="feines-bloc">
+          <h4 class="menu-titol">Passos</h4>
+          ${PipelineDiagram({ runs: children, nested })}
+        </section>`
+        : ""
+    }
+
+    ${
       run.summary
         ? html`<pre class="feines-resum">${run.summary}</pre>`
         : html`<p class="text-suau">Sense resum.</p>`
@@ -490,44 +586,26 @@ export function RunDetail({
     ${run.error ? html`<p class="negatiu"><strong>Error:</strong> ${run.error}</p>` : ""}
 
     ${
-      children.length > 0
-        ? html`<section>
-          <h3 class="menu-titol">Passos</h3>
-          <ul class="feines-en-curs">
-            ${children.map(
-              (f) => html`<li>
-                <span class="${stateClass(f.status)}">${STATUS_LABELS[f.status]}</span>
-                <strong>${jobLabel(f.jobName)}</strong>
-                <span class="text-suau">${duration(f)}</span>
-                ${f.error ? html`<span class="negatiu">${excerpt(f.error, 80)}</span>` : ""}
-                ${
-                  f.summary && !f.error
-                    ? html`<span class="text-suau">${excerpt(f.summary, 80)}</span>`
-                    : ""
-                }
-              </li>`,
-            )}
-          </ul>
-        </section>`
-        : ""
-    }
-
-    ${
       syncs.length > 0
-        ? html`<section>
-          <h3 class="menu-titol">Importacions bancaries</h3>
-          <ul class="feines-en-curs">
+        ? html`<section class="feines-bloc">
+          <h4 class="menu-titol">Importacions bancaries</h4>
+          <ol class="feines-pipeline feines-pipeline-compacta">
             ${syncs.map(
-              (s) => html`<li>
-                <span class="${stateClass(s.status)}">${STATUS_LABELS[s.status]}</span>
-                connexio #${String(s.connectionId)}:
-                ${String(s.transactionsInserted)} nous,
-                ${String(s.transactionsUpdated)} actualitzats,
-                ${String(s.accountsSynced)} comptes
-                ${s.error ? html`<span class="negatiu">${excerpt(s.error, 80)}</span>` : ""}
+              (s, i) => html`<li class="feines-pipeline-pas">
+                ${i > 0 ? html`<span class="feines-pipeline-fletxa" aria-hidden="true">→</span>` : ""}
+                <div class="feines-pipeline-node">
+                  <span class="${stateClass(s.status)}">${STATUS_LABELS[s.status]}</span>
+                  <strong>connexio #${String(s.connectionId)}</strong>
+                  <span class="text-suau">
+                    ${String(s.transactionsInserted)} nous,
+                    ${String(s.transactionsUpdated)} actualitzats,
+                    ${String(s.accountsSynced)} comptes
+                  </span>
+                  ${s.error ? html`<span class="negatiu">${excerpt(s.error, 80)}</span>` : ""}
+                </div>
               </li>`,
             )}
-          </ul>
+          </ol>
         </section>`
         : ""
     }
