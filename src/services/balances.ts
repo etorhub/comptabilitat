@@ -87,7 +87,67 @@ export interface BalancePoint {
 }
 
 /**
+ * Sum of each account's preferred balance type on a given day (CLBD, then
+ * CLAV, …). Days with no stored snapshot are absent from the map.
+ */
+async function knownBalancesByDay(
+  ledgerIds: number[],
+  dateFrom: string,
+  dateTo: string,
+): Promise<Map<string, Decimal>> {
+  const accountList = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(inArray(accounts.ledgerId, ledgerIds), eq(accounts.isActive, true)));
+  if (accountList.length === 0) return new Map();
+
+  const accountIds = accountList.map((a) => a.id);
+  const rows = await db
+    .select({
+      accountId: balances.accountId,
+      day: balances.referenceDate,
+      balanceType: balances.balanceType,
+      amount: balances.amount,
+    })
+    .from(balances)
+    .where(
+      and(
+        inArray(balances.accountId, accountIds),
+        gte(balances.referenceDate, dateFrom),
+        lte(balances.referenceDate, dateTo),
+      ),
+    );
+
+  const position = (type: string) => {
+    const i = BALANCE_TYPE_PRIORITY.indexOf(type);
+    return i === -1 ? BALANCE_TYPE_PRIORITY.length : i;
+  };
+
+  // Per account and day, keep the preferred type.
+  const best = new Map<string, { rank: number; amount: Decimal }>();
+  for (const row of rows) {
+    const key = `${row.accountId}|${row.day}`;
+    const rank = position(row.balanceType);
+    const current = best.get(key);
+    if (current === undefined || rank < current.rank) {
+      best.set(key, { rank, amount: money(row.amount) });
+    }
+  }
+
+  const byDay = new Map<string, Decimal>();
+  for (const [key, { amount }] of best) {
+    const day = key.slice(key.indexOf("|") + 1);
+    byDay.set(day, (byDay.get(day) ?? new Decimal(0)).plus(amount));
+  }
+  return byDay;
+}
+
+/**
  * Daily evolution of the balance, rebuilt backwards from today's balance.
+ *
+ * When the bank has left a snapshot for a day, that figure wins: a duplicate
+ * transaction must not drag the whole curve into the red. Between snapshots
+ * the day's net movement is still subtracted as before.
  */
 export async function balanceSeries(
   ledgerIds: number[],
@@ -101,18 +161,21 @@ export async function balanceSeries(
     actual = actual.plus(money((await workspaceBalance(ledgerId)).total));
   }
 
-  const rows = await db
-    .select({ day: transactions.bookingDate, total: sum(transactions.amount) })
-    .from(transactions)
-    .where(
-      and(
-        inArray(transactions.ledgerId, ledgerIds),
-        gt(transactions.bookingDate, dateFrom),
-        lte(transactions.bookingDate, dateTo),
-      ),
-    )
-    .groupBy(transactions.bookingDate)
-    .orderBy(asc(transactions.bookingDate));
+  const [rows, known] = await Promise.all([
+    db
+      .select({ day: transactions.bookingDate, total: sum(transactions.amount) })
+      .from(transactions)
+      .where(
+        and(
+          inArray(transactions.ledgerId, ledgerIds),
+          gt(transactions.bookingDate, dateFrom),
+          lte(transactions.bookingDate, dateTo),
+        ),
+      )
+      .groupBy(transactions.bookingDate)
+      .orderBy(asc(transactions.bookingDate)),
+    knownBalancesByDay(ledgerIds, dateFrom, dateTo),
+  ]);
 
   const byDay = new Map(rows.map((f) => [f.day, money(f.total ?? "0")]));
 
@@ -120,6 +183,8 @@ export async function balanceSeries(
   let cursor = dateTo;
   let running = actual;
   while (cursor >= dateFrom) {
+    const snap = known.get(cursor);
+    if (snap !== undefined) running = snap;
     series.push({ day: cursor, balance: toMoneyString(running) });
     running = running.minus(byDay.get(cursor) ?? new Decimal(0));
     cursor = addDays(cursor, -1);

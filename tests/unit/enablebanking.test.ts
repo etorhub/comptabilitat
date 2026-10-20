@@ -12,7 +12,11 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { dedupKey, parseTransaction } from "../../src/lib/enablebanking/parsing.ts";
+import {
+  contentDedupKey,
+  dedupKey,
+  parseTransaction,
+} from "../../src/lib/enablebanking/parsing.ts";
 import cases from "../fixtures/enablebanking.json";
 
 interface Case {
@@ -64,6 +68,13 @@ describe("the deduplication key", () => {
   test("with no reference, it is a stable digest", () => {
     expect(dedupKey(base)).toBe(dedupKey({ ...base }));
     expect(dedupKey(base).startsWith("h:")).toBe(true);
+  });
+
+  test("contentDedupKey stays the same when an entry_reference appears", () => {
+    const withRef = { ...base, entryReference: "REF-123" };
+    expect(contentDedupKey(withRef)).toBe(contentDedupKey(base));
+    expect(contentDedupKey(withRef)).toBe(dedupKey(base));
+    expect(dedupKey(withRef)).not.toBe(contentDedupKey(withRef));
   });
 
   test("does not depend on case or on spaces at the ends", () => {

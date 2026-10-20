@@ -22,7 +22,7 @@ import {
   transactions,
   type Ledger,
 } from "../src/db/schema/index.ts";
-import { monthlyBalanceChanges } from "../src/services/balances.ts";
+import { balanceSeries, monthlyBalanceChanges } from "../src/services/balances.ts";
 import { checkOverdrafts, buildForecast, eventsExpected } from "../src/services/forecast.ts";
 import { confirmSeries, detectRecurring } from "../src/services/recurring.ts";
 import { incomeAndExpenses, monthlySeries } from "../src/services/reports.ts";
@@ -174,6 +174,44 @@ beforeEach(async () => {
     currency: "EUR",
     referenceDate: todayLocal(),
     fetchedAt: new Date(),
+  });
+});
+
+describe("balance history", () => {
+  test("a stored snapshot wins over a duplicate transaction in the curve", async () => {
+    const today = todayLocal();
+    const yesterday = addDays(today, -1);
+    const twoDaysAgo = addDays(today, -2);
+
+    // Real movement: +500 yesterday. A duplicate of that income would drag
+    // the day before into the red if the curve only subtracted transactions.
+    await transaction("in-1", yesterday, "500.00");
+    await transaction("in-1-dup", yesterday, "500.00");
+
+    await db.insert(balances).values([
+      {
+        accountId,
+        balanceType: "CLBD",
+        amount: "500.00",
+        currency: "EUR",
+        referenceDate: twoDaysAgo,
+        fetchedAt: new Date(),
+      },
+      {
+        accountId,
+        balanceType: "CLBD",
+        amount: "1000.00",
+        currency: "EUR",
+        referenceDate: yesterday,
+        fetchedAt: new Date(),
+      },
+    ]);
+
+    const series = await balanceSeries([workspace.id], twoDaysAgo, today);
+    const byDay = new Map(series.map((p) => [p.day, p.balance]));
+    expect(byDay.get(today)).toBe("1000.00");
+    expect(byDay.get(yesterday)).toBe("1000.00");
+    expect(byDay.get(twoDaysAgo)).toBe("500.00");
   });
 });
 

@@ -137,6 +137,24 @@ export interface TransactionAnalyzed {
 }
 
 /**
+ * Digest over the parts that do not change when the bank later adds an
+ * `entry_reference`. Used to recognise a row that was first saved as `h:…`
+ * and comes back as `ref:…` on the next sync.
+ */
+export function contentDedupKey(transaction: TransactionAnalyzed): string {
+  const parts = [
+    transaction.bookingDate,
+    new Decimal(transaction.amount).toFixed(2),
+    transaction.currency,
+    transaction.description.trim().toLowerCase(),
+    transaction.counterparty.trim().toLowerCase(),
+  ].join("|");
+
+  const summary = new Bun.CryptoHasher("sha256").update(parts).digest("hex");
+  return `h:${summary}`.slice(0, 64);
+}
+
+/**
  * A stable key, so transactions are not duplicated between syncs.
  *
  * When the bank gives an entry reference, it is used as-is. Otherwise a digest
@@ -149,17 +167,7 @@ export function dedupKey(transaction: TransactionAnalyzed): string {
   if (transaction.entryReference) {
     return `ref:${transaction.entryReference}`.slice(0, 64);
   }
-
-  const parts = [
-    transaction.bookingDate,
-    new Decimal(transaction.amount).toFixed(2),
-    transaction.currency,
-    transaction.description.trim().toLowerCase(),
-    transaction.counterparty.trim().toLowerCase(),
-  ].join("|");
-
-  const summary = new Bun.CryptoHasher("sha256").update(parts).digest("hex");
-  return `h:${summary}`.slice(0, 64);
+  return contentDedupKey(transaction);
 }
 
 /** Converts a transaction from the API. Returns `null` when it should not be stored. */
