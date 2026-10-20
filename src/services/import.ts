@@ -1,11 +1,14 @@
 /**
  * Downloading the bank's transactions and saving them.
  *
- * The two things that make importing twice harmless:
+ * The three things that make importing twice harmless:
  *
  *   1. **The deduplication key** (`dedupKey`), which recognizes what is
  *      already there.
- *   2. **Reconciling the pending entries**: when a pending entry is booked,
+ *   2. **The content digest** (`contentDedupKey`): when the bank later adds an
+ *      `entry_reference`, the row that was saved as `h:…` is upgraded to
+ *      `ref:…` instead of inserting a duplicate.
+ *   3. **Reconciling the pending entries**: when a pending entry is booked,
  *      the same row is reused instead of making a new one, so that the
  *      category a person has set is kept.
  *
@@ -18,6 +21,7 @@ import { accounts, balances, transactions, type Account } from "../db/schema/ind
 import { EnableBankingClient } from "../lib/enablebanking/client.ts";
 import { DateRangeError } from "../lib/enablebanking/errors.ts";
 import {
+  contentDedupKey,
   dedupKey,
   parseBalance,
   parseTransaction,
@@ -166,15 +170,23 @@ export async function saveTransactions(
 
   for (const item of items) {
     const key = dedupKey(item);
+    const contentKey = contentDedupKey(item);
     views.add(key);
+    views.add(contentKey);
 
-    const actual = byKey.get(key);
+    // Prefer the stable ref; fall back to the content digest when the bank
+    // has just started sending an entry_reference for a row we already have.
+    const actual = byKey.get(key) ?? (contentKey !== key ? byKey.get(contentKey) : undefined);
     if (actual !== undefined) {
-      if (needsUpdate(actual, item)) {
+      const keyChanged = actual.dedupKey !== key;
+      if (needsUpdate(actual, item) || keyChanged) {
         const bookingChanged = actual.bookingDate !== item.bookingDate;
         await db
           .update(transactions)
           .set({
+            dedupKey: key,
+            entryReference: item.entryReference,
+            transactionId: item.transactionId,
             status: item.status,
             bookingDate: item.bookingDate,
             valueDate: item.valueDate,
@@ -187,8 +199,10 @@ export async function saveTransactions(
         if (bookingChanged && !actual.reportingDateManual) {
           await refreshReportingDate(actual.id);
         }
+        byKey.delete(actual.dedupKey);
         byKey.set(key, {
           ...actual,
+          dedupKey: key,
           status: item.status,
           bookingDate: item.bookingDate,
           valueDate: item.valueDate,

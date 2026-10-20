@@ -136,6 +136,23 @@ describe("importing", () => {
     expect(savedRows).toHaveLength(2);
   });
 
+  test("upgrades an h: row when the bank later sends an entry_reference", async () => {
+    await importTransactions([raw({ booking_date: "2026-03-01" })]);
+    const [first] = await db.select().from(transactions);
+    expect(first?.dedupKey.startsWith("h:")).toBe(true);
+    expect(first?.entryReference).toBeNull();
+
+    await importTransactions([
+      raw({ booking_date: "2026-03-01", entry_reference: "2026-03-01.1" }),
+    ]);
+
+    const savedRows = await db.select().from(transactions);
+    expect(savedRows).toHaveLength(1);
+    expect(savedRows[0]?.id).toBe(first?.id);
+    expect(savedRows[0]?.dedupKey).toBe("ref:2026-03-01.1");
+    expect(savedRows[0]?.entryReference).toBe("2026-03-01.1");
+  });
+
   test("does not duplicate them when the same is imported again", async () => {
     const items = [raw({ entry_reference: "R1" }), raw({ entry_reference: "R2" })];
     await importTransactions(items);
