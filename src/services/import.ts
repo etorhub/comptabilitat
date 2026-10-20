@@ -26,6 +26,7 @@ import {
 import { addDays, daysBetween, todayLocal } from "../lib/time.ts";
 import { classifyTransaction } from "./classification.ts";
 import { resolveCounterparty } from "./contraparts.ts";
+import { refreshReportingDate } from "./reporting-date.ts";
 
 /** Margin for matching a pending entry with its final booked one. */
 const PENDING_MATCH_DAYS = 5;
@@ -103,6 +104,7 @@ function needsUpdate(
     amount: string;
     description: string;
     counterparty: string;
+    reportingDateManual: boolean;
   },
   fresh: TransactionAnalyzed,
 ): boolean {
@@ -151,6 +153,7 @@ export async function saveTransactions(
       amount: transactions.amount,
       description: transactions.description,
       counterparty: transactions.counterparty,
+      reportingDateManual: transactions.reportingDateManual,
     })
     .from(transactions)
     .where(
@@ -168,6 +171,7 @@ export async function saveTransactions(
     const actual = byKey.get(key);
     if (actual !== undefined) {
       if (needsUpdate(actual, item)) {
+        const bookingChanged = actual.bookingDate !== item.bookingDate;
         await db
           .update(transactions)
           .set({
@@ -180,6 +184,18 @@ export async function saveTransactions(
             raw: item.raw,
           })
           .where(eq(transactions.id, actual.id));
+        if (bookingChanged && !actual.reportingDateManual) {
+          await refreshReportingDate(actual.id);
+        }
+        byKey.set(key, {
+          ...actual,
+          status: item.status,
+          bookingDate: item.bookingDate,
+          valueDate: item.valueDate,
+          amount: item.amount,
+          description: item.description,
+          counterparty: item.counterparty,
+        });
         result.updatedCount += 1;
       }
       continue;
@@ -196,6 +212,7 @@ export async function saveTransactions(
       if (matched !== undefined) {
         pending = pending.filter((p) => p.id !== matched.id);
         byKey.delete(matched.dedupKey);
+        const bookingChanged = matched.bookingDate !== item.bookingDate;
 
         await db
           .update(transactions)
@@ -213,7 +230,20 @@ export async function saveTransactions(
           })
           .where(eq(transactions.id, matched.id));
 
-        byKey.set(key, { ...matched, dedupKey: key });
+        if (bookingChanged && !matched.reportingDateManual) {
+          await refreshReportingDate(matched.id);
+        }
+
+        byKey.set(key, {
+          ...matched,
+          dedupKey: key,
+          status: item.status,
+          bookingDate: item.bookingDate,
+          valueDate: item.valueDate,
+          amount: item.amount,
+          description: item.description,
+          counterparty: item.counterparty,
+        });
         result.updatedCount += 1;
         continue;
       }
@@ -288,6 +318,7 @@ export async function saveTransactions(
       amount: item.amount,
       description: item.description,
       counterparty: item.counterparty,
+      reportingDateManual: false,
     });
     result.inserted += 1;
   }

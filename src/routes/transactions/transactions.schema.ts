@@ -222,3 +222,20 @@ export const maskSchema = z.object({
     .max(200, "Com a molt 200 carácters")
     .transform((v) => (v === "" ? null : v)),
 });
+
+/**
+ * The date reports use for this transaction. Empty means “follow the rule
+ * again” (late salary may shift to the next month).
+ */
+export const reportingDateSchema = z.object({
+  data_comptabilitat: z
+    .string()
+    .trim()
+    .transform((v) => (v === "" ? null : v))
+    .pipe(
+      z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, "La data no es valida")
+        .nullable(),
+    ),
+});

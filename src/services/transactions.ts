@@ -59,6 +59,13 @@ export interface TransactionView {
   accountName: string | null;
   bookingDate: string;
   valueDate: string | null;
+  /**
+   * Date used in reports. Equals `bookingDate` when there is no shift.
+   * Differs for late salary (and any manual override).
+   */
+  reportingDate: string;
+  /** A person locked the reporting date; the late-salary rule will not touch it. */
+  reportingDateManual: boolean;
   amount: MoneyString;
   currency: string;
   status: TransactionStatus;
@@ -108,6 +115,8 @@ const Fields = {
   accountName: accounts.name,
   bookingDate: transactions.bookingDate,
   valueDate: transactions.valueDate,
+  reportingDate: transactions.reportingDate,
+  reportingDateManual: transactions.reportingDateManual,
   amount: transactions.amount,
   currency: transactions.currency,
   status: transactions.status,
@@ -141,6 +150,8 @@ interface RawRow {
   accountName: string | null;
   bookingDate: string;
   valueDate: string | null;
+  reportingDate: string | null;
+  reportingDateManual: boolean;
   amount: string;
   currency: string;
   status: TransactionStatus;
@@ -173,6 +184,8 @@ interface RawRow {
 export function transactionView(row: RawRow): TransactionView {
   const masked = row.displayDescription !== null && row.displayDescription !== "";
 
+  const reportingDate = row.reportingDate ?? row.bookingDate;
+
   if (masked) {
     return {
       id: row.id,
@@ -180,6 +193,8 @@ export function transactionView(row: RawRow): TransactionView {
       accountName: row.accountName,
       bookingDate: row.bookingDate,
       valueDate: row.valueDate,
+      reportingDate,
+      reportingDateManual: row.reportingDateManual,
       amount: row.amount,
       currency: row.currency,
       status: row.status,
@@ -214,6 +229,8 @@ export function transactionView(row: RawRow): TransactionView {
     accountName: row.accountName,
     bookingDate: row.bookingDate,
     valueDate: row.valueDate,
+    reportingDate,
+    reportingDateManual: row.reportingDateManual,
     amount: row.amount,
     currency: row.currency,
     status: row.status,
@@ -492,6 +509,7 @@ export async function transactionRow(id: number, ledgerId: number) {
       merchantId: transactions.merchantId,
       categoryId: transactions.categoryId,
       categorySource: transactions.categorySource,
+      bookingDate: transactions.bookingDate,
       normalizedDescription: transactions.normalizedDescription,
       counterparty: transactions.counterparty,
       transferGroupId: transactions.transferGroupId,

@@ -17,6 +17,8 @@ const normal: TransactionView = {
   accountName: "Compte corrent",
   bookingDate: "2026-03-01",
   valueDate: null,
+  reportingDate: "2026-03-01",
+  reportingDateManual: false,
   amount: "-45.20",
   currency: "EUR",
   status: "booked",

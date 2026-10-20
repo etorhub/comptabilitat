@@ -390,9 +390,36 @@ export function Row({
     }
 
     <td class="data" data-etiqueta="Data">
-      <time datetime="${transaction.bookingDate}">
-        ${dateShort.format(new Date(`${transaction.bookingDate}T00:00:00`))}
-      </time>
+      ${
+        canEdit
+          ? html`<button
+            type="button"
+            class="data-banc"
+            title="Canvia el mes en què compta als informes"
+            hx-get="${base}/fragment/data-comptabilitat"
+            hx-target="#moviment-${transaction.id}"
+            hx-swap="outerHTML"
+          >
+            <time datetime="${transaction.bookingDate}">
+              ${dateShort.format(new Date(`${transaction.bookingDate}T00:00:00`))}
+            </time>
+          </button>`
+          : html`<time datetime="${transaction.bookingDate}">
+            ${dateShort.format(new Date(`${transaction.bookingDate}T00:00:00`))}
+          </time>`
+      }
+      ${
+        transaction.reportingDate !== transaction.bookingDate
+          ? html`<small
+            class="text-suau"
+            title="Als informes compta el ${dateShort.format(
+              new Date(`${transaction.reportingDate}T00:00:00`),
+            )}"
+            >compta:
+            ${dateShort.format(new Date(`${transaction.reportingDate}T00:00:00`))}</small
+          >`
+          : ""
+      }
       ${
         transaction.status === "pending"
           ? html`<span class="etiqueta etiqueta-suau" title="Encara no es definitiu">pendent</span>`
@@ -563,6 +590,52 @@ export function ConceptRow({
             Si hi poses un text, amaga el concepte del banc i el comerç, i el
             moviment deixa de trobar-se cercant-los. Deixa-ho buit per tornar-ho
             a ensenyar.
+          </small>
+        </label>
+        <button type="submit" class="boto">Desa</button>
+        <button
+          type="button"
+          class="boto boto-discret"
+          hx-get="/e/${code}/moviments/${transaction.id}/fragment/fila"
+          hx-target="#moviment-${transaction.id}"
+          hx-swap="outerHTML"
+        >
+          Cancel·la
+        </button>
+      </form>
+    </td>
+  </tr>` as Html;
+}
+
+/** The row turned into a field for the accounting date used in reports. */
+export function ReportingDateRow({
+  code,
+  transaction,
+}: {
+  code: string;
+  transaction: TransactionView;
+}): Html {
+  const bank = dateShort.format(new Date(`${transaction.bookingDate}T00:00:00`));
+  return html`<tr id="moviment-${transaction.id}" class="editant">
+    <td colspan="7">
+      <form
+        class="linia"
+        hx-post="/e/${code}/moviments/${transaction.id}/data-comptabilitat"
+        hx-target="#moviment-${transaction.id}"
+        hx-swap="outerHTML"
+      >
+        <label class="camp camp-linia">
+          <span class="camp-etiqueta">Data als informes</span>
+          <input
+            type="date"
+            name="data_comptabilitat"
+            value="${transaction.reportingDate}"
+            autofocus
+          />
+          <small class="camp-ajuda">
+            Al banc va entrar el ${bank}. Aquesta data és la que fan servir els
+            informes i els gràfics. Deixa-ho buit per tornar a la regla
+            automàtica (la nòmina dels dies 28–31 compta el mes següent).
           </small>
         </label>
         <button type="submit" class="boto">Desa</button>

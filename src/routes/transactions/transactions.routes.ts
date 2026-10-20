@@ -32,6 +32,7 @@ import {
 } from "../../services/categorization.ts";
 import { countToReview } from "../../services/counters.ts";
 import { addTag, addTagBulk, workspaceTags, removeTag } from "../../services/tags.ts";
+import { setReportingDate } from "../../services/reporting-date.ts";
 import {
   transactionRow,
   listTransactions,
@@ -39,13 +40,21 @@ import {
   reviewQueue,
   cardsAvailable,
 } from "../../services/transactions.ts";
-import { Row, ConceptRow, CardFilter, ReviewDone, Table } from "./transactions.fragment.ts";
+import {
+  Row,
+  ConceptRow,
+  ReportingDateRow,
+  CardFilter,
+  ReviewDone,
+  Table,
+} from "./transactions.fragment.ts";
 import { ReviewPage, TransactionsPage } from "./transactions.page.ts";
 import {
   bulkCategorizeSchema,
   bulkTagSchema,
   categorizeSchema,
   maskSchema,
+  reportingDateSchema,
   PER_PAGE,
   tagAddRowSchema,
   tagMutationSchema,
@@ -226,6 +235,16 @@ transactionsRoutes.get("/:id/fragment/concepte", requireEditor, async (c) => {
   return fragment(c, ConceptRow({ code: workspace.code, transaction }));
 });
 
+/** The row turned into the reporting-date field. */
+transactionsRoutes.get("/:id/fragment/data-comptabilitat", requireEditor, async (c) => {
+  const workspace = currentWorkspace(c);
+  const transaction = await transactionInWorkspace(
+    idFromRoute(c.req.param("id"), "Aquest moviment no existeix"),
+    workspace.id,
+  );
+  return fragment(c, ReportingDateRow({ code: workspace.code, transaction }));
+});
+
 // --- Mutations -------------------------------------------------------------
 
 /** Returns the updated row, the review counter and a toast. */
@@ -322,6 +341,38 @@ transactionsRoutes.post("/:id/concepte", requireEditor, async (c) => {
 
   return rowResponse(c, workspace.id, workspace.code, id, {
     text: alias === null ? "El concepte del banc torna a ser visible" : "Concepte amagat",
+    to: "success",
+  });
+});
+
+/**
+ * The date reports use for this transaction.
+ *
+ * The bank's booking date is never changed. Empty field = follow the automatic
+ * rule again (late salary may move to the next month).
+ */
+transactionsRoutes.post("/:id/data-comptabilitat", requireEditor, async (c) => {
+  const workspace = currentWorkspace(c);
+  const id = idFromRoute(c.req.param("id"), "Aquest moviment no existeix");
+  const parsed = reportingDateSchema.safeParse(await c.req.parseBody());
+
+  if (!parsed.success) {
+    const transaction = await transactionInWorkspace(id, workspace.id);
+    return fragment(
+      c,
+      await withOob(
+        ReportingDateRow({ code: workspace.code, transaction }),
+        toast("La data no es valida"),
+      ),
+      422,
+    );
+  }
+
+  const row = await transactionRow(id, workspace.id);
+  await setReportingDate(id, row.bookingDate, parsed.data.data_comptabilitat);
+
+  return rowResponse(c, workspace.id, workspace.code, id, {
+    text: "Data dels informes actualitzada",
     to: "success",
   });
 });

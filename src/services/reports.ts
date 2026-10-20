@@ -18,6 +18,7 @@ import { categories, merchants, transactions } from "../db/schema/index.ts";
 import { Decimal, money, toMoneyString, type MoneyString } from "../lib/money.ts";
 import { todayLocal } from "../lib/time.ts";
 import { countableTransactions } from "./filters.ts";
+import { effectiveReportingDate } from "./reporting-date.ts";
 
 /** See `services/filters.ts`: the definition lives in one place. */
 function baseFilter(
@@ -99,7 +100,7 @@ export async function monthlySeries(
 ): Promise<MonthlyPoint[]> {
   if (ledgerIds.length === 0) return [];
 
-  const periode = sql<string>`substring(${transactions.bookingDate}::text, 1, 7)`;
+  const periode = sql<string>`substring(${effectiveReportingDate}::text, 1, 7)`;
 
   const rows = await db
     .select({

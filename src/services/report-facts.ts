@@ -32,6 +32,7 @@ import { addDays } from "../lib/time.ts";
 import { workspaceBalance } from "./balances.ts";
 import { countableTransactions } from "./filters.ts";
 import { eventsExpected } from "./forecast.ts";
+import { effectiveReportingDate } from "./reporting-date.ts";
 import { categoryBreakdown, incomeAndExpenses, monthBounds, monthlySeries } from "./reports.ts";
 import { transactionViewsWhere } from "./transactions.ts";
 
@@ -276,7 +277,7 @@ async function categorySpikes(
   to: string,
 ): Promise<CategorySpike[]> {
   const historyFrom = `${shiftMonth(month, -SPIKE_HISTORY_MONTHS)}-01`;
-  const periode = sql<string>`substring(${transactions.bookingDate}::text, 1, 7)`;
+  const periode = sql<string>`substring(${effectiveReportingDate}::text, 1, 7)`;
   const groupName = sql<string | null>`coalesce(pare.name, ${categories.name})`;
 
   const [rows, months] = await Promise.all([

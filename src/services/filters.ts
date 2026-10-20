@@ -20,6 +20,7 @@
 import { and, eq, gte, inArray, isNull, lt, lte, type SQL } from "drizzle-orm";
 
 import { transactions } from "../db/schema/index.ts";
+import { effectiveReportingDate } from "./reporting-date.ts";
 
 export interface FilterOptions {
   /** One workspace or several. */
@@ -44,8 +45,10 @@ export function countableTransactions(options: FilterOptions): SQL | undefined {
     eq(transactions.isExcluded, false),
   ];
 
-  if (options.des != null) parts.push(gte(transactions.bookingDate, options.des));
-  if (options.to != null) parts.push(lte(transactions.bookingDate, options.to));
+  // Reports use the accounting date, not the bank's booking date: a salary
+  // that lands on the 28th can belong to the next month.
+  if (options.des != null) parts.push(gte(effectiveReportingDate, options.des));
+  if (options.to != null) parts.push(lte(effectiveReportingDate, options.to));
   if (options.onlyExpenses === true) parts.push(lt(transactions.amount, "0"));
 
   return and(...parts);

@@ -30,6 +30,8 @@ function transaction(id: number): TransactionView {
     id,
     bookingDate: "2026-02-10",
     valueDate: null,
+    reportingDate: "2026-02-10",
+    reportingDateManual: false,
     amount: "-30.00",
     currency: "EUR",
     status: "booked",

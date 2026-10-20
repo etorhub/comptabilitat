@@ -30,6 +30,8 @@ import { db } from "../db/client.ts";
 import { accounts, categories, merchants, transactions } from "../db/schema/index.ts";
 import { formatMoney, money, toMoneyString, type MoneyString } from "../lib/money.ts";
 import { listCategories } from "./categories.ts";
+import { countableTransactions } from "./filters.ts";
+import { effectiveReportingDate } from "./reporting-date.ts";
 import {
   fold,
   previousRange,
@@ -39,7 +41,6 @@ import {
   type NamedFilter,
   type PeriodSpec,
 } from "./chat-intents.ts";
-import { countableTransactions } from "./filters.ts";
 import { searchClause, transactionViewsWhere, type TransactionView } from "./transactions.ts";
 
 /** A filter whose names are already ids of this workspace. */
@@ -567,7 +568,7 @@ export async function answerBreakdown(
 }
 
 export async function answerSeries(f: ResolvedFilter): Promise<Answer> {
-  const month = sql<string>`substring(${transactions.bookingDate}::text, 1, 7)`;
+  const month = sql<string>`substring(${effectiveReportingDate}::text, 1, 7)`;
   const rows = await db
     .select({
       month,

@@ -14,6 +14,7 @@ import { db, type Transactor } from "../db/client.ts";
 import { llmSuggestions, merchants, transactions } from "../db/schema/index.ts";
 import { NotFoundError } from "../lib/http.ts";
 import { rememberMerchantChoice } from "./merchants.ts";
+import { refreshReportingDate, refreshReportingDatesWhere } from "./reporting-date.ts";
 
 /** What «a person decided it» means. */
 export const HUMAN_DECISION = {
@@ -45,6 +46,8 @@ export async function categorizeTransaction(
       .set({ categoryId, ...HUMAN_DECISION })
       .where(eq(transactions.id, transactionId));
 
+    await refreshReportingDate(transactionId, tx);
+
     if (options.rememberMerchant === true && row.merchantId !== null) {
       await rememberMerchantFromRow(tx, row.merchantId, categoryId);
     }
@@ -75,15 +78,14 @@ export async function categorizeBulk(
       throw new NotFoundError("No s'ha trobat");
     }
 
+    const ids = mine.map((m) => m.id);
+
     await tx
       .update(transactions)
       .set({ categoryId, ...HUMAN_DECISION })
-      .where(
-        inArray(
-          transactions.id,
-          mine.map((m) => m.id),
-        ),
-      );
+      .where(inArray(transactions.id, ids));
+
+    await refreshReportingDatesWhere(inArray(transactions.id, ids), tx);
 
     if (options.rememberMerchant === true) {
       const merchantIds = [
