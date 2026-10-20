@@ -28,6 +28,7 @@ import {
   type CategoryCatalog,
   type MerchantContext,
 } from "../lib/ollama/prompts.ts";
+import { refreshReportingDatesWhere } from "./reporting-date.ts";
 
 export interface LlmStats {
   seen: number;
@@ -241,6 +242,11 @@ export async function classifyMerchants(
             inArray(transactions.categorySource, ["none"]),
           ),
         );
+
+      await refreshReportingDatesWhere(
+        and(eq(transactions.merchantId, merchant.id), eq(transactions.categoryId, category.id)),
+        tx,
+      );
     });
 
     stats.classified += 1;

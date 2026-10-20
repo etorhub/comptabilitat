@@ -12,6 +12,8 @@ export const SLUG_UNCATEGORIZED = "altres-despeses-sense-classificar";
 export const SLUG_INTERNAL_TRANSFER = "traspassos-traspas-entre-comptes-propis";
 /** Money taken out of a cash machine. */
 export const SLUG_CASH_WITHDRAWAL = "altres-despeses-efectiu-retirat";
+/** Salary. Late-month bookings can count in the next month's reports. */
+export const SLUG_SALARY = "ingressos-del-treball-nomina";
 
 /**
  * System categories that cannot be deleted under any circumstances: there is

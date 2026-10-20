@@ -188,6 +188,18 @@ export const transactions = pgTable(
     source: domainEnum<TransactionSource>().notNull(),
     bookingDate: date("booking_date").notNull(),
     valueDate: date("value_date"),
+    /**
+     * When the transaction counts for income/expense reports. Null means the
+     * same as `booking_date`. The bank date is never overwritten: this is only
+     * for which month a movement belongs to in the books (e.g. a salary that
+     * lands on the 28th–31st and belongs to the next month).
+     */
+    reportingDate: date("reporting_date"),
+    /**
+     * A person set `reporting_date` by hand. While this is true, classification
+     * and the late-salary rule leave the date alone.
+     */
+    reportingDateManual: boolean("reporting_date_manual").notNull().default(false),
     /** Signed: negative means money going out. */
     amount: money().notNull(),
     currency: varchar({ length: 3 }).notNull(),
@@ -227,9 +239,12 @@ export const transactions = pgTable(
     primaryKey({ name: "pk_transactions", columns: [t.id] }),
     index("ix_transactions_account_id").on(t.accountId),
     index("ix_transactions_booking_date").on(t.bookingDate),
+    index("ix_transactions_reporting_date").on(t.reportingDate),
     index("ix_transactions_category_id").on(t.categoryId),
     // Backs the transactions page.
     index("ix_transactions_ledger_booking").on(t.ledgerId, t.bookingDate),
+    // Backs reports that group by the accounting month.
+    index("ix_transactions_ledger_reporting").on(t.ledgerId, t.reportingDate),
     index("ix_transactions_ledger_id").on(t.ledgerId),
     index("ix_transactions_merchant_id").on(t.merchantId),
     // Backs the review queue.

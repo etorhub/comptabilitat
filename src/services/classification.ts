@@ -22,6 +22,7 @@ import {
   transactions,
   type CategorySource,
 } from "../db/schema/index.ts";
+import { refreshReportingDate } from "./reporting-date.ts";
 import { SLUG_INTERNAL_TRANSFER, SLUG_UNCATEGORIZED } from "./slugs.ts";
 
 export interface ClassificationStats {
@@ -76,6 +77,7 @@ export async function classifyTransaction(
         })
         // A transaction that already has a category is never rewritten.
         .where(and(eq(transactions.id, transaction.id), isNull(transactions.categoryId)));
+      await refreshReportingDate(transaction.id, connection);
       return "merchant";
     }
   }
