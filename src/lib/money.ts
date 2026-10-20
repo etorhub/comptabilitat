@@ -37,6 +37,24 @@ export function toMoneyString(value: Decimal | number | string): MoneyString {
   return new Decimal(value).toFixed(2);
 }
 
+/**
+ * An amount as typed in a form: `12.99`, `12,99`, optionally with spaces or
+ * `€`. Returns `null` when it is not a plain amount (no thousands separators).
+ *
+ * Zod transforms must call this instead of `toMoneyString` on the raw field:
+ * in Zod 4 a `.transform()` still runs after a failed `.regex()`, and a thrown
+ * `DecimalError` escapes `safeParse` as a 500.
+ */
+export function parseFormAmount(
+  raw: string,
+  options: { signed?: boolean } = {},
+): MoneyString | null {
+  const cleaned = raw.trim().replace(/\s/g, "").replace(/€/g, "");
+  const pattern = options.signed ? /^-?\d+([.,]\d{1,2})?$/ : /^\d+([.,]\d{1,2})?$/;
+  if (!pattern.test(cleaned)) return null;
+  return toMoneyString(cleaned.replace(",", "."));
+}
+
 export function add(...values: (MoneyString | Decimal)[]): Decimal {
   return values.reduce<Decimal>((acc, v) => acc.plus(money(v)), ZERO);
 }

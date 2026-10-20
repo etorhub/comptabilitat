@@ -9,7 +9,7 @@
 import { z } from "zod/v4";
 
 import { amountModeSchema, cadenceSchema } from "../../db/schema/enums.ts";
-import { toMoneyString } from "../../lib/money.ts";
+import { parseFormAmount, type MoneyString } from "../../lib/money.ts";
 
 export const recurringFiltersSchema = z.object({
   inclou_acabades: z
@@ -32,22 +32,26 @@ export const confirmSeriesSchema = z.object({
   amount_mode: amountModeSchema,
 });
 
-const importSchema = z
-  .string()
-  .trim()
-  .regex(/^-?\d+([.,]\d{1,2})?$/, "L'import no es valid")
-  .transform((v) => toMoneyString(v.replace(",", ".")));
+function amountField(signed: boolean) {
+  return z
+    .string()
+    .trim()
+    .transform((raw, ctx): MoneyString => {
+      const parsed = parseFormAmount(raw, { signed });
+      if (parsed === null) {
+        ctx.addIssue({ code: "custom", message: "L'import no es valid" });
+        return z.NEVER;
+      }
+      return parsed;
+    });
+}
 
 export const createSeriesSchema = z.object({
   label: z.string().trim().min(1, "Cal un nom").max(200),
   category_id: z.coerce.number().int().positive("Cal una categoria"),
   cadence: cadenceSchema,
   /** Absolute value; the direction is given by `sentit`. */
-  amount: z
-    .string()
-    .trim()
-    .regex(/^\d+([.,]\d{1,2})?$/, "L'import no es valid")
-    .transform((v) => toMoneyString(v.replace(",", "."))),
+  amount: amountField(false),
   sentit: z.enum(["out", "in"]),
   next_expected_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "La data ha de ser AAAA-MM-DD"),
 });
@@ -55,5 +59,5 @@ export const createSeriesSchema = z.object({
 export type CreateSeriesInput = z.infer<typeof createSeriesSchema>;
 
 export const updateAmountSchema = z.object({
-  amount: importSchema,
+  amount: amountField(true),
 });
