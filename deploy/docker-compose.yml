@@ -78,6 +78,15 @@ services:
       OLLAMA_MAX_LOADED_MODELS: "1"
       OLLAMA_KEEP_ALIVE: "10m"
       OLLAMA_NUM_PARALLEL: "1"
+      # Intel N100 iGPU via Vulkan (Ollama 0.40+)
+      OLLAMA_VULKAN: "1"
+      OLLAMA_IGPU_ENABLE: "1"
+      GGML_VK_VISIBLE_DEVICES: "0"
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "44"   # video
+      - "105"  # render (DXP2800)
     # `externa` nomes perque `ollama pull` pugui baixar els models: `interna`
     # no te sortida a internet.
     networks: [interna, externa]
